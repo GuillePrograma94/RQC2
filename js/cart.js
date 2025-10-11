@@ -108,20 +108,29 @@ class CartManager {
             const transaction = this.db.transaction(['cart'], 'readwrite');
             const store = transaction.objectStore('cart');
             
+            // Asegurar que el carrito tenga un id válido
             const cartData = {
-                id: 'current',
-                ...this.cart
+                id: 'current', // ID fijo para el carrito actual
+                codigo_qr: this.cart.codigo_qr || null,
+                productos: this.cart.productos || [],
+                total_productos: this.cart.total_productos || 0,
+                total_importe: this.cart.total_importe || 0.0,
+                timestamp: new Date().toISOString()
             };
 
             store.put(cartData);
 
             return new Promise((resolve, reject) => {
                 transaction.oncomplete = () => resolve();
-                transaction.onerror = () => reject(transaction.error);
+                transaction.onerror = () => {
+                    console.error('Error en transacción de carrito:', transaction.error);
+                    reject(transaction.error);
+                };
             });
 
         } catch (error) {
             console.error('Error al guardar carrito:', error);
+            throw error;
         }
     }
 
@@ -375,6 +384,13 @@ class CartManager {
      */
     async saveSecondaryCodesToStorage(codigosSecundarios) {
         try {
+            if (!codigosSecundarios || codigosSecundarios.length === 0) {
+                console.warn('⚠️ No hay códigos secundarios para guardar');
+                return;
+            }
+            
+            console.log(`📝 Guardando ${codigosSecundarios.length} códigos secundarios...`);
+            
             const transaction = this.db.transaction(['secondary_codes'], 'readwrite');
             const store = transaction.objectStore('secondary_codes');
 
@@ -384,14 +400,23 @@ class CartManager {
             // Añadir nuevos códigos con normalización
             let saved = 0;
             for (const codigo of codigosSecundarios) {
-                // Normalizar códigos a MAYÚSCULAS
-                const normalizedCode = {
-                    codigo_secundario: codigo.codigo_secundario.toUpperCase(),
-                    codigo_principal: codigo.codigo_principal.toUpperCase(),
-                    descripcion: codigo.descripcion || ''
-                };
-                await store.add(normalizedCode);
-                saved++;
+                try {
+                    // Normalizar códigos a MAYÚSCULAS
+                    const normalizedCode = {
+                        codigo_secundario: codigo.codigo_secundario.toUpperCase(),
+                        codigo_principal: codigo.codigo_principal.toUpperCase(),
+                        descripcion: codigo.descripcion || ''
+                    };
+                    await store.add(normalizedCode);
+                    saved++;
+                    
+                    // Log de los primeros 3 para debug
+                    if (saved <= 3) {
+                        console.log(`  📌 Ejemplo ${saved}: ${normalizedCode.codigo_secundario} → ${normalizedCode.codigo_principal}`);
+                    }
+                } catch (err) {
+                    console.error(`❌ Error al guardar código secundario:`, codigo, err);
+                }
             }
 
             return new Promise((resolve, reject) => {
@@ -399,7 +424,10 @@ class CartManager {
                     console.log(`✅ ${saved} códigos secundarios guardados (normalizados a MAYÚSCULAS)`);
                     resolve();
                 };
-                transaction.onerror = () => reject(transaction.error);
+                transaction.onerror = () => {
+                    console.error('❌ Error en transacción de códigos secundarios:', transaction.error);
+                    reject(transaction.error);
+                };
             });
 
         } catch (error) {
@@ -458,37 +486,61 @@ class CartManager {
                 const store = tx.objectStore('products');
                 const req = store.get(normalizedCode);
                 req.onsuccess = () => resolve(req.result || null);
-                req.onerror = () => resolve(null);
+                req.onerror = () => {
+                    console.error('❌ Error en búsqueda de productos:', req.error);
+                    resolve(null);
+                };
             });
             
             if (productoPrincipal) {
                 console.log('✅ Encontrado en productos:', productoPrincipal.codigo);
                 results.push(productoPrincipal);
                 seen.add(productoPrincipal.codigo);
+            } else {
+                console.log('❌ No encontrado en productos (código principal)');
             }
             
             // 2. Búsqueda directa en códigos secundarios (EAN) - INSTANTÁNEA
+            console.log('🔍 Buscando en códigos secundarios...');
             const codigoSecundario = await new Promise((resolve) => {
                 const tx = this.db.transaction(['secondary_codes'], 'readonly');
                 const store = tx.objectStore('secondary_codes');
                 const req = store.get(normalizedCode);
-                req.onsuccess = () => resolve(req.result || null);
-                req.onerror = () => resolve(null);
+                req.onsuccess = () => {
+                    const result = req.result;
+                    if (result) {
+                        console.log('✅ Encontrado en códigos secundarios:', result);
+                    } else {
+                        console.log('❌ No encontrado en códigos secundarios');
+                    }
+                    resolve(result || null);
+                };
+                req.onerror = () => {
+                    console.error('❌ Error en búsqueda de códigos secundarios:', req.error);
+                    resolve(null);
+                };
             });
             
             if (codigoSecundario && !seen.has(codigoSecundario.codigo_principal)) {
+                console.log('📦 Obteniendo producto principal:', codigoSecundario.codigo_principal);
                 // Obtener el producto principal
                 const productoPrincipal = await new Promise((resolve) => {
                     const tx = this.db.transaction(['products'], 'readonly');
                     const store = tx.objectStore('products');
                     const req = store.get(codigoSecundario.codigo_principal);
                     req.onsuccess = () => resolve(req.result || null);
-                    req.onerror = () => resolve(null);
+                    req.onerror = () => {
+                        console.error('❌ Error al obtener producto principal:', req.error);
+                        resolve(null);
+                    };
                 });
                 
                 if (productoPrincipal) {
+                    console.log('✅ Producto principal encontrado:', productoPrincipal.codigo);
                     results.push(productoPrincipal);
                     seen.add(productoPrincipal.codigo);
+                } else {
+                    console.error('❌ Producto principal no encontrado en base de datos');
                 }
             }
             
