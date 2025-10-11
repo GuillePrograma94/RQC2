@@ -702,6 +702,76 @@ class ScanAsYouShopApp {
             window.ui.showToast(error.message || 'Error al procesar', 'error');
         }
     }
+
+    /**
+     * Resetea el estado de permisos de cámara para volver a solicitarlos
+     */
+    resetCameraPermission() {
+        localStorage.removeItem('cameraPermissionRequested');
+        console.log('Estado de permisos de cámara reseteado');
+        window.ui.showToast('Puedes volver a dar permisos de camara', 'info');
+    }
+
+    /**
+     * Solicita permisos de cámara de manera proactiva
+     */
+    async requestCameraPermissionProactively() {
+        try {
+            // Verificar si ya se solicitó anteriormente
+            const permissionRequested = localStorage.getItem('cameraPermissionRequested');
+            
+            if (permissionRequested === 'true') {
+                console.log('Permisos de cámara ya solicitados anteriormente');
+                return;
+            }
+
+            // Verificar si la API de cámara está disponible
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                console.log('API de cámara no disponible');
+                return;
+            }
+
+            // Esperar un momento para que el usuario vea la interfaz primero
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            console.log('Solicitando permisos de cámara de manera proactiva...');
+
+            // Intentar acceder a la cámara
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" } 
+                });
+                
+                // Permiso concedido - detener el stream inmediatamente
+                stream.getTracks().forEach(track => track.stop());
+                
+                console.log('Permisos de cámara concedidos');
+                localStorage.setItem('cameraPermissionRequested', 'true');
+                
+                // Mostrar mensaje de éxito
+                window.ui.showToast('Camara lista para escanear', 'success');
+                
+            } catch (permissionError) {
+                console.log('Permiso de cámara denegado o no disponible:', permissionError);
+                
+                // Marcar como solicitado para no molestar de nuevo
+                localStorage.setItem('cameraPermissionRequested', 'true');
+                
+                // Mostrar mensaje informativo si el usuario denegó el permiso
+                if (permissionError.name === 'NotAllowedError') {
+                    setTimeout(() => {
+                        window.ui.showToast(
+                            'Necesitas activar la camara para escanear productos',
+                            'warning'
+                        );
+                    }, 500);
+                }
+            }
+
+        } catch (error) {
+            console.error('Error al solicitar permisos de cámara:', error);
+        }
+    }
 }
 
 // Crear instancia global

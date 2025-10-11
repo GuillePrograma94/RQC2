@@ -29,7 +29,7 @@ class UIManager {
             position: fixed;
             top: 10px;
             right: 10px;
-            background: rgba(37, 99, 235, 0.9);
+            background: linear-gradient(135deg, #7851A9, #9370DB);
             color: white;
             padding: 8px 12px;
             border-radius: 20px;
@@ -39,7 +39,7 @@ class UIManager {
             align-items: center;
             gap: 8px;
             z-index: 9998;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 15px 0 rgba(120, 81, 169, 0.3);
         `;
         indicator.innerHTML = `
             <span class="sync-spinner" style="
