@@ -546,8 +546,12 @@ class ScannerManager {
                 window.ui.showToast(`✅ ${producto.descripcion}`, 'success');
                 window.ui.updateCartBadge();
                 
-                // Volver a pantalla de carrito
-                window.app.showScreen('cart');
+                // Reiniciar cámara para seguir escaneando
+                setTimeout(() => {
+                    if (window.app.currentScreen === 'scan') {
+                        this.startCamera();
+                    }
+                }, 100);
                 
             } else if (products.length > 1) {
                 // Múltiples productos - mostrar en resultados de escaneo
@@ -606,7 +610,7 @@ class ScannerManager {
     
     /**
      * Muestra una ventana emergente con la imagen y descripción del producto
-     * durante 1 segundo
+     * durante 1.5 segundos
      */
     async showProductPreview(producto) {
         return new Promise((resolve) => {
@@ -646,11 +650,11 @@ class ScannerManager {
                 navigator.vibrate(200);
             }
             
-            // Ocultar después de 1 segundo
+            // Ocultar después de 1.5 segundos
             setTimeout(() => {
                 modal.style.display = 'none';
                 resolve();
-            }, 1000);
+            }, 1500);
         });
     }
 }
