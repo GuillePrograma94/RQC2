@@ -152,7 +152,57 @@ class UIManager {
     }
 
     /**
-     * Muestra un diálogo de confirmación
+     * Muestra un diálogo de confirmación personalizado
+     */
+    showConfirm(title, message, okText = 'Aceptar', cancelText = 'Cancelar') {
+        return new Promise((resolve) => {
+            const dialog = document.getElementById('confirmDialog');
+            const titleEl = document.getElementById('confirmTitle');
+            const messageEl = document.getElementById('confirmMessage');
+            const okBtn = document.getElementById('confirmOkBtn');
+            const cancelBtn = document.getElementById('confirmCancelBtn');
+            
+            if (!dialog) {
+                console.error('Confirm dialog not found');
+                resolve(false);
+                return;
+            }
+            
+            // Configurar textos
+            if (titleEl) titleEl.textContent = title;
+            if (messageEl) messageEl.textContent = message;
+            if (okBtn) okBtn.textContent = okText;
+            if (cancelBtn) cancelBtn.textContent = cancelText;
+            
+            // Mostrar dialog
+            dialog.style.display = 'flex';
+            
+            // Manejadores de eventos
+            const handleOk = () => {
+                dialog.style.display = 'none';
+                cleanup();
+                resolve(true);
+            };
+            
+            const handleCancel = () => {
+                dialog.style.display = 'none';
+                cleanup();
+                resolve(false);
+            };
+            
+            const cleanup = () => {
+                if (okBtn) okBtn.removeEventListener('click', handleOk);
+                if (cancelBtn) cancelBtn.removeEventListener('click', handleCancel);
+            };
+            
+            // Añadir listeners
+            if (okBtn) okBtn.addEventListener('click', handleOk);
+            if (cancelBtn) cancelBtn.addEventListener('click', handleCancel);
+        });
+    }
+
+    /**
+     * Muestra un diálogo de confirmación (legacy - usa window.confirm)
      */
     confirm(message) {
         return window.confirm(message);

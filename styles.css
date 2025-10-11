@@ -52,15 +52,19 @@ body {
    LAYOUT PRINCIPAL
    ======================================== */
 .app-container {
-    min-height: 100vh;
-    position: relative;
+    position: fixed;
+    top: 60px; /* Altura del header */
+    bottom: var(--footer-height);
+    left: 0;
+    right: 0;
+    overflow: hidden;
 }
 
 .screen {
     display: none;
     flex-direction: column;
-    min-height: calc(100vh - var(--footer-height));
-    padding-bottom: 1rem;
+    height: 100%;
+    overflow: hidden;
 }
 
 .screen.active {
@@ -71,7 +75,7 @@ body {
     flex: 1;
     padding: 1rem;
     overflow-y: auto;
-    padding-bottom: 2rem;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* ========================================
@@ -117,20 +121,21 @@ body {
 }
 
 /* ========================================
-   HEADER
+   HEADER FIJO
    ======================================== */
-.app-header {
+.app-header-fixed {
     background: linear-gradient(135deg, var(--primary), var(--primary-light));
     color: var(--white);
-    padding: 1.5rem 1rem 1rem;
+    padding: 1rem;
     box-shadow: var(--shadow-purple);
-    position: sticky;
+    position: fixed;
     top: 0;
-    z-index: 100;
-    position: relative;
+    left: 0;
+    right: 0;
+    z-index: 1000;
 }
 
-.app-header::before {
+.app-header-fixed::before {
     content: '';
     position: absolute;
     top: 0;
@@ -141,33 +146,140 @@ body {
     pointer-events: none;
 }
 
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+}
+
 .header-title {
-    font-size: 1.5rem;
+    font-size: 1.1rem;
     font-weight: 700;
-    margin-bottom: 0.25rem;
+    margin: 0;
+    flex: 1;
 }
 
-.header-subtitle {
-    font-size: 0.9rem;
-    opacity: 0.9;
-    font-weight: 500;
-}
-
-.btn-back {
+.menu-btn {
     background: rgba(255, 255, 255, 0.2);
-    color: var(--white);
     border: none;
-    padding: 0.5rem 1rem;
+    width: 40px;
+    height: 40px;
     border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.menu-btn:active {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.menu-btn svg {
+    color: var(--white);
+}
+
+/* Cart Info Bar (solo para pantalla carrito) */
+.cart-info-bar {
+    background: rgba(120, 81, 169, 0.1);
+    padding: 0.75rem 1rem;
+    text-align: center;
     font-size: 0.9rem;
     font-weight: 600;
+    color: var(--primary);
+    border-bottom: 1px solid rgba(120, 81, 169, 0.2);
+}
+
+/* ========================================
+   MENU SIDEBAR
+   ======================================== */
+.menu-sidebar {
+    position: fixed;
+    top: 0;
+    right: -300px;
+    width: 300px;
+    height: 100%;
+    background: var(--white);
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 1100;
+    transition: right 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.menu-sidebar.open {
+    right: 0;
+}
+
+.menu-header {
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    color: var(--white);
+    padding: 1.5rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.menu-header h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.close-menu-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    color: var(--white);
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    margin-bottom: 0.75rem;
     transition: background 0.2s;
 }
 
-.btn-back:active {
+.close-menu-btn:active {
     background: rgba(255, 255, 255, 0.3);
+}
+
+.menu-content {
+    flex: 1;
+    padding: 1.5rem 1rem;
+    overflow-y: auto;
+}
+
+.menu-placeholder {
+    text-align: center;
+    color: var(--gray-600);
+    font-size: 0.95rem;
+    margin-top: 2rem;
+}
+
+.menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1050;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.menu-overlay.active {
+    opacity: 1;
+    pointer-events: all;
 }
 
 /* ========================================
@@ -532,6 +644,52 @@ body {
     border-color: var(--primary);
 }
 
+.result-item-with-image {
+    background: var(--white);
+    border-radius: 12px;
+    padding: 0.75rem;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.result-item-with-image:active {
+    transform: scale(0.98);
+    border-color: var(--primary);
+}
+
+.result-image {
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+    background: var(--gray-100);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.result-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.result-image-placeholder {
+    font-size: 2.5rem;
+    opacity: 0.3;
+}
+
+.result-info {
+    flex: 1;
+    min-width: 0;
+}
+
 .result-code {
     font-size: 0.8rem;
     color: var(--gray-600);
@@ -543,6 +701,12 @@ body {
     font-weight: 600;
     color: var(--gray-900);
     margin: 0.25rem 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
 }
 
 .result-price {
@@ -1091,6 +1255,97 @@ body {
     font-weight: 700;
     color: var(--gray-900);
     flex-shrink: 0;
+}
+
+/* ========================================
+   CONFIRM DIALOG MODAL
+   ======================================== */
+.confirm-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.confirm-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.confirm-content {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 1.5rem;
+    max-width: 90%;
+    width: 320px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: scaleIn 0.3s ease-out;
+    position: relative;
+    z-index: 1;
+}
+
+.confirm-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin: 0 0 0.75rem 0;
+    text-align: center;
+}
+
+.confirm-message {
+    font-size: 0.95rem;
+    color: var(--gray-700);
+    margin: 0 0 1.5rem 0;
+    text-align: center;
+    line-height: 1.5;
+}
+
+.confirm-buttons {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.confirm-btn {
+    flex: 1;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.confirm-btn-cancel {
+    background: var(--gray-200);
+    color: var(--gray-800);
+}
+
+.confirm-btn-cancel:active {
+    background: var(--gray-300);
+    transform: scale(0.97);
+}
+
+.confirm-btn-ok {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: var(--white);
+    box-shadow: 0 4px 15px 0 rgba(239, 68, 68, 0.3);
+}
+
+.confirm-btn-ok:active {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    transform: scale(0.97);
 }
 
 /* ========================================

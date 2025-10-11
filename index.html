@@ -35,6 +35,34 @@
         <p class="loading-text">Cargando...</p>
     </div>
 
+    <!-- Fixed Header -->
+    <header class="app-header-fixed">
+        <div class="header-content">
+            <h1 class="header-title">Servicio RQC de BATMAR</h1>
+            <button id="menuBtn" class="menu-btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Menu Sidebar (para futuro) -->
+    <div id="menuSidebar" class="menu-sidebar">
+        <div class="menu-header">
+            <h2>Menú</h2>
+            <button id="closeMenuBtn" class="close-menu-btn">✕</button>
+        </div>
+        <div class="menu-content">
+            <p class="menu-placeholder">Contenido de usuario próximamente...</p>
+        </div>
+    </div>
+
+    <!-- Menu Overlay -->
+    <div id="menuOverlay" class="menu-overlay"></div>
+
     <!-- App Container -->
     <div class="app-container">
         
@@ -42,14 +70,11 @@
              PANTALLA PRINCIPAL: MI CARRITO
              ================================ -->
         <div id="cartScreen" class="screen active">
-            <!-- Header -->
-            <header class="app-header">
-                <h1 class="header-title">🛒 Mi Carrito</h1>
-                <div class="header-subtitle">
-                    <span id="itemsCount">0 productos</span> • 
-                    <span id="totalPrice">0,00 €</span>
-                </div>
-            </header>
+            <!-- Cart Info Bar -->
+            <div class="cart-info-bar">
+                <span id="itemsCount">0 productos</span> • 
+                <span id="totalPrice">0,00 €</span>
+            </div>
 
             <!-- Main Content -->
             <main class="screen-content">
@@ -69,11 +94,6 @@
              PANTALLA DE ESCANEO
              ================================ -->
         <div id="scanScreen" class="screen">
-            <header class="app-header">
-                <button id="closeScanBtn" class="btn-back">← Volver</button>
-                <h1 class="header-title">📷 Escanear Producto</h1>
-            </header>
-
             <main class="screen-content">
                 <!-- Camera Scanner -->
                 <div id="reader" class="camera-scanner"></div>
@@ -106,11 +126,6 @@
              PANTALLA DE BÚSQUEDA
              ================================ -->
         <div id="searchScreen" class="screen">
-            <header class="app-header">
-                <button id="closeSearchBtn" class="btn-back">← Volver</button>
-                <h1 class="header-title">🔍 Buscar Productos</h1>
-            </header>
-
             <main class="screen-content">
                 <!-- Search Inputs -->
                 <div class="search-section">
@@ -163,11 +178,6 @@
              PANTALLA DE CÓDIGO DE CAJA
              ================================ -->
         <div id="checkoutScreen" class="screen">
-            <header class="app-header">
-                <button id="closeCheckoutBtn" class="btn-back">← Volver</button>
-                <h1 class="header-title">🏪 Ir a Caja</h1>
-            </header>
-
             <main class="screen-content checkout-content">
                 <!-- QR Scanner -->
                 <div class="checkout-section">
@@ -266,6 +276,19 @@
 
     <!-- Toast Container -->
     <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Confirm Dialog Modal -->
+    <div id="confirmDialog" class="confirm-dialog" style="display: none;">
+        <div class="confirm-overlay"></div>
+        <div class="confirm-content">
+            <h3 class="confirm-title" id="confirmTitle">¿ELIMINAR ARTÍCULO?</h3>
+            <p class="confirm-message" id="confirmMessage"></p>
+            <div class="confirm-buttons">
+                <button id="confirmCancelBtn" class="confirm-btn confirm-btn-cancel">Cancelar</button>
+                <button id="confirmOkBtn" class="confirm-btn confirm-btn-ok">Eliminar</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Product Preview Modal (para cuando se escanea) -->
     <div id="productPreviewModal" class="product-preview-modal" style="display: none;">

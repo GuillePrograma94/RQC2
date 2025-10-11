@@ -153,29 +153,27 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Botones de volver
-        const closeScanBtn = document.getElementById('closeScanBtn');
-        const closeSearchBtn = document.getElementById('closeSearchBtn');
-        const closeCheckoutBtn = document.getElementById('closeCheckoutBtn');
+        // Menu Sidebar
+        const menuBtn = document.getElementById('menuBtn');
+        const closeMenuBtn = document.getElementById('closeMenuBtn');
+        const menuSidebar = document.getElementById('menuSidebar');
+        const menuOverlay = document.getElementById('menuOverlay');
 
-        if (closeScanBtn) {
-            closeScanBtn.addEventListener('click', () => {
-                this.showScreen('cart');
-                this.updateActiveNav('cart');
+        if (menuBtn) {
+            menuBtn.addEventListener('click', () => {
+                this.openMenu();
             });
         }
 
-        if (closeSearchBtn) {
-            closeSearchBtn.addEventListener('click', () => {
-                this.showScreen('cart');
-                this.updateActiveNav('cart');
+        if (closeMenuBtn) {
+            closeMenuBtn.addEventListener('click', () => {
+                this.closeMenu();
             });
         }
 
-        if (closeCheckoutBtn) {
-            closeCheckoutBtn.addEventListener('click', () => {
-                this.showScreen('cart');
-                this.updateActiveNav('cart');
+        if (menuOverlay) {
+            menuOverlay.addEventListener('click', () => {
+                this.closeMenu();
             });
         }
 
@@ -284,12 +282,51 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Abre el menú lateral
+     */
+    openMenu() {
+        const menuSidebar = document.getElementById('menuSidebar');
+        const menuOverlay = document.getElementById('menuOverlay');
+        
+        if (menuSidebar) {
+            menuSidebar.classList.add('open');
+        }
+        if (menuOverlay) {
+            menuOverlay.classList.add('active');
+        }
+    }
+
+    /**
+     * Cierra el menú lateral
+     */
+    closeMenu() {
+        const menuSidebar = document.getElementById('menuSidebar');
+        const menuOverlay = document.getElementById('menuOverlay');
+        
+        if (menuSidebar) {
+            menuSidebar.classList.remove('open');
+        }
+        if (menuOverlay) {
+            menuOverlay.classList.remove('active');
+        }
+    }
+
+    /**
      * Muestra una pantalla específica
      */
     async showScreen(screenName) {
-        // Detener cámara si estaba activa
-        if (this.currentScreen === 'scan' && window.scannerManager.isScanning) {
+        const previousScreen = this.currentScreen;
+        
+        // Detener cámara si estábamos en una pantalla con cámara
+        if (previousScreen === 'scan' && window.scannerManager.isScanning) {
+            console.log('🔴 Cerrando cámara de escaneo...');
             await window.scannerManager.stopCamera();
+        }
+        
+        // Detener cámara de checkout si estábamos en checkout
+        if (previousScreen === 'checkout' && window.scannerManager.isScanning) {
+            console.log('🔴 Cerrando cámara de checkout...');
+            await window.scannerManager.stopCheckoutCamera();
         }
         
         // Ocultar todas las pantallas
@@ -304,6 +341,7 @@ class ScanAsYouShopApp {
             
             // Iniciar cámara si entramos en pantalla de escaneo
             if (screenName === 'scan') {
+                console.log('🟢 Iniciando cámara de escaneo...');
                 // Pequeño delay para que el DOM se actualice
                 setTimeout(() => {
                     window.scannerManager.startCamera();
@@ -334,7 +372,16 @@ class ScanAsYouShopApp {
         }
 
         try {
-            const productos = await window.cartManager.searchProductsLocal(code || description);
+            let productos = [];
+            
+            if (code) {
+                // Búsqueda por código con prioridad a match exacto
+                productos = await window.cartManager.searchByCodeSmart(code);
+            } else if (description) {
+                // Búsqueda por descripción (todas las palabras)
+                productos = await window.cartManager.searchByDescriptionAllWords(description);
+            }
+            
             this.displaySearchResults(productos);
         } catch (error) {
             console.error('Error en búsqueda:', error);
@@ -343,7 +390,7 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Muestra resultados de búsqueda
+     * Muestra resultados de búsqueda con imágenes
      */
     displaySearchResults(productos) {
         const resultsContainer = document.getElementById('searchResults');
@@ -367,13 +414,25 @@ class ScanAsYouShopApp {
         if (resultsContainer) resultsContainer.style.display = 'block';
         if (resultsTitle) resultsTitle.textContent = `${productos.length} resultado${productos.length !== 1 ? 's' : ''}`;
 
-        resultsList.innerHTML = productos.map(producto => `
-            <div class="result-item" onclick="window.app.addProductToCart('${producto.codigo}', '${producto.descripcion.replace(/'/g, "\\'")}', ${producto.pvp})">
-                <div class="result-code">${producto.codigo}</div>
-                <div class="result-name">${producto.descripcion}</div>
-                <div class="result-price">${producto.pvp.toFixed(2)} €</div>
-            </div>
-        `).join('');
+        resultsList.innerHTML = productos.map(producto => {
+            const priceWithIVA = producto.pvp * 1.21;
+            const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
+            
+            return `
+                <div class="result-item-with-image" onclick="window.app.addProductToCart('${producto.codigo}', '${producto.descripcion.replace(/'/g, "\\'")}', ${producto.pvp})">
+                    <div class="result-image">
+                        <img src="${imageUrl}" alt="${producto.descripcion}" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="result-image-placeholder" style="display: none;">📦</div>
+                    </div>
+                    <div class="result-info">
+                        <div class="result-code">${producto.codigo}</div>
+                        <div class="result-name">${producto.descripcion}</div>
+                        <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     /**
@@ -576,7 +635,12 @@ class ScanAsYouShopApp {
             
             // Si la cantidad es 1, preguntar antes de eliminar
             if (producto.cantidad === 1) {
-                const confirmDelete = window.confirm('¿Eliminar este producto del carrito?');
+                const confirmDelete = await window.ui.showConfirm(
+                    '¿ELIMINAR ARTÍCULO?',
+                    `¿Deseas eliminar "${producto.descripcion_producto}" del carrito?`,
+                    'Eliminar',
+                    'Cancelar'
+                );
                 if (!confirmDelete) return;
             }
             
@@ -598,7 +662,12 @@ class ScanAsYouShopApp {
             
             // Si ponen 0, preguntar antes de eliminar
             if (newQty === 0) {
-                const confirmDelete = window.confirm('¿Eliminar este producto del carrito?');
+                const confirmDelete = await window.ui.showConfirm(
+                    '¿ELIMINAR ARTÍCULO?',
+                    `¿Deseas eliminar "${producto.descripcion_producto}" del carrito?`,
+                    'Eliminar',
+                    'Cancelar'
+                );
                 if (!confirmDelete) {
                     e.target.value = producto.cantidad;
                     return;
@@ -628,21 +697,16 @@ class ScanAsYouShopApp {
 
 
     /**
-     * Actualiza la cantidad de un producto
+     * Actualiza la cantidad de un producto (sin loading para mejor UX)
      */
     async updateProductQuantity(codigoProducto, newQuantity) {
         try {
-            window.ui.showLoading('Actualizando...');
-
             await window.cartManager.updateProductQuantity(codigoProducto, newQuantity);
-
-            window.ui.hideLoading();
             window.ui.updateCartBadge();
             this.updateCartView();
 
         } catch (error) {
             console.error('Error al actualizar cantidad:', error);
-            window.ui.hideLoading();
             window.ui.showToast('Error al actualizar cantidad', 'error');
         }
     }
@@ -652,21 +716,22 @@ class ScanAsYouShopApp {
      */
     async removeProduct(codigoProducto) {
         try {
-            const confirm = window.confirm('¿Eliminar este producto del carrito?');
+            const confirm = await window.ui.showConfirm(
+                '¿ELIMINAR ARTÍCULO?',
+                '¿Deseas eliminar este producto del carrito?',
+                'Eliminar',
+                'Cancelar'
+            );
             if (!confirm) return;
-
-            window.ui.showLoading('Eliminando...');
 
             await window.cartManager.removeProduct(codigoProducto);
 
-            window.ui.hideLoading();
             window.ui.showToast('Producto eliminado', 'success');
             window.ui.updateCartBadge();
             this.updateCartView();
 
         } catch (error) {
             console.error('Error al eliminar producto:', error);
-            window.ui.hideLoading();
             window.ui.showToast('Error al eliminar producto', 'error');
         }
     }

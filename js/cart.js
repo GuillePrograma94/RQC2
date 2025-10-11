@@ -473,6 +473,90 @@ class CartManager {
             return [];
         }
     }
+
+    /**
+     * Búsqueda inteligente por código: Prioriza match exacto
+     * Si existe match exacto, solo muestra ese. Si no, muestra parciales
+     */
+    async searchByCodeSmart(code) {
+        try {
+            const transaction = this.db.transaction(['products'], 'readonly');
+            const store = transaction.objectStore('products');
+            const request = store.getAll();
+
+            return new Promise((resolve, reject) => {
+                request.onsuccess = () => {
+                    const productos = request.result;
+                    const codeUpper = code.toUpperCase().trim();
+
+                    // Buscar match exacto primero
+                    const exactMatch = productos.find(p => 
+                        p.codigo.toUpperCase() === codeUpper
+                    );
+
+                    // Si hay match exacto, devolver solo ese
+                    if (exactMatch) {
+                        resolve([exactMatch]);
+                        return;
+                    }
+
+                    // Si no hay match exacto, buscar parciales
+                    const partialMatches = productos.filter(p => 
+                        p.codigo.toUpperCase().includes(codeUpper)
+                    );
+
+                    resolve(partialMatches.slice(0, window.APP_CONFIG.search.maxResults));
+                };
+                request.onerror = () => reject(request.error);
+            });
+
+        } catch (error) {
+            console.error('Error en búsqueda por código:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Búsqueda por descripción: Debe contener TODAS las palabras (en cualquier orden)
+     */
+    async searchByDescriptionAllWords(description) {
+        try {
+            const transaction = this.db.transaction(['products'], 'readonly');
+            const store = transaction.objectStore('products');
+            const request = store.getAll();
+
+            return new Promise((resolve, reject) => {
+                request.onsuccess = () => {
+                    const productos = request.result;
+                    
+                    // Separar en palabras y normalizar
+                    const words = description
+                        .toLowerCase()
+                        .trim()
+                        .split(/\s+/)
+                        .filter(w => w.length > 0);
+
+                    if (words.length === 0) {
+                        resolve([]);
+                        return;
+                    }
+
+                    // Filtrar productos que contengan TODAS las palabras
+                    const filtered = productos.filter(p => {
+                        const descLower = p.descripcion.toLowerCase();
+                        return words.every(word => descLower.includes(word));
+                    });
+
+                    resolve(filtered.slice(0, window.APP_CONFIG.search.maxResults));
+                };
+                request.onerror = () => reject(request.error);
+            });
+
+        } catch (error) {
+            console.error('Error en búsqueda por descripción:', error);
+            return [];
+        }
+    }
     
     /**
      * Búsqueda EXACTA ultrarrápida por código
