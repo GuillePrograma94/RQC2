@@ -1,0 +1,80 @@
+CREAR ICONOS PARA LA PWA
+=========================
+
+Esta aplicación PWA necesita iconos para funcionar correctamente.
+Debes crear dos archivos de imagen:
+
+1. icon-192.png  (192x192 píxeles)
+2. icon-512.png  (512x512 píxeles)
+
+OPCIÓN 1: Herramientas Online
+------------------------------
+
+Puedes usar estas herramientas gratuitas para generar los iconos:
+
+- https://www.favicon-generator.org/
+- https://realfavicongenerator.net/
+- https://favicon.io/favicon-converter/
+
+Pasos:
+1. Crea o selecciona una imagen/logo (mínimo 512x512px recomendado)
+2. Súbela a una de las herramientas
+3. Descarga los iconos generados
+4. Renombra los archivos a icon-192.png y icon-512.png
+5. Colócalos en la carpeta scan_client_mobile/
+
+OPCIÓN 2: Usando Software de Diseño
+------------------------------------
+
+Si tienes Photoshop, GIMP, Figma, etc.:
+
+1. Crea una imagen cuadrada de 512x512 píxeles
+2. Diseña tu icono (puede ser un carrito de compra 🛒, código de barras, etc.)
+3. Exporta dos versiones:
+   - Una de 192x192 píxeles → icon-192.png
+   - Una de 512x512 píxeles → icon-512.png
+4. Colócalos en scan_client_mobile/
+
+OPCIÓN 3: Icono Simple de Texto
+--------------------------------
+
+Si necesitas algo rápido para probar, puedes usar un generador de iconos con emoji:
+- https://favicon.io/emoji-favicons/
+- Busca el emoji 🛒 (carrito)
+- Descarga y renombra a icon-192.png y icon-512.png
+
+COLORES RECOMENDADOS
+--------------------
+
+Para que combine con el diseño de la app:
+- Color principal: #2563eb (azul)
+- Color de fondo: #ffffff (blanco)
+- Texto/icono: #2563eb sobre fondo blanco, o blanco sobre #2563eb
+
+REQUISITOS TÉCNICOS
+-------------------
+
+- Formato: PNG
+- Fondo: Transparente o color sólido
+- Tamaños exactos: 192x192 y 512x512
+- Resolución: 72 DPI mínimo
+
+VERIFICACIÓN
+------------
+
+Una vez creados los iconos, verifica que:
+1. Los archivos están en scan_client_mobile/
+2. Se llaman exactamente icon-192.png y icon-512.png
+3. Son imágenes PNG válidas
+4. Tienen los tamaños correctos (192x192 y 512x512)
+
+TEMPORALMENTE
+-------------
+
+Si no puedes crear los iconos ahora, la app funcionará pero:
+- No se podrá instalar como PWA
+- Puede mostrar errores en la consola
+- No tendrá icono en la pantalla de inicio
+
+¡Los iconos son necesarios solo para la versión final!
+
