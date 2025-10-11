@@ -69,13 +69,11 @@
             </header>
 
             <main class="screen-content">
-                <!-- Camera Preview -->
-                <div id="cameraContainer" class="camera-container">
-                    <video id="cameraPreview" class="camera-preview" autoplay playsinline></video>
-                    <div class="scan-overlay">
-                        <div class="scan-line"></div>
-                        <p class="scan-instruction">Enfoca el código de barras</p>
-                    </div>
+                <!-- Camera Scanner -->
+                <div id="reader" class="camera-scanner"></div>
+                
+                <div class="scanner-instructions">
+                    <p>📷 Enfoca el código de barras o QR</p>
                 </div>
 
                 <!-- Manual Input -->
@@ -236,6 +234,9 @@
     <!-- Scripts -->
     <!-- Supabase Client Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- HTML5 QR Code Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     
     <!-- App Scripts -->
     <script src="config.js"></script>

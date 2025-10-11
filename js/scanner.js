@@ -6,6 +6,8 @@ class ScannerManager {
     constructor() {
         this.searchTimeout = null;
         this.currentQuantity = 1;
+        this.html5QrCode = null;
+        this.isScanning = false;
     }
 
     /**
@@ -14,7 +16,20 @@ class ScannerManager {
     initialize() {
         this.setupSearchListeners();
         this.setupQuantityControls();
+        this.initializeCamera();
         console.log('Gestor de escaneo inicializado');
+    }
+    
+    /**
+     * Inicializa la cámara para el escáner
+     */
+    initializeCamera() {
+        if (typeof Html5Qrcode !== 'undefined') {
+            this.html5QrCode = new Html5Qrcode("reader");
+            console.log('✅ Escáner de cámara inicializado');
+        } else {
+            console.error('❌ Html5Qrcode no disponible');
+        }
     }
 
     /**
@@ -293,16 +308,170 @@ class ScannerManager {
     }
 
     /**
-     * Escanea producto (simulado con búsqueda)
+     * Inicia el escáner de cámara
      */
-    scanProduct() {
-        const searchInput = document.getElementById('searchInput');
-        if (searchInput) {
-            searchInput.focus();
+    async startCamera() {
+        if (!this.html5QrCode) {
+            window.ui.showToast('Escáner no disponible', 'error');
+            return;
+        }
+        
+        if (this.isScanning) {
+            console.log('⚠️ El escáner ya está activo');
+            return;
+        }
+        
+        try {
+            const config = {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0,
+                formatsToSupport: [
+                    Html5QrcodeSupportedFormats.QR_CODE,
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.CODE_39
+                ]
+            };
+            
+            await this.html5QrCode.start(
+                { facingMode: "environment" }, // Cámara trasera
+                config,
+                (decodedText, decodedResult) => {
+                    this.onScanSuccess(decodedText);
+                },
+                (errorMessage) => {
+                    // No mostramos errores de escaneo fallidos (normal cuando no hay código)
+                }
+            );
+            
+            this.isScanning = true;
+            console.log('📷 Escáner de cámara iniciado');
+            
+        } catch (error) {
+            console.error('Error al iniciar cámara:', error);
+            window.ui.showToast('Error al iniciar cámara. Verifica los permisos.', 'error');
+        }
+    }
+    
+    /**
+     * Detiene el escáner de cámara
+     */
+    async stopCamera() {
+        if (!this.html5QrCode || !this.isScanning) {
+            return;
+        }
+        
+        try {
+            await this.html5QrCode.stop();
+            this.isScanning = false;
+            console.log('📷 Escáner de cámara detenido');
+        } catch (error) {
+            console.error('Error al detener cámara:', error);
+        }
+    }
+    
+    /**
+     * Maneja el éxito del escaneo
+     */
+    async onScanSuccess(decodedText) {
+        console.log('🎯 Código escaneado:', decodedText);
+        
+        // Detener cámara temporalmente
+        await this.stopCamera();
+        
+        // Vibración de feedback
+        if (navigator.vibrate) {
+            navigator.vibrate(200);
+        }
+        
+        // Buscar producto con búsqueda EXACTA (ultrarrápida)
+        await this.searchProductExact(decodedText);
+    }
+    
+    /**
+     * Búsqueda EXACTA ultrarrápida (igual que mobile_reader)
+     * Usa índices de IndexedDB para búsqueda instantánea
+     */
+    async searchProductExact(code) {
+        try {
+            console.time('⏱️ Búsqueda exacta');
+            
+            const normalizedCode = code.toUpperCase().trim();
+            
+            // Buscar en IndexedDB con búsqueda directa (INSTANTÁNEA)
+            const products = await window.cartManager.searchProductsExact(normalizedCode);
+            
+            console.timeEnd('⏱️ Búsqueda exacta');
+            
+            if (products.length === 1) {
+                // Un producto encontrado - añadir automáticamente
+                const producto = products[0];
+                await window.cartManager.addProduct(producto.codigo, 1);
+                window.ui.showToast(`✅ ${producto.descripcion}`, 'success');
+                window.ui.updateCartBadge();
+                
+                // Volver a pantalla de carrito
+                window.app.showScreen('cart');
+                
+            } else if (products.length > 1) {
+                // Múltiples productos - mostrar en resultados de escaneo
+                this.displayScanResults(products);
+                window.ui.showToast(`🔍 ${products.length} productos encontrados`, 'info');
+                
+            } else {
+                // No encontrado
+                window.ui.showToast(`❌ Producto no encontrado: ${code}`, 'warning');
+                
+                // Reiniciar cámara para escanear de nuevo
+                setTimeout(() => {
+                    if (window.app.currentScreen === 'scan') {
+                        this.startCamera();
+                    }
+                }, 2000);
+            }
+            
+        } catch (error) {
+            console.error('Error en búsqueda exacta:', error);
+            window.ui.showToast('Error al buscar producto', 'error');
+        }
+    }
+    
+    /**
+     * Muestra resultados de escaneo
+     */
+    displayScanResults(productos) {
+        const container = document.getElementById('scanResults');
+        if (!container) return;
+        
+        container.style.display = 'block';
+        container.innerHTML = '';
+        
+        productos.forEach(producto => {
+            const card = this.createProductCard(producto);
+            container.appendChild(card);
+        });
+    }
+
+    /**
+     * Limpia los resultados de búsqueda
+     */
+    clearSearchResults() {
+        const container = document.getElementById('searchResults');
+        if (container) {
+            container.innerHTML = '';
+        }
+        
+        const scanContainer = document.getElementById('scanResults');
+        if (scanContainer) {
+            scanContainer.style.display = 'none';
+            scanContainer.innerHTML = '';
         }
     }
 }
 
 // Crear instancia global
 window.scannerManager = new ScannerManager();
+console.log('🎯 Scanner Manager creado');
 

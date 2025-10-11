@@ -544,11 +544,38 @@ body {
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
+/* Camera Scanner */
+.camera-scanner {
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    background: var(--black);
+}
+
+.scanner-instructions {
+    text-align: center;
+    padding: 1rem;
+    background: var(--white);
+    border-radius: 12px;
+    margin-top: 1rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.scanner-instructions p {
+    margin: 0;
+    color: var(--gray-700);
+    font-size: 0.9rem;
+}
+
 .manual-input-section {
     background: var(--white);
     padding: 1rem;
     border-radius: 12px;
     box-shadow: var(--shadow-sm);
+    margin-top: 1rem;
 }
 
 .section-label {

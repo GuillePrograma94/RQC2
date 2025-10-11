@@ -3,7 +3,7 @@
  * Maneja cache y funcionamiento offline
  */
 
-const CACHE_NAME = 'scan-as-you-shop-v8';
+const CACHE_NAME = 'scan-as-you-shop-v9';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -16,7 +16,9 @@ const urlsToCache = [
     '/js/app.js',
     '/manifest.json',
     '/icon-192.png',
-    '/icon-512.png'
+    '/icon-512.png',
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+    'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
 ];
 
 // Instalación del Service Worker

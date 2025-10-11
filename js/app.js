@@ -264,7 +264,12 @@ class ScanAsYouShopApp {
     /**
      * Muestra una pantalla específica
      */
-    showScreen(screenName) {
+    async showScreen(screenName) {
+        // Detener cámara si estaba activa
+        if (this.currentScreen === 'scan' && window.scannerManager.isScanning) {
+            await window.scannerManager.stopCamera();
+        }
+        
         // Ocultar todas las pantallas
         const screens = document.querySelectorAll('.screen');
         screens.forEach(screen => screen.classList.remove('active'));
@@ -274,6 +279,14 @@ class ScanAsYouShopApp {
         if (targetScreen) {
             targetScreen.classList.add('active');
             this.currentScreen = screenName;
+            
+            // Iniciar cámara si entramos en pantalla de escaneo
+            if (screenName === 'scan') {
+                // Pequeño delay para que el DOM se actualice
+                setTimeout(() => {
+                    window.scannerManager.startCamera();
+                }, 100);
+            }
 
             // Actualizar contenido según pantalla
             if (screenName === 'cart') {

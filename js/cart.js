@@ -381,8 +381,85 @@ class CartManager {
             return [];
         }
     }
+    
+    /**
+     * Búsqueda EXACTA ultrarrápida por código
+     * Usa índices de IndexedDB para búsqueda instantánea (igual que mobile_reader)
+     */
+    async searchProductsExact(code) {
+        try {
+            if (!code || !code.trim()) return [];
+            const normalizedCode = code.toUpperCase().trim();
+            
+            console.log('🔍 Búsqueda exacta por código:', normalizedCode);
+            
+            const results = [];
+            const seen = new Set();
+            
+            // 1. Búsqueda directa en productos (código principal) - INSTANTÁNEA
+            const productoPrincipal = await new Promise((resolve) => {
+                const tx = this.db.transaction(['products'], 'readonly');
+                const store = tx.objectStore('products');
+                const req = store.get(normalizedCode);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => resolve(null);
+            });
+            
+            if (productoPrincipal) {
+                console.log('✅ Encontrado en productos:', productoPrincipal.codigo);
+                results.push(productoPrincipal);
+                seen.add(productoPrincipal.codigo);
+            }
+            
+            // 2. Búsqueda directa en códigos secundarios (EAN) - INSTANTÁNEA
+            const codigoSecundario = await new Promise((resolve) => {
+                const tx = this.db.transaction(['secondary_codes'], 'readonly');
+                const store = tx.objectStore('secondary_codes');
+                const req = store.get(normalizedCode);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => resolve(null);
+            });
+            
+            if (codigoSecundario && !seen.has(codigoSecundario.codigo_principal)) {
+                // Obtener el producto principal
+                const productoPrincipal = await new Promise((resolve) => {
+                    const tx = this.db.transaction(['products'], 'readonly');
+                    const store = tx.objectStore('products');
+                    const req = store.get(codigoSecundario.codigo_principal);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => resolve(null);
+                });
+                
+                if (productoPrincipal) {
+                    results.push(productoPrincipal);
+                    seen.add(productoPrincipal.codigo);
+                }
+            }
+            
+            console.log(`✅ Búsqueda exacta completada: ${results.length} resultado(s)`);
+            return results;
+            
+        } catch (error) {
+            console.error('❌ Error en searchProductsExact:', error);
+            return [];
+        }
+    }
+    
+    /**
+     * Normaliza texto para búsqueda (elimina acentos, espacios extra, etc.)
+     */
+    normalizeText(text) {
+        if (!text) return '';
+        return text
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Eliminar acentos
+            .replace(/\s+/g, ' ') // Normalizar espacios
+            .trim();
+    }
 }
 
 // Crear instancia global
 window.cartManager = new CartManager();
+console.log('🛒 Cart Manager creado');
 
