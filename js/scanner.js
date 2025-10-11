@@ -259,9 +259,9 @@ class ScannerManager {
     }
 
     /**
-     * Escanea código QR de caja para finalizar compra
+     * Inicia la cámara de checkout integrada en la pantalla
      */
-    async scanCheckoutQR() {
+    async startCheckoutCameraIntegrated() {
         try {
             // Verificar que hay productos en el carrito
             if (!window.cartManager.hasProducts()) {
@@ -272,21 +272,21 @@ class ScannerManager {
             // Activar modo checkout para el escáner
             this.isCheckoutMode = true;
             
-            // Mostrar el contenedor de cámara de checkout
-            const cameraContainer = document.getElementById('checkoutCameraContainer');
-            const readerCheckout = document.getElementById('checkoutReader');
-            
-            if (cameraContainer) {
-                cameraContainer.style.display = 'block';
-            }
-
-            // Iniciar escáner en el reader de checkout
+            // Iniciar escáner directamente
             await this.startCheckoutCamera();
 
         } catch (error) {
             console.error('Error al iniciar escáner de checkout:', error);
             window.ui.showToast(error.message || 'Error al iniciar escáner', 'error');
         }
+    }
+
+    /**
+     * Escanea código QR de caja para finalizar compra (versión antigua - deprecated)
+     */
+    async scanCheckoutQR() {
+        // Redirigir a la nueva implementación integrada
+        await this.startCheckoutCameraIntegrated();
     }
     
     /**

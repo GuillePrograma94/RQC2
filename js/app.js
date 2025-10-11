@@ -207,17 +207,9 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Checkout
-        const scanCheckoutQRBtn = document.getElementById('scanCheckoutQRBtn');
+        // Checkout (código manual)
         const submitCheckoutCodeBtn = document.getElementById('submitCheckoutCodeBtn');
         const checkoutCodeInput = document.getElementById('checkoutCodeInput');
-        const closeCheckoutCamera = document.getElementById('closeCheckoutCamera');
-
-        if (scanCheckoutQRBtn) {
-            scanCheckoutQRBtn.addEventListener('click', () => {
-                window.scannerManager.scanCheckoutQR();
-            });
-        }
 
         if (checkoutCodeInput) {
             checkoutCodeInput.addEventListener('input', (e) => {
@@ -232,16 +224,6 @@ class ScanAsYouShopApp {
         if (submitCheckoutCodeBtn) {
             submitCheckoutCodeBtn.addEventListener('click', () => {
                 this.submitCheckoutCode();
-            });
-        }
-
-        if (closeCheckoutCamera) {
-            closeCheckoutCamera.addEventListener('click', async () => {
-                await window.scannerManager.stopCheckoutCamera();
-                const cameraContainer = document.getElementById('checkoutCameraContainer');
-                if (cameraContainer) {
-                    cameraContainer.style.display = 'none';
-                }
             });
         }
 
@@ -345,6 +327,15 @@ class ScanAsYouShopApp {
                 // Pequeño delay para que el DOM se actualice
                 setTimeout(() => {
                     window.scannerManager.startCamera();
+                }, 100);
+            }
+
+            // Iniciar cámara de checkout si entramos en pantalla de checkout
+            if (screenName === 'checkout') {
+                console.log('🟢 Iniciando cámara de checkout...');
+                // Pequeño delay para que el DOM se actualice
+                setTimeout(() => {
+                    window.scannerManager.startCheckoutCameraIntegrated();
                 }, 100);
             }
 

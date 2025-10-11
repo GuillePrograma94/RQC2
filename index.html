@@ -6,10 +6,10 @@
     <meta name="theme-color" content="#7851A9">
     <meta name="description" content="Escanea productos mientras compras - Sistema de autocompra">
     
-    <!-- PWA Fullscreen -->
+    <!-- PWA Standalone -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Scan Shop">
     
     <!-- Android Fullscreen -->
@@ -179,22 +179,22 @@
              ================================ -->
         <div id="checkoutScreen" class="screen">
             <main class="screen-content checkout-content">
-                <!-- QR Scanner -->
-                <div class="checkout-section">
-                    <h2 class="section-title">Escanear QR de Caja</h2>
-                    <button id="scanCheckoutQRBtn" class="btn btn-primary btn-lg">
-                        📷 Escanear QR
-                    </button>
+                <!-- Camera Scanner integrado -->
+                <div class="checkout-camera-section">
+                    <h2 class="section-title">Escanea el QR de la Caja</h2>
+                    <div id="checkoutReader" class="camera-scanner"></div>
+                    <div class="scanner-instructions">
+                        <p>📷 Enfoca el código QR de la caja</p>
+                    </div>
                 </div>
 
                 <div class="divider">
-                    <span>O</span>
+                    <span>O introduce el código manualmente</span>
                 </div>
 
                 <!-- Manual Code Entry -->
                 <div class="checkout-section">
-                    <h2 class="section-title">Código Manual de Caja</h2>
-                    <p class="section-description">Introduce el código de 6 números</p>
+                    <p class="section-description">Código de 6 números</p>
                     <div class="code-input-container">
                         <input 
                             type="text" 
@@ -210,15 +210,6 @@
                     <button id="submitCheckoutCodeBtn" class="btn btn-primary btn-lg" disabled>
                         Confirmar Compra
                     </button>
-                </div>
-
-                <!-- Camera Preview for QR -->
-                <div id="checkoutCameraContainer" class="camera-container" style="display: none;">
-                    <div id="checkoutReader" class="camera-scanner"></div>
-                    <div class="scanner-instructions">
-                        <p>📷 Enfoca el código QR de la caja</p>
-                    </div>
-                    <button id="closeCheckoutCamera" class="btn btn-secondary">Cancelar</button>
                 </div>
             </main>
         </div>
@@ -329,31 +320,15 @@
         }
     </script>
 
-    <!-- Fullscreen Mode Handler -->
+    <!-- Standalone Mode Handler -->
     <script>
-        // Detectar si está en modo standalone/fullscreen (PWA instalada)
+        // Detectar si está en modo standalone (PWA instalada)
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                            window.matchMedia('(display-mode: fullscreen)').matches ||
                             window.navigator.standalone === true;
         
         if (isStandalone) {
-            console.log('PWA en modo fullscreen/standalone');
-            
-            // Para Android: ocultar barras del sistema
-            if ('setAppBadge' in navigator || /android/i.test(navigator.userAgent)) {
-                // Intentar activar modo inmersivo
-                document.documentElement.requestFullscreen?.({ navigationUI: "hide" })
-                    .catch(err => console.log('Fullscreen no disponible:', err));
-            }
+            console.log('PWA en modo standalone - Barra de estado visible');
         }
-
-        // Restaurar fullscreen cuando se vuelve a la app
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && isStandalone && document.fullscreenElement === null) {
-                document.documentElement.requestFullscreen?.({ navigationUI: "hide" })
-                    .catch(err => console.log('No se pudo restaurar fullscreen'));
-            }
-        });
     </script>
 </body>
 </html>
