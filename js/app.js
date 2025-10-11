@@ -15,6 +15,8 @@ class ScanAsYouShopApp {
         try {
             console.log('Iniciando Scan as You Shop...');
 
+            // Inicializar UI primero (para poder usar showLoading)
+            window.ui.initialize();
             window.ui.showLoading('Iniciando aplicacion...');
 
             // Inicializar Supabase
@@ -32,14 +34,12 @@ class ScanAsYouShopApp {
             // Inicializar scanner
             window.scannerManager.initialize();
 
-            // Inicializar UI
-            window.ui.initialize();
-
             // Configurar pantallas
             this.setupScreens();
 
-            // Empezar directamente en pantalla de escaneo
-            this.showScreen('scan');
+            // Empezar en pantalla principal (carrito)
+            this.showScreen('cart');
+            this.updateActiveNav('cart');
 
             this.isInitialized = true;
 
