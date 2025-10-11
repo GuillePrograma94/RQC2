@@ -7,7 +7,9 @@ class ScannerManager {
         this.searchTimeout = null;
         this.currentQuantity = 1;
         this.html5QrCode = null;
+        this.html5QrCodeCheckout = null;
         this.isScanning = false;
+        this.isCheckoutMode = false;
     }
 
     /**
@@ -26,7 +28,9 @@ class ScannerManager {
     initializeCamera() {
         if (typeof Html5Qrcode !== 'undefined') {
             this.html5QrCode = new Html5Qrcode("reader");
+            this.html5QrCodeCheckout = new Html5Qrcode("checkoutReader");
             console.log('✅ Escáner de cámara inicializado');
+            console.log('✅ Escáner de checkout inicializado');
         } else {
             console.error('❌ Html5Qrcode no disponible');
         }
@@ -265,21 +269,103 @@ class ScannerManager {
                 return;
             }
 
-            // Pedir código manualmente (simplificado)
-            // En producción, podrías usar una librería de escaneo de QR
-            const codigo = prompt('Escanea el codigo QR de la caja (6 digitos):');
+            // Activar modo checkout para el escáner
+            this.isCheckoutMode = true;
             
-            if (!codigo) return;
-
-            if (!/^\d{6}$/.test(codigo)) {
-                window.ui.showToast('Codigo invalido. Debe ser 6 digitos', 'error');
-                return;
+            // Mostrar el contenedor de cámara de checkout
+            const cameraContainer = document.getElementById('checkoutCameraContainer');
+            const readerCheckout = document.getElementById('checkoutReader');
+            
+            if (cameraContainer) {
+                cameraContainer.style.display = 'block';
             }
 
+            // Iniciar escáner en el reader de checkout
+            await this.startCheckoutCamera();
+
+        } catch (error) {
+            console.error('Error al iniciar escáner de checkout:', error);
+            window.ui.showToast(error.message || 'Error al iniciar escáner', 'error');
+        }
+    }
+    
+    /**
+     * Inicia el escáner de cámara para checkout
+     */
+    async startCheckoutCamera() {
+        if (!this.html5QrCodeCheckout) {
+            window.ui.showToast('Escáner no disponible', 'error');
+            return;
+        }
+        
+        if (this.isScanning) {
+            console.log('⚠️ El escáner ya está activo');
+            return;
+        }
+        
+        try {
+            const config = {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0,
+                formatsToSupport: [
+                    Html5QrcodeSupportedFormats.QR_CODE
+                ]
+            };
+            
+            await this.html5QrCodeCheckout.start(
+                { facingMode: "environment" }, // Cámara trasera
+                config,
+                (decodedText, decodedResult) => {
+                    this.onCheckoutScanSuccess(decodedText);
+                },
+                (errorMessage) => {
+                    // No mostramos errores de escaneo fallidos (normal cuando no hay código)
+                }
+            );
+            
+            this.isScanning = true;
+            console.log('📷 Escáner de checkout iniciado');
+            
+        } catch (error) {
+            console.error('Error al iniciar cámara de checkout:', error);
+            window.ui.showToast('Error al iniciar cámara. Verifica los permisos.', 'error');
+        }
+    }
+    
+    /**
+     * Maneja el éxito del escaneo de checkout
+     */
+    async onCheckoutScanSuccess(decodedText) {
+        console.log('🎯 Código QR de caja escaneado:', decodedText);
+        
+        // Detener cámara de checkout
+        await this.stopCheckoutCamera();
+        
+        // Ocultar contenedor de cámara
+        const cameraContainer = document.getElementById('checkoutCameraContainer');
+        if (cameraContainer) {
+            cameraContainer.style.display = 'none';
+        }
+        
+        // Vibración de feedback
+        if (navigator.vibrate) {
+            navigator.vibrate(200);
+        }
+        
+        this.isCheckoutMode = false;
+        
+        // Validar código (debe ser 6 dígitos)
+        if (!/^\d{6}$/.test(decodedText)) {
+            window.ui.showToast('Código QR inválido. Debe ser 6 dígitos', 'error');
+            return;
+        }
+        
+        try {
             window.ui.showLoading('Subiendo carrito a caja...');
 
             // Subir el carrito al PC de checkout
-            await window.cartManager.uploadCartToCheckout(codigo);
+            await window.cartManager.uploadCartToCheckout(decodedText);
 
             window.ui.hideLoading();
             
@@ -297,13 +383,30 @@ class ScannerManager {
             await window.cartManager.clearCart();
             window.ui.updateCartBadge();
             
-            // Volver a pantalla de escaneo
-            window.app.showScreen('scan');
+            // Volver a pantalla de carrito
+            window.app.showScreen('cart');
 
         } catch (error) {
-            console.error('Error al escanear QR de checkout:', error);
+            console.error('Error al enviar carrito:', error);
             window.ui.hideLoading();
             window.ui.showToast(error.message || 'Error al enviar carrito', 'error');
+        }
+    }
+    
+    /**
+     * Detiene el escáner de cámara de checkout
+     */
+    async stopCheckoutCamera() {
+        if (!this.html5QrCodeCheckout || !this.isScanning) {
+            return;
+        }
+        
+        try {
+            await this.html5QrCodeCheckout.stop();
+            this.isScanning = false;
+            console.log('📷 Escáner de checkout detenido');
+        } catch (error) {
+            console.error('Error al detener cámara de checkout:', error);
         }
     }
 

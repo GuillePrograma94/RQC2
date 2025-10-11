@@ -198,10 +198,9 @@
 
                 <!-- Camera Preview for QR -->
                 <div id="checkoutCameraContainer" class="camera-container" style="display: none;">
-                    <video id="checkoutCameraPreview" class="camera-preview" autoplay playsinline></video>
-                    <div class="scan-overlay">
-                        <div class="qr-frame"></div>
-                        <p class="scan-instruction">Enfoca el código QR de la caja</p>
+                    <div id="checkoutReader" class="camera-scanner"></div>
+                    <div class="scanner-instructions">
+                        <p>📷 Enfoca el código QR de la caja</p>
                     </div>
                     <button id="closeCheckoutCamera" class="btn btn-secondary">Cancelar</button>
                 </div>

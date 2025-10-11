@@ -238,8 +238,12 @@ class ScanAsYouShopApp {
         }
 
         if (closeCheckoutCamera) {
-            closeCheckoutCamera.addEventListener('click', () => {
-                window.scannerManager.stopCamera();
+            closeCheckoutCamera.addEventListener('click', async () => {
+                await window.scannerManager.stopCheckoutCamera();
+                const cameraContainer = document.getElementById('checkoutCameraContainer');
+                if (cameraContainer) {
+                    cameraContainer.style.display = 'none';
+                }
             });
         }
 
