@@ -41,7 +41,7 @@ class CartManager {
      */
     initIndexedDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, 2); // Incrementada versión para agregar secondary_codes
+            const request = indexedDB.open(this.dbName, 3); // v3: Cambiar keyPath de secondary_codes para soportar duplicados
 
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
@@ -66,7 +66,8 @@ class CartManager {
                 
                 // Crear object store para códigos secundarios (EAN)
                 if (!db.objectStoreNames.contains('secondary_codes')) {
-                    const secondaryStore = db.createObjectStore('secondary_codes', { keyPath: 'codigo_secundario' });
+                    const secondaryStore = db.createObjectStore('secondary_codes', { keyPath: 'id', autoIncrement: true });
+                    secondaryStore.createIndex('codigo_secundario', 'codigo_secundario', { unique: false });
                     secondaryStore.createIndex('codigo_principal', 'codigo_principal', { unique: false });
                 }
                 
@@ -401,13 +402,13 @@ class CartManager {
             let saved = 0;
             for (const codigo of codigosSecundarios) {
                 try {
-                    // Normalizar códigos a MAYÚSCULAS
+                    // Normalizar códigos a MAYÚSCULAS (NO incluir 'id', se auto-genera)
                     const normalizedCode = {
                         codigo_secundario: codigo.codigo_secundario.toUpperCase(),
                         codigo_principal: codigo.codigo_principal.toUpperCase(),
                         descripcion: codigo.descripcion || ''
                     };
-                    await store.add(normalizedCode);
+                    store.add(normalizedCode); // Sin await para mejor performance
                     saved++;
                     
                     // Log de los primeros 3 para debug
@@ -500,12 +501,13 @@ class CartManager {
                 console.log('❌ No encontrado en productos (código principal)');
             }
             
-            // 2. Búsqueda directa en códigos secundarios (EAN) - INSTANTÁNEA
+            // 2. Búsqueda directa en códigos secundarios (EAN) usando índice - INSTANTÁNEA
             console.log('🔍 Buscando en códigos secundarios...');
             const codigoSecundario = await new Promise((resolve) => {
                 const tx = this.db.transaction(['secondary_codes'], 'readonly');
                 const store = tx.objectStore('secondary_codes');
-                const req = store.get(normalizedCode);
+                const index = store.index('codigo_secundario');
+                const req = index.get(normalizedCode);
                 req.onsuccess = () => {
                     const result = req.result;
                     if (result) {

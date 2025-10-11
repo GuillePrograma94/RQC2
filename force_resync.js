@@ -16,7 +16,7 @@ async function forcedResync() {
         // 2. Limpiar IndexedDB
         console.log('\n🗑️ Limpiando IndexedDB...');
         const db = await new Promise((resolve, reject) => {
-            const request = indexedDB.open('ScanAsYouShop', 2);
+            const request = indexedDB.open('ScanAsYouShop', 3);
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);
         });

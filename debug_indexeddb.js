@@ -45,12 +45,13 @@ async function debugIndexedDB() {
         console.log(`  Primeros 5 códigos secundarios:`, secundarios.slice(0, 5));
     }
     
-    // Buscar el EAN específico
+    // Buscar el EAN específico usando el índice
     console.log('\n🔍 BUSCANDO EAN: 8435200024488');
     const eanBuscado = await new Promise((resolve) => {
         const tx = db.transaction(['secondary_codes'], 'readonly');
         const store = tx.objectStore('secondary_codes');
-        const req = store.get('8435200024488');
+        const index = store.index('codigo_secundario');
+        const req = index.get('8435200024488');
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => resolve(null);
     });
