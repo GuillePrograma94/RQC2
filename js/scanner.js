@@ -408,7 +408,8 @@ class ScannerManager {
             if (products.length === 1) {
                 // Un producto encontrado - añadir automáticamente
                 const producto = products[0];
-                await window.cartManager.addProduct(producto.codigo, 1);
+                console.log('✅ Producto encontrado:', producto);
+                await window.cartManager.addProduct(producto, 1);
                 window.ui.showToast(`✅ ${producto.descripcion}`, 'success');
                 window.ui.updateCartBadge();
                 

@@ -41,11 +41,12 @@ class CartManager {
      */
     initIndexedDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, 1);
+            const request = indexedDB.open(this.dbName, 2); // Incrementada versión para agregar secondary_codes
 
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
                 this.db = request.result;
+                console.log('✅ IndexedDB inicializada correctamente');
                 resolve();
             };
 
@@ -62,6 +63,14 @@ class CartManager {
                     const productsStore = db.createObjectStore('products', { keyPath: 'codigo' });
                     productsStore.createIndex('descripcion', 'descripcion', { unique: false });
                 }
+                
+                // Crear object store para códigos secundarios (EAN)
+                if (!db.objectStoreNames.contains('secondary_codes')) {
+                    const secondaryStore = db.createObjectStore('secondary_codes', { keyPath: 'codigo_secundario' });
+                    secondaryStore.createIndex('codigo_principal', 'codigo_principal', { unique: false });
+                }
+                
+                console.log('✅ Esquema de base de datos creado/actualizado');
             };
         });
     }
@@ -324,6 +333,7 @@ class CartManager {
 
     /**
      * Guarda productos en el almacenamiento local
+     * NORMALIZA códigos a MAYÚSCULAS para búsqueda exacta ultrarrápida
      */
     async saveProductsToStorage(productos) {
         try {
@@ -331,16 +341,23 @@ class CartManager {
             const store = transaction.objectStore('products');
 
             // Limpiar productos anteriores
-            store.clear();
+            await store.clear();
 
-            // Añadir nuevos productos
-            productos.forEach(producto => {
-                store.add(producto);
-            });
+            // Añadir nuevos productos con códigos normalizados
+            let saved = 0;
+            for (const producto of productos) {
+                // Normalizar código a MAYÚSCULAS
+                const normalizedProduct = {
+                    ...producto,
+                    codigo: producto.codigo.toUpperCase()
+                };
+                await store.add(normalizedProduct);
+                saved++;
+            }
 
             return new Promise((resolve, reject) => {
                 transaction.oncomplete = () => {
-                    console.log(`${productos.length} productos guardados en almacenamiento local`);
+                    console.log(`✅ ${saved} productos guardados (códigos normalizados a MAYÚSCULAS)`);
                     resolve();
                 };
                 transaction.onerror = () => reject(transaction.error);
@@ -348,6 +365,45 @@ class CartManager {
 
         } catch (error) {
             console.error('Error al guardar productos:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * Guarda códigos secundarios en el almacenamiento local
+     * NORMALIZA códigos a MAYÚSCULAS para búsqueda exacta ultrarrápida
+     */
+    async saveSecondaryCodesToStorage(codigosSecundarios) {
+        try {
+            const transaction = this.db.transaction(['secondary_codes'], 'readwrite');
+            const store = transaction.objectStore('secondary_codes');
+
+            // Limpiar códigos anteriores
+            await store.clear();
+
+            // Añadir nuevos códigos con normalización
+            let saved = 0;
+            for (const codigo of codigosSecundarios) {
+                // Normalizar códigos a MAYÚSCULAS
+                const normalizedCode = {
+                    codigo_secundario: codigo.codigo_secundario.toUpperCase(),
+                    codigo_principal: codigo.codigo_principal.toUpperCase(),
+                    descripcion: codigo.descripcion || ''
+                };
+                await store.add(normalizedCode);
+                saved++;
+            }
+
+            return new Promise((resolve, reject) => {
+                transaction.oncomplete = () => {
+                    console.log(`✅ ${saved} códigos secundarios guardados (normalizados a MAYÚSCULAS)`);
+                    resolve();
+                };
+                transaction.onerror = () => reject(transaction.error);
+            });
+
+        } catch (error) {
+            console.error('Error al guardar códigos secundarios:', error);
             throw error;
         }
     }

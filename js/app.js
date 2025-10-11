@@ -91,13 +91,16 @@ class ScanAsYouShopApp {
             const { productos, codigosSecundarios } = await window.supabaseClient.downloadProducts(onProgress);
 
             // Guardar en almacenamiento local
-            window.ui.updateSyncIndicator('Guardando...');
+            window.ui.updateSyncIndicator('Guardando productos...');
             await window.cartManager.saveProductsToStorage(productos);
+            
+            window.ui.updateSyncIndicator('Guardando códigos secundarios...');
+            await window.cartManager.saveSecondaryCodesToStorage(codigosSecundarios);
 
             // Actualizar hash local
             await window.supabaseClient.actualizarVersionLocal(versionCheck.versionRemota);
 
-            console.log('✅ Productos sincronizados correctamente');
+            console.log('✅ Productos y códigos secundarios sincronizados correctamente');
             window.ui.showSyncIndicator(false);
             window.ui.showToast(`Catálogo actualizado - ${productos.length} productos`, 'success');
 
