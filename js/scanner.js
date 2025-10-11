@@ -215,6 +215,9 @@ class ScannerManager {
      */
     async addToCart(producto, cantidad = 1) {
         try {
+            // Mostrar ventana emergente con imagen y descripción
+            await this.showProductPreview(producto);
+            
             window.ui.showLoading('Añadiendo al carrito...');
 
             await window.cartManager.addProduct(producto, cantidad);
