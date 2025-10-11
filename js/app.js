@@ -525,36 +525,42 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Crea una tarjeta de producto para el carrito
+     * Crea una tarjeta de producto para el carrito (estilo Tesco)
      */
     createCartProductCard(producto) {
         const card = document.createElement('div');
-        card.className = 'product-card';
+        card.className = 'cart-product-card';
 
         const priceWithIVA = producto.precio_unitario * 1.21;
         const subtotalWithIVA = producto.subtotal * 1.21;
 
         card.innerHTML = `
-            <div class="product-header">
-                <span class="product-code">${producto.codigo_producto}</span>
-                <span class="product-price">${priceWithIVA.toFixed(2)}€</span>
+            <div class="cart-product-image">
+                <div class="cart-product-quantity-badge">${producto.cantidad}</div>
+                <div class="product-placeholder">📦</div>
             </div>
-            <div class="product-description">${producto.descripcion_producto}</div>
-            <div class="product-actions">
-                <div class="quantity-controls">
-                    <button class="quantity-btn" data-action="decrease" data-code="${producto.codigo_producto}">−</button>
-                    <span class="quantity-display">${producto.cantidad}</span>
-                    <button class="quantity-btn" data-action="increase" data-code="${producto.codigo_producto}">+</button>
+            <div class="cart-product-info">
+                <div class="cart-product-name">${producto.descripcion_producto}</div>
+                <div class="cart-product-code">${producto.codigo_producto}</div>
+                <div class="cart-product-price">${priceWithIVA.toFixed(2)} €</div>
+                <div class="cart-product-controls">
+                    <div class="quantity-controls-compact">
+                        <button class="qty-btn-compact" data-action="decrease" data-code="${producto.codigo_producto}">−</button>
+                        <span class="qty-value">${producto.cantidad}</span>
+                        <button class="qty-btn-compact" data-action="increase" data-code="${producto.codigo_producto}">+</button>
+                    </div>
+                    <div class="cart-product-subtotal">${subtotalWithIVA.toFixed(2)} €</div>
+                    <button class="btn-remove-compact" data-code="${producto.codigo_producto}">
+                        <span>🗑️</span>
+                    </button>
                 </div>
-                <div class="product-price font-bold">${subtotalWithIVA.toFixed(2)}€</div>
-                <button class="remove-btn" data-code="${producto.codigo_producto}">🗑️</button>
             </div>
         `;
 
         // Añadir event listeners
         const decreaseBtn = card.querySelector('[data-action="decrease"]');
         const increaseBtn = card.querySelector('[data-action="increase"]');
-        const removeBtn = card.querySelector('.remove-btn');
+        const removeBtn = card.querySelector('.btn-remove-compact');
 
         decreaseBtn.addEventListener('click', async () => {
             const newQty = producto.cantidad - 1;
