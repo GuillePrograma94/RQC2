@@ -264,20 +264,27 @@ class ScannerManager {
      */
     async startCheckoutCameraIntegrated() {
         try {
+            console.log('🔵 Iniciando escáner de checkout integrado...');
+            console.log('🔍 Estado actual - isScanningCheckout:', this.isScanningCheckout);
+            
             // Verificar que hay productos en el carrito
             if (!window.cartManager.hasProducts()) {
+                console.log('⚠️ Carrito vacío - no se puede iniciar checkout');
                 window.ui.showToast('El carrito esta vacio', 'warning');
                 return;
             }
 
             // Activar modo checkout para el escáner
             this.isCheckoutMode = true;
+            console.log('✅ Modo checkout activado');
             
             // Iniciar escáner directamente
+            console.log('📷 Llamando a startCheckoutCamera()...');
             await this.startCheckoutCamera();
+            console.log('✅ startCheckoutCamera() completado');
 
         } catch (error) {
-            console.error('Error al iniciar escáner de checkout:', error);
+            console.error('❌ Error al iniciar escáner de checkout:', error);
             window.ui.showToast(error.message || 'Error al iniciar escáner', 'error');
         }
     }
@@ -294,7 +301,12 @@ class ScannerManager {
      * Inicia el escáner de cámara para checkout
      */
     async startCheckoutCamera() {
+        console.log('📸 startCheckoutCamera() - Iniciando...');
+        console.log('   html5QrCodeCheckout existe:', !!this.html5QrCodeCheckout);
+        console.log('   isScanningCheckout:', this.isScanningCheckout);
+        
         if (!this.html5QrCodeCheckout) {
+            console.error('❌ html5QrCodeCheckout no está disponible');
             window.ui.showToast('Escáner no disponible', 'error');
             return;
         }
@@ -326,7 +338,7 @@ class ScannerManager {
             );
             
             this.isScanningCheckout = true;
-            console.log('📷 Escáner de checkout iniciado');
+            console.log('✅ Escáner de checkout iniciado exitosamente');
             
         } catch (error) {
             console.error('Error al iniciar cámara de checkout:', error);
@@ -392,16 +404,21 @@ class ScannerManager {
      * Detiene el escáner de cámara de checkout
      */
     async stopCheckoutCamera() {
+        console.log('🛑 stopCheckoutCamera() - Intentando detener...');
+        console.log('   html5QrCodeCheckout existe:', !!this.html5QrCodeCheckout);
+        console.log('   isScanningCheckout:', this.isScanningCheckout);
+        
         if (!this.html5QrCodeCheckout || !this.isScanningCheckout) {
+            console.log('⚠️ No se puede detener - escáner no activo o no disponible');
             return;
         }
         
         try {
             await this.html5QrCodeCheckout.stop();
             this.isScanningCheckout = false;
-            console.log('📷 Escáner de checkout detenido');
+            console.log('✅ Escáner de checkout detenido');
         } catch (error) {
-            console.error('Error al detener cámara de checkout:', error);
+            console.error('❌ Error al detener cámara de checkout:', error);
         }
     }
 
@@ -409,7 +426,12 @@ class ScannerManager {
      * Inicia el escáner de cámara
      */
     async startCamera() {
+        console.log('📸 startCamera() - Iniciando...');
+        console.log('   html5QrCode existe:', !!this.html5QrCode);
+        console.log('   isScanningProducts:', this.isScanningProducts);
+        
         if (!this.html5QrCode) {
+            console.error('❌ html5QrCode no está disponible');
             window.ui.showToast('Escáner no disponible', 'error');
             return;
         }
@@ -445,7 +467,7 @@ class ScannerManager {
             );
             
             this.isScanningProducts = true;
-            console.log('📷 Escáner de cámara iniciado');
+            console.log('✅ Escáner de productos iniciado exitosamente');
             
         } catch (error) {
             console.error('Error al iniciar cámara:', error);
@@ -457,16 +479,21 @@ class ScannerManager {
      * Detiene el escáner de cámara
      */
     async stopCamera() {
+        console.log('🛑 stopCamera() - Intentando detener...');
+        console.log('   html5QrCode existe:', !!this.html5QrCode);
+        console.log('   isScanningProducts:', this.isScanningProducts);
+        
         if (!this.html5QrCode || !this.isScanningProducts) {
+            console.log('⚠️ No se puede detener - escáner no activo o no disponible');
             return;
         }
         
         try {
             await this.html5QrCode.stop();
             this.isScanningProducts = false;
-            console.log('📷 Escáner de cámara detenido');
+            console.log('✅ Escáner de productos detenido');
         } catch (error) {
-            console.error('Error al detener cámara:', error);
+            console.error('❌ Error al detener cámara:', error);
         }
     }
     

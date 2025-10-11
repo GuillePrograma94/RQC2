@@ -297,18 +297,27 @@ class ScanAsYouShopApp {
      * Muestra una pantalla específica
      */
     async showScreen(screenName) {
+        console.log(`\n🔄 CAMBIO DE PANTALLA: ${this.currentScreen || 'inicio'} → ${screenName}`);
         const previousScreen = this.currentScreen;
         
         // Detener cámara si estábamos en una pantalla con cámara
-        if (previousScreen === 'scan' && window.scannerManager.isScanning) {
-            console.log('🔴 Cerrando cámara de escaneo...');
-            await window.scannerManager.stopCamera();
+        if (previousScreen === 'scan') {
+            console.log('🔍 Verificando si hay que cerrar cámara de productos...');
+            console.log('   isScanningProducts:', window.scannerManager.isScanningProducts);
+            if (window.scannerManager.isScanningProducts) {
+                console.log('🔴 Cerrando cámara de escaneo...');
+                await window.scannerManager.stopCamera();
+            }
         }
         
         // Detener cámara de checkout si estábamos en checkout
-        if (previousScreen === 'checkout' && window.scannerManager.isScanning) {
-            console.log('🔴 Cerrando cámara de checkout...');
-            await window.scannerManager.stopCheckoutCamera();
+        if (previousScreen === 'checkout') {
+            console.log('🔍 Verificando si hay que cerrar cámara de checkout...');
+            console.log('   isScanningCheckout:', window.scannerManager.isScanningCheckout);
+            if (window.scannerManager.isScanningCheckout) {
+                console.log('🔴 Cerrando cámara de checkout...');
+                await window.scannerManager.stopCheckoutCamera();
+            }
         }
         
         // Ocultar todas las pantallas
@@ -323,18 +332,20 @@ class ScanAsYouShopApp {
             
             // Iniciar cámara si entramos en pantalla de escaneo
             if (screenName === 'scan') {
-                console.log('🟢 Iniciando cámara de escaneo...');
+                console.log('🟢 Entrando a pantalla SCAN - Iniciando cámara de escaneo...');
                 // Pequeño delay para que el DOM se actualice
                 setTimeout(() => {
+                    console.log('⏰ Timeout completado - llamando a startCamera()');
                     window.scannerManager.startCamera();
                 }, 100);
             }
 
             // Iniciar cámara de checkout si entramos en pantalla de checkout
             if (screenName === 'checkout') {
-                console.log('🟢 Iniciando cámara de checkout...');
+                console.log('🟢 Entrando a pantalla CHECKOUT - Iniciando cámara de checkout...');
                 // Pequeño delay para que el DOM se actualice
                 setTimeout(() => {
+                    console.log('⏰ Timeout completado - llamando a startCheckoutCameraIntegrated()');
                     window.scannerManager.startCheckoutCameraIntegrated();
                 }, 100);
             }
