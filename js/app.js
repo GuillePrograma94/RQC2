@@ -534,10 +534,14 @@ class ScanAsYouShopApp {
         const priceWithIVA = producto.precio_unitario * 1.21;
         const subtotalWithIVA = producto.subtotal * 1.21;
 
+        const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo_producto}_1.JPG`;
+        
         card.innerHTML = `
             <div class="cart-product-image">
                 <div class="cart-product-quantity-badge">${producto.cantidad}</div>
-                <div class="product-placeholder">📦</div>
+                <img class="product-img" src="${imageUrl}" alt="${producto.descripcion_producto}" 
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="product-placeholder" style="display: none;">📦</div>
             </div>
             <div class="cart-product-info">
                 <div class="cart-product-name">${producto.descripcion_producto}</div>
