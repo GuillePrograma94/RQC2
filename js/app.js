@@ -548,19 +548,20 @@ class ScanAsYouShopApp {
                 <div class="product-placeholder" style="display: none;">📦</div>
             </div>
             <div class="cart-product-info">
-                <div class="cart-product-name">${producto.descripcion_producto}</div>
-                <div class="cart-product-code">${producto.codigo_producto}</div>
-                <div class="cart-product-price">${priceWithIVA.toFixed(2)} €</div>
-                <div class="cart-product-controls">
-                    <div class="quantity-controls-compact">
-                        <button class="qty-btn-compact" data-action="decrease" data-code="${producto.codigo_producto}">−</button>
-                        <span class="qty-value">${producto.cantidad}</span>
-                        <button class="qty-btn-compact" data-action="increase" data-code="${producto.codigo_producto}">+</button>
+                <div class="cart-product-main">
+                    <div class="cart-product-details">
+                        <div class="cart-product-name">${producto.descripcion_producto}</div>
+                        <div class="cart-product-code">${producto.codigo_producto}</div>
+                        <div class="cart-product-price">${priceWithIVA.toFixed(2)} €</div>
                     </div>
                     <div class="cart-product-subtotal">${subtotalWithIVA.toFixed(2)} €</div>
-                    <button class="btn-remove-compact" data-code="${producto.codigo_producto}">
-                        <span>🗑️</span>
-                    </button>
+                </div>
+                <div class="cart-product-footer">
+                    <div class="quantity-controls-compact">
+                        <button class="qty-btn-compact" data-action="decrease" data-code="${producto.codigo_producto}">−</button>
+                        <input type="number" class="qty-value-input" value="${producto.cantidad}" min="0" max="999" data-code="${producto.codigo_producto}">
+                        <button class="qty-btn-compact" data-action="increase" data-code="${producto.codigo_producto}">+</button>
+                    </div>
                 </div>
             </div>
         `;
@@ -568,10 +569,17 @@ class ScanAsYouShopApp {
         // Añadir event listeners
         const decreaseBtn = card.querySelector('[data-action="decrease"]');
         const increaseBtn = card.querySelector('[data-action="increase"]');
-        const removeBtn = card.querySelector('.btn-remove-compact');
+        const qtyInput = card.querySelector('.qty-value-input');
 
         decreaseBtn.addEventListener('click', async () => {
             const newQty = producto.cantidad - 1;
+            
+            // Si la cantidad es 1, preguntar antes de eliminar
+            if (producto.cantidad === 1) {
+                const confirmDelete = window.confirm('¿Eliminar este producto del carrito?');
+                if (!confirmDelete) return;
+            }
+            
             await this.updateProductQuantity(producto.codigo_producto, newQty);
         });
 
@@ -580,8 +588,39 @@ class ScanAsYouShopApp {
             await this.updateProductQuantity(producto.codigo_producto, newQty);
         });
 
-        removeBtn.addEventListener('click', async () => {
-            await this.removeProduct(producto.codigo_producto);
+        // Input manual de cantidad
+        qtyInput.addEventListener('blur', async (e) => {
+            let newQty = parseInt(e.target.value) || 0;
+            
+            // Limitar entre 0 y 999
+            if (newQty < 0) newQty = 0;
+            if (newQty > 999) newQty = 999;
+            
+            // Si ponen 0, preguntar antes de eliminar
+            if (newQty === 0) {
+                const confirmDelete = window.confirm('¿Eliminar este producto del carrito?');
+                if (!confirmDelete) {
+                    e.target.value = producto.cantidad;
+                    return;
+                }
+            }
+            
+            // Si la cantidad no cambió, no hacer nada
+            if (newQty === producto.cantidad) return;
+            
+            await this.updateProductQuantity(producto.codigo_producto, newQty);
+        });
+
+        // Permitir Enter para confirmar
+        qtyInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.target.blur();
+            }
+        });
+
+        // Seleccionar todo al hacer foco
+        qtyInput.addEventListener('focus', (e) => {
+            e.target.select();
         });
 
         return card;

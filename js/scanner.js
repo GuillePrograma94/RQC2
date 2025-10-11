@@ -509,9 +509,14 @@ class ScannerManager {
             console.timeEnd('⏱️ Búsqueda exacta');
             
             if (products.length === 1) {
-                // Un producto encontrado - añadir automáticamente
+                // Un producto encontrado - mostrar preview y luego añadir
                 const producto = products[0];
                 console.log('✅ Producto encontrado:', producto);
+                
+                // Mostrar ventana emergente con imagen y descripción
+                await this.showProductPreview(producto);
+                
+                // Añadir al carrito
                 await window.cartManager.addProduct(producto, 1);
                 window.ui.showToast(`✅ ${producto.descripcion}`, 'success');
                 window.ui.updateCartBadge();
@@ -572,6 +577,56 @@ class ScannerManager {
             scanContainer.style.display = 'none';
             scanContainer.innerHTML = '';
         }
+    }
+    
+    /**
+     * Muestra una ventana emergente con la imagen y descripción del producto
+     * durante 1 segundo
+     */
+    async showProductPreview(producto) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('productPreviewModal');
+            const img = document.getElementById('productPreviewImg');
+            const placeholder = modal.querySelector('.product-preview-placeholder');
+            const description = document.getElementById('productPreviewDescription');
+            
+            if (!modal || !img || !description) {
+                console.error('Elementos del modal no encontrados');
+                resolve();
+                return;
+            }
+            
+            // Configurar la URL de la imagen
+            const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
+            
+            // Configurar imagen
+            img.src = imageUrl;
+            img.style.display = 'block';
+            placeholder.style.display = 'none';
+            
+            // Manejar error de carga de imagen
+            img.onerror = () => {
+                img.style.display = 'none';
+                placeholder.style.display = 'flex';
+            };
+            
+            // Configurar descripción
+            description.textContent = producto.descripcion;
+            
+            // Mostrar modal
+            modal.style.display = 'flex';
+            
+            // Vibración de feedback (si está disponible)
+            if (navigator.vibrate) {
+                navigator.vibrate(200);
+            }
+            
+            // Ocultar después de 1 segundo
+            setTimeout(() => {
+                modal.style.display = 'none';
+                resolve();
+            }, 1000);
+        });
     }
 }
 

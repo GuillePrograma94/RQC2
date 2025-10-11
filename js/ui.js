@@ -138,22 +138,16 @@ class UIManager {
     }
 
     /**
-     * Actualiza el badge del carrito
+     * Actualiza el badge del carrito (número de líneas únicas)
      */
     updateCartBadge() {
-        const cartCount = document.getElementById('cartCount');
-        const fabCartCount = document.getElementById('fabCartCount');
+        const cartBadge = document.getElementById('cartBadge');
         
-        const totalProducts = window.cartManager ? window.cartManager.getTotalProducts() : 0;
+        const uniqueProducts = window.cartManager ? window.cartManager.getUniqueProductCount() : 0;
 
-        if (cartCount) {
-            cartCount.textContent = totalProducts;
-            cartCount.style.display = totalProducts > 0 ? 'flex' : 'none';
-        }
-
-        if (fabCartCount) {
-            fabCartCount.textContent = totalProducts;
-            fabCartCount.style.display = totalProducts > 0 ? 'flex' : 'none';
+        if (cartBadge) {
+            cartBadge.textContent = uniqueProducts;
+            cartBadge.style.display = uniqueProducts > 0 ? 'flex' : 'none';
         }
     }
 

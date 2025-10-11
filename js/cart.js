@@ -305,6 +305,13 @@ class CartManager {
     }
 
     /**
+     * Obtiene el número de líneas únicas en el carrito
+     */
+    getUniqueProductCount() {
+        return this.cart.productos.length;
+    }
+
+    /**
      * Obtiene el importe total
      */
     getTotalAmount() {
