@@ -110,47 +110,154 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Configura las pantallas
+     * Configura las pantallas y navegación
      */
     setupScreens() {
-        // Botón escanear producto
-        const scanProductBtn = document.getElementById('scanProductBtn');
-        if (scanProductBtn) {
-            scanProductBtn.addEventListener('click', () => {
-                window.scannerManager.scanProduct();
+        // Footer Navigation
+        const navSearch = document.getElementById('navSearch');
+        const navCheckout = document.getElementById('navCheckout');
+        const navScan = document.getElementById('navScan');
+
+        if (navSearch) {
+            navSearch.addEventListener('click', () => {
+                this.showScreen('search');
+                this.updateActiveNav('search');
             });
         }
 
-        // Botón ver carrito (header)
-        const cartBtn = document.getElementById('cartBtn');
-        if (cartBtn) {
-            cartBtn.addEventListener('click', () => {
-                this.showScreen('cart');
+        if (navCheckout) {
+            navCheckout.addEventListener('click', () => {
+                this.showScreen('checkout');
+                this.updateActiveNav('checkout');
             });
         }
 
-        // Botón volver desde carrito
-        const backToScanBtn = document.getElementById('backToScan');
-        if (backToScanBtn) {
-            backToScanBtn.addEventListener('click', () => {
+        if (navScan) {
+            navScan.addEventListener('click', () => {
                 this.showScreen('scan');
+                this.updateActiveNav('scan');
             });
         }
 
-        // Botón ir a caja (finalizar y escanear QR)
-        const finalizePurchaseBtn = document.getElementById('finalizePurchase');
-        if (finalizePurchaseBtn) {
-            finalizePurchaseBtn.addEventListener('click', () => {
-                this.goToCheckout();
-            });
-        }
+        // Botones de volver
+        const closeScanBtn = document.getElementById('closeScanBtn');
+        const closeSearchBtn = document.getElementById('closeSearchBtn');
+        const closeCheckoutBtn = document.getElementById('closeCheckoutBtn');
 
-        // FAB carrito
-        const fabCart = document.getElementById('fabCart');
-        if (fabCart) {
-            fabCart.addEventListener('click', () => {
+        if (closeScanBtn) {
+            closeScanBtn.addEventListener('click', () => {
                 this.showScreen('cart');
+                this.updateActiveNav('cart');
             });
+        }
+
+        if (closeSearchBtn) {
+            closeSearchBtn.addEventListener('click', () => {
+                this.showScreen('cart');
+                this.updateActiveNav('cart');
+            });
+        }
+
+        if (closeCheckoutBtn) {
+            closeCheckoutBtn.addEventListener('click', () => {
+                this.showScreen('cart');
+                this.updateActiveNav('cart');
+            });
+        }
+
+        // Búsqueda
+        const searchBtn = document.getElementById('searchBtn');
+        const codeSearchInput = document.getElementById('codeSearchInput');
+        const descriptionSearchInput = document.getElementById('descriptionSearchInput');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+
+        if (searchBtn) {
+            searchBtn.addEventListener('click', () => {
+                this.performSearch();
+            });
+        }
+
+        if (codeSearchInput) {
+            codeSearchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.performSearch();
+            });
+        }
+
+        if (descriptionSearchInput) {
+            descriptionSearchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.performSearch();
+            });
+        }
+
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', () => {
+                this.clearSearch();
+            });
+        }
+
+        // Checkout
+        const scanCheckoutQRBtn = document.getElementById('scanCheckoutQRBtn');
+        const submitCheckoutCodeBtn = document.getElementById('submitCheckoutCodeBtn');
+        const checkoutCodeInput = document.getElementById('checkoutCodeInput');
+        const closeCheckoutCamera = document.getElementById('closeCheckoutCamera');
+
+        if (scanCheckoutQRBtn) {
+            scanCheckoutQRBtn.addEventListener('click', () => {
+                window.scannerManager.scanCheckoutQR();
+            });
+        }
+
+        if (checkoutCodeInput) {
+            checkoutCodeInput.addEventListener('input', (e) => {
+                const value = e.target.value.replace(/\D/g, '').substring(0, 6);
+                e.target.value = value;
+                if (submitCheckoutCodeBtn) {
+                    submitCheckoutCodeBtn.disabled = value.length !== 6;
+                }
+            });
+        }
+
+        if (submitCheckoutCodeBtn) {
+            submitCheckoutCodeBtn.addEventListener('click', () => {
+                this.submitCheckoutCode();
+            });
+        }
+
+        if (closeCheckoutCamera) {
+            closeCheckoutCamera.addEventListener('click', () => {
+                window.scannerManager.stopCamera();
+            });
+        }
+
+        // Escaneo manual
+        const addManualCodeBtn = document.getElementById('addManualCodeBtn');
+        const manualCodeInput = document.getElementById('manualCodeInput');
+
+        if (addManualCodeBtn) {
+            addManualCodeBtn.addEventListener('click', () => {
+                this.addManualCode();
+            });
+        }
+
+        if (manualCodeInput) {
+            manualCodeInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.addManualCode();
+            });
+        }
+    }
+
+    /**
+     * Actualiza la navegación activa
+     */
+    updateActiveNav(screen) {
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => item.classList.remove('active'));
+
+        // No marcar como activo el botón de checkout (siempre destaca)
+        if (screen === 'search') {
+            document.getElementById('navSearch')?.classList.add('active');
+        } else if (screen === 'scan') {
+            document.getElementById('navScan')?.classList.add('active');
         }
     }
 
@@ -172,6 +279,150 @@ class ScanAsYouShopApp {
             if (screenName === 'cart') {
                 this.updateCartView();
             }
+        }
+    }
+
+    /**
+     * Realiza la búsqueda
+     */
+    async performSearch() {
+        const codeInput = document.getElementById('codeSearchInput');
+        const descInput = document.getElementById('descriptionSearchInput');
+        
+        const code = codeInput?.value.trim() || '';
+        const description = descInput?.value.trim() || '';
+
+        if (!code && !description) {
+            window.ui.showToast('Introduce un código o descripción', 'warning');
+            return;
+        }
+
+        try {
+            const productos = await window.cartManager.searchProductsLocal(code || description);
+            this.displaySearchResults(productos);
+        } catch (error) {
+            console.error('Error en búsqueda:', error);
+            window.ui.showToast('Error al buscar productos', 'error');
+        }
+    }
+
+    /**
+     * Muestra resultados de búsqueda
+     */
+    displaySearchResults(productos) {
+        const resultsContainer = document.getElementById('searchResults');
+        const emptyState = document.getElementById('searchEmpty');
+        const resultsList = document.getElementById('searchResultsList');
+        const resultsTitle = document.getElementById('searchResultsTitle');
+
+        if (!resultsList) return;
+
+        if (productos.length === 0) {
+            if (resultsContainer) resultsContainer.style.display = 'none';
+            if (emptyState) {
+                emptyState.style.display = 'flex';
+                emptyState.querySelector('.empty-icon').textContent = '😕';
+                emptyState.querySelector('p').textContent = 'No se encontraron productos';
+            }
+            return;
+        }
+
+        if (emptyState) emptyState.style.display = 'none';
+        if (resultsContainer) resultsContainer.style.display = 'block';
+        if (resultsTitle) resultsTitle.textContent = `${productos.length} resultado${productos.length !== 1 ? 's' : ''}`;
+
+        resultsList.innerHTML = productos.map(producto => `
+            <div class="result-item" onclick="window.app.addProductToCart('${producto.codigo}', '${producto.descripcion.replace(/'/g, "\\'")}', ${producto.pvp})">
+                <div class="result-code">${producto.codigo}</div>
+                <div class="result-name">${producto.descripcion}</div>
+                <div class="result-price">${producto.pvp.toFixed(2)} €</div>
+            </div>
+        `).join('');
+    }
+
+    /**
+     * Añade producto al carrito desde búsqueda
+     */
+    addProductToCart(codigo, descripcion, pvp) {
+        window.cartManager.addProduct({
+            codigo,
+            descripcion,
+            pvp,
+            cantidad: 1
+        });
+        
+        window.ui.showToast('Producto añadido al carrito', 'success');
+        this.updateCartView();
+    }
+
+    /**
+     * Limpia búsqueda
+     */
+    clearSearch() {
+        const codeInput = document.getElementById('codeSearchInput');
+        const descInput = document.getElementById('descriptionSearchInput');
+        const resultsContainer = document.getElementById('searchResults');
+        const emptyState = document.getElementById('searchEmpty');
+
+        if (codeInput) codeInput.value = '';
+        if (descInput) descInput.value = '';
+        if (resultsContainer) resultsContainer.style.display = 'none';
+        if (emptyState) {
+            emptyState.style.display = 'flex';
+            emptyState.querySelector('.empty-icon').textContent = '🔍';
+            emptyState.querySelector('p').textContent = 'Busca por código o descripción';
+        }
+    }
+
+    /**
+     * Añade código manual en pantalla de escaneo
+     */
+    async addManualCode() {
+        const input = document.getElementById('manualCodeInput');
+        const code = input?.value.trim();
+
+        if (!code) {
+            window.ui.showToast('Introduce un código', 'warning');
+            return;
+        }
+
+        try {
+            const producto = await window.supabaseClient.searchProductByCode(code);
+            if (producto) {
+                this.addProductToCart(producto.codigo, producto.descripcion, producto.pvp);
+                if (input) input.value = '';
+            } else {
+                window.ui.showToast('Producto no encontrado', 'error');
+            }
+        } catch (error) {
+            console.error('Error al buscar producto:', error);
+            window.ui.showToast('Error al buscar producto', 'error');
+        }
+    }
+
+    /**
+     * Envía código de caja
+     */
+    async submitCheckoutCode() {
+        const input = document.getElementById('checkoutCodeInput');
+        const code = input?.value;
+
+        if (!code || code.length !== 6) {
+            window.ui.showToast('Código inválido', 'error');
+            return;
+        }
+
+        try {
+            await window.cartManager.uploadCartToCheckout(code);
+            window.ui.showToast('Compra confirmada ✓', 'success');
+            
+            // Limpiar carrito y volver
+            window.cartManager.clearCart();
+            this.showScreen('cart');
+            this.updateActiveNav('cart');
+        } catch (error) {
+            console.error('Error al confirmar compra:', error);
+            window.ui.showToast('Error al confirmar compra', 'error');
         }
     }
 
