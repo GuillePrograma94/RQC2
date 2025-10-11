@@ -8,7 +8,8 @@ class ScannerManager {
         this.currentQuantity = 1;
         this.html5QrCode = null;
         this.html5QrCodeCheckout = null;
-        this.isScanning = false;
+        this.isScanningProducts = false;
+        this.isScanningCheckout = false;
         this.isCheckoutMode = false;
     }
 
@@ -298,8 +299,8 @@ class ScannerManager {
             return;
         }
         
-        if (this.isScanning) {
-            console.log('⚠️ El escáner ya está activo');
+        if (this.isScanningCheckout) {
+            console.log('⚠️ El escáner de checkout ya está activo');
             return;
         }
         
@@ -324,7 +325,7 @@ class ScannerManager {
                 }
             );
             
-            this.isScanning = true;
+            this.isScanningCheckout = true;
             console.log('📷 Escáner de checkout iniciado');
             
         } catch (error) {
@@ -341,12 +342,6 @@ class ScannerManager {
         
         // Detener cámara de checkout
         await this.stopCheckoutCamera();
-        
-        // Ocultar contenedor de cámara
-        const cameraContainer = document.getElementById('checkoutCameraContainer');
-        if (cameraContainer) {
-            cameraContainer.style.display = 'none';
-        }
         
         // Vibración de feedback
         if (navigator.vibrate) {
@@ -397,13 +392,13 @@ class ScannerManager {
      * Detiene el escáner de cámara de checkout
      */
     async stopCheckoutCamera() {
-        if (!this.html5QrCodeCheckout || !this.isScanning) {
+        if (!this.html5QrCodeCheckout || !this.isScanningCheckout) {
             return;
         }
         
         try {
             await this.html5QrCodeCheckout.stop();
-            this.isScanning = false;
+            this.isScanningCheckout = false;
             console.log('📷 Escáner de checkout detenido');
         } catch (error) {
             console.error('Error al detener cámara de checkout:', error);
@@ -419,8 +414,8 @@ class ScannerManager {
             return;
         }
         
-        if (this.isScanning) {
-            console.log('⚠️ El escáner ya está activo');
+        if (this.isScanningProducts) {
+            console.log('⚠️ El escáner de productos ya está activo');
             return;
         }
         
@@ -449,7 +444,7 @@ class ScannerManager {
                 }
             );
             
-            this.isScanning = true;
+            this.isScanningProducts = true;
             console.log('📷 Escáner de cámara iniciado');
             
         } catch (error) {
@@ -462,13 +457,13 @@ class ScannerManager {
      * Detiene el escáner de cámara
      */
     async stopCamera() {
-        if (!this.html5QrCode || !this.isScanning) {
+        if (!this.html5QrCode || !this.isScanningProducts) {
             return;
         }
         
         try {
             await this.html5QrCode.stop();
-            this.isScanning = false;
+            this.isScanningProducts = false;
             console.log('📷 Escáner de cámara detenido');
         } catch (error) {
             console.error('Error al detener cámara:', error);

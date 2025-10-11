@@ -6,10 +6,10 @@
     <meta name="theme-color" content="#7851A9">
     <meta name="description" content="Escanea productos mientras compras - Sistema de autocompra">
     
-    <!-- PWA Standalone -->
+    <!-- PWA Fullscreen -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Scan Shop">
     
     <!-- Android Fullscreen -->
@@ -320,15 +320,31 @@
         }
     </script>
 
-    <!-- Standalone Mode Handler -->
+    <!-- Fullscreen Mode Handler -->
     <script>
-        // Detectar si está en modo standalone (PWA instalada)
+        // Detectar si está en modo standalone/fullscreen (PWA instalada)
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                            window.matchMedia('(display-mode: fullscreen)').matches ||
                             window.navigator.standalone === true;
         
         if (isStandalone) {
-            console.log('PWA en modo standalone - Barra de estado visible');
+            console.log('PWA en modo fullscreen/standalone');
+            
+            // Para Android: ocultar barras del sistema
+            if ('setAppBadge' in navigator || /android/i.test(navigator.userAgent)) {
+                // Intentar activar modo inmersivo
+                document.documentElement.requestFullscreen?.({ navigationUI: "hide" })
+                    .catch(err => console.log('Fullscreen no disponible:', err));
+            }
         }
+
+        // Restaurar fullscreen cuando se vuelve a la app
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && isStandalone && document.fullscreenElement === null) {
+                document.documentElement.requestFullscreen?.({ navigationUI: "hide" })
+                    .catch(err => console.log('No se pudo restaurar fullscreen'));
+            }
+        });
     </script>
 </body>
 </html>
