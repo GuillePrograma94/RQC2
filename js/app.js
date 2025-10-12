@@ -535,14 +535,6 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Load history button (empty state)
-        const loadHistoryBtn = document.getElementById('loadHistoryBtn');
-        if (loadHistoryBtn) {
-            loadHistoryBtn.addEventListener('click', () => {
-                this.loadPurchaseHistory();
-            });
-        }
-
         // Load all history button
         const loadAllHistoryBtn = document.getElementById('loadAllHistoryBtn');
         if (loadAllHistoryBtn) {
