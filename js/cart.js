@@ -160,6 +160,22 @@ class CartManager {
                 );
             }
 
+            // Si hay usuario logueado, asociar su sesión al carrito
+            if (window.app && window.app.currentUser && window.app.currentSession) {
+                console.log(`Asociando sesion ${window.app.currentSession} al carrito ${codigoQR}`);
+                const associated = await window.supabaseClient.associateCartToSession(
+                    window.app.currentSession,
+                    codigoQR
+                );
+                if (associated) {
+                    console.log('Sesion asociada correctamente al carrito');
+                } else {
+                    console.warn('No se pudo asociar la sesion al carrito');
+                }
+            } else {
+                console.log('No hay usuario logueado - carrito sin sesion asociada');
+            }
+
             // Guardar el código QR en el carrito local
             this.cart.codigo_qr = codigoQR;
             this.cart.id = carrito.id;
