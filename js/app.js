@@ -6,6 +6,8 @@ class ScanAsYouShopApp {
     constructor() {
         this.currentScreen = 'welcome';
         this.isInitialized = false;
+        this.currentUser = null;
+        this.currentSession = null;
     }
 
     /**
@@ -24,6 +26,244 @@ class ScanAsYouShopApp {
             if (!supabaseOK) {
                 throw new Error('No se pudo conectar con el servidor');
             }
+
+            // Verificar si hay sesión guardada
+            const savedUser = this.loadUserSession();
+            if (savedUser) {
+                console.log('Sesion de usuario encontrada:', savedUser.user_name);
+                this.currentUser = savedUser;
+                this.updateUserUI();
+            }
+
+            // Inicializar app (con o sin usuario logueado)
+            await this.initializeApp();
+
+        } catch (error) {
+            console.error('Error al inicializar aplicacion:', error);
+            window.ui.hideLoading();
+            window.ui.showToast(
+                'Error al iniciar la aplicacion. Verifica tu conexion.',
+                'error'
+            );
+        }
+    }
+
+    /**
+     * Muestra el modal de login
+     */
+    showLoginModal() {
+        const loginModal = document.getElementById('loginModal');
+        if (loginModal) {
+            loginModal.style.display = 'flex';
+        }
+    }
+
+    /**
+     * Oculta el modal de login
+     */
+    hideLoginModal() {
+        const loginModal = document.getElementById('loginModal');
+        if (loginModal) {
+            loginModal.style.display = 'none';
+        }
+        
+        // Limpiar formulario
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) loginForm.reset();
+        
+        // Ocultar error
+        const errorDiv = document.getElementById('loginError');
+        if (errorDiv) errorDiv.style.display = 'none';
+    }
+
+    /**
+     * Maneja el proceso de login
+     */
+    async handleLogin(e) {
+        e.preventDefault();
+
+        const codigoInput = document.getElementById('loginCodigo');
+        const passwordInput = document.getElementById('loginPassword');
+        const errorDiv = document.getElementById('loginError');
+        const loginBtn = e.target.querySelector('button[type="submit"]');
+
+        const codigo = codigoInput.value.trim();
+        const password = passwordInput.value;
+
+        if (!codigo || !password) {
+            this.showLoginError('Por favor completa todos los campos');
+            return;
+        }
+
+        // Deshabilitar botón mientras se procesa
+        if (loginBtn) {
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Iniciando sesión...';
+        }
+
+        try {
+            // Intentar login
+            const loginResult = await window.supabaseClient.loginUser(codigo, password);
+
+            if (loginResult.success) {
+                // Guardar información del usuario
+                this.currentUser = {
+                    user_id: loginResult.user_id,
+                    user_name: loginResult.user_name,
+                    codigo_usuario: loginResult.codigo_usuario
+                };
+
+                // Crear sesión
+                const sessionId = await window.supabaseClient.createUserSession(codigo);
+                if (sessionId) {
+                    this.currentSession = sessionId;
+                }
+
+                // Guardar sesión en localStorage
+                this.saveUserSession(this.currentUser, sessionId);
+
+                // Actualizar UI con nombre del usuario
+                this.updateUserUI();
+
+                // Ocultar modal de login
+                this.hideLoginModal();
+                
+                // Cerrar menú
+                this.closeMenu();
+                
+                // Mostrar mensaje de bienvenida
+                window.ui.showToast(`Bienvenido, ${this.currentUser.user_name}`, 'success');
+
+            } else {
+                this.showLoginError(loginResult.message || 'Usuario o contraseña incorrectos');
+                if (loginBtn) {
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Iniciar Sesión';
+                }
+            }
+
+        } catch (error) {
+            console.error('Error al iniciar sesión:', error);
+            this.showLoginError('Error de conexión. Intenta de nuevo.');
+            if (loginBtn) {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Iniciar Sesión';
+            }
+        }
+    }
+
+    /**
+     * Muestra un error en el formulario de login
+     */
+    showLoginError(message) {
+        const errorDiv = document.getElementById('loginError');
+        if (errorDiv) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+    }
+
+    /**
+     * Guarda la sesión del usuario en localStorage
+     */
+    saveUserSession(user, sessionId) {
+        try {
+            localStorage.setItem('current_user', JSON.stringify(user));
+            if (sessionId) {
+                localStorage.setItem('current_session', sessionId.toString());
+            }
+            console.log('Sesion guardada localmente');
+        } catch (error) {
+            console.error('Error al guardar sesion:', error);
+        }
+    }
+
+    /**
+     * Carga la sesión del usuario desde localStorage
+     */
+    loadUserSession() {
+        try {
+            const userStr = localStorage.getItem('current_user');
+            const sessionStr = localStorage.getItem('current_session');
+            
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                if (sessionStr) {
+                    this.currentSession = parseInt(sessionStr);
+                }
+                return user;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error al cargar sesion:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Actualiza la UI con la información del usuario
+     */
+    updateUserUI() {
+        const menuGuest = document.getElementById('menuGuest');
+        const menuUser = document.getElementById('menuUser');
+        const menuUserName = document.getElementById('menuUserName');
+        const menuUserCode = document.getElementById('menuUserCode');
+
+        if (this.currentUser) {
+            // Usuario logueado
+            if (menuGuest) menuGuest.style.display = 'none';
+            if (menuUser) menuUser.style.display = 'block';
+            if (menuUserName) {
+                menuUserName.textContent = this.currentUser.user_name;
+            }
+            if (menuUserCode) {
+                menuUserCode.textContent = `Código: ${this.currentUser.codigo_usuario}`;
+            }
+        } else {
+            // Usuario NO logueado
+            if (menuGuest) menuGuest.style.display = 'block';
+            if (menuUser) menuUser.style.display = 'none';
+        }
+    }
+
+    /**
+     * Cierra la sesión del usuario
+     */
+    async logout() {
+        try {
+            // Cerrar sesión en Supabase
+            if (this.currentSession) {
+                await window.supabaseClient.closeUserSession(this.currentSession);
+            }
+
+            // Limpiar datos locales
+            localStorage.removeItem('current_user');
+            localStorage.removeItem('current_session');
+            this.currentUser = null;
+            this.currentSession = null;
+
+            // Actualizar UI
+            this.updateUserUI();
+
+            // Mostrar mensaje
+            window.ui.showToast('Sesión cerrada', 'success');
+
+            console.log('Sesion cerrada correctamente');
+
+        } catch (error) {
+            console.error('Error al cerrar sesion:', error);
+        }
+    }
+
+    /**
+     * Inicializa la aplicación después del login
+     */
+    async initializeApp() {
+        try {
+            window.ui.showLoading('Cargando aplicacion...');
 
             // Inicializar carrito
             const cartOK = await window.cartManager.initialize();
@@ -241,6 +481,48 @@ class ScanAsYouShopApp {
             manualCodeInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') this.addManualCode();
             });
+        }
+
+        // Login button (menu hamburguesa)
+        const loginBtn = document.getElementById('loginBtn');
+        if (loginBtn) {
+            loginBtn.addEventListener('click', () => {
+                this.closeMenu();
+                this.showLoginModal();
+            });
+        }
+
+        // Logout button
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                this.logout();
+                this.closeMenu();
+            });
+        }
+
+        // Close login modal
+        const closeLoginModal = document.getElementById('closeLoginModal');
+        if (closeLoginModal) {
+            closeLoginModal.addEventListener('click', () => {
+                this.hideLoginModal();
+            });
+        }
+
+        // Close login modal on overlay click
+        const loginModal = document.getElementById('loginModal');
+        if (loginModal) {
+            loginModal.addEventListener('click', (e) => {
+                if (e.target.classList.contains('login-modal-overlay') || e.target.id === 'loginModal') {
+                    this.hideLoginModal();
+                }
+            });
+        }
+
+        // Login form submit
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.onsubmit = (e) => this.handleLogin(e);
         }
     }
 

@@ -456,6 +456,153 @@ class SupabaseClient {
             throw error;
         }
     }
+
+    /**
+     * Hash de contraseña (SHA-256) - debe coincidir con el del panel de gestión
+     */
+    async _hashPassword(password) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hashHex;
+    }
+
+    /**
+     * Verifica las credenciales de login de un usuario
+     */
+    async loginUser(codigoUsuario, password) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            console.log('Intentando login para usuario:', codigoUsuario);
+
+            // Hash de la contraseña
+            const passwordHash = await this._hashPassword(password);
+
+            // Llamar a la función SQL de verificación
+            const { data, error } = await this.client.rpc(
+                'verificar_login_usuario',
+                {
+                    p_codigo_usuario: codigoUsuario,
+                    p_password_hash: passwordHash
+                }
+            );
+
+            if (error) {
+                console.error('Error en RPC:', error);
+                throw error;
+            }
+
+            if (data && data.length > 0) {
+                const loginResult = data[0];
+                
+                if (loginResult.success) {
+                    console.log('Login exitoso:', loginResult.user_name);
+                    return {
+                        success: true,
+                        user_id: loginResult.user_id,
+                        user_name: loginResult.user_name,
+                        codigo_usuario: codigoUsuario
+                    };
+                }
+            }
+
+            console.log('Login fallido: credenciales incorrectas');
+            return {
+                success: false,
+                message: 'Usuario o contrasena incorrectos'
+            };
+
+        } catch (error) {
+            console.error('Error al verificar login:', error);
+            return {
+                success: false,
+                message: 'Error de conexion. Intenta de nuevo.'
+            };
+        }
+    }
+
+    /**
+     * Crea una sesión de usuario en Supabase
+     */
+    async createUserSession(codigoUsuario) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            const { data, error } = await this.client.rpc(
+                'crear_sesion_usuario',
+                { p_codigo_usuario: codigoUsuario }
+            );
+
+            if (error) throw error;
+
+            console.log('Sesion creada con ID:', data);
+            return data; // ID de la sesión
+
+        } catch (error) {
+            console.error('Error al crear sesion:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Cierra la sesión de usuario
+     */
+    async closeUserSession(sessionId) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            const { data, error } = await this.client.rpc(
+                'cerrar_sesion_usuario',
+                { p_sesion_id: sessionId }
+            );
+
+            if (error) throw error;
+
+            console.log('Sesion cerrada exitosamente');
+            return true;
+
+        } catch (error) {
+            console.error('Error al cerrar sesion:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Asocia un carrito a una sesión de usuario
+     */
+    async associateCartToSession(sessionId, carritoCode) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            const { data, error } = await this.client.rpc(
+                'asociar_carrito_a_sesion',
+                { 
+                    p_sesion_id: sessionId,
+                    p_carrito_codigo: carritoCode
+                }
+            );
+
+            if (error) throw error;
+
+            console.log('Carrito asociado a sesion');
+            return true;
+
+        } catch (error) {
+            console.error('Error al asociar carrito a sesion:', error);
+            return false;
+        }
+    }
 }
 
 // Crear instancia global

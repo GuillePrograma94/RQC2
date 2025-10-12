@@ -35,6 +35,43 @@
         <p class="loading-text">Cargando...</p>
     </div>
 
+    <!-- Login Modal -->
+    <div id="loginModal" class="login-modal" style="display: none;">
+        <div class="login-modal-overlay"></div>
+        <div class="login-modal-content">
+            <div class="login-modal-header">
+                <h2>Iniciar Sesión</h2>
+                <button id="closeLoginModal" class="close-login-btn">✕</button>
+            </div>
+            <form id="loginForm" class="login-form">
+                <div class="login-form-group">
+                    <label for="loginCodigo">Código de Usuario</label>
+                    <input 
+                        type="text" 
+                        id="loginCodigo" 
+                        placeholder="Ej: 1001"
+                        pattern="[0-9]*"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        required
+                    >
+                </div>
+                <div class="login-form-group">
+                    <label for="loginPassword">Contraseña</label>
+                    <input 
+                        type="password" 
+                        id="loginPassword" 
+                        placeholder="••••••••"
+                        autocomplete="off"
+                        required
+                    >
+                </div>
+                <button type="submit" class="login-btn">Iniciar Sesión</button>
+                <div id="loginError" class="login-error" style="display: none;"></div>
+            </form>
+        </div>
+    </div>
+
     <!-- Fixed Header -->
     <header class="app-header-fixed">
         <div class="header-content">
@@ -49,14 +86,31 @@
         </div>
     </header>
 
-    <!-- Menu Sidebar (para futuro) -->
+    <!-- Menu Sidebar -->
     <div id="menuSidebar" class="menu-sidebar">
         <div class="menu-header">
             <h2>Menú</h2>
             <button id="closeMenuBtn" class="close-menu-btn">✕</button>
         </div>
         <div class="menu-content">
-            <p class="menu-placeholder">Contenido de usuario próximamente...</p>
+            <!-- Usuario NO logueado -->
+            <div id="menuGuest" class="menu-guest">
+                <div class="guest-icon">👤</div>
+                <p class="guest-text">No has iniciado sesión</p>
+                <button id="loginBtn" class="menu-login-btn">Iniciar Sesión</button>
+            </div>
+
+            <!-- Usuario logueado -->
+            <div id="menuUser" class="menu-user" style="display: none;">
+                <div class="user-info">
+                    <div class="user-avatar">👤</div>
+                    <div class="user-details">
+                        <div class="user-name" id="menuUserName">Usuario</div>
+                        <div class="user-code" id="menuUserCode">Código: ----</div>
+                    </div>
+                </div>
+                <button id="logoutBtn" class="menu-logout-btn">Cerrar Sesión</button>
+            </div>
         </div>
     </div>
 
