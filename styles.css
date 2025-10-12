@@ -1854,7 +1854,7 @@ body {
 
 .btn-delete-history {
     position: absolute;
-    top: 0.5rem;
+    bottom: 0.5rem;
     right: 0.5rem;
     background: var(--danger);
     color: var(--white);

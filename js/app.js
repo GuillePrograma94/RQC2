@@ -1268,8 +1268,7 @@ class ScanAsYouShopApp {
                         <div class="result-name">${producto.descripcion}</div>
                         <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
                         <div class="result-meta">
-                            <span class="result-purchase-count">Comprado ${producto.veces_comprado} ${producto.veces_comprado === 1 ? 'vez' : 'veces'}</span>
-                            <span class="result-last-purchase">Última: ${fechaFormateada}</span>
+                            <span class="result-last-purchase">Última compra: ${fechaFormateada}</span>
                         </div>
                     </div>
                     <button class="btn-delete-history" onclick="event.stopPropagation(); window.app.deleteProductFromHistory('${producto.codigo}', '${producto.descripcion.replace(/'/g, "\\'")}')">
