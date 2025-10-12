@@ -1257,13 +1257,13 @@ class ScanAsYouShopApp {
             });
             
             return `
-                <div class="result-item-with-image" onclick="window.app.addProductToCartFromHistory('${producto.codigo}', '${producto.descripcion.replace(/'/g, "\\'")}', ${producto.pvp})">
-                    <div class="result-image">
+                <div class="result-item-with-image history-item">
+                    <div class="result-image" onclick="window.app.addProductToCartFromHistory('${producto.codigo}', '${producto.descripcion.replace(/'/g, "\\'")}', ${producto.pvp})">
                         <img src="${imageUrl}" alt="${producto.descripcion}" 
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                         <div class="result-image-placeholder" style="display: none;">📦</div>
                     </div>
-                    <div class="result-info">
+                    <div class="result-info" onclick="window.app.addProductToCartFromHistory('${producto.codigo}', '${producto.descripcion.replace(/'/g, "\\'")}', ${producto.pvp})">
                         <div class="result-code">${producto.codigo}</div>
                         <div class="result-name">${producto.descripcion}</div>
                         <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
@@ -1272,6 +1272,9 @@ class ScanAsYouShopApp {
                             <span class="result-last-purchase">Última: ${fechaFormateada}</span>
                         </div>
                     </div>
+                    <button class="btn-delete-history" onclick="event.stopPropagation(); window.app.deleteProductFromHistory('${producto.codigo}', '${producto.descripcion.replace(/'/g, "\\'")}')">
+                        🗑️
+                    </button>
                 </div>
             `;
         }).join('');
@@ -1326,6 +1329,47 @@ class ScanAsYouShopApp {
         if (descInput) descInput.value = '';
 
         this.showHistoryEmptyState();
+    }
+
+    /**
+     * Elimina un producto del historial
+     */
+    async deleteProductFromHistory(codigo, descripcion) {
+        if (!this.currentUser) {
+            window.ui.showToast('Debes iniciar sesión primero', 'warning');
+            return;
+        }
+
+        try {
+            // Pedir confirmación
+            const confirmDelete = await window.ui.showConfirm(
+                '¿ELIMINAR DEL HISTORIAL?',
+                `¿Deseas eliminar "${descripcion}" de tu historial de compras?`,
+                'Eliminar',
+                'Cancelar'
+            );
+
+            if (!confirmDelete) return;
+
+            // Eliminar del servidor
+            const success = await window.supabaseClient.deleteProductFromHistory(
+                this.currentUser.user_id,
+                codigo
+            );
+
+            if (success) {
+                window.ui.showToast('Producto eliminado del historial', 'success');
+                
+                // Recargar el historial
+                await this.searchPurchaseHistory();
+            } else {
+                window.ui.showToast('Error al eliminar del historial', 'error');
+            }
+
+        } catch (error) {
+            console.error('Error al eliminar producto del historial:', error);
+            window.ui.showToast('Error al eliminar del historial', 'error');
+        }
     }
 
     /**

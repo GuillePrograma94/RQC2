@@ -1846,3 +1846,37 @@ body {
 .result-last-purchase {
     color: var(--gray-500);
 }
+
+/* History Item con botón de eliminar */
+.history-item {
+    position: relative;
+}
+
+.btn-delete-history {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: var(--danger);
+    color: var(--white);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+    z-index: 10;
+}
+
+.btn-delete-history:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.5);
+}
+
+.btn-delete-history:active {
+    transform: scale(0.95);
+}

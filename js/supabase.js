@@ -634,6 +634,36 @@ class SupabaseClient {
             return [];
         }
     }
+
+    /**
+     * Elimina un producto del historial de compras de un usuario
+     */
+    async deleteProductFromHistory(userId, codigoProducto) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            console.log(`Eliminando producto ${codigoProducto} del historial del usuario ${userId}`);
+
+            const { data, error } = await this.client.rpc(
+                'eliminar_producto_historial',
+                {
+                    p_usuario_id: userId,
+                    p_codigo_producto: codigoProducto
+                }
+            );
+
+            if (error) throw error;
+
+            console.log('Producto eliminado del historial');
+            return true;
+
+        } catch (error) {
+            console.error('Error al eliminar producto del historial:', error);
+            return false;
+        }
+    }
 }
 
 // Crear instancia global
