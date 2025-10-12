@@ -603,6 +603,37 @@ class SupabaseClient {
             return false;
         }
     }
+
+    /**
+     * Obtiene el historial de compras de un usuario
+     */
+    async getUserPurchaseHistory(userId, codigoFiltro = null, descripcionFiltro = null) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            console.log('Obteniendo historial de compras para usuario:', userId);
+
+            const { data, error } = await this.client.rpc(
+                'obtener_historial_usuario',
+                {
+                    p_usuario_id: userId,
+                    p_codigo_filtro: codigoFiltro,
+                    p_descripcion_filtro: descripcionFiltro
+                }
+            );
+
+            if (error) throw error;
+
+            console.log(`Historial obtenido: ${data ? data.length : 0} productos`);
+            return data || [];
+
+        } catch (error) {
+            console.error('Error al obtener historial de compras:', error);
+            return [];
+        }
+    }
 }
 
 // Crear instancia global

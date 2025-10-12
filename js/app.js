@@ -524,6 +524,64 @@ class ScanAsYouShopApp {
         if (loginForm) {
             loginForm.onsubmit = (e) => this.handleLogin(e);
         }
+
+        // Purchase History button (menu hamburguesa)
+        const purchaseHistoryBtn = document.getElementById('purchaseHistoryBtn');
+        if (purchaseHistoryBtn) {
+            purchaseHistoryBtn.addEventListener('click', () => {
+                this.closeMenu();
+                this.showScreen('purchaseHistory');
+                this.updateActiveNav('purchaseHistory');
+            });
+        }
+
+        // Load history button (empty state)
+        const loadHistoryBtn = document.getElementById('loadHistoryBtn');
+        if (loadHistoryBtn) {
+            loadHistoryBtn.addEventListener('click', () => {
+                this.loadPurchaseHistory();
+            });
+        }
+
+        // Load all history button
+        const loadAllHistoryBtn = document.getElementById('loadAllHistoryBtn');
+        if (loadAllHistoryBtn) {
+            loadAllHistoryBtn.addEventListener('click', () => {
+                this.loadPurchaseHistory();
+            });
+        }
+
+        // Search history button
+        const searchHistoryBtn = document.getElementById('searchHistoryBtn');
+        if (searchHistoryBtn) {
+            searchHistoryBtn.addEventListener('click', () => {
+                this.searchPurchaseHistory();
+            });
+        }
+
+        // Clear history search button
+        const clearHistorySearchBtn = document.getElementById('clearHistorySearchBtn');
+        if (clearHistorySearchBtn) {
+            clearHistorySearchBtn.addEventListener('click', () => {
+                this.clearHistorySearch();
+            });
+        }
+
+        // Enter key en inputs de historial
+        const historyCodeInput = document.getElementById('historyCodeInput');
+        const historyDescriptionInput = document.getElementById('historyDescriptionInput');
+        
+        if (historyCodeInput) {
+            historyCodeInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.searchPurchaseHistory();
+            });
+        }
+
+        if (historyDescriptionInput) {
+            historyDescriptionInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.searchPurchaseHistory();
+            });
+        }
     }
 
     /**
@@ -636,6 +694,18 @@ class ScanAsYouShopApp {
             if (screenName === 'cart') {
                 this.updateCartView();
                 console.log('Vista del carrito actualizada');
+            }
+
+            // Verificar que el usuario está logueado al entrar en historial
+            if (screenName === 'purchaseHistory') {
+                if (!this.currentUser) {
+                    window.ui.showToast('Debes iniciar sesión para ver tu historial', 'warning');
+                    this.showScreen('cart');
+                    this.updateActiveNav('cart');
+                    return;
+                }
+                // Mostrar empty state al entrar
+                this.showHistoryEmptyState();
             }
         }
     }
@@ -1059,6 +1129,203 @@ class ScanAsYouShopApp {
         localStorage.removeItem('cameraPermissionRequested');
         console.log('Estado de permisos de cámara reseteado');
         window.ui.showToast('Puedes volver a dar permisos de camara', 'info');
+    }
+
+    /**
+     * Carga el historial de compras del usuario
+     */
+    async loadPurchaseHistory() {
+        if (!this.currentUser) {
+            window.ui.showToast('Debes iniciar sesión primero', 'warning');
+            return;
+        }
+
+        try {
+            // Ocultar empty state, mostrar loading
+            const emptyState = document.getElementById('historyEmpty');
+            const loadingState = document.getElementById('historyLoading');
+            const resultsContainer = document.getElementById('historyResults');
+
+            if (emptyState) emptyState.style.display = 'none';
+            if (loadingState) loadingState.style.display = 'flex';
+            if (resultsContainer) resultsContainer.style.display = 'none';
+
+            // Obtener historial del usuario
+            const historial = await window.supabaseClient.getUserPurchaseHistory(this.currentUser.user_id);
+
+            // Ocultar loading
+            if (loadingState) loadingState.style.display = 'none';
+
+            // Mostrar resultados
+            this.displayPurchaseHistory(historial);
+
+        } catch (error) {
+            console.error('Error al cargar historial:', error);
+            window.ui.showToast('Error al cargar el historial', 'error');
+            
+            const loadingState = document.getElementById('historyLoading');
+            if (loadingState) loadingState.style.display = 'none';
+            this.showHistoryEmptyState();
+        }
+    }
+
+    /**
+     * Busca en el historial con filtros
+     */
+    async searchPurchaseHistory() {
+        if (!this.currentUser) {
+            window.ui.showToast('Debes iniciar sesión primero', 'warning');
+            return;
+        }
+
+        const codeInput = document.getElementById('historyCodeInput');
+        const descInput = document.getElementById('historyDescriptionInput');
+        
+        const codigo = codeInput?.value.trim() || null;
+        const descripcion = descInput?.value.trim() || null;
+
+        try {
+            // Mostrar loading
+            const loadingState = document.getElementById('historyLoading');
+            const emptyState = document.getElementById('historyEmpty');
+            const resultsContainer = document.getElementById('historyResults');
+
+            if (emptyState) emptyState.style.display = 'none';
+            if (loadingState) loadingState.style.display = 'flex';
+            if (resultsContainer) resultsContainer.style.display = 'none';
+
+            // Buscar con filtros
+            const historial = await window.supabaseClient.getUserPurchaseHistory(
+                this.currentUser.user_id,
+                codigo,
+                descripcion
+            );
+
+            // Ocultar loading
+            if (loadingState) loadingState.style.display = 'none';
+
+            // Mostrar resultados
+            this.displayPurchaseHistory(historial);
+
+        } catch (error) {
+            console.error('Error al buscar en historial:', error);
+            window.ui.showToast('Error al buscar en el historial', 'error');
+            
+            const loadingState = document.getElementById('historyLoading');
+            if (loadingState) loadingState.style.display = 'none';
+        }
+    }
+
+    /**
+     * Muestra el historial de compras
+     */
+    displayPurchaseHistory(historial) {
+        const resultsContainer = document.getElementById('historyResults');
+        const emptyState = document.getElementById('historyEmpty');
+        const resultsList = document.getElementById('historyResultsList');
+        const resultsTitle = document.getElementById('historyResultsTitle');
+
+        if (!resultsList) return;
+
+        if (!historial || historial.length === 0) {
+            if (resultsContainer) resultsContainer.style.display = 'none';
+            if (emptyState) {
+                emptyState.style.display = 'flex';
+                emptyState.querySelector('.empty-icon').textContent = '😕';
+                emptyState.querySelector('h2').textContent = 'No se encontraron productos';
+                emptyState.querySelector('p').textContent = 'Aún no has comprado ningún producto o no hay resultados con ese filtro';
+            }
+            return;
+        }
+
+        if (emptyState) emptyState.style.display = 'none';
+        if (resultsContainer) resultsContainer.style.display = 'block';
+        if (resultsTitle) {
+            resultsTitle.textContent = `${historial.length} producto${historial.length !== 1 ? 's' : ''} comprado${historial.length !== 1 ? 's' : ''} anteriormente`;
+        }
+
+        resultsList.innerHTML = historial.map(producto => {
+            const priceWithIVA = producto.pvp * 1.21;
+            const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
+            
+            // Formatear fecha de última compra
+            const fechaUltimaCompra = new Date(producto.fecha_ultima_compra);
+            const fechaFormateada = fechaUltimaCompra.toLocaleDateString('es-ES', { 
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric' 
+            });
+            
+            return `
+                <div class="result-item-with-image" onclick="window.app.addProductToCartFromHistory('${producto.codigo}', '${producto.descripcion.replace(/'/g, "\\'")}', ${producto.pvp})">
+                    <div class="result-image">
+                        <img src="${imageUrl}" alt="${producto.descripcion}" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="result-image-placeholder" style="display: none;">📦</div>
+                    </div>
+                    <div class="result-info">
+                        <div class="result-code">${producto.codigo}</div>
+                        <div class="result-name">${producto.descripcion}</div>
+                        <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
+                        <div class="result-meta">
+                            <span class="result-purchase-count">Comprado ${producto.veces_comprado} ${producto.veces_comprado === 1 ? 'vez' : 'veces'}</span>
+                            <span class="result-last-purchase">Última: ${fechaFormateada}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Añade un producto al carrito desde el historial
+     */
+    async addProductToCartFromHistory(codigo, descripcion, pvp) {
+        try {
+            await window.cartManager.addProduct({
+                codigo,
+                descripcion,
+                pvp
+            }, 1);
+            
+            window.ui.showToast('Producto añadido al carrito', 'success');
+            window.ui.updateCartBadge();
+            
+        } catch (error) {
+            console.error('Error al añadir producto:', error);
+            window.ui.showToast('Error al añadir producto', 'error');
+        }
+    }
+
+    /**
+     * Muestra el estado vacío del historial
+     */
+    showHistoryEmptyState() {
+        const emptyState = document.getElementById('historyEmpty');
+        const resultsContainer = document.getElementById('historyResults');
+        const loadingState = document.getElementById('historyLoading');
+
+        if (loadingState) loadingState.style.display = 'none';
+        if (resultsContainer) resultsContainer.style.display = 'none';
+        if (emptyState) {
+            emptyState.style.display = 'flex';
+            emptyState.querySelector('.empty-icon').textContent = '🛍️';
+            emptyState.querySelector('h2').textContent = 'Tus últimas compras';
+            emptyState.querySelector('p').textContent = 'Aquí encontrarás los productos que has comprado anteriormente';
+        }
+    }
+
+    /**
+     * Limpia la búsqueda del historial
+     */
+    clearHistorySearch() {
+        const codeInput = document.getElementById('historyCodeInput');
+        const descInput = document.getElementById('historyDescriptionInput');
+
+        if (codeInput) codeInput.value = '';
+        if (descInput) descInput.value = '';
+
+        this.showHistoryEmptyState();
     }
 
     /**

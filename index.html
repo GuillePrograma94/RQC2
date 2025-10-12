@@ -110,6 +110,12 @@
                         <div class="user-code" id="menuUserCode">Código: ----</div>
                     </div>
                 </div>
+                <div class="menu-actions">
+                    <button id="purchaseHistoryBtn" class="menu-action-btn">
+                        <span class="menu-action-icon">🛍️</span>
+                        <span>Últimas Compras</span>
+                    </button>
+                </div>
                 <button id="logoutBtn" class="menu-logout-btn">Cerrar Sesión</button>
             </div>
         </div>
@@ -225,6 +231,71 @@
                 <div id="searchEmpty" class="empty-state">
                     <div class="empty-icon">🔍</div>
                     <p>Busca por código o descripción</p>
+                </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA DE ÚLTIMAS COMPRAS
+             ================================ -->
+        <div id="purchaseHistoryScreen" class="screen">
+            <main class="screen-content">
+                <!-- Search Section -->
+                <div class="search-section">
+                    <h2 class="section-title">Mis Últimas Compras</h2>
+                    
+                    <!-- Campo de código -->
+                    <div class="input-group code-group">
+                        <label for="historyCodeInput" class="input-label">📋 Código (SKU/EAN)</label>
+                        <input 
+                            type="text" 
+                            id="historyCodeInput" 
+                            class="search-input code-input" 
+                            placeholder="Filtrar por código..."
+                            autocomplete="off"
+                        >
+                    </div>
+                    
+                    <!-- Campo de descripción -->
+                    <div class="input-group description-group">
+                        <label for="historyDescriptionInput" class="input-label">📝 Descripción</label>
+                        <input 
+                            type="text" 
+                            id="historyDescriptionInput" 
+                            class="search-input description-input" 
+                            placeholder="Filtrar por descripción..."
+                            autocomplete="off"
+                        >
+                    </div>
+                    
+                    <!-- Botones -->
+                    <div class="button-group">
+                        <button id="searchHistoryBtn" class="btn btn-primary">🔍 Buscar</button>
+                        <button id="loadAllHistoryBtn" class="btn btn-secondary">📋 Ver Todo</button>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div id="historyResults" class="search-results" style="display: none;">
+                    <div class="results-header">
+                        <h3 id="historyResultsTitle">Productos comprados anteriormente</h3>
+                        <button id="clearHistorySearchBtn" class="btn-clear">✕ Limpiar</button>
+                    </div>
+                    <div id="historyResultsList" class="results-list"></div>
+                </div>
+
+                <!-- Empty State -->
+                <div id="historyEmpty" class="empty-state">
+                    <div class="empty-icon">🛍️</div>
+                    <h2>Tus últimas compras</h2>
+                    <p>Aquí encontrarás los productos que has comprado anteriormente</p>
+                    <button id="loadHistoryBtn" class="btn btn-primary">Ver Mis Compras</button>
+                </div>
+
+                <!-- Loading State -->
+                <div id="historyLoading" class="loading-state" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Cargando historial...</p>
                 </div>
             </main>
         </div>
