@@ -1309,7 +1309,7 @@ class ScanAsYouShopApp {
         if (resultsContainer) resultsContainer.style.display = 'none';
         if (emptyState) {
             emptyState.style.display = 'flex';
-            emptyState.querySelector('.empty-icon').textContent = '🛍️';
+            emptyState.querySelector('.empty-icon').textContent = '📦';
             emptyState.querySelector('h2').textContent = 'Tus últimas compras';
             emptyState.querySelector('p').textContent = 'Aquí encontrarás los productos que has comprado anteriormente';
         }
