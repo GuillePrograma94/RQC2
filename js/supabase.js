@@ -506,7 +506,8 @@ class SupabaseClient {
                         success: true,
                         user_id: loginResult.user_id,
                         user_name: loginResult.user_name,
-                        codigo_usuario: codigoUsuario
+                        codigo_usuario: codigoUsuario,
+                        almacen_habitual: loginResult.almacen_habitual || null
                     };
                 }
             }
@@ -662,6 +663,79 @@ class SupabaseClient {
         } catch (error) {
             console.error('Error al eliminar producto del historial:', error);
             return false;
+        }
+    }
+
+    /**
+     * Crea un pedido remoto para un usuario y almacén específico
+     */
+    async crearPedidoRemoto(usuarioId, almacenDestino) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            console.log(`Creando pedido remoto para usuario ${usuarioId} -> almacén ${almacenDestino}`);
+
+            // Llamar a la función SQL para crear pedido remoto
+            const { data, error } = await this.client.rpc(
+                'crear_pedido_remoto',
+                {
+                    p_usuario_id: usuarioId,
+                    p_almacen_destino: almacenDestino
+                }
+            );
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                const result = data[0];
+                
+                if (result.success) {
+                    console.log('Pedido remoto creado exitosamente:', result.codigo_qr);
+                    return {
+                        success: true,
+                        carrito_id: result.carrito_id,
+                        codigo_qr: result.codigo_qr
+                    };
+                } else {
+                    console.error('Error al crear pedido remoto:', result.message);
+                    return {
+                        success: false,
+                        message: result.message
+                    };
+                }
+            }
+
+            return {
+                success: false,
+                message: 'No se recibio respuesta del servidor'
+            };
+
+        } catch (error) {
+            console.error('Error al crear pedido remoto:', error);
+            return {
+                success: false,
+                message: 'Error de conexion. Intenta de nuevo.'
+            };
+        }
+    }
+
+    /**
+     * Añade un producto a un pedido remoto
+     */
+    async addProductToRemoteOrder(carritoId, producto, cantidad) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            // Usar la función existente para añadir productos al carrito
+            return await this.addProductToCart(carritoId, producto, cantidad);
+
+        } catch (error) {
+            console.error('Error al añadir producto a pedido remoto:', error);
+            throw error;
         }
     }
 }

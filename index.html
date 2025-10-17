@@ -73,6 +73,38 @@
         </div>
     </div>
 
+    <!-- Almacén Selection Modal -->
+    <div id="almacenModal" class="login-modal" style="display: none;">
+        <div class="login-modal-overlay"></div>
+        <div class="login-modal-content">
+            <div class="login-modal-header">
+                <h2>Seleccionar Almacén</h2>
+                <button id="closeAlmacenModal" class="close-login-btn">✕</button>
+            </div>
+            <div class="almacen-selection">
+                <p class="almacen-description">¿Dónde quieres recoger tu pedido?</p>
+                <div class="almacen-options">
+                    <button class="almacen-btn" data-almacen="ONTINYENT">
+                        <span class="almacen-icon">🏪</span>
+                        <span class="almacen-name">ONTINYENT</span>
+                    </button>
+                    <button class="almacen-btn" data-almacen="GANDIA">
+                        <span class="almacen-icon">🏪</span>
+                        <span class="almacen-name">GANDIA</span>
+                    </button>
+                    <button class="almacen-btn" data-almacen="ALZIRA">
+                        <span class="almacen-icon">🏪</span>
+                        <span class="almacen-name">ALZIRA</span>
+                    </button>
+                    <button class="almacen-btn" data-almacen="REQUENA">
+                        <span class="almacen-icon">🏪</span>
+                        <span class="almacen-name">REQUENA</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Fixed Header -->
     <header class="app-header-fixed">
         <div class="header-content">
@@ -302,6 +334,18 @@
              ================================ -->
         <div id="checkoutScreen" class="screen">
             <main class="screen-content checkout-content">
+                <!-- Sección de Pedido Remoto (solo usuarios registrados) -->
+                <div id="remoteOrderSection" class="remote-order-section" style="display: none;">
+                    <h2 class="section-title">📤 Enviar Pedido a Almacén</h2>
+                    <p class="section-description">Tu pedido estará listo para recoger</p>
+                    <button id="sendRemoteOrderBtn" class="btn btn-success btn-lg">
+                        Enviar Pedido a Almacén
+                    </button>
+                    <div class="divider">
+                        <span>O paga en caja ahora</span>
+                    </div>
+                </div>
+
                 <!-- Camera Scanner integrado -->
                 <div class="checkout-camera-section">
                     <h2 class="section-title">Escanea el QR de la Caja</h2>

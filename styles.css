@@ -1880,3 +1880,125 @@ body {
 .btn-delete-history:active {
     transform: scale(0.95);
 }
+
+/* ========================================
+   PEDIDOS REMOTOS
+   ======================================== */
+.remote-order-section {
+    background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+    padding: 2rem 1.5rem;
+    border-radius: 20px;
+    margin-bottom: 2rem;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+}
+
+.remote-order-section .section-title {
+    color: var(--white);
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.remote-order-section .section-description {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.remote-order-section .btn-success {
+    background: var(--white);
+    color: var(--success);
+    font-weight: 700;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.remote-order-section .btn-success:hover {
+    background: #f0fdf4;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.remote-order-section .divider {
+    margin-top: 2rem;
+    margin-bottom: 0;
+}
+
+.remote-order-section .divider span {
+    background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+}
+
+/* ========================================
+   MODAL DE SELECCIÓN DE ALMACÉN
+   ======================================== */
+.almacen-selection {
+    padding: 1rem 0;
+}
+
+.almacen-description {
+    text-align: center;
+    font-size: 1.1rem;
+    color: var(--gray-700);
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+}
+
+.almacen-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.almacen-btn {
+    background: var(--white);
+    border: 3px solid var(--gray-200);
+    border-radius: 15px;
+    padding: 1.5rem 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-900);
+}
+
+.almacen-btn:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    color: var(--white);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(120, 81, 169, 0.3);
+}
+
+.almacen-btn:active {
+    transform: translateY(-1px);
+}
+
+.almacen-icon {
+    font-size: 2.5rem;
+}
+
+.almacen-name {
+    font-size: 1rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.almacen-btn.selected {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: var(--white);
+    box-shadow: 0 4px 15px rgba(120, 81, 169, 0.4);
+}
+
+/* Responsive para almacén selection */
+@media (max-width: 400px) {
+    .almacen-options {
+        grid-template-columns: 1fr;
+    }
+}

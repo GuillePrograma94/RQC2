@@ -110,7 +110,8 @@ class ScanAsYouShopApp {
                 this.currentUser = {
                     user_id: loginResult.user_id,
                     user_name: loginResult.user_name,
-                    codigo_usuario: loginResult.codigo_usuario
+                    codigo_usuario: loginResult.codigo_usuario,
+                    almacen_habitual: loginResult.almacen_habitual
                 };
 
                 // Crear sesión
@@ -574,6 +575,41 @@ class ScanAsYouShopApp {
                 if (e.key === 'Enter') this.searchPurchaseHistory();
             });
         }
+
+        // Botón para enviar pedido remoto
+        const sendRemoteOrderBtn = document.getElementById('sendRemoteOrderBtn');
+        if (sendRemoteOrderBtn) {
+            sendRemoteOrderBtn.addEventListener('click', () => {
+                this.showAlmacenSelectionModal();
+            });
+        }
+
+        // Cerrar modal de almacén
+        const closeAlmacenModal = document.getElementById('closeAlmacenModal');
+        if (closeAlmacenModal) {
+            closeAlmacenModal.addEventListener('click', () => {
+                this.hideAlmacenModal();
+            });
+        }
+
+        // Cerrar modal de almacén al hacer clic en overlay
+        const almacenModal = document.getElementById('almacenModal');
+        if (almacenModal) {
+            almacenModal.addEventListener('click', (e) => {
+                if (e.target.id === 'almacenModal' || e.target.classList.contains('login-modal-overlay')) {
+                    this.hideAlmacenModal();
+                }
+            });
+        }
+
+        // Botones de selección de almacén
+        const almacenButtons = document.querySelectorAll('.almacen-btn');
+        almacenButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const almacen = btn.dataset.almacen;
+                this.sendRemoteOrder(almacen);
+            });
+        });
     }
 
     /**
@@ -680,6 +716,12 @@ class ScanAsYouShopApp {
                     console.log('⏰ Timeout completado - llamando a startCheckoutCameraIntegrated()');
                     window.scannerManager.startCheckoutCameraIntegrated();
                 }, 100);
+                
+                // Mostrar/ocultar sección de pedido remoto según si hay usuario logueado
+                const remoteOrderSection = document.getElementById('remoteOrderSection');
+                if (remoteOrderSection) {
+                    remoteOrderSection.style.display = this.currentUser ? 'block' : 'none';
+                }
             }
 
             // Actualizar vista del carrito cuando se accede a esa pantalla
@@ -1421,6 +1463,121 @@ class ScanAsYouShopApp {
 
         } catch (error) {
             console.error('Error al solicitar permisos de cámara:', error);
+        }
+    }
+
+    /**
+     * Muestra el modal de selección de almacén
+     */
+    showAlmacenSelectionModal() {
+        // Verificar que el usuario esté logueado
+        if (!this.currentUser) {
+            window.ui.showToast('Debes iniciar sesion para enviar pedidos', 'warning');
+            return;
+        }
+
+        // Verificar que haya productos en el carrito
+        const cart = window.cartManager.getCart();
+        if (!cart || cart.productos.length === 0) {
+            window.ui.showToast('El carrito esta vacio', 'warning');
+            return;
+        }
+
+        // Pre-seleccionar el almacén habitual del usuario si existe
+        const almacenButtons = document.querySelectorAll('.almacen-btn');
+        almacenButtons.forEach(btn => {
+            btn.classList.remove('selected');
+            if (this.currentUser.almacen_habitual && btn.dataset.almacen === this.currentUser.almacen_habitual) {
+                btn.classList.add('selected');
+            }
+        });
+
+        // Mostrar modal
+        const almacenModal = document.getElementById('almacenModal');
+        if (almacenModal) {
+            almacenModal.style.display = 'flex';
+        }
+    }
+
+    /**
+     * Oculta el modal de selección de almacén
+     */
+    hideAlmacenModal() {
+        const almacenModal = document.getElementById('almacenModal');
+        if (almacenModal) {
+            almacenModal.style.display = 'none';
+        }
+    }
+
+    /**
+     * Envía un pedido remoto al almacén seleccionado
+     */
+    async sendRemoteOrder(almacen) {
+        try {
+            if (!this.currentUser) {
+                window.ui.showToast('Debes iniciar sesion', 'error');
+                return;
+            }
+
+            const cart = window.cartManager.getCart();
+            if (!cart || cart.productos.length === 0) {
+                window.ui.showToast('El carrito esta vacio', 'warning');
+                return;
+            }
+
+            // Ocultar modal
+            this.hideAlmacenModal();
+
+            // Mostrar loading
+            window.ui.showLoading(`Enviando pedido a ${almacen}...`);
+
+            // Crear pedido remoto en Supabase
+            const result = await window.supabaseClient.crearPedidoRemoto(
+                this.currentUser.user_id,
+                almacen
+            );
+
+            if (!result.success) {
+                throw new Error(result.message || 'Error al crear pedido remoto');
+            }
+
+            // Añadir productos al pedido remoto
+            for (const producto of cart.productos) {
+                await window.supabaseClient.addProductToRemoteOrder(
+                    result.carrito_id,
+                    {
+                        codigo: producto.codigo_producto,
+                        descripcion: producto.descripcion_producto,
+                        pvp: producto.precio_unitario
+                    },
+                    producto.cantidad
+                );
+            }
+
+            window.ui.hideLoading();
+
+            // Mostrar mensaje de éxito
+            const totalWithIVA = cart.total_importe * 1.21;
+            window.ui.showToast(
+                `Pedido enviado a ${almacen} - ${totalWithIVA.toFixed(2)}€`,
+                'success'
+            );
+
+            // Limpiar carrito
+            await window.cartManager.clearCart();
+            window.ui.updateCartBadge();
+
+            // Volver a pantalla de carrito
+            this.showScreen('cart');
+            this.updateActiveNav('cart');
+            this.updateCartView();
+
+            console.log(`Pedido remoto enviado exitosamente a ${almacen}`);
+
+        } catch (error) {
+            console.error('Error al enviar pedido remoto:', error);
+            window.ui.hideLoading();
+            window.ui.showToast('Error al enviar pedido. Intenta de nuevo.', 'error');
         }
     }
 }
