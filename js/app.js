@@ -11,6 +11,21 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Escapa caracteres especiales para uso seguro en atributos HTML onclick
+     * @param {string} str - Cadena a escapar
+     * @returns {string} - Cadena escapada
+     */
+    escapeForHtmlAttribute(str) {
+        if (!str) return '';
+        return str
+            .replace(/\\/g, '\\\\')  // Backslashes primero
+            .replace(/'/g, "\\'")    // Comillas simples
+            .replace(/"/g, '\\"')    // Comillas dobles
+            .replace(/\n/g, '\\n')   // Saltos de línea
+            .replace(/\r/g, '\\r');  // Retornos de carro
+    }
+
+    /**
      * Inicializa la aplicación
      */
     async initialize() {
@@ -805,9 +820,10 @@ class ScanAsYouShopApp {
         resultsList.innerHTML = productos.map(producto => {
             const priceWithIVA = producto.pvp * 1.21;
             const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
+            const escapedDescripcion = this.escapeForHtmlAttribute(producto.descripcion);
             
             return `
-                <div class="result-item-with-image" onclick="window.app.addProductToCart('${producto.codigo}', '${producto.descripcion.replace(/'/g, "\\'")}', ${producto.pvp})">
+                <div class="result-item-with-image" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${producto.pvp})">
                     <div class="result-image">
                         <img src="${imageUrl}" alt="${producto.descripcion}" 
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -1281,6 +1297,7 @@ class ScanAsYouShopApp {
         resultsList.innerHTML = historial.map(producto => {
             const priceWithIVA = producto.pvp * 1.21;
             const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
+            const escapedDescripcion = this.escapeForHtmlAttribute(producto.descripcion);
             
             // Formatear fecha de última compra
             const fechaUltimaCompra = new Date(producto.fecha_ultima_compra);
@@ -1292,12 +1309,12 @@ class ScanAsYouShopApp {
             
             return `
                 <div class="result-item-with-image history-item">
-                    <div class="result-image" onclick="window.app.addProductToCartFromHistory('${producto.codigo}', '${producto.descripcion.replace(/'/g, "\\'")}', ${producto.pvp})">
+                    <div class="result-image" onclick="window.app.addProductToCartFromHistory('${producto.codigo}', '${escapedDescripcion}', ${producto.pvp})">
                         <img src="${imageUrl}" alt="${producto.descripcion}" 
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                         <div class="result-image-placeholder" style="display: none;">📦</div>
                     </div>
-                    <div class="result-info" onclick="window.app.addProductToCartFromHistory('${producto.codigo}', '${producto.descripcion.replace(/'/g, "\\'")}', ${producto.pvp})">
+                    <div class="result-info" onclick="window.app.addProductToCartFromHistory('${producto.codigo}', '${escapedDescripcion}', ${producto.pvp})">
                         <div class="result-code">${producto.codigo}</div>
                         <div class="result-name">${producto.descripcion}</div>
                         <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
@@ -1305,7 +1322,7 @@ class ScanAsYouShopApp {
                             <span class="result-last-purchase">Última compra: ${fechaFormateada}</span>
                         </div>
                     </div>
-                    <button class="btn-delete-history" onclick="event.stopPropagation(); window.app.deleteProductFromHistory('${producto.codigo}', '${producto.descripcion.replace(/'/g, "\\'")}')">
+                    <button class="btn-delete-history" onclick="event.stopPropagation(); window.app.deleteProductFromHistory('${producto.codigo}', '${escapedDescripcion}')">
                         🗑️
                     </button>
                 </div>
