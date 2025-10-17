@@ -12,17 +12,20 @@ class ScanAsYouShopApp {
 
     /**
      * Escapa caracteres especiales para uso seguro en atributos HTML onclick
+     * Usa entidades HTML para evitar conflictos con delimitadores
      * @param {string} str - Cadena a escapar
      * @returns {string} - Cadena escapada
      */
     escapeForHtmlAttribute(str) {
         if (!str) return '';
         return str
-            .replace(/\\/g, '\\\\')  // Backslashes primero
-            .replace(/'/g, "\\'")    // Comillas simples
-            .replace(/"/g, '\\"')    // Comillas dobles
-            .replace(/\n/g, '\\n')   // Saltos de línea
-            .replace(/\r/g, '\\r');  // Retornos de carro
+            .replace(/&/g, '&amp;')   // Ampersands primero
+            .replace(/'/g, '&#39;')   // Comillas simples (como entidad HTML)
+            .replace(/"/g, '&quot;')  // Comillas dobles (como entidad HTML)
+            .replace(/</g, '&lt;')    // Menor que
+            .replace(/>/g, '&gt;')    // Mayor que
+            .replace(/\n/g, ' ')      // Saltos de línea como espacio
+            .replace(/\r/g, '');      // Eliminar retornos de carro
     }
 
     /**
