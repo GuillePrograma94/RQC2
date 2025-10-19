@@ -1632,7 +1632,7 @@ class ScanAsYouShopApp {
 
         try {
             // PASO 1: Cargar desde caché local (INMEDIATO)
-            const pedidosCache = await window.cartManager.loadRemoteOrdersFromCache(this.currentUser.id);
+            const pedidosCache = await window.cartManager.loadRemoteOrdersFromCache(this.currentUser.user_id);
             
             if (pedidosCache && pedidosCache.length > 0) {
                 // Mostrar pedidos del caché inmediatamente
@@ -1656,10 +1656,10 @@ class ScanAsYouShopApp {
 
             // PASO 2: Actualizar desde Supabase EN SEGUNDO PLANO
             try {
-                const pedidosOnline = await window.supabaseClient.getUserRemoteOrders(this.currentUser.id);
+                const pedidosOnline = await window.supabaseClient.getUserRemoteOrders(this.currentUser.user_id);
 
                 // Guardar en caché para futuras visualizaciones offline
-                await window.cartManager.saveRemoteOrdersToCache(pedidosOnline, this.currentUser.id);
+                await window.cartManager.saveRemoteOrdersToCache(pedidosOnline, this.currentUser.user_id);
 
                 // Ocultar loading
                 ordersLoading.style.display = 'none';
