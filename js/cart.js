@@ -702,32 +702,54 @@ class CartManager {
         try {
             if (!this.db) return false;
 
-            const transaction = this.db.transaction(['remote_orders'], 'readwrite');
-            const store = transaction.objectStore('remote_orders');
-            const index = store.index('usuario_id');
+            console.log('💾 Guardando pedidos en caché para usuario:', usuarioId);
+            console.log('📥 Pedidos recibidos:', pedidos?.length || 0);
 
             // PASO 1: Eliminar todos los pedidos antiguos del usuario
             console.log('🗑️ Limpiando pedidos antiguos del caché...');
+            
+            const transaction1 = this.db.transaction(['remote_orders'], 'readwrite');
+            const store1 = transaction1.objectStore('remote_orders');
+            const index1 = store1.index('usuario_id');
+            
             const oldOrders = await new Promise((resolve, reject) => {
-                const request = index.getAll(usuarioId);
+                const request = index1.getAll(usuarioId);
                 request.onsuccess = () => resolve(request.result || []);
                 request.onerror = () => reject(request.error);
             });
 
+            console.log(`📦 Encontrados ${oldOrders.length} pedidos antiguos para eliminar`);
+
+            // Eliminar uno por uno
             for (const oldOrder of oldOrders) {
-                await store.delete(oldOrder.id);
+                const transaction2 = this.db.transaction(['remote_orders'], 'readwrite');
+                const store2 = transaction2.objectStore('remote_orders');
+                
+                await new Promise((resolve, reject) => {
+                    const deleteRequest = store2.delete(oldOrder.id);
+                    deleteRequest.onsuccess = () => resolve();
+                    deleteRequest.onerror = () => reject(deleteRequest.error);
+                });
             }
             console.log(`✅ ${oldOrders.length} pedidos antiguos eliminados del caché`);
 
             // PASO 2: Guardar los nuevos pedidos
             if (pedidos && pedidos.length > 0) {
                 for (const pedido of pedidos) {
+                    const transaction3 = this.db.transaction(['remote_orders'], 'readwrite');
+                    const store3 = transaction3.objectStore('remote_orders');
+                    
                     const pedidoConCache = {
                         ...pedido,
                         usuario_id: usuarioId,
                         cached_at: new Date().toISOString()
                     };
-                    await store.put(pedidoConCache);
+                    
+                    await new Promise((resolve, reject) => {
+                        const putRequest = store3.put(pedidoConCache);
+                        putRequest.onsuccess = () => resolve();
+                        putRequest.onerror = () => reject(putRequest.error);
+                    });
                 }
                 console.log(`✅ ${pedidos.length} pedidos nuevos guardados en caché`);
             } else {
@@ -738,6 +760,7 @@ class CartManager {
 
         } catch (error) {
             console.error('❌ Error al guardar pedidos en caché:', error);
+            console.error('Stack:', error.stack);
             return false;
         }
     }
