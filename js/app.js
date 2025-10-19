@@ -1585,8 +1585,8 @@ class ScanAsYouShopApp {
                 );
             }
 
-            // ⚡ IMPORTANTE: Actualizar estados después de añadir todos los productos
-            await window.supabaseClient.marcarPedidoRemotoComoEnviado(result.carrito_id);
+            // ✅ Ya no es necesario actualizar estados manualmente
+            // La función SQL crear_pedido_remoto ya crea el pedido con estado 'enviado'
 
             window.ui.hideLoading();
 

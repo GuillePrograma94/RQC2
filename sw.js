@@ -3,7 +3,7 @@
  * Maneja cache y funcionamiento offline
  */
 
-const CACHE_NAME = 'scan-as-you-shop-v12';
+const CACHE_NAME = 'scan-as-you-shop-v14';
 const urlsToCache = [
     '/',
     '/index.html',
