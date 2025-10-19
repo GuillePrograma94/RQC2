@@ -1724,6 +1724,10 @@ class ScanAsYouShopApp {
         // Determinar estado y badge
         const estadoInfo = this.getEstadoBadge(pedido.estado_procesamiento);
 
+        // Determinar tipo de pedido
+        const tipoPedido = pedido.tipo_pedido === 'remoto' ? '📱 Remoto' : '🛒 Presencial';
+        const tipoClass = pedido.tipo_pedido === 'remoto' ? 'remote' : 'presencial';
+
         // Calcular total con IVA
         const totalConIVA = pedido.total_importe * 1.21;
 
@@ -1732,6 +1736,7 @@ class ScanAsYouShopApp {
                 <div class="order-card-main">
                     <div class="order-card-title">
                         <span class="order-almacen">🏪 ${pedido.almacen_destino}</span>
+                        <span class="order-type order-type-${tipoClass}">${tipoPedido}</span>
                         <span class="order-badge order-badge-${estadoInfo.class}">${estadoInfo.icon} ${estadoInfo.text}</span>
                     </div>
                     <div class="order-card-info">

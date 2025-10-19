@@ -2067,6 +2067,27 @@ body {
     letter-spacing: 0.5px;
 }
 
+.order-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.order-type-remote {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
+.order-type-presencial {
+    background: #fce7f3;
+    color: #be185d;
+}
+
 .order-badge-pending {
     background: #fef3c7;
     color: #92400e;
@@ -2270,6 +2291,11 @@ body {
 
     .order-badge {
         font-size: 0.7rem;
+        padding: 0.3rem 0.6rem;
+    }
+
+    .order-type {
+        font-size: 0.65rem;
         padding: 0.3rem 0.6rem;
     }
 

@@ -748,12 +748,13 @@ class SupabaseClient {
                 throw new Error('Cliente de Supabase no inicializado');
             }
 
-            // Obtener pedidos remotos del usuario ordenados por fecha (más recientes primero)
+            // Obtener TODOS los pedidos del usuario (remotos y presenciales)
+            // Solo se excluyen los pedidos activos (en proceso)
             const { data: pedidos, error } = await this.client
                 .from('carritos_clientes')
                 .select('*')
                 .eq('usuario_id', usuarioId)
-                .eq('tipo_pedido', 'remoto')
+                .neq('estado', 'activo') // Excluir carritos aún no confirmados
                 .order('fecha_creacion', { ascending: false })
                 .limit(50); // Limitar a los últimos 50 pedidos
 
