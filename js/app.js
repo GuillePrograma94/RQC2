@@ -544,16 +544,6 @@ class ScanAsYouShopApp {
             loginForm.onsubmit = (e) => this.handleLogin(e);
         }
 
-        // Purchase History button (menu hamburguesa)
-        const purchaseHistoryBtn = document.getElementById('purchaseHistoryBtn');
-        if (purchaseHistoryBtn) {
-            purchaseHistoryBtn.addEventListener('click', () => {
-                this.closeMenu();
-                this.showScreen('purchaseHistory');
-                this.updateActiveNav('purchaseHistory');
-            });
-        }
-
         // My Orders button (menu hamburguesa)
         const myOrdersBtn = document.getElementById('myOrdersBtn');
         if (myOrdersBtn) {
@@ -562,46 +552,6 @@ class ScanAsYouShopApp {
                 this.showScreen('myOrders');
                 this.updateActiveNav('myOrders');
                 this.loadMyOrders();
-            });
-        }
-
-        // Load all history button
-        const loadAllHistoryBtn = document.getElementById('loadAllHistoryBtn');
-        if (loadAllHistoryBtn) {
-            loadAllHistoryBtn.addEventListener('click', () => {
-                this.loadPurchaseHistory();
-            });
-        }
-
-        // Search history button
-        const searchHistoryBtn = document.getElementById('searchHistoryBtn');
-        if (searchHistoryBtn) {
-            searchHistoryBtn.addEventListener('click', () => {
-                this.searchPurchaseHistory();
-            });
-        }
-
-        // Clear history search button
-        const clearHistorySearchBtn = document.getElementById('clearHistorySearchBtn');
-        if (clearHistorySearchBtn) {
-            clearHistorySearchBtn.addEventListener('click', () => {
-                this.clearHistorySearch();
-            });
-        }
-
-        // Enter key en inputs de historial
-        const historyCodeInput = document.getElementById('historyCodeInput');
-        const historyDescriptionInput = document.getElementById('historyDescriptionInput');
-        
-        if (historyCodeInput) {
-            historyCodeInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.searchPurchaseHistory();
-            });
-        }
-
-        if (historyDescriptionInput) {
-            historyDescriptionInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.searchPurchaseHistory();
             });
         }
 
@@ -759,17 +709,6 @@ class ScanAsYouShopApp {
                 console.log('Vista del carrito actualizada');
             }
 
-            // Verificar que el usuario está logueado al entrar en historial
-            if (screenName === 'purchaseHistory') {
-                if (!this.currentUser) {
-                    window.ui.showToast('Debes iniciar sesión para ver tu historial', 'warning');
-                    this.showScreen('cart');
-                    this.updateActiveNav('cart');
-                    return;
-                }
-                // Mostrar empty state al entrar
-                this.showHistoryEmptyState();
-            }
         }
     }
 
@@ -779,27 +718,56 @@ class ScanAsYouShopApp {
     async performSearch() {
         const codeInput = document.getElementById('codeSearchInput');
         const descInput = document.getElementById('descriptionSearchInput');
+        const onlyPurchasedCheckbox = document.getElementById('onlyPurchasedCheckbox');
         
         const code = codeInput?.value.trim() || '';
         const description = descInput?.value.trim() || '';
+        const onlyPurchased = onlyPurchasedCheckbox?.checked || false;
 
         if (!code && !description) {
             window.ui.showToast('Introduce un código o descripción', 'warning');
             return;
         }
 
+        // Si el filtro de "solo comprados" está activo, verificar que el usuario esté logueado
+        if (onlyPurchased && !this.currentUser) {
+            window.ui.showToast('Debes iniciar sesión para filtrar por historial', 'warning');
+            onlyPurchasedCheckbox.checked = false;
+            return;
+        }
+
         try {
             let productos = [];
             
-            if (code) {
-                // Búsqueda por código con prioridad a match exacto
-                productos = await window.cartManager.searchByCodeSmart(code);
-            } else if (description) {
-                // Búsqueda por descripción (todas las palabras)
-                productos = await window.cartManager.searchByDescriptionAllWords(description);
+            if (onlyPurchased) {
+                // Búsqueda en el historial de compras del usuario
+                console.log('📦 Buscando en historial de compras...');
+                const historial = await window.supabaseClient.getUserPurchaseHistory(
+                    this.currentUser.user_id,
+                    code || null,
+                    description || null
+                );
+                
+                // Convertir historial a formato de productos para displaySearchResults
+                productos = historial.map(item => ({
+                    codigo: item.codigo,
+                    descripcion: item.descripcion,
+                    pvp: item.pvp,
+                    fecha_ultima_compra: item.fecha_ultima_compra
+                }));
+                
+            } else {
+                // Búsqueda en el catálogo completo
+                if (code) {
+                    // Búsqueda por código con prioridad a match exacto
+                    productos = await window.cartManager.searchByCodeSmart(code);
+                } else if (description) {
+                    // Búsqueda por descripción (todas las palabras)
+                    productos = await window.cartManager.searchByDescriptionAllWords(description);
+                }
             }
             
-            this.displaySearchResults(productos);
+            this.displaySearchResults(productos, onlyPurchased);
         } catch (error) {
             console.error('Error en búsqueda:', error);
             window.ui.showToast('Error al buscar productos', 'error');
@@ -809,7 +777,7 @@ class ScanAsYouShopApp {
     /**
      * Muestra resultados de búsqueda con imágenes
      */
-    displaySearchResults(productos) {
+    displaySearchResults(productos, isFromHistory = false) {
         const resultsContainer = document.getElementById('searchResults');
         const emptyState = document.getElementById('searchEmpty');
         const resultsList = document.getElementById('searchResultsList');
@@ -822,20 +790,59 @@ class ScanAsYouShopApp {
             if (emptyState) {
                 emptyState.style.display = 'flex';
                 emptyState.querySelector('.empty-icon').textContent = '😕';
-                emptyState.querySelector('p').textContent = 'No se encontraron productos';
+                emptyState.querySelector('p').textContent = isFromHistory 
+                    ? 'No se encontraron productos en tu historial de compras' 
+                    : 'No se encontraron productos';
             }
             return;
         }
 
         if (emptyState) emptyState.style.display = 'none';
         if (resultsContainer) resultsContainer.style.display = 'block';
-        if (resultsTitle) resultsTitle.textContent = `${productos.length} resultado${productos.length !== 1 ? 's' : ''}`;
+        
+        if (resultsTitle) {
+            resultsTitle.textContent = isFromHistory 
+                ? `${productos.length} producto${productos.length !== 1 ? 's' : ''} comprado${productos.length !== 1 ? 's' : ''} anteriormente`
+                : `${productos.length} resultado${productos.length !== 1 ? 's' : ''}`;
+        }
 
         resultsList.innerHTML = productos.map(producto => {
             const priceWithIVA = producto.pvp * 1.21;
             const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
             const escapedDescripcion = this.escapeForHtmlAttribute(producto.descripcion);
             
+            // Si es del historial, mostrar fecha de última compra y botón de eliminar
+            if (isFromHistory && producto.fecha_ultima_compra) {
+                const fechaUltimaCompra = new Date(producto.fecha_ultima_compra);
+                const fechaFormateada = fechaUltimaCompra.toLocaleDateString('es-ES', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric' 
+                });
+                
+                return `
+                    <div class="result-item-with-image history-item">
+                        <div class="result-image" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${producto.pvp})">
+                            <img src="${imageUrl}" alt="${producto.descripcion}" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div class="result-image-placeholder" style="display: none;">📦</div>
+                        </div>
+                        <div class="result-info" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${producto.pvp})">
+                            <div class="result-code">${producto.codigo}</div>
+                            <div class="result-name">${producto.descripcion}</div>
+                            <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
+                            <div class="result-meta">
+                                <span class="result-last-purchase">Última compra: ${fechaFormateada}</span>
+                            </div>
+                        </div>
+                        <button class="btn-delete-history" onclick="event.stopPropagation(); window.app.deleteProductFromHistory('${producto.codigo}', '${escapedDescripcion}')">
+                            🗑️
+                        </button>
+                    </div>
+                `;
+            }
+            
+            // Resultado normal
             return `
                 <div class="result-item-with-image" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${producto.pvp})">
                     <div class="result-image">
@@ -883,11 +890,13 @@ class ScanAsYouShopApp {
     clearSearch() {
         const codeInput = document.getElementById('codeSearchInput');
         const descInput = document.getElementById('descriptionSearchInput');
+        const onlyPurchasedCheckbox = document.getElementById('onlyPurchasedCheckbox');
         const resultsContainer = document.getElementById('searchResults');
         const emptyState = document.getElementById('searchEmpty');
 
         if (codeInput) codeInput.value = '';
         if (descInput) descInput.value = '';
+        if (onlyPurchasedCheckbox) onlyPurchasedCheckbox.checked = false;
         if (resultsContainer) resultsContainer.style.display = 'none';
         if (emptyState) {
             emptyState.style.display = 'flex';
