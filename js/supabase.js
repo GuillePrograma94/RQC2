@@ -751,12 +751,12 @@ class SupabaseClient {
             console.log('🔍 Consultando pedidos para usuario_id:', usuarioId);
 
             // Obtener TODOS los pedidos del usuario (remotos y presenciales)
-            // Solo se excluyen los pedidos activos (en proceso)
+            // Filtrar por estado_procesamiento (más confiable que estado)
             const { data: pedidos, error } = await this.client
                 .from('carritos_clientes')
                 .select('*')
                 .eq('usuario_id', usuarioId)
-                .neq('estado', 'activo') // Excluir carritos aún no confirmados
+                .in('estado_procesamiento', ['enviado', 'procesando', 'impreso', 'completado']) // Solo pedidos que ya fueron enviados o procesados
                 .order('fecha_creacion', { ascending: false })
                 .limit(50); // Limitar a los últimos 50 pedidos
 
