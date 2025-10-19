@@ -1585,6 +1585,9 @@ class ScanAsYouShopApp {
                 );
             }
 
+            // ⚡ IMPORTANTE: Actualizar estados después de añadir todos los productos
+            await window.supabaseClient.marcarPedidoRemotoComoEnviado(result.carrito_id);
+
             window.ui.hideLoading();
 
             // Mostrar mensaje de éxito

@@ -740,6 +740,40 @@ class SupabaseClient {
     }
 
     /**
+     * Marca un pedido remoto como enviado (después de añadir todos los productos)
+     * IMPORTANTE: Esto actualiza ambos estados según el estándar definido
+     */
+    async marcarPedidoRemotoComoEnviado(carritoId) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            console.log(`⚡ Marcando pedido ${carritoId} como ENVIADO`);
+
+            // Actualizar ambos estados según estándar
+            const { data, error } = await this.client
+                .from('carritos_clientes')
+                .update({
+                    estado: 'enviado',
+                    estado_procesamiento: 'enviado'
+                })
+                .eq('id', carritoId)
+                .eq('tipo_pedido', 'remoto')
+                .select();
+
+            if (error) throw error;
+
+            console.log(`✅ Pedido ${carritoId} marcado como ENVIADO`);
+            return true;
+
+        } catch (error) {
+            console.error('Error al marcar pedido como enviado:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Obtiene los pedidos remotos del usuario
      */
     async getUserRemoteOrders(usuarioId) {
