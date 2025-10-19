@@ -147,6 +147,10 @@
                         <span class="menu-action-icon">📦</span>
                         <span>Últimas Compras</span>
                     </button>
+                    <button id="myOrdersBtn" class="menu-action-btn">
+                        <span class="menu-action-icon">🚀</span>
+                        <span>Mis Pedidos Enviados</span>
+                    </button>
                 </div>
                 <button id="logoutBtn" class="menu-logout-btn">Cerrar Sesión</button>
             </div>
@@ -378,6 +382,29 @@
                         Confirmar Compra
                     </button>
                 </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA DE MIS PEDIDOS ENVIADOS
+             ================================ -->
+        <div id="myOrdersScreen" class="screen">
+            <main class="screen-content">
+                <!-- Loading State -->
+                <div id="ordersLoading" class="loading-state" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Cargando tus pedidos...</p>
+                </div>
+
+                <!-- Empty State -->
+                <div id="ordersEmpty" class="empty-state">
+                    <div class="empty-icon">🚀</div>
+                    <h2>No tienes pedidos enviados</h2>
+                    <p>Cuando envíes un pedido a un almacén, aparecerá aquí</p>
+                </div>
+
+                <!-- Orders List -->
+                <div id="ordersList" class="orders-list" style="display: none;"></div>
             </main>
         </div>
 

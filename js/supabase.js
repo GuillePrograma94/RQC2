@@ -738,6 +738,65 @@ class SupabaseClient {
             throw error;
         }
     }
+
+    /**
+     * Obtiene los pedidos remotos del usuario
+     */
+    async getUserRemoteOrders(usuarioId) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            // Obtener pedidos remotos del usuario ordenados por fecha (más recientes primero)
+            const { data: pedidos, error } = await this.client
+                .from('carritos_clientes')
+                .select('*')
+                .eq('usuario_id', usuarioId)
+                .eq('tipo_pedido', 'remoto')
+                .order('fecha_creacion', { ascending: false })
+                .limit(50); // Limitar a los últimos 50 pedidos
+
+            if (error) {
+                console.error('Error al obtener pedidos:', error);
+                throw error;
+            }
+
+            return pedidos || [];
+
+        } catch (error) {
+            console.error('Error al obtener pedidos del usuario:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Obtiene los productos de un pedido específico
+     */
+    async getOrderProducts(carritoId) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            const { data: productos, error } = await this.client
+                .from('productos_carrito')
+                .select('*')
+                .eq('carrito_id', carritoId)
+                .order('id', { ascending: true });
+
+            if (error) {
+                console.error('Error al obtener productos del pedido:', error);
+                throw error;
+            }
+
+            return productos || [];
+
+        } catch (error) {
+            console.error('Error al obtener productos:', error);
+            throw error;
+        }
+    }
 }
 
 // Crear instancia global

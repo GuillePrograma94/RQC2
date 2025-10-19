@@ -41,7 +41,7 @@ class CartManager {
      */
     initIndexedDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, 3); // v3: Cambiar keyPath de secondary_codes para soportar duplicados
+            const request = indexedDB.open(this.dbName, 4); // v4: Añadir stores para pedidos remotos
 
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
@@ -69,6 +69,20 @@ class CartManager {
                     const secondaryStore = db.createObjectStore('secondary_codes', { keyPath: 'id', autoIncrement: true });
                     secondaryStore.createIndex('codigo_secundario', 'codigo_secundario', { unique: false });
                     secondaryStore.createIndex('codigo_principal', 'codigo_principal', { unique: false });
+                }
+                
+                // Crear object store para pedidos remotos (caché offline)
+                if (!db.objectStoreNames.contains('remote_orders')) {
+                    const ordersStore = db.createObjectStore('remote_orders', { keyPath: 'id' });
+                    ordersStore.createIndex('usuario_id', 'usuario_id', { unique: false });
+                    ordersStore.createIndex('fecha_creacion', 'fecha_creacion', { unique: false });
+                    ordersStore.createIndex('estado_procesamiento', 'estado_procesamiento', { unique: false });
+                }
+                
+                // Crear object store para productos de pedidos remotos
+                if (!db.objectStoreNames.contains('remote_order_products')) {
+                    const orderProductsStore = db.createObjectStore('remote_order_products', { keyPath: 'id', autoIncrement: true });
+                    orderProductsStore.createIndex('carrito_id', 'carrito_id', { unique: false });
                 }
                 
                 console.log('✅ Esquema de base de datos creado/actualizado');
@@ -673,6 +687,175 @@ class CartManager {
             .replace(/[\u0300-\u036f]/g, '') // Eliminar acentos
             .replace(/\s+/g, ' ') // Normalizar espacios
             .trim();
+    }
+
+    /**
+     * ========================================
+     * FUNCIONES PARA PEDIDOS REMOTOS (CACHE OFFLINE)
+     * ========================================
+     */
+
+    /**
+     * Guarda los pedidos remotos en IndexedDB
+     */
+    async saveRemoteOrdersToCache(pedidos, usuarioId) {
+        try {
+            if (!this.db || !pedidos || pedidos.length === 0) return;
+
+            const transaction = this.db.transaction(['remote_orders'], 'readwrite');
+            const store = transaction.objectStore('remote_orders');
+
+            // Guardar cada pedido con timestamp de caché
+            for (const pedido of pedidos) {
+                const pedidoConCache = {
+                    ...pedido,
+                    usuario_id: usuarioId,
+                    cached_at: new Date().toISOString()
+                };
+                await store.put(pedidoConCache);
+            }
+
+            console.log(`✅ ${pedidos.length} pedidos guardados en caché`);
+            return true;
+
+        } catch (error) {
+            console.error('Error al guardar pedidos en caché:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Carga los pedidos remotos desde IndexedDB
+     */
+    async loadRemoteOrdersFromCache(usuarioId) {
+        try {
+            if (!this.db) return [];
+
+            const transaction = this.db.transaction(['remote_orders'], 'readonly');
+            const store = transaction.objectStore('remote_orders');
+            const index = store.index('usuario_id');
+            const request = index.getAll(usuarioId);
+
+            return new Promise((resolve, reject) => {
+                request.onsuccess = () => {
+                    const pedidos = request.result || [];
+                    // Ordenar por fecha más reciente primero
+                    pedidos.sort((a, b) => new Date(b.fecha_creacion) - new Date(a.fecha_creacion));
+                    console.log(`📦 ${pedidos.length} pedidos cargados desde caché`);
+                    resolve(pedidos);
+                };
+                request.onerror = () => reject(request.error);
+            });
+
+        } catch (error) {
+            console.error('Error al cargar pedidos desde caché:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Guarda los productos de un pedido en IndexedDB
+     */
+    async saveOrderProductsToCache(carritoId, productos) {
+        try {
+            if (!this.db || !productos || productos.length === 0) return;
+
+            const transaction = this.db.transaction(['remote_order_products'], 'readwrite');
+            const store = transaction.objectStore('remote_order_products');
+
+            // Limpiar productos anteriores de este pedido
+            const index = store.index('carrito_id');
+            const clearRequest = index.openCursor(IDBKeyRange.only(carritoId));
+            
+            await new Promise((resolve) => {
+                clearRequest.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        cursor.delete();
+                        cursor.continue();
+                    } else {
+                        resolve();
+                    }
+                };
+            });
+
+            // Guardar nuevos productos
+            for (const producto of productos) {
+                const productoConCache = {
+                    ...producto,
+                    carrito_id: carritoId,
+                    cached_at: new Date().toISOString()
+                };
+                await store.add(productoConCache);
+            }
+
+            console.log(`✅ ${productos.length} productos del pedido ${carritoId} guardados en caché`);
+            return true;
+
+        } catch (error) {
+            console.error('Error al guardar productos del pedido en caché:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Carga los productos de un pedido desde IndexedDB
+     */
+    async loadOrderProductsFromCache(carritoId) {
+        try {
+            if (!this.db) return [];
+
+            const transaction = this.db.transaction(['remote_order_products'], 'readonly');
+            const store = transaction.objectStore('remote_order_products');
+            const index = store.index('carrito_id');
+            const request = index.getAll(carritoId);
+
+            return new Promise((resolve, reject) => {
+                request.onsuccess = () => {
+                    const productos = request.result || [];
+                    console.log(`📦 ${productos.length} productos del pedido ${carritoId} cargados desde caché`);
+                    resolve(productos);
+                };
+                request.onerror = () => reject(request.error);
+            });
+
+        } catch (error) {
+            console.error('Error al cargar productos del pedido desde caché:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Actualiza el estado de un pedido en caché
+     */
+    async updateOrderStatusInCache(carritoId, nuevoEstado) {
+        try {
+            if (!this.db) return false;
+
+            const transaction = this.db.transaction(['remote_orders'], 'readwrite');
+            const store = transaction.objectStore('remote_orders');
+            const request = store.get(carritoId);
+
+            return new Promise((resolve, reject) => {
+                request.onsuccess = () => {
+                    const pedido = request.result;
+                    if (pedido) {
+                        pedido.estado_procesamiento = nuevoEstado;
+                        pedido.cached_at = new Date().toISOString();
+                        store.put(pedido);
+                        console.log(`✅ Estado del pedido ${carritoId} actualizado a: ${nuevoEstado}`);
+                        resolve(true);
+                    } else {
+                        resolve(false);
+                    }
+                };
+                request.onerror = () => reject(request.error);
+            });
+
+        } catch (error) {
+            console.error('Error al actualizar estado del pedido en caché:', error);
+            return false;
+        }
     }
 }
 

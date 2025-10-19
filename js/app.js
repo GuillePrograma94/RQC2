@@ -554,6 +554,17 @@ class ScanAsYouShopApp {
             });
         }
 
+        // My Orders button (menu hamburguesa)
+        const myOrdersBtn = document.getElementById('myOrdersBtn');
+        if (myOrdersBtn) {
+            myOrdersBtn.addEventListener('click', () => {
+                this.closeMenu();
+                this.showScreen('myOrders');
+                this.updateActiveNav('myOrders');
+                this.loadMyOrders();
+            });
+        }
+
         // Load all history button
         const loadAllHistoryBtn = document.getElementById('loadAllHistoryBtn');
         if (loadAllHistoryBtn) {
@@ -1599,6 +1610,280 @@ class ScanAsYouShopApp {
             window.ui.hideLoading();
             window.ui.showToast('Error al enviar pedido. Intenta de nuevo.', 'error');
         }
+    }
+
+    /**
+     * Carga los pedidos remotos del usuario (ESTRATEGIA OFFLINE-FIRST)
+     * 1. Mostrar caché local inmediatamente (rápido)
+     * 2. Actualizar desde Supabase en segundo plano (si hay conexión)
+     * 3. Sincronizar cambios sin interrumpir la visualización
+     */
+    async loadMyOrders() {
+        const ordersLoading = document.getElementById('ordersLoading');
+        const ordersEmpty = document.getElementById('ordersEmpty');
+        const ordersList = document.getElementById('ordersList');
+
+        if (!this.currentUser) {
+            ordersEmpty.style.display = 'flex';
+            ordersLoading.style.display = 'none';
+            ordersList.style.display = 'none';
+            return;
+        }
+
+        try {
+            // PASO 1: Cargar desde caché local (INMEDIATO)
+            const pedidosCache = await window.cartManager.loadRemoteOrdersFromCache(this.currentUser.id);
+            
+            if (pedidosCache && pedidosCache.length > 0) {
+                // Mostrar pedidos del caché inmediatamente
+                ordersLoading.style.display = 'none';
+                ordersList.style.display = 'block';
+                ordersEmpty.style.display = 'none';
+                ordersList.innerHTML = '';
+
+                for (const pedido of pedidosCache) {
+                    const orderCard = await this.createOrderCard(pedido);
+                    ordersList.appendChild(orderCard);
+                }
+
+                console.log('📱 Pedidos mostrados desde caché local');
+            } else {
+                // Si no hay caché, mostrar loading
+                ordersLoading.style.display = 'flex';
+                ordersEmpty.style.display = 'none';
+                ordersList.style.display = 'none';
+            }
+
+            // PASO 2: Actualizar desde Supabase EN SEGUNDO PLANO
+            try {
+                const pedidosOnline = await window.supabaseClient.getUserRemoteOrders(this.currentUser.id);
+
+                // Guardar en caché para futuras visualizaciones offline
+                await window.cartManager.saveRemoteOrdersToCache(pedidosOnline, this.currentUser.id);
+
+                // Ocultar loading
+                ordersLoading.style.display = 'none';
+
+                if (!pedidosOnline || pedidosOnline.length === 0) {
+                    // No hay pedidos ni online
+                    ordersEmpty.style.display = 'flex';
+                    ordersList.style.display = 'none';
+                    return;
+                }
+
+                // Actualizar vista con datos frescos de Supabase
+                ordersList.style.display = 'block';
+                ordersEmpty.style.display = 'none';
+                ordersList.innerHTML = '';
+
+                for (const pedido of pedidosOnline) {
+                    const orderCard = await this.createOrderCard(pedido);
+                    ordersList.appendChild(orderCard);
+                }
+
+                console.log('🌐 Pedidos actualizados desde Supabase');
+
+            } catch (onlineError) {
+                // Si falla la conexión pero ya mostramos el caché, no hacer nada
+                console.log('📱 Modo offline - mostrando datos en caché');
+                
+                // Si no había caché y falló la conexión
+                if (!pedidosCache || pedidosCache.length === 0) {
+                    ordersLoading.style.display = 'none';
+                    ordersEmpty.style.display = 'flex';
+                    window.ui.showToast('Sin conexión. No hay pedidos guardados.', 'warning');
+                }
+            }
+
+        } catch (error) {
+            console.error('Error al cargar pedidos:', error);
+            ordersLoading.style.display = 'none';
+            ordersEmpty.style.display = 'flex';
+            window.ui.showToast('Error al cargar tus pedidos', 'error');
+        }
+    }
+
+    /**
+     * Crea una tarjeta de pedido
+     */
+    async createOrderCard(pedido) {
+        const card = document.createElement('div');
+        card.className = 'order-card';
+        card.setAttribute('data-order-id', pedido.id);
+
+        // Formatear fecha
+        const fecha = new Date(pedido.fecha_creacion);
+        const fechaFormateada = fecha.toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        // Determinar estado y badge
+        const estadoInfo = this.getEstadoBadge(pedido.estado_procesamiento);
+
+        // Calcular total con IVA
+        const totalConIVA = pedido.total_importe * 1.21;
+
+        card.innerHTML = `
+            <div class="order-card-header" onclick="window.app.toggleOrderDetails(${pedido.id})">
+                <div class="order-card-main">
+                    <div class="order-card-title">
+                        <span class="order-almacen">🏪 ${pedido.almacen_destino}</span>
+                        <span class="order-badge order-badge-${estadoInfo.class}">${estadoInfo.icon} ${estadoInfo.text}</span>
+                    </div>
+                    <div class="order-card-info">
+                        <span class="order-date">📅 ${fechaFormateada}</span>
+                        <span class="order-code">Código: ${pedido.codigo_qr}</span>
+                    </div>
+                    <div class="order-card-totals">
+                        <span class="order-items">${pedido.total_productos} producto${pedido.total_productos !== 1 ? 's' : ''}</span>
+                        <span class="order-total">${totalConIVA.toFixed(2)} €</span>
+                    </div>
+                </div>
+                <div class="order-card-arrow">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </div>
+            </div>
+            <div class="order-card-details" id="orderDetails-${pedido.id}" style="display: none;">
+                <div class="order-details-loading">
+                    <div class="spinner-small"></div>
+                    <span>Cargando productos...</span>
+                </div>
+            </div>
+        `;
+
+        return card;
+    }
+
+    /**
+     * Obtiene información del badge según el estado
+     */
+    getEstadoBadge(estado) {
+        const estados = {
+            'pendiente': { class: 'pending', icon: '⏳', text: 'Pendiente' },
+            'procesando': { class: 'processing', icon: '🔄', text: 'Preparando' },
+            'impreso': { class: 'completed', icon: '✅', text: 'Listo' },
+            'completado': { class: 'completed', icon: '✅', text: 'Completado' },
+            'cancelado': { class: 'cancelled', icon: '❌', text: 'Cancelado' }
+        };
+
+        return estados[estado] || { class: 'pending', icon: '⏳', text: estado };
+    }
+
+    /**
+     * Alterna la visualización de detalles del pedido
+     */
+    async toggleOrderDetails(orderId) {
+        const detailsDiv = document.getElementById(`orderDetails-${orderId}`);
+        const arrow = document.querySelector(`[data-order-id="${orderId}"] .order-card-arrow svg`);
+
+        if (!detailsDiv) return;
+
+        if (detailsDiv.style.display === 'none') {
+            // Mostrar detalles
+            detailsDiv.style.display = 'block';
+            arrow.style.transform = 'rotate(180deg)';
+
+            // Cargar productos si no están cargados
+            if (detailsDiv.querySelector('.order-details-loading')) {
+                await this.loadOrderProducts(orderId);
+            }
+        } else {
+            // Ocultar detalles
+            detailsDiv.style.display = 'none';
+            arrow.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    /**
+     * Carga los productos de un pedido (ESTRATEGIA OFFLINE-FIRST)
+     */
+    async loadOrderProducts(orderId) {
+        const detailsDiv = document.getElementById(`orderDetails-${orderId}`);
+        if (!detailsDiv) return;
+
+        try {
+            // PASO 1: Intentar cargar desde caché local
+            let productos = await window.cartManager.loadOrderProductsFromCache(orderId);
+            
+            if (productos && productos.length > 0) {
+                // Mostrar productos del caché inmediatamente
+                this.renderOrderProducts(detailsDiv, productos);
+                console.log(`📱 Productos del pedido ${orderId} mostrados desde caché`);
+            } else {
+                // Mantener el loading si no hay caché
+                detailsDiv.innerHTML = '<div class="order-details-loading"><div class="spinner-small"></div><span>Cargando productos...</span></div>';
+            }
+
+            // PASO 2: Actualizar desde Supabase en segundo plano
+            try {
+                const productosOnline = await window.supabaseClient.getOrderProducts(orderId);
+
+                if (productosOnline && productosOnline.length > 0) {
+                    // Guardar en caché para futuras visualizaciones offline
+                    await window.cartManager.saveOrderProductsToCache(orderId, productosOnline);
+                    
+                    // Actualizar vista con datos frescos
+                    this.renderOrderProducts(detailsDiv, productosOnline);
+                    console.log(`🌐 Productos del pedido ${orderId} actualizados desde Supabase`);
+                } else if (!productos || productos.length === 0) {
+                    detailsDiv.innerHTML = '<p class="order-no-products">No se encontraron productos</p>';
+                }
+            } catch (onlineError) {
+                // Si falla la conexión pero ya mostramos el caché, no hacer nada
+                console.log(`📱 Modo offline - mostrando productos del pedido ${orderId} desde caché`);
+                
+                // Si no había caché y falló la conexión
+                if (!productos || productos.length === 0) {
+                    detailsDiv.innerHTML = '<p class="order-error">Sin conexión. No hay productos guardados.</p>';
+                }
+            }
+
+        } catch (error) {
+            console.error('Error al cargar productos del pedido:', error);
+            detailsDiv.innerHTML = '<p class="order-error">Error al cargar productos</p>';
+        }
+    }
+
+    /**
+     * Renderiza la lista de productos de un pedido
+     */
+    renderOrderProducts(detailsDiv, productos) {
+        let productosHTML = '<div class="order-products-list">';
+        
+        for (const producto of productos) {
+            const precioConIVA = producto.precio_unitario * 1.21;
+            const subtotalConIVA = producto.subtotal * 1.21;
+            const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo_producto}_1.JPG`;
+
+            productosHTML += `
+                <div class="order-product-item">
+                    <div class="order-product-image">
+                        <img src="${imageUrl}" 
+                             alt="${producto.descripcion_producto}"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="order-product-placeholder" style="display: none;">📦</div>
+                    </div>
+                    <div class="order-product-info">
+                        <div class="order-product-name">${producto.descripcion_producto}</div>
+                        <div class="order-product-code">Código: ${producto.codigo_producto}</div>
+                        <div class="order-product-details">
+                            <span class="order-product-qty">x${producto.cantidad}</span>
+                            <span class="order-product-price">${precioConIVA.toFixed(2)} €/ud</span>
+                            <span class="order-product-subtotal">${subtotalConIVA.toFixed(2)} €</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        productosHTML += '</div>';
+        detailsDiv.innerHTML = productosHTML;
     }
 }
 
