@@ -700,26 +700,44 @@ class CartManager {
      */
     async saveRemoteOrdersToCache(pedidos, usuarioId) {
         try {
-            if (!this.db || !pedidos || pedidos.length === 0) return;
+            if (!this.db) return false;
 
             const transaction = this.db.transaction(['remote_orders'], 'readwrite');
             const store = transaction.objectStore('remote_orders');
+            const index = store.index('usuario_id');
 
-            // Guardar cada pedido con timestamp de caché
-            for (const pedido of pedidos) {
-                const pedidoConCache = {
-                    ...pedido,
-                    usuario_id: usuarioId,
-                    cached_at: new Date().toISOString()
-                };
-                await store.put(pedidoConCache);
+            // PASO 1: Eliminar todos los pedidos antiguos del usuario
+            console.log('🗑️ Limpiando pedidos antiguos del caché...');
+            const oldOrders = await new Promise((resolve, reject) => {
+                const request = index.getAll(usuarioId);
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => reject(request.error);
+            });
+
+            for (const oldOrder of oldOrders) {
+                await store.delete(oldOrder.id);
+            }
+            console.log(`✅ ${oldOrders.length} pedidos antiguos eliminados del caché`);
+
+            // PASO 2: Guardar los nuevos pedidos
+            if (pedidos && pedidos.length > 0) {
+                for (const pedido of pedidos) {
+                    const pedidoConCache = {
+                        ...pedido,
+                        usuario_id: usuarioId,
+                        cached_at: new Date().toISOString()
+                    };
+                    await store.put(pedidoConCache);
+                }
+                console.log(`✅ ${pedidos.length} pedidos nuevos guardados en caché`);
+            } else {
+                console.log('⚠️ No hay pedidos para guardar en caché');
             }
 
-            console.log(`✅ ${pedidos.length} pedidos guardados en caché`);
             return true;
 
         } catch (error) {
-            console.error('Error al guardar pedidos en caché:', error);
+            console.error('❌ Error al guardar pedidos en caché:', error);
             return false;
         }
     }

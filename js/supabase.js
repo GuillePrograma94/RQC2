@@ -748,6 +748,8 @@ class SupabaseClient {
                 throw new Error('Cliente de Supabase no inicializado');
             }
 
+            console.log('🔍 Consultando pedidos para usuario_id:', usuarioId);
+
             // Obtener TODOS los pedidos del usuario (remotos y presenciales)
             // Solo se excluyen los pedidos activos (en proceso)
             const { data: pedidos, error } = await this.client
@@ -759,14 +761,19 @@ class SupabaseClient {
                 .limit(50); // Limitar a los últimos 50 pedidos
 
             if (error) {
-                console.error('Error al obtener pedidos:', error);
+                console.error('❌ Error al obtener pedidos:', error);
                 throw error;
+            }
+
+            console.log('✅ Pedidos obtenidos:', pedidos?.length || 0);
+            if (pedidos && pedidos.length > 0) {
+                console.log('📦 Tipos de pedidos:', pedidos.map(p => `${p.codigo_qr}: ${p.tipo_pedido} (${p.estado_procesamiento})`));
             }
 
             return pedidos || [];
 
         } catch (error) {
-            console.error('Error al obtener pedidos del usuario:', error);
+            console.error('❌ Error al obtener pedidos del usuario:', error);
             throw error;
         }
     }

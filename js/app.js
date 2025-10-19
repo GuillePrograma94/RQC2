@@ -1632,6 +1632,7 @@ class ScanAsYouShopApp {
 
         try {
             // PASO 1: Cargar desde caché local (INMEDIATO)
+            console.log('🔍 Cargando pedidos para user_id:', this.currentUser.user_id);
             const pedidosCache = await window.cartManager.loadRemoteOrdersFromCache(this.currentUser.user_id);
             
             if (pedidosCache && pedidosCache.length > 0) {
@@ -1641,14 +1642,14 @@ class ScanAsYouShopApp {
                 ordersEmpty.style.display = 'none';
                 ordersList.innerHTML = '';
 
+                console.log('📱 Mostrando', pedidosCache.length, 'pedidos desde caché');
                 for (const pedido of pedidosCache) {
                     const orderCard = await this.createOrderCard(pedido);
                     ordersList.appendChild(orderCard);
                 }
-
-                console.log('📱 Pedidos mostrados desde caché local');
             } else {
                 // Si no hay caché, mostrar loading
+                console.log('⚠️ No hay pedidos en caché');
                 ordersLoading.style.display = 'flex';
                 ordersEmpty.style.display = 'none';
                 ordersList.style.display = 'none';
@@ -1656,6 +1657,7 @@ class ScanAsYouShopApp {
 
             // PASO 2: Actualizar desde Supabase EN SEGUNDO PLANO
             try {
+                console.log('🌐 Consultando Supabase...');
                 const pedidosOnline = await window.supabaseClient.getUserRemoteOrders(this.currentUser.user_id);
 
                 // Guardar en caché para futuras visualizaciones offline
