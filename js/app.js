@@ -861,17 +861,136 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Añade producto al carrito desde búsqueda
+     * Muestra el modal de añadir al carrito con selección de cantidad
+     */
+    async showAddToCartModal(producto) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('addToCartModal');
+            const overlay = modal.querySelector('.add-to-cart-overlay');
+            const closeBtn = document.getElementById('closeAddToCartModal');
+            const img = document.getElementById('addToCartImg');
+            const placeholder = modal.querySelector('.add-to-cart-placeholder');
+            const codeEl = document.getElementById('addToCartCode');
+            const descriptionEl = document.getElementById('addToCartDescription');
+            const priceEl = document.getElementById('addToCartPrice');
+            const qtyInput = document.getElementById('qtyInputModal');
+            const decreaseBtn = document.getElementById('decreaseQtyModal');
+            const increaseBtn = document.getElementById('increaseQtyModal');
+            const confirmBtn = document.getElementById('confirmAddToCartBtn');
+
+            if (!modal) {
+                console.error('Modal de añadir al carrito no encontrado');
+                resolve(null);
+                return;
+            }
+
+            // Configurar información del producto
+            const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
+            img.src = imageUrl;
+            img.style.display = 'block';
+            placeholder.style.display = 'none';
+
+            img.onerror = () => {
+                img.style.display = 'none';
+                placeholder.style.display = 'flex';
+            };
+
+            codeEl.textContent = producto.codigo;
+            descriptionEl.textContent = producto.descripcion;
+            const priceWithIVA = producto.pvp * 1.21;
+            priceEl.textContent = `${priceWithIVA.toFixed(2)} €`;
+
+            // Resetear cantidad a 1
+            qtyInput.value = 1;
+
+            // Mostrar modal
+            modal.style.display = 'flex';
+
+            // Manejadores de eventos
+            const handleClose = () => {
+                modal.style.display = 'none';
+                cleanup();
+                resolve(null);
+            };
+
+            const handleConfirm = async () => {
+                const cantidad = parseInt(qtyInput.value) || 1;
+                modal.style.display = 'none';
+                cleanup();
+                resolve(cantidad);
+            };
+
+            const handleDecrease = () => {
+                let value = parseInt(qtyInput.value) || 1;
+                if (value > 1) {
+                    qtyInput.value = value - 1;
+                }
+            };
+
+            const handleIncrease = () => {
+                let value = parseInt(qtyInput.value) || 1;
+                if (value < 999) {
+                    qtyInput.value = value + 1;
+                }
+            };
+
+            const handleInputChange = () => {
+                let value = parseInt(qtyInput.value) || 1;
+                if (value < 1) value = 1;
+                if (value > 999) value = 999;
+                qtyInput.value = value;
+            };
+
+            const handleFocus = (e) => {
+                e.target.select();
+            };
+
+            const cleanup = () => {
+                closeBtn.removeEventListener('click', handleClose);
+                overlay.removeEventListener('click', handleClose);
+                confirmBtn.removeEventListener('click', handleConfirm);
+                decreaseBtn.removeEventListener('click', handleDecrease);
+                increaseBtn.removeEventListener('click', handleIncrease);
+                qtyInput.removeEventListener('input', handleInputChange);
+                qtyInput.removeEventListener('focus', handleFocus);
+            };
+
+            // Añadir listeners
+            closeBtn.addEventListener('click', handleClose);
+            overlay.addEventListener('click', handleClose);
+            confirmBtn.addEventListener('click', handleConfirm);
+            decreaseBtn.addEventListener('click', handleDecrease);
+            increaseBtn.addEventListener('click', handleIncrease);
+            qtyInput.addEventListener('input', handleInputChange);
+            qtyInput.addEventListener('focus', handleFocus);
+        });
+    }
+
+    /**
+     * Añade producto al carrito desde búsqueda (ahora con modal de cantidad)
      */
     async addProductToCart(codigo, descripcion, pvp) {
         try {
+            // Mostrar modal de cantidad
+            const cantidad = await this.showAddToCartModal({
+                codigo,
+                descripcion,
+                pvp
+            });
+
+            // Si el usuario canceló, no hacer nada
+            if (cantidad === null) {
+                return;
+            }
+
+            // Añadir al carrito
             await window.cartManager.addProduct({
                 codigo,
                 descripcion,
                 pvp
-            }, 1);
+            }, cantidad);
             
-            window.ui.showToast('Producto añadido al carrito', 'success');
+            window.ui.showToast(`Producto añadido (x${cantidad})`, 'success');
             window.ui.updateCartBadge();
             
             // Si estamos en la pantalla de carrito, actualizar vista
@@ -1354,17 +1473,30 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Añade un producto al carrito desde el historial
+     * Añade un producto al carrito desde el historial (ahora con modal de cantidad)
      */
     async addProductToCartFromHistory(codigo, descripcion, pvp) {
         try {
+            // Mostrar modal de cantidad
+            const cantidad = await this.showAddToCartModal({
+                codigo,
+                descripcion,
+                pvp
+            });
+
+            // Si el usuario canceló, no hacer nada
+            if (cantidad === null) {
+                return;
+            }
+
+            // Añadir al carrito
             await window.cartManager.addProduct({
                 codigo,
                 descripcion,
                 pvp
-            }, 1);
+            }, cantidad);
             
-            window.ui.showToast('Producto añadido al carrito', 'success');
+            window.ui.showToast(`Producto añadido (x${cantidad})`, 'success');
             window.ui.updateCartBadge();
             
         } catch (error) {

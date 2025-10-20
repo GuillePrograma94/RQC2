@@ -1508,6 +1508,196 @@ body {
 }
 
 /* ========================================
+   MODAL DE AÑADIR AL CARRITO CON CANTIDAD
+   ======================================== */
+.add-to-cart-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.add-to-cart-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+}
+
+.add-to-cart-content {
+    position: relative;
+    background: var(--white);
+    border-radius: 20px;
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    animation: scaleIn 0.4s ease-out;
+    max-height: 85vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.close-add-to-cart-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(0, 0, 0, 0.1);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: var(--gray-700);
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 1;
+}
+
+.close-add-to-cart-btn:active {
+    background: rgba(0, 0, 0, 0.2);
+    transform: scale(0.95);
+}
+
+.add-to-cart-image-container {
+    width: 100%;
+    height: 200px;
+    background: var(--gray-100);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.add-to-cart-image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.add-to-cart-placeholder {
+    font-size: 5rem;
+    opacity: 0.3;
+}
+
+.add-to-cart-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.add-to-cart-code {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    font-weight: 600;
+}
+
+.add-to-cart-description {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    line-height: 1.4;
+}
+
+.add-to-cart-price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.add-to-cart-quantity-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem 0;
+}
+
+.quantity-section-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    text-align: center;
+}
+
+.quantity-controls-modal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    background: var(--gray-100);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+}
+
+.qty-btn-modal {
+    width: 50px;
+    height: 50px;
+    border: none;
+    background: var(--white);
+    color: var(--primary);
+    font-size: 1.8rem;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.qty-btn-modal:active {
+    background: var(--primary);
+    color: var(--white);
+    transform: scale(0.95);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.qty-input-modal {
+    width: 80px;
+    height: 50px;
+    border: none;
+    background: var(--white);
+    color: var(--gray-900);
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-align: center;
+    font-family: inherit;
+    border-radius: 10px;
+    transition: all 0.2s;
+    appearance: textfield;
+    -moz-appearance: textfield;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.qty-input-modal::-webkit-inner-spin-button,
+.qty-input-modal::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.qty-input-modal:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(120, 81, 169, 0.3);
+}
+
+/* ========================================
    LOGIN MODAL
    ======================================== */
 .login-modal {

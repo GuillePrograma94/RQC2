@@ -211,20 +211,25 @@ class ScannerManager {
     }
 
     /**
-     * Añade un producto al carrito
+     * Añade un producto al carrito (con modal de cantidad)
      */
     async addToCart(producto, cantidad = 1) {
         try {
-            // Mostrar ventana emergente con imagen y descripción
-            await this.showProductPreview(producto);
+            // Mostrar modal de cantidad (ignorar la cantidad pasada como parámetro)
+            const cantidadSeleccionada = await window.app.showAddToCartModal(producto);
             
+            // Si el usuario canceló, no hacer nada
+            if (cantidadSeleccionada === null) {
+                return;
+            }
+
             window.ui.showLoading('Añadiendo al carrito...');
 
-            await window.cartManager.addProduct(producto, cantidad);
+            await window.cartManager.addProduct(producto, cantidadSeleccionada);
 
             window.ui.hideLoading();
             window.ui.showToast(
-                `${producto.descripcion} anadido (${cantidad})`,
+                `${producto.descripcion} anadido (x${cantidadSeleccionada})`,
                 'success'
             );
 
@@ -534,17 +539,35 @@ class ScannerManager {
             console.timeEnd('⏱️ Búsqueda exacta');
             
             if (products.length === 1) {
-                // Un producto encontrado - mostrar preview y luego añadir
+                // Un producto encontrado - mostrar preview y luego modal de cantidad
                 const producto = products[0];
                 console.log('✅ Producto encontrado:', producto);
                 
                 // Mostrar ventana emergente con imagen y descripción
                 await this.showProductPreview(producto);
                 
-                // Añadir al carrito
-                await window.cartManager.addProduct(producto, 1);
-                window.ui.showToast(`✅ ${producto.descripcion}`, 'success');
+                // Mostrar modal de cantidad
+                const cantidad = await window.app.showAddToCartModal(producto);
+                
+                // Si el usuario canceló, reiniciar cámara
+                if (cantidad === null) {
+                    setTimeout(() => {
+                        if (window.app.currentScreen === 'scan') {
+                            this.startCamera();
+                        }
+                    }, 100);
+                    return;
+                }
+                
+                // Añadir al carrito con la cantidad seleccionada
+                await window.cartManager.addProduct(producto, cantidad);
+                window.ui.showToast(`✅ ${producto.descripcion} (x${cantidad})`, 'success');
                 window.ui.updateCartBadge();
+                
+                // Si estamos en la pantalla de carrito, actualizar vista
+                if (window.app.currentScreen === 'cart') {
+                    window.app.updateCartView();
+                }
                 
                 // Reiniciar cámara para seguir escaneando
                 setTimeout(() => {

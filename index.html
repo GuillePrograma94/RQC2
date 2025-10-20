@@ -430,6 +430,32 @@
         </div>
     </div>
 
+    <!-- Modal de Añadir al Carrito con Cantidad -->
+    <div id="addToCartModal" class="add-to-cart-modal" style="display: none;">
+        <div class="add-to-cart-overlay"></div>
+        <div class="add-to-cart-content">
+            <button id="closeAddToCartModal" class="close-add-to-cart-btn">✕</button>
+            <div class="add-to-cart-image-container">
+                <img id="addToCartImg" src="" alt="Producto">
+                <div class="add-to-cart-placeholder" style="display: none;">📦</div>
+            </div>
+            <div class="add-to-cart-info">
+                <div class="add-to-cart-code" id="addToCartCode"></div>
+                <div class="add-to-cart-description" id="addToCartDescription"></div>
+                <div class="add-to-cart-price" id="addToCartPrice"></div>
+            </div>
+            <div class="add-to-cart-quantity-section">
+                <label class="quantity-section-label">¿Cuántas unidades?</label>
+                <div class="quantity-controls-modal">
+                    <button class="qty-btn-modal" id="decreaseQtyModal">−</button>
+                    <input type="number" class="qty-input-modal" id="qtyInputModal" value="1" min="1" max="999">
+                    <button class="qty-btn-modal" id="increaseQtyModal">+</button>
+                </div>
+            </div>
+            <button id="confirmAddToCartBtn" class="btn btn-primary btn-lg">Añadir al Carrito</button>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <!-- Supabase Client Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
