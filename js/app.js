@@ -51,6 +51,12 @@ class ScanAsYouShopApp {
                 console.log('Sesion de usuario encontrada:', savedUser.user_name);
                 this.currentUser = savedUser;
                 this.updateUserUI();
+                
+                // Precargar historial de compras en segundo plano (Phase 2 - Cache)
+                if (window.purchaseCache && savedUser.user_id) {
+                    console.log('🚀 Precargando historial para sesión guardada...');
+                    window.purchaseCache.preload(savedUser.user_id);
+                }
             }
 
             // Inicializar app (con o sin usuario logueado)
@@ -152,6 +158,12 @@ class ScanAsYouShopApp {
                 
                 // Mostrar mensaje de bienvenida
                 window.ui.showToast(`Bienvenido, ${this.currentUser.user_name}`, 'success');
+
+                // Precargar historial de compras en segundo plano (Phase 2 - Cache)
+                if (window.purchaseCache) {
+                    console.log('🚀 Precargando historial de compras...');
+                    window.purchaseCache.preload(this.currentUser.user_id);
+                }
 
             } else {
                 this.showLoginError(loginResult.message || 'Usuario o contraseña incorrectos');
@@ -273,6 +285,12 @@ class ScanAsYouShopApp {
             const onlyPurchasedCheckbox = document.getElementById('onlyPurchasedCheckbox');
             if (onlyPurchasedCheckbox) {
                 onlyPurchasedCheckbox.checked = false;
+            }
+
+            // Limpiar cache de historial (Phase 2 - Cache)
+            if (window.purchaseCache) {
+                window.purchaseCache.clearAll();
+                console.log('🗑️ Cache de historial limpiado al cerrar sesión');
             }
 
             // Actualizar UI
@@ -751,9 +769,9 @@ class ScanAsYouShopApp {
             let productos = [];
             
             if (onlyPurchased) {
-                // Búsqueda en el historial de compras del usuario
-                console.log('📦 Buscando en historial de compras...');
-                const historial = await window.supabaseClient.getUserPurchaseHistory(
+                // Búsqueda en el historial de compras del usuario (CON CACHE)
+                console.log('📦 Buscando en historial de compras (con cache)...');
+                const historial = await window.purchaseCache.getUserHistory(
                     this.currentUser.user_id,
                     code || null,
                     description || null
@@ -1083,6 +1101,12 @@ class ScanAsYouShopApp {
         try {
             await window.cartManager.uploadCartToCheckout(code);
             window.ui.showToast('Compra confirmada ✓', 'success');
+            
+            // Invalidar cache de historial si hay usuario logueado (Phase 2 - Cache)
+            if (this.currentUser && window.purchaseCache) {
+                console.log('🔄 Invalidando cache de historial tras compra...');
+                window.purchaseCache.invalidateUser(this.currentUser.user_id);
+            }
             
             // Limpiar carrito y volver
             window.cartManager.clearCart();
@@ -1755,6 +1779,13 @@ class ScanAsYouShopApp {
                 `Pedido enviado a ${almacen} - ${totalWithIVA.toFixed(2)}€`,
                 'success'
             );
+
+            // Invalidar cache de historial (Phase 2 - Cache)
+            // Los pedidos remotos también actualizan el historial cuando se procesan
+            if (window.purchaseCache) {
+                console.log('🔄 Invalidando cache de historial tras pedido remoto...');
+                window.purchaseCache.invalidateUser(this.currentUser.user_id);
+            }
 
             // Limpiar carrito
             await window.cartManager.clearCart();

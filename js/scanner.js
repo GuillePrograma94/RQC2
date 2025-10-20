@@ -394,6 +394,12 @@ class ScannerManager {
                 'El empleado validara tu compra.'
             );
 
+            // Invalidar cache de historial si hay usuario logueado (Phase 2 - Cache)
+            if (window.app && window.app.currentUser && window.purchaseCache) {
+                console.log('🔄 Invalidando cache de historial tras compra QR...');
+                window.purchaseCache.invalidateUser(window.app.currentUser.user_id);
+            }
+            
             // Limpiar carrito local
             await window.cartManager.clearCart();
             window.ui.updateCartBadge();
