@@ -230,6 +230,7 @@ class ScanAsYouShopApp {
         const menuUser = document.getElementById('menuUser');
         const menuUserName = document.getElementById('menuUserName');
         const menuUserCode = document.getElementById('menuUserCode');
+        const historyFilterGroup = document.querySelector('.history-filter-group');
 
         if (this.currentUser) {
             // Usuario logueado
@@ -241,10 +242,14 @@ class ScanAsYouShopApp {
             if (menuUserCode) {
                 menuUserCode.textContent = `Código: ${this.currentUser.codigo_usuario}`;
             }
+            // Mostrar filtro de historial en búsqueda
+            if (historyFilterGroup) historyFilterGroup.style.display = 'block';
         } else {
             // Usuario NO logueado
             if (menuGuest) menuGuest.style.display = 'block';
             if (menuUser) menuUser.style.display = 'none';
+            // Ocultar filtro de historial en búsqueda
+            if (historyFilterGroup) historyFilterGroup.style.display = 'none';
         }
     }
 
@@ -263,6 +268,12 @@ class ScanAsYouShopApp {
             localStorage.removeItem('current_session');
             this.currentUser = null;
             this.currentSession = null;
+
+            // Desmarcar checkbox de historial en búsqueda
+            const onlyPurchasedCheckbox = document.getElementById('onlyPurchasedCheckbox');
+            if (onlyPurchasedCheckbox) {
+                onlyPurchasedCheckbox.checked = false;
+            }
 
             // Actualizar UI
             this.updateUserUI();
@@ -971,19 +982,26 @@ class ScanAsYouShopApp {
      */
     async addProductToCart(codigo, descripcion, pvp) {
         try {
+            console.log('addProductToCart llamado con:', codigo, descripcion, pvp);
+            
             // Mostrar modal de cantidad
+            console.log('Mostrando modal de cantidad...');
             const cantidad = await this.showAddToCartModal({
                 codigo,
                 descripcion,
                 pvp
             });
 
+            console.log('Cantidad seleccionada:', cantidad);
+
             // Si el usuario canceló, no hacer nada
             if (cantidad === null) {
+                console.log('Usuario canceló el modal');
                 return;
             }
 
             // Añadir al carrito
+            console.log('Añadiendo al carrito:', cantidad, 'unidades');
             await window.cartManager.addProduct({
                 codigo,
                 descripcion,
