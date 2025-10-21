@@ -13,8 +13,9 @@ class PurchaseHistoryCache {
         
         // Cache configuration
         this.config = {
-            ttl: 15 * 60 * 1000,  // 15 minutes in milliseconds
-            maxSize: 100          // Maximum number of cached users
+            ttl: 24 * 60 * 60 * 1000,  // 24 hours in milliseconds
+            maxSize: 100,               // Maximum number of cached users
+            autoRefresh: true           // Enable automatic refresh
         };
         
         // Statistics for monitoring
@@ -28,7 +29,7 @@ class PurchaseHistoryCache {
     }
 
     /**
-     * Get user's purchase history (cached or fresh)
+     * Get user's purchase history with LOCAL search (no server queries for filtering)
      * @param {number} userId - User ID
      * @param {string|null} codigo - Optional product code filter
      * @param {string|null} descripcion - Optional description filter
@@ -37,48 +38,94 @@ class PurchaseHistoryCache {
     async getUserHistory(userId, codigo = null, descripcion = null) {
         this.stats.totalQueries++;
         
-        // Generate cache key (include filters in key)
-        const cacheKey = this.generateCacheKey(userId, codigo, descripcion);
+        // Check if we have the full user history cached (without filters)
+        const fullHistoryKey = `user_${userId}_full`;
+        const fullHistoryEntry = this.cache.get(fullHistoryKey);
         
-        // Check if cache exists and is valid
-        const cacheEntry = this.cache.get(cacheKey);
-        
-        if (cacheEntry && this.isCacheValid(cacheEntry)) {
+        if (fullHistoryEntry && this.isCacheValid(fullHistoryEntry)) {
+            // We have the full history cached - do LOCAL search
             this.stats.hits++;
-            console.log(`✅ Cache HIT for user ${userId} (${this.getCacheHitRate()}% hit rate)`);
-            return cacheEntry.data;
+            console.log(`✅ Cache HIT for user ${userId} - doing LOCAL search (${this.getCacheHitRate()}% hit rate)`);
+            
+            // Check if cache needs refresh (24 hours old)
+            if (this.needsRefresh(fullHistoryEntry)) {
+                const ageHours = Math.round((Date.now() - fullHistoryEntry.timestamp) / (1000 * 60 * 60));
+                console.log(`🔄 Cache is ${ageHours} hours old, refreshing in background for user ${userId}`);
+                this.refreshInBackground(userId);
+            }
+            
+            return this.searchLocally(fullHistoryEntry.data, codigo, descripcion);
         }
         
-        // Cache miss - fetch from server
+        // Cache miss - fetch FULL history from server (no filters)
         this.stats.misses++;
-        console.log(`📥 Cache MISS for user ${userId} - fetching from server...`);
+        console.log(`📥 Cache MISS for user ${userId} - fetching FULL history from server...`);
         
         const startTime = performance.now();
         
         try {
-            // Fetch from Supabase using optimized function
+            // Fetch FULL history from Supabase (no filters - get everything)
             const data = await window.supabaseClient.getUserPurchaseHistoryOptimized(
                 userId, 
-                codigo, 
-                descripcion
+                null,  // No code filter
+                null   // No description filter
             );
             
             const fetchTime = Math.round(performance.now() - startTime);
-            console.log(`⏱️ Server fetch took ${fetchTime}ms, caching for ${this.config.ttl / 1000}s`);
+            console.log(`⏱️ Server fetch took ${fetchTime}ms, caching FULL history for ${this.config.ttl / 1000}s`);
             
-            // Store in cache
-            this.setCache(cacheKey, data);
+            // Store FULL history in cache
+            this.setCache(fullHistoryKey, data);
             
             // Enforce cache size limit
             this.enforceMaxSize();
             
-            return data;
+            // Do LOCAL search on the full data
+            return this.searchLocally(data, codigo, descripcion);
             
         } catch (error) {
             console.error('Error fetching purchase history:', error);
             // Return empty array on error
             return [];
         }
+    }
+
+    /**
+     * Search locally in user's purchase history (same logic as product search)
+     * @param {Array} fullHistory - Complete user purchase history
+     * @param {string|null} codigo - Optional product code filter
+     * @param {string|null} descripcion - Optional description filter
+     * @returns {Array} - Filtered results
+     */
+    searchLocally(fullHistory, codigo = null, descripcion = null) {
+        let results = [...fullHistory]; // Start with all products
+        
+        // Filter by code if provided
+        if (codigo) {
+            const codeUpper = codigo.toUpperCase().trim();
+            results = results.filter(item => 
+                item.codigo.toUpperCase().includes(codeUpper)
+            );
+        }
+        
+        // Filter by description if provided (same logic as searchByDescriptionAllWords)
+        if (descripcion) {
+            const words = descripcion
+                .toLowerCase()
+                .trim()
+                .split(/\s+/)
+                .filter(w => w.length > 0);
+            
+            if (words.length > 0) {
+                results = results.filter(item => {
+                    const descLower = item.descripcion.toLowerCase();
+                    return words.every(word => descLower.includes(word));
+                });
+            }
+        }
+        
+        console.log(`🔍 Local search: ${fullHistory.length} total → ${results.length} filtered`);
+        return results;
     }
 
     /**
@@ -97,6 +144,15 @@ class PurchaseHistoryCache {
     isCacheValid(cacheEntry) {
         const age = Date.now() - cacheEntry.timestamp;
         return age < this.config.ttl;
+    }
+
+    /**
+     * Check if cache entry needs refresh (24 hours old)
+     */
+    needsRefresh(cacheEntry) {
+        const age = Date.now() - cacheEntry.timestamp;
+        const refreshThreshold = 24 * 60 * 60 * 1000; // 24 hours
+        return age > refreshThreshold;
     }
 
     /**
@@ -136,7 +192,7 @@ class PurchaseHistoryCache {
     invalidateUser(userId) {
         let deleted = 0;
         for (const key of this.cache.keys()) {
-            if (key.startsWith(`${userId}|`)) {
+            if (key.startsWith(`user_${userId}_`) || key.startsWith(`${userId}|`)) {
                 this.cache.delete(key);
                 deleted++;
             }
@@ -167,6 +223,32 @@ class PurchaseHistoryCache {
             cacheSize: this.cache.size,
             maxSize: this.config.maxSize
         };
+    }
+
+    /**
+     * Refresh cache in background (24+ hours old)
+     * Updates cache without blocking current search
+     */
+    async refreshInBackground(userId) {
+        console.log(`🔄 Background refresh for user ${userId}...`);
+        
+        try {
+            // Fetch fresh data from server
+            const data = await window.supabaseClient.getUserPurchaseHistoryOptimized(
+                userId, 
+                null,  // No code filter
+                null   // No description filter
+            );
+            
+            // Update cache with fresh data
+            const fullHistoryKey = `user_${userId}_full`;
+            this.setCache(fullHistoryKey, data);
+            
+            console.log(`✅ Background refresh completed for user ${userId} (${data.length} products)`);
+            
+        } catch (error) {
+            console.error('Error refreshing cache in background:', error);
+        }
     }
 
     /**
