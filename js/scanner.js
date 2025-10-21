@@ -545,14 +545,16 @@ class ScannerManager {
             console.timeEnd('⏱️ Búsqueda exacta');
             
             if (products.length === 1) {
-                // Un producto encontrado - mostrar preview y luego modal de cantidad
+                // Un producto encontrado - mostrar directamente modal de cantidad
                 const producto = products[0];
                 console.log('✅ Producto encontrado:', producto);
                 
-                // Mostrar ventana emergente con imagen y descripción
-                await this.showProductPreview(producto);
+                // Vibración de feedback (si está disponible)
+                if (navigator.vibrate) {
+                    navigator.vibrate(200);
+                }
                 
-                // Mostrar modal de cantidad
+                // Mostrar modal de cantidad directamente
                 const cantidad = await window.app.showAddToCartModal(producto);
                 
                 // Si el usuario canceló, reiniciar cámara
@@ -637,55 +639,6 @@ class ScannerManager {
         }
     }
     
-    /**
-     * Muestra una ventana emergente con la imagen y descripción del producto
-     * durante 1.5 segundos
-     */
-    async showProductPreview(producto) {
-        return new Promise((resolve) => {
-            const modal = document.getElementById('productPreviewModal');
-            const img = document.getElementById('productPreviewImg');
-            const placeholder = modal.querySelector('.product-preview-placeholder');
-            const description = document.getElementById('productPreviewDescription');
-            
-            if (!modal || !img || !description) {
-                console.error('Elementos del modal no encontrados');
-                resolve();
-                return;
-            }
-            
-            // Configurar la URL de la imagen
-            const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
-            
-            // Configurar imagen
-            img.src = imageUrl;
-            img.style.display = 'block';
-            placeholder.style.display = 'none';
-            
-            // Manejar error de carga de imagen
-            img.onerror = () => {
-                img.style.display = 'none';
-                placeholder.style.display = 'flex';
-            };
-            
-            // Configurar descripción
-            description.textContent = producto.descripcion;
-            
-            // Mostrar modal
-            modal.style.display = 'flex';
-            
-            // Vibración de feedback (si está disponible)
-            if (navigator.vibrate) {
-                navigator.vibrate(200);
-            }
-            
-            // Ocultar después de 1.5 segundos
-            setTimeout(() => {
-                modal.style.display = 'none';
-                resolve();
-            }, 1500);
-        });
-    }
 }
 
 // Crear instancia global
