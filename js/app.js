@@ -787,7 +787,20 @@ class ScanAsYouShopApp {
                 
             } else {
                 // Búsqueda en el catálogo completo
-                if (code) {
+                if (code && description) {
+                    // Búsqueda combinada: primero por descripción, luego filtrar por código
+                    console.log('🔍 Búsqueda combinada: descripción + código');
+                    const productosPorDescripcion = await window.cartManager.searchByDescriptionAllWords(description);
+                    
+                    // Filtrar por código dentro de los resultados de descripción
+                    const codeUpper = code.toUpperCase().trim();
+                    productos = productosPorDescripcion.filter(p => 
+                        p.codigo.toUpperCase().includes(codeUpper)
+                    );
+                    
+                    console.log(`📊 Resultados: ${productosPorDescripcion.length} por descripción → ${productos.length} con código`);
+                    
+                } else if (code) {
                     // Búsqueda por código con prioridad a match exacto
                     productos = await window.cartManager.searchByCodeSmart(code);
                 } else if (description) {

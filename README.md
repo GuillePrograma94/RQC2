@@ -157,7 +157,6 @@ const APP_CONFIG = {
     
     search: {
         minSearchLength: 2,        // Mínimo caracteres para buscar
-        maxResults: 50,            // Máximo resultados mostrados
         debounceDelay: 300         // Delay para búsqueda (ms)
     }
 };

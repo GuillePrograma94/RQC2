@@ -493,7 +493,7 @@ class CartManager {
                         p.descripcion.toLowerCase().includes(searchLower)
                     );
 
-                    resolve(filtered.slice(0, window.APP_CONFIG.search.maxResults));
+                    resolve(filtered);
                 };
                 request.onerror = () => reject(request.error);
             });
@@ -535,7 +535,7 @@ class CartManager {
                         p.codigo.toUpperCase().includes(codeUpper)
                     );
 
-                    resolve(partialMatches.slice(0, window.APP_CONFIG.search.maxResults));
+                    resolve(partialMatches);
                 };
                 request.onerror = () => reject(request.error);
             });
@@ -577,7 +577,7 @@ class CartManager {
                         return words.every(word => descLower.includes(word));
                     });
 
-                    resolve(filtered.slice(0, window.APP_CONFIG.search.maxResults));
+                    resolve(filtered);
                 };
                 request.onerror = () => reject(request.error);
             });
