@@ -440,9 +440,17 @@ class ScanAsYouShopApp {
             const registration = await navigator.serviceWorker.ready;
             console.log('✅ Service Worker listo para mostrar notificación');
 
+            // Obtener nombre del almacén
+            const almacen = pedido.almacen_destino || 'Almacén';
+
+            // Título original con emoji
+            const titulo = '🎉 ¡Tu Pedido está Listo!';
+            // Mensaje con almacén al principio
+            const mensaje = `ALMACEN ${almacen}: Tu pedido está listo para recoger.`;
+
             // Crear notificación
-            await registration.showNotification('🎉 ¡Tu Pedido está Listo!', {
-                body: `Tu pedido #${pedido.codigo_qr} está listo para recoger en ${pedido.almacen_destino}`,
+            await registration.showNotification(titulo, {
+                body: mensaje,
                 icon: '/icon-192.png',
                 badge: '/icon-192.png',
                 tag: `order-ready-${pedido.id}`,
@@ -451,7 +459,7 @@ class ScanAsYouShopApp {
                 data: {
                     orderId: pedido.id,
                     codigoQR: pedido.codigo_qr,
-                    almacen: pedido.almacen_destino,
+                    almacen: almacen,
                     url: '/'
                 },
                 actions: [
@@ -466,7 +474,7 @@ class ScanAsYouShopApp {
                 ]
             });
 
-            console.log(`🔔 Notificación mostrada para pedido ${pedido.codigo_qr}`);
+            console.log(`🔔 Notificación mostrada: ${titulo} - ${mensaje}`);
 
         } catch (error) {
             console.error('Error al mostrar notificación:', error);
