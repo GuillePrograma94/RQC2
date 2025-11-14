@@ -333,11 +333,22 @@ class ScanAsYouShopApp {
                     },
                     (payload) => {
                         console.log('🔔 Cambio detectado en pedido:', payload);
+                        console.log('   - Tipo de evento:', payload.eventType);
+                        console.log('   - Datos nuevos:', payload.new);
+                        console.log('   - Datos antiguos:', payload.old);
                         this.handleOrderStatusChange(payload);
                     }
                 )
-                .subscribe((status) => {
-                    console.log('Estado de suscripción de pedidos:', status);
+                .subscribe((status, err) => {
+                    console.log('📡 Estado de suscripción de pedidos:', status);
+                    if (err) {
+                        console.error('❌ Error en suscripción de pedidos:', err);
+                    }
+                    if (status === 'SUBSCRIBED') {
+                        console.log('✅ Suscripción a cambios de pedidos activa');
+                    } else if (status === 'CHANNEL_ERROR') {
+                        console.error('❌ Error en canal de pedidos. Verifica que Realtime esté habilitado en Supabase.');
+                    }
                 });
 
         } catch (error) {
@@ -353,15 +364,25 @@ class ScanAsYouShopApp {
             const newRecord = payload.new;
             const oldRecord = payload.old;
 
-            console.log('Estado anterior:', oldRecord?.estado_procesamiento);
-            console.log('Estado nuevo:', newRecord?.estado_procesamiento);
+            console.log('📋 Manejando cambio de estado de pedido:');
+            console.log('   - Estado anterior:', oldRecord?.estado_procesamiento);
+            console.log('   - Estado nuevo:', newRecord?.estado_procesamiento);
+            console.log('   - ID del pedido:', newRecord?.id);
+            console.log('   - Código QR:', newRecord?.codigo_qr);
 
             // Verificar si el estado cambió a 'impreso' (Listo)
             if (
                 newRecord?.estado_procesamiento === 'impreso' &&
                 oldRecord?.estado_procesamiento !== 'impreso'
             ) {
-                console.log('✅ Pedido marcado como LISTO (impreso)');
+                console.log('✅ Pedido marcado como LISTO (impreso) - ID:', newRecord.id);
+                
+                // Verificar permisos de notificación
+                if (Notification.permission !== 'granted') {
+                    console.warn('⚠️ Permisos de notificación no otorgados');
+                    // Intentar solicitar permisos
+                    await this.requestNotificationPermission();
+                }
                 
                 // Mostrar notificación
                 await this.showOrderReadyNotification(newRecord);
@@ -371,10 +392,13 @@ class ScanAsYouShopApp {
                     console.log('Recargando lista de pedidos...');
                     await this.loadMyOrders();
                 }
+            } else {
+                console.log('ℹ️ Cambio de estado no relevante para notificaciones');
             }
 
         } catch (error) {
-            console.error('Error al manejar cambio de estado de pedido:', error);
+            console.error('❌ Error al manejar cambio de estado de pedido:', error);
+            console.error('   - Stack:', error.stack);
         }
     }
 
@@ -383,19 +407,38 @@ class ScanAsYouShopApp {
      */
     async showOrderReadyNotification(pedido) {
         try {
+            console.log('🔔 Intentando mostrar notificación para pedido:', pedido.id);
+            
             // Verificar si las notificaciones están habilitadas
             if (!this.notificationsEnabled || Notification.permission !== 'granted') {
-                console.log('Notificaciones no habilitadas');
-                return;
+                console.warn('⚠️ Notificaciones no habilitadas. Permiso:', Notification.permission);
+                // Intentar solicitar permisos si no están denegados
+                if (Notification.permission === 'default') {
+                    console.log('📱 Solicitando permisos de notificación...');
+                    await this.requestNotificationPermission();
+                } else {
+                    return;
+                }
             }
 
             // Verificar si hay Service Worker disponible
-            if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
-                console.log('Service Worker no disponible');
+            if (!('serviceWorker' in navigator)) {
+                console.error('❌ Service Worker no soportado en este navegador');
                 return;
             }
 
+            if (!navigator.serviceWorker.controller) {
+                console.warn('⚠️ Service Worker no está activo. Esperando registro...');
+                // Esperar a que el Service Worker esté listo
+                const registration = await navigator.serviceWorker.ready;
+                if (!registration) {
+                    console.error('❌ No se pudo obtener el Service Worker');
+                    return;
+                }
+            }
+
             const registration = await navigator.serviceWorker.ready;
+            console.log('✅ Service Worker listo para mostrar notificación');
 
             // Crear notificación
             await registration.showNotification('🎉 ¡Tu Pedido está Listo!', {
