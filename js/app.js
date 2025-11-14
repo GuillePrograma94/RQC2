@@ -2354,7 +2354,7 @@ class ScanAsYouShopApp {
             for (const producto of productos) {
                 try {
                     // Buscar el producto completo desde la base de datos
-                    const productoCompleto = await window.supabaseClient.getProductByCode(producto.codigo_producto);
+                    const productoCompleto = await window.supabaseClient.searchProductByCode(producto.codigo_producto);
                     
                     if (productoCompleto) {
                         await window.cartManager.addProduct(productoCompleto, producto.cantidad);
@@ -2402,7 +2402,7 @@ class ScanAsYouShopApp {
     async reorderSingleProduct(codigoProducto, cantidad) {
         try {
             // Buscar el producto completo desde la base de datos
-            const producto = await window.supabaseClient.getProductByCode(codigoProducto);
+            const producto = await window.supabaseClient.searchProductByCode(codigoProducto);
             
             if (!producto) {
                 window.uiManager.showToast('Producto no encontrado', 'error');
