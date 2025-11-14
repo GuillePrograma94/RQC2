@@ -3,7 +3,7 @@
  * Maneja cache y funcionamiento offline
  */
 
-const CACHE_NAME = 'scan-as-you-shop-v15';
+const CACHE_NAME = 'scan-as-you-shop-v16';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -114,5 +114,86 @@ self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
+});
+
+// Evento de notificación push
+self.addEventListener('push', event => {
+    console.log('Push recibido:', event);
+    
+    let notificationData = {
+        title: 'Pedido Listo',
+        body: 'Tu pedido está listo para recoger',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: 'order-ready',
+        requireInteraction: true,
+        data: {
+            url: '/'
+        }
+    };
+
+    if (event.data) {
+        try {
+            const data = event.data.json();
+            if (data.title) notificationData.title = data.title;
+            if (data.body) notificationData.body = data.body;
+            if (data.url) notificationData.data.url = data.url;
+            if (data.tag) notificationData.tag = data.tag;
+        } catch (error) {
+            console.error('Error al parsear datos de push:', error);
+        }
+    }
+
+    event.waitUntil(
+        self.registration.showNotification(notificationData.title, {
+            body: notificationData.body,
+            icon: notificationData.icon,
+            badge: notificationData.badge,
+            tag: notificationData.tag,
+            requireInteraction: notificationData.requireInteraction,
+            data: notificationData.data,
+            vibrate: [200, 100, 200],
+            actions: [
+                {
+                    action: 'open',
+                    title: 'Ver Pedido'
+                },
+                {
+                    action: 'close',
+                    title: 'Cerrar'
+                }
+            ]
+        })
+    );
+});
+
+// Evento de click en notificación
+self.addEventListener('notificationclick', event => {
+    console.log('Notificación clickeada:', event);
+    
+    event.notification.close();
+
+    if (event.action === 'close') {
+        return;
+    }
+
+    // Abrir la app (o enfocar si ya está abierta)
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true })
+            .then(clientList => {
+                // Si ya hay una ventana abierta, enfocarla
+                for (let client of clientList) {
+                    if (client.url.includes(self.location.origin) && 'focus' in client) {
+                        return client.focus();
+                    }
+                }
+                
+                // Si no hay ventana abierta, abrir una nueva
+                if (clients.openWindow) {
+                    const url = event.notification.data?.url || '/';
+                    return clients.openWindow(url);
+                }
+            })
+    );
 });
 

@@ -8,6 +8,8 @@ class ScanAsYouShopApp {
         this.isInitialized = false;
         this.currentUser = null;
         this.currentSession = null;
+        this.ordersSubscription = null;
+        this.notificationsEnabled = false;
     }
 
     /**
@@ -57,6 +59,12 @@ class ScanAsYouShopApp {
                     console.log('🚀 Precargando historial para sesión guardada...');
                     window.purchaseCache.preload(savedUser.user_id);
                 }
+
+                // Solicitar permisos de notificaciones para sesión guardada
+                await this.requestNotificationPermission();
+
+                // Configurar listener de cambios de estado de pedidos
+                this.setupOrderStatusListener();
             }
 
             // Inicializar app (con o sin usuario logueado)
@@ -165,6 +173,12 @@ class ScanAsYouShopApp {
                     window.purchaseCache.preload(this.currentUser.user_id);
                 }
 
+                // Solicitar permisos de notificaciones
+                await this.requestNotificationPermission();
+
+                // Configurar listener de cambios de estado de pedidos
+                this.setupOrderStatusListener();
+
             } else {
                 this.showLoginError(loginResult.message || 'Usuario o contraseña incorrectos');
                 if (loginBtn) {
@@ -235,6 +249,199 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Solicita permisos para notificaciones
+     */
+    async requestNotificationPermission() {
+        try {
+            // Verificar si el navegador soporta notificaciones
+            if (!('Notification' in window)) {
+                console.log('Este navegador no soporta notificaciones');
+                return false;
+            }
+
+            // Si ya tenemos permiso, no preguntar de nuevo
+            if (Notification.permission === 'granted') {
+                console.log('Permisos de notificación ya otorgados');
+                this.notificationsEnabled = true;
+                return true;
+            }
+
+            // Si el permiso fue denegado previamente, no insistir
+            if (Notification.permission === 'denied') {
+                console.log('Permisos de notificación denegados');
+                return false;
+            }
+
+            // Solicitar permiso
+            const permission = await Notification.requestPermission();
+            
+            if (permission === 'granted') {
+                console.log('Permisos de notificación otorgados');
+                this.notificationsEnabled = true;
+                
+                // Mostrar notificación de bienvenida
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.ready.then(registration => {
+                        registration.showNotification('Notificaciones activadas', {
+                            body: 'Te avisaremos cuando tu pedido esté listo',
+                            icon: '/icon-192.png',
+                            badge: '/icon-192.png',
+                            tag: 'welcome-notification'
+                        });
+                    });
+                }
+                
+                return true;
+            }
+
+            return false;
+
+        } catch (error) {
+            console.error('Error al solicitar permisos de notificación:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Configura el listener de Supabase Realtime para detectar cambios en pedidos
+     */
+    setupOrderStatusListener() {
+        try {
+            if (!this.currentUser || !this.currentUser.user_id) {
+                console.log('No hay usuario logueado, no se configurará listener de pedidos');
+                return;
+            }
+
+            // Cancelar suscripción anterior si existe
+            if (this.ordersSubscription) {
+                console.log('Cancelando suscripción anterior de pedidos');
+                this.ordersSubscription.unsubscribe();
+            }
+
+            console.log(`📡 Configurando listener de pedidos para usuario ${this.currentUser.user_id}`);
+
+            // Crear suscripción a cambios en carritos_clientes
+            this.ordersSubscription = window.supabaseClient.client
+                .channel('order-status-changes')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: 'carritos_clientes',
+                        filter: `usuario_id=eq.${this.currentUser.user_id}`
+                    },
+                    (payload) => {
+                        console.log('🔔 Cambio detectado en pedido:', payload);
+                        this.handleOrderStatusChange(payload);
+                    }
+                )
+                .subscribe((status) => {
+                    console.log('Estado de suscripción de pedidos:', status);
+                });
+
+        } catch (error) {
+            console.error('Error al configurar listener de pedidos:', error);
+        }
+    }
+
+    /**
+     * Maneja cambios en el estado de los pedidos
+     */
+    async handleOrderStatusChange(payload) {
+        try {
+            const newRecord = payload.new;
+            const oldRecord = payload.old;
+
+            console.log('Estado anterior:', oldRecord?.estado_procesamiento);
+            console.log('Estado nuevo:', newRecord?.estado_procesamiento);
+
+            // Verificar si el estado cambió a 'impreso' (Listo)
+            if (
+                newRecord?.estado_procesamiento === 'impreso' &&
+                oldRecord?.estado_procesamiento !== 'impreso'
+            ) {
+                console.log('✅ Pedido marcado como LISTO (impreso)');
+                
+                // Mostrar notificación
+                await this.showOrderReadyNotification(newRecord);
+
+                // Recargar lista de pedidos si estamos en esa pantalla
+                if (this.currentScreen === 'myOrders') {
+                    console.log('Recargando lista de pedidos...');
+                    await this.loadMyOrders();
+                }
+            }
+
+        } catch (error) {
+            console.error('Error al manejar cambio de estado de pedido:', error);
+        }
+    }
+
+    /**
+     * Muestra notificación cuando el pedido está listo
+     */
+    async showOrderReadyNotification(pedido) {
+        try {
+            // Verificar si las notificaciones están habilitadas
+            if (!this.notificationsEnabled || Notification.permission !== 'granted') {
+                console.log('Notificaciones no habilitadas');
+                return;
+            }
+
+            // Verificar si hay Service Worker disponible
+            if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+                console.log('Service Worker no disponible');
+                return;
+            }
+
+            const registration = await navigator.serviceWorker.ready;
+
+            // Crear notificación
+            await registration.showNotification('🎉 ¡Tu Pedido está Listo!', {
+                body: `Tu pedido #${pedido.codigo_qr} está listo para recoger en ${pedido.almacen_destino}`,
+                icon: '/icon-192.png',
+                badge: '/icon-192.png',
+                tag: `order-ready-${pedido.id}`,
+                requireInteraction: true,
+                vibrate: [200, 100, 200, 100, 200],
+                data: {
+                    orderId: pedido.id,
+                    codigoQR: pedido.codigo_qr,
+                    almacen: pedido.almacen_destino,
+                    url: '/'
+                },
+                actions: [
+                    {
+                        action: 'open',
+                        title: 'Ver Mis Pedidos'
+                    },
+                    {
+                        action: 'close',
+                        title: 'Cerrar'
+                    }
+                ]
+            });
+
+            console.log(`🔔 Notificación mostrada para pedido ${pedido.codigo_qr}`);
+
+        } catch (error) {
+            console.error('Error al mostrar notificación:', error);
+        }
+    }
+
+    /**
+     * Cancela la suscripción de cambios de pedidos
+     */
+    unsubscribeFromOrderStatus() {
+        if (this.ordersSubscription) {
+            console.log('Cancelando suscripción de pedidos');
+            this.ordersSubscription.unsubscribe();
+            this.ordersSubscription = null;
+        }
+    }
+
+    /**
      * Actualiza la UI con la información del usuario
      */
     updateUserUI() {
@@ -270,6 +477,9 @@ class ScanAsYouShopApp {
      */
     async logout() {
         try {
+            // Cancelar suscripción de cambios de pedidos
+            this.unsubscribeFromOrderStatus();
+
             // Cerrar sesión en Supabase
             if (this.currentSession) {
                 await window.supabaseClient.closeUserSession(this.currentSession);
@@ -2079,6 +2289,15 @@ class ScanAsYouShopApp {
     renderOrderProducts(detailsDiv, productos) {
         let productosHTML = '<div class="order-products-list">';
         
+        // Botón para reordenar todo el pedido
+        productosHTML += `
+            <div class="order-reorder-actions">
+                <button class="btn-reorder-all" onclick="window.app.reorderAllProducts(${JSON.stringify(productos).replace(/"/g, '&quot;')})">
+                    🔄 Volver a Pedir Todo
+                </button>
+            </div>
+        `;
+        
         for (const producto of productos) {
             const precioConIVA = producto.precio_unitario * 1.21;
             const subtotalConIVA = producto.subtotal * 1.21;
@@ -2101,12 +2320,108 @@ class ScanAsYouShopApp {
                             <span class="order-product-subtotal">${subtotalConIVA.toFixed(2)} €</span>
                         </div>
                     </div>
+                    <button class="btn-reorder-product" 
+                            onclick="window.app.reorderSingleProduct('${producto.codigo_producto}', ${producto.cantidad})"
+                            title="Añadir este producto al carrito">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="9" cy="21" r="1"/>
+                            <circle cx="20" cy="21" r="1"/>
+                            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+                        </svg>
+                    </button>
                 </div>
             `;
         }
 
         productosHTML += '</div>';
         detailsDiv.innerHTML = productosHTML;
+    }
+
+    /**
+     * Reordena todos los productos de un pedido anterior
+     */
+    async reorderAllProducts(productos) {
+        try {
+            if (!Array.isArray(productos) || productos.length === 0) {
+                window.uiManager.showToast('No hay productos para reordenar', 'error');
+                return;
+            }
+
+            // Contar productos agregados
+            let agregados = 0;
+            let errores = 0;
+
+            for (const producto of productos) {
+                try {
+                    // Buscar el producto completo desde la base de datos
+                    const productoCompleto = await window.supabaseClient.getProductByCode(producto.codigo_producto);
+                    
+                    if (productoCompleto) {
+                        await window.cartManager.addProduct(productoCompleto, producto.cantidad);
+                        agregados++;
+                    } else {
+                        console.warn(`Producto no encontrado: ${producto.codigo_producto}`);
+                        errores++;
+                    }
+                } catch (error) {
+                    console.error(`Error al agregar producto ${producto.codigo_producto}:`, error);
+                    errores++;
+                }
+            }
+
+            // Actualizar UI
+            await window.cartManager.updateUI();
+
+            // Mostrar resultado
+            if (agregados > 0) {
+                window.uiManager.showToast(
+                    `${agregados} producto${agregados !== 1 ? 's' : ''} agregado${agregados !== 1 ? 's' : ''} al carrito`,
+                    'success'
+                );
+                
+                // Cambiar a la pantalla del carrito
+                window.uiManager.switchScreen('cart');
+            }
+
+            if (errores > 0) {
+                window.uiManager.showToast(
+                    `${errores} producto${errores !== 1 ? 's' : ''} no ${errores !== 1 ? 'pudieron' : 'pudo'} agregarse`,
+                    'warning'
+                );
+            }
+
+        } catch (error) {
+            console.error('Error al reordenar productos:', error);
+            window.uiManager.showToast('Error al reordenar productos', 'error');
+        }
+    }
+
+    /**
+     * Reordena un solo producto de un pedido anterior
+     */
+    async reorderSingleProduct(codigoProducto, cantidad) {
+        try {
+            // Buscar el producto completo desde la base de datos
+            const producto = await window.supabaseClient.getProductByCode(codigoProducto);
+            
+            if (!producto) {
+                window.uiManager.showToast('Producto no encontrado', 'error');
+                return;
+            }
+
+            // Agregar al carrito
+            await window.cartManager.addProduct(producto, cantidad);
+            
+            // Actualizar UI
+            await window.cartManager.updateUI();
+
+            // Mostrar confirmación
+            window.uiManager.showToast(`${producto.descripcion} agregado al carrito`, 'success');
+
+        } catch (error) {
+            console.error('Error al reordenar producto:', error);
+            window.uiManager.showToast('Error al agregar producto', 'error');
+        }
     }
 }
 

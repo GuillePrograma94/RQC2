@@ -2492,6 +2492,71 @@ body {
     margin-left: auto;
 }
 
+/* Reorder Actions */
+.order-reorder-actions {
+    padding: 1rem;
+    border-bottom: 2px solid var(--gray-200);
+    background: var(--white);
+}
+
+.btn-reorder-all {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: var(--white);
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(120, 81, 169, 0.2);
+}
+
+.btn-reorder-all:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(120, 81, 169, 0.3);
+}
+
+.btn-reorder-all:active {
+    transform: translateY(0);
+}
+
+.btn-reorder-product {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    background: var(--primary);
+    color: var(--white);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(120, 81, 169, 0.2);
+}
+
+.btn-reorder-product:hover {
+    background: var(--primary-dark);
+    transform: scale(1.05);
+}
+
+.btn-reorder-product:active {
+    transform: scale(0.95);
+}
+
+.btn-reorder-product svg {
+    width: 20px;
+    height: 20px;
+}
+
 /* Empty/Error States */
 .order-no-products,
 .order-error {
