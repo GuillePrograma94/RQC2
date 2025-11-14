@@ -987,6 +987,14 @@ class ScanAsYouShopApp {
                 e.target.select();
             };
 
+            const handleKeyPress = (e) => {
+                // Si se presiona Enter, añadir al carrito
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    e.preventDefault();
+                    handleConfirm();
+                }
+            };
+
             const cleanup = () => {
                 closeBtn.removeEventListener('click', handleClose);
                 overlay.removeEventListener('click', handleClose);
@@ -995,6 +1003,7 @@ class ScanAsYouShopApp {
                 increaseBtn.removeEventListener('click', handleIncrease);
                 qtyInput.removeEventListener('input', handleInputChange);
                 qtyInput.removeEventListener('focus', handleFocus);
+                qtyInput.removeEventListener('keypress', handleKeyPress);
             };
 
             // Añadir listeners
@@ -1005,6 +1014,7 @@ class ScanAsYouShopApp {
             increaseBtn.addEventListener('click', handleIncrease);
             qtyInput.addEventListener('input', handleInputChange);
             qtyInput.addEventListener('focus', handleFocus);
+            qtyInput.addEventListener('keypress', handleKeyPress);
         });
     }
 

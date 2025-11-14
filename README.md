@@ -123,7 +123,8 @@ Similar a Netlify:
 3. **Escanear productos**
    - Usa la barra de búsqueda para buscar productos
    - O escanea códigos de barras (requiere cámara)
-   - Ajusta cantidades antes de añadir al carrito
+   - Ajusta cantidades antes de añadir al carrito (puedes editar con el teclado)
+   - Presiona el botón "Añadir al Carrito" o pulsa **Intro** en el teclado
 
 4. **Revisar carrito**
    - Toca el icono del carrito (arriba derecha)
