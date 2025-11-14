@@ -2388,7 +2388,7 @@ class ScanAsYouShopApp {
                 );
                 
                 // Cambiar a la pantalla del carrito
-                window.ui.switchScreen('cart');
+                this.showScreen('cart');
             }
 
             if (errores > 0) {
