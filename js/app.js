@@ -2343,7 +2343,7 @@ class ScanAsYouShopApp {
     async reorderAllProducts(productos) {
         try {
             if (!Array.isArray(productos) || productos.length === 0) {
-                window.uiManager.showToast('No hay productos para reordenar', 'error');
+                window.ui.showToast('No hay productos para reordenar', 'error');
                 return;
             }
 
@@ -2357,7 +2357,14 @@ class ScanAsYouShopApp {
                     const productoCompleto = await window.supabaseClient.searchProductByCode(producto.codigo_producto);
                     
                     if (productoCompleto) {
-                        await window.cartManager.addProduct(productoCompleto, producto.cantidad);
+                        // Asegurar formato correcto para addProduct
+                        const productoFormateado = {
+                            codigo: productoCompleto.codigo,
+                            descripcion: productoCompleto.descripcion,
+                            pvp: productoCompleto.pvp || productoCompleto.precio_unitario || 0
+                        };
+                        
+                        await window.cartManager.addProduct(productoFormateado, producto.cantidad);
                         agregados++;
                     } else {
                         console.warn(`Producto no encontrado: ${producto.codigo_producto}`);
@@ -2369,22 +2376,23 @@ class ScanAsYouShopApp {
                 }
             }
 
-            // Actualizar UI
-            await window.cartManager.updateUI();
+            // Actualizar UI del carrito
+            window.ui.updateCartBadge();
+            this.updateCartView();
 
             // Mostrar resultado
             if (agregados > 0) {
-                window.uiManager.showToast(
+                window.ui.showToast(
                     `${agregados} producto${agregados !== 1 ? 's' : ''} agregado${agregados !== 1 ? 's' : ''} al carrito`,
                     'success'
                 );
                 
                 // Cambiar a la pantalla del carrito
-                window.uiManager.switchScreen('cart');
+                window.ui.switchScreen('cart');
             }
 
             if (errores > 0) {
-                window.uiManager.showToast(
+                window.ui.showToast(
                     `${errores} producto${errores !== 1 ? 's' : ''} no ${errores !== 1 ? 'pudieron' : 'pudo'} agregarse`,
                     'warning'
                 );
@@ -2392,7 +2400,7 @@ class ScanAsYouShopApp {
 
         } catch (error) {
             console.error('Error al reordenar productos:', error);
-            window.uiManager.showToast('Error al reordenar productos', 'error');
+            window.ui.showToast('Error al reordenar productos', 'error');
         }
     }
 
@@ -2402,25 +2410,33 @@ class ScanAsYouShopApp {
     async reorderSingleProduct(codigoProducto, cantidad) {
         try {
             // Buscar el producto completo desde la base de datos
-            const producto = await window.supabaseClient.searchProductByCode(codigoProducto);
+            const productoBD = await window.supabaseClient.searchProductByCode(codigoProducto);
             
-            if (!producto) {
-                window.uiManager.showToast('Producto no encontrado', 'error');
+            if (!productoBD) {
+                window.ui.showToast('Producto no encontrado', 'error');
                 return;
             }
+
+            // Asegurar formato correcto para addProduct
+            const producto = {
+                codigo: productoBD.codigo,
+                descripcion: productoBD.descripcion,
+                pvp: productoBD.pvp || productoBD.precio_unitario || 0
+            };
 
             // Agregar al carrito
             await window.cartManager.addProduct(producto, cantidad);
             
-            // Actualizar UI
-            await window.cartManager.updateUI();
+            // Actualizar UI del carrito
+            window.ui.updateCartBadge();
+            this.updateCartView();
 
             // Mostrar confirmación
-            window.uiManager.showToast(`${producto.descripcion} agregado al carrito`, 'success');
+            window.ui.showToast(`${producto.descripcion} agregado al carrito`, 'success');
 
         } catch (error) {
             console.error('Error al reordenar producto:', error);
-            window.uiManager.showToast('Error al agregar producto', 'error');
+            window.ui.showToast('Error al agregar producto', 'error');
         }
     }
 }
