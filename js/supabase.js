@@ -140,7 +140,7 @@ class SupabaseClient {
     /**
      * Descarga datos con paginación automática
      */
-    async _downloadWithPagination(tableName, onProgress = null) {
+    async _downloadWithPagination(tableName, onProgress = null, filters = {}) {
         const allData = [];
         const pageSize = 1000;
         let page = 0;
@@ -154,11 +154,30 @@ class SupabaseClient {
             
             console.log(`📦 Descargando ${tableName} página ${page + 1} (registros ${from}-${to})...`);
 
-            const { data, error, count } = await this.client
+            let query = this.client
                 .from(tableName)
                 .select('*', { count: 'exact' })
-                .range(from, to)
-                .order(tableName === 'productos' ? 'codigo' : 'codigo_secundario');
+                .range(from, to);
+            
+            // Aplicar filtros si existen
+            if (filters && Object.keys(filters).length > 0) {
+                for (const [key, value] of Object.entries(filters)) {
+                    query = query.eq(key, value);
+                }
+            }
+            
+            // Aplicar orden según la tabla
+            if (tableName === 'productos') {
+                query = query.order('codigo');
+            } else if (tableName === 'codigos_secundarios') {
+                query = query.order('codigo_secundario');
+            } else if (tableName === 'ofertas_intervalos') {
+                query = query.order('desde_unidades');
+            } else {
+                query = query.order('id');
+            }
+            
+            const { data, error, count } = await query;
 
             if (error) {
                 console.error(`❌ Error en ${tableName}:`, error);
@@ -507,6 +526,7 @@ class SupabaseClient {
                         user_id: loginResult.user_id,
                         user_name: loginResult.user_name,
                         codigo_usuario: codigoUsuario,
+                        codigo_cliente: loginResult.codigo_cliente || null,
                         almacen_habitual: loginResult.almacen_habitual || null
                     };
                 }
@@ -880,6 +900,175 @@ class SupabaseClient {
         } catch (error) {
             console.error('Error al obtener productos:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Obtiene las ofertas disponibles para un producto según el código de cliente
+     * Usa cache local primero para mejor rendimiento
+     * @param {string} codigoArticulo - Código del artículo
+     * @param {number} codigoCliente - Código del cliente (opcional, si es null se muestran todas las ofertas)
+     * @param {boolean} useCache - Si usar cache local (default: true)
+     * @returns {Promise<Array>} - Lista de ofertas disponibles
+     */
+    async getOfertasProducto(codigoArticulo, codigoCliente = null, useCache = true) {
+        try {
+            // Intentar obtener desde cache primero
+            if (useCache && window.cartManager) {
+                const ofertasCache = await window.cartManager.getOfertasProductoFromCache(codigoArticulo, codigoCliente);
+                if (ofertasCache && ofertasCache.length > 0) {
+                    return ofertasCache;
+                }
+            }
+
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            // Buscar ofertas que contengan este producto
+            let query = this.client
+                .from('ofertas_productos')
+                .select(`
+                    numero_oferta,
+                    descuento_oferta,
+                    unidades_minimas,
+                    unidades_multiplo,
+                    ofertas!inner(
+                        numero_oferta,
+                        tipo_oferta,
+                        tipo_oferta_nombre,
+                        titulo_descripcion,
+                        descripcion_detallada,
+                        activa
+                    )
+                `)
+                .eq('codigo_articulo', codigoArticulo.toUpperCase())
+                .eq('ofertas.activa', true);
+
+            const { data: ofertasProducto, error } = await query;
+
+            if (error) {
+                console.error('Error al obtener ofertas del producto:', error);
+                throw error;
+            }
+
+            if (!ofertasProducto || ofertasProducto.length === 0) {
+                return [];
+            }
+
+            // Si hay código de cliente, filtrar por grupos
+            if (codigoCliente !== null) {
+                // Obtener ofertas asignadas a grupos del cliente
+                const { data: ofertasGrupos, error: errorGrupos } = await this.client
+                    .from('ofertas_grupos_asignaciones')
+                    .select('numero_oferta, codigo_grupo, ofertas_grupos!inner(codigo_grupo)')
+                    .eq('ofertas_grupos.codigo_grupo', codigoCliente.toString());
+
+                if (!errorGrupos && ofertasGrupos && ofertasGrupos.length > 0) {
+                    // Filtrar ofertas: solo las que están asignadas al grupo del cliente
+                    const numerosOfertasGrupo = new Set(ofertasGrupos.map(og => og.numero_oferta));
+                    return ofertasProducto.filter(op => numerosOfertasGrupo.has(op.numero_oferta));
+                } else {
+                    // Si el cliente tiene grupo pero no hay ofertas asignadas, no mostrar ninguna
+                    return [];
+                }
+            }
+
+            // Si no hay código de cliente, devolver todas las ofertas activas
+            return ofertasProducto.map(op => ({
+                numero_oferta: op.numero_oferta,
+                descuento_oferta: op.descuento_oferta,
+                unidades_minimas: op.unidades_minimas,
+                unidades_multiplo: op.unidades_multiplo,
+                tipo_oferta: op.ofertas.tipo_oferta,
+                tipo_oferta_nombre: op.ofertas.tipo_oferta_nombre,
+                titulo_descripcion: op.ofertas.titulo_descripcion,
+                descripcion_detallada: op.ofertas.descripcion_detallada
+            }));
+
+        } catch (error) {
+            console.error('Error al obtener ofertas del producto:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Obtiene los intervalos escalonados de una oferta tipo INTERVALO
+     * Usa cache local primero para mejor rendimiento
+     * @param {string} numeroOferta - Número de la oferta
+     * @param {boolean} useCache - Si usar cache local (default: true)
+     * @returns {Promise<Array>} - Lista de intervalos ordenados
+     */
+    async getIntervalosOferta(numeroOferta, useCache = true) {
+        try {
+            // Intentar obtener desde cache primero
+            if (useCache && window.cartManager) {
+                const intervalosCache = await window.cartManager.getIntervalosOfertaFromCache(numeroOferta);
+                if (intervalosCache && intervalosCache.length > 0) {
+                    return intervalosCache;
+                }
+            }
+
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            const { data: intervalos, error } = await this.client
+                .from('ofertas_intervalos')
+                .select('*')
+                .eq('numero_oferta', numeroOferta)
+                .order('desde_unidades', { ascending: true });
+
+            if (error) {
+                console.error('Error al obtener intervalos de oferta:', error);
+                return [];
+            }
+
+            return intervalos || [];
+
+        } catch (error) {
+            console.error('Error al obtener intervalos:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Obtiene el tamaño del lote de una oferta tipo LOTE
+     * Usa cache local primero para mejor rendimiento
+     * @param {string} numeroOferta - Número de la oferta
+     * @param {boolean} useCache - Si usar cache local (default: true)
+     * @returns {Promise<number|null>} - Tamaño del lote o null si no está definido
+     */
+    async getLoteOferta(numeroOferta, useCache = true) {
+        try {
+            // Intentar obtener desde cache primero
+            if (useCache && window.cartManager) {
+                const loteCache = await window.cartManager.getLoteOfertaFromCache(numeroOferta);
+                if (loteCache !== null) {
+                    return loteCache;
+                }
+            }
+
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            const { data: detalles, error } = await this.client
+                .from('ofertas_detalles')
+                .select('valor')
+                .eq('numero_oferta', numeroOferta)
+                .eq('campo', 'unidades_lote')
+                .single();
+
+            if (error || !detalles) {
+                return null;
+            }
+
+            return parseInt(detalles.valor) || null;
+
+        } catch (error) {
+            console.error('Error al obtener lote de oferta:', error);
+            return null;
         }
     }
 }

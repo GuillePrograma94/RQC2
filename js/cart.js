@@ -41,7 +41,7 @@ class CartManager {
      */
     initIndexedDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, 4); // v4: Añadir stores para pedidos remotos
+            const request = indexedDB.open(this.dbName, 5); // v5: Añadir stores para ofertas
 
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
@@ -83,6 +83,40 @@ class CartManager {
                 if (!db.objectStoreNames.contains('remote_order_products')) {
                     const orderProductsStore = db.createObjectStore('remote_order_products', { keyPath: 'id', autoIncrement: true });
                     orderProductsStore.createIndex('carrito_id', 'carrito_id', { unique: false });
+                }
+                
+                // Crear object store para ofertas (caché local)
+                if (!db.objectStoreNames.contains('ofertas')) {
+                    const ofertasStore = db.createObjectStore('ofertas', { keyPath: 'numero_oferta' });
+                    ofertasStore.createIndex('tipo_oferta', 'tipo_oferta', { unique: false });
+                    ofertasStore.createIndex('activa', 'activa', { unique: false });
+                }
+                
+                // Crear object store para productos en ofertas (caché local)
+                if (!db.objectStoreNames.contains('ofertas_productos')) {
+                    const ofertasProductosStore = db.createObjectStore('ofertas_productos', { keyPath: 'id', autoIncrement: true });
+                    ofertasProductosStore.createIndex('numero_oferta', 'numero_oferta', { unique: false });
+                    ofertasProductosStore.createIndex('codigo_articulo', 'codigo_articulo', { unique: false });
+                }
+                
+                // Crear object store para intervalos de ofertas (caché local)
+                if (!db.objectStoreNames.contains('ofertas_intervalos')) {
+                    const intervalosStore = db.createObjectStore('ofertas_intervalos', { keyPath: 'id', autoIncrement: true });
+                    intervalosStore.createIndex('numero_oferta', 'numero_oferta', { unique: false });
+                }
+                
+                // Crear object store para detalles de ofertas (caché local)
+                if (!db.objectStoreNames.contains('ofertas_detalles')) {
+                    const detallesStore = db.createObjectStore('ofertas_detalles', { keyPath: 'id', autoIncrement: true });
+                    detallesStore.createIndex('numero_oferta', 'numero_oferta', { unique: false });
+                    detallesStore.createIndex('campo', 'campo', { unique: false });
+                }
+                
+                // Crear object store para grupos de ofertas (caché local)
+                if (!db.objectStoreNames.contains('ofertas_grupos_asignaciones')) {
+                    const gruposStore = db.createObjectStore('ofertas_grupos_asignaciones', { keyPath: 'id', autoIncrement: true });
+                    gruposStore.createIndex('numero_oferta', 'numero_oferta', { unique: false });
+                    gruposStore.createIndex('codigo_grupo', 'codigo_grupo', { unique: false });
                 }
                 
                 console.log('✅ Esquema de base de datos creado/actualizado');
@@ -896,6 +930,307 @@ class CartManager {
         } catch (error) {
             console.error('Error al actualizar estado del pedido en caché:', error);
             return false;
+        }
+    }
+
+    /**
+     * Guarda ofertas en caché local
+     */
+    async saveOfertasToCache(ofertas) {
+        try {
+            if (!this.db || !ofertas || ofertas.length === 0) return;
+
+            const transaction = this.db.transaction(['ofertas'], 'readwrite');
+            const store = transaction.objectStore('ofertas');
+
+            for (const oferta of ofertas) {
+                await store.put({
+                    ...oferta,
+                    cached_at: new Date().toISOString()
+                });
+            }
+
+            console.log(`✅ ${ofertas.length} ofertas guardadas en caché`);
+            return true;
+
+        } catch (error) {
+            console.error('Error al guardar ofertas en caché:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Guarda productos en ofertas en caché local
+     */
+    async saveOfertasProductosToCache(ofertasProductos) {
+        try {
+            if (!this.db || !ofertasProductos || ofertasProductos.length === 0) return;
+
+            const transaction = this.db.transaction(['ofertas_productos'], 'readwrite');
+            const store = transaction.objectStore('ofertas_productos');
+
+            // Limpiar todos los productos de ofertas anteriores
+            await store.clear();
+
+            for (const op of ofertasProductos) {
+                await store.add({
+                    ...op,
+                    cached_at: new Date().toISOString()
+                });
+            }
+
+            console.log(`✅ ${ofertasProductos.length} productos en ofertas guardados en caché`);
+            return true;
+
+        } catch (error) {
+            console.error('Error al guardar productos en ofertas en caché:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Guarda intervalos de ofertas en caché local
+     */
+    async saveOfertasIntervalosToCache(intervalos) {
+        try {
+            if (!this.db || !intervalos || intervalos.length === 0) return;
+
+            const transaction = this.db.transaction(['ofertas_intervalos'], 'readwrite');
+            const store = transaction.objectStore('ofertas_intervalos');
+
+            // Limpiar intervalos anteriores
+            await store.clear();
+
+            for (const intervalo of intervalos) {
+                await store.add({
+                    ...intervalo,
+                    cached_at: new Date().toISOString()
+                });
+            }
+
+            console.log(`✅ ${intervalos.length} intervalos de ofertas guardados en caché`);
+            return true;
+
+        } catch (error) {
+            console.error('Error al guardar intervalos en caché:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Guarda detalles de ofertas en caché local
+     */
+    async saveOfertasDetallesToCache(detalles) {
+        try {
+            if (!this.db || !detalles || detalles.length === 0) return;
+
+            const transaction = this.db.transaction(['ofertas_detalles'], 'readwrite');
+            const store = transaction.objectStore('ofertas_detalles');
+
+            // Limpiar detalles anteriores
+            await store.clear();
+
+            for (const detalle of detalles) {
+                await store.add({
+                    ...detalle,
+                    cached_at: new Date().toISOString()
+                });
+            }
+
+            console.log(`✅ ${detalles.length} detalles de ofertas guardados en caché`);
+            return true;
+
+        } catch (error) {
+            console.error('Error al guardar detalles en caché:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Guarda asignaciones de grupos de ofertas en caché local
+     */
+    async saveOfertasGruposToCache(asignaciones) {
+        try {
+            if (!this.db || !asignaciones || asignaciones.length === 0) return;
+
+            const transaction = this.db.transaction(['ofertas_grupos_asignaciones'], 'readwrite');
+            const store = transaction.objectStore('ofertas_grupos_asignaciones');
+
+            // Limpiar asignaciones anteriores
+            await store.clear();
+
+            for (const asignacion of asignaciones) {
+                await store.add({
+                    ...asignacion,
+                    cached_at: new Date().toISOString()
+                });
+            }
+
+            console.log(`✅ ${asignaciones.length} asignaciones de grupos guardadas en caché`);
+            return true;
+
+        } catch (error) {
+            console.error('Error al guardar asignaciones en caché:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Obtiene ofertas de un producto desde caché local
+     */
+    async getOfertasProductoFromCache(codigoArticulo, codigoCliente = null) {
+        try {
+            if (!this.db) return [];
+
+            const transaction = this.db.transaction(['ofertas_productos', 'ofertas', 'ofertas_grupos_asignaciones'], 'readonly');
+            const productosStore = transaction.objectStore('ofertas_productos');
+            const ofertasStore = transaction.objectStore('ofertas');
+            const gruposStore = transaction.objectStore('ofertas_grupos_asignaciones');
+
+            // Buscar productos en ofertas con este código
+            const codigoUpper = codigoArticulo.toUpperCase();
+            const index = productosStore.index('codigo_articulo');
+            const productosRequest = index.getAll(codigoUpper);
+
+            return new Promise((resolve, reject) => {
+                productosRequest.onsuccess = async () => {
+                    const productosOferta = productosRequest.result || [];
+                    if (productosOferta.length === 0) {
+                        resolve([]);
+                        return;
+                    }
+
+                    // Obtener información de las ofertas
+                    const ofertasEncontradas = [];
+                    for (const productoOferta of productosOferta) {
+                        const ofertaRequest = ofertasStore.get(productoOferta.numero_oferta);
+                        
+                        await new Promise((resolveOferta) => {
+                            ofertaRequest.onsuccess = () => {
+                                const oferta = ofertaRequest.result;
+                                if (oferta && oferta.activa) {
+                                    // Si hay código de cliente, verificar grupo
+                                    if (codigoCliente !== null) {
+                                        const gruposIndex = gruposStore.index('numero_oferta');
+                                        const gruposRequest = gruposIndex.getAll(productoOferta.numero_oferta);
+                                        
+                                        gruposRequest.onsuccess = () => {
+                                            const grupos = gruposRequest.result || [];
+                                            const tieneGrupo = grupos.some(g => g.codigo_grupo === codigoCliente.toString());
+                                            
+                                            if (tieneGrupo) {
+                                                ofertasEncontradas.push({
+                                                    numero_oferta: productoOferta.numero_oferta,
+                                                    descuento_oferta: productoOferta.descuento_oferta,
+                                                    unidades_minimas: productoOferta.unidades_minimas,
+                                                    unidades_multiplo: productoOferta.unidades_multiplo,
+                                                    tipo_oferta: oferta.tipo_oferta,
+                                                    tipo_oferta_nombre: oferta.tipo_oferta_nombre,
+                                                    titulo_descripcion: oferta.titulo_descripcion,
+                                                    descripcion_detallada: oferta.descripcion_detallada
+                                                });
+                                            }
+                                            resolveOferta();
+                                        };
+                                        
+                                        gruposRequest.onerror = () => resolveOferta();
+                                    } else {
+                                        // Sin código de cliente, mostrar todas las ofertas activas
+                                        ofertasEncontradas.push({
+                                            numero_oferta: productoOferta.numero_oferta,
+                                            descuento_oferta: productoOferta.descuento_oferta,
+                                            unidades_minimas: productoOferta.unidades_minimas,
+                                            unidades_multiplo: productoOferta.unidades_multiplo,
+                                            tipo_oferta: oferta.tipo_oferta,
+                                            tipo_oferta_nombre: oferta.tipo_oferta_nombre,
+                                            titulo_descripcion: oferta.titulo_descripcion,
+                                            descripcion_detallada: oferta.descripcion_detallada
+                                        });
+                                        resolveOferta();
+                                    }
+                                } else {
+                                    resolveOferta();
+                                }
+                            };
+                            ofertaRequest.onerror = () => resolveOferta();
+                        });
+                    }
+
+                    resolve(ofertasEncontradas);
+                };
+                productosRequest.onerror = () => reject(productosRequest.error);
+            });
+
+        } catch (error) {
+            console.error('Error al obtener ofertas desde caché:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Obtiene intervalos de una oferta desde caché local
+     */
+    async getIntervalosOfertaFromCache(numeroOferta) {
+        try {
+            if (!this.db) return [];
+
+            const transaction = this.db.transaction(['ofertas_intervalos'], 'readonly');
+            const store = transaction.objectStore('ofertas_intervalos');
+            const index = store.index('numero_oferta');
+            const request = index.getAll(numeroOferta);
+
+            return new Promise((resolve, reject) => {
+                request.onsuccess = () => {
+                    const intervalos = request.result || [];
+                    // Ordenar por desde_unidades
+                    intervalos.sort((a, b) => a.desde_unidades - b.desde_unidades);
+                    resolve(intervalos);
+                };
+                request.onerror = () => reject(request.error);
+            });
+
+        } catch (error) {
+            console.error('Error al obtener intervalos desde caché:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Obtiene el lote de una oferta desde caché local
+     */
+    async getLoteOfertaFromCache(numeroOferta) {
+        try {
+            if (!this.db) return null;
+
+            const transaction = this.db.transaction(['ofertas_detalles'], 'readonly');
+            const store = transaction.objectStore('ofertas_detalles');
+            const indexNumero = store.index('numero_oferta');
+            const request = indexNumero.openCursor();
+            
+            return new Promise((resolve, reject) => {
+                request.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        const detalle = cursor.value;
+                        if (detalle.numero_oferta === numeroOferta && detalle.campo === 'unidades_lote') {
+                            if (detalle.valor) {
+                                resolve(parseInt(detalle.valor));
+                            } else {
+                                resolve(null);
+                            }
+                            return;
+                        }
+                        cursor.continue();
+                    } else {
+                        resolve(null);
+                    }
+                };
+                request.onerror = () => resolve(null);
+            });
+
+        } catch (error) {
+            console.error('Error al obtener lote desde caché:', error);
+            return null;
         }
     }
 }

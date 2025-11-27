@@ -69,6 +69,9 @@ class ScanAsYouShopApp {
 
             // Inicializar app (con o sin usuario logueado)
             await this.initializeApp();
+            
+            // Cargar ofertas en segundo plano si no están en cache
+            this.loadOfertasIfNeeded();
 
         } catch (error) {
             console.error('Error al inicializar aplicacion:', error);
@@ -143,6 +146,7 @@ class ScanAsYouShopApp {
                     user_id: loginResult.user_id,
                     user_name: loginResult.user_name,
                     codigo_usuario: loginResult.codigo_usuario,
+                    codigo_cliente: loginResult.codigo_cliente,
                     almacen_habitual: loginResult.almacen_habitual
                 };
 
@@ -648,6 +652,15 @@ class ScanAsYouShopApp {
             
             window.ui.updateSyncIndicator('Guardando códigos secundarios...');
             await window.cartManager.saveSecondaryCodesToStorage(codigosSecundarios);
+
+            // Descargar ofertas en segundo plano (sin bloquear)
+            window.ui.updateSyncIndicator('Descargando ofertas...');
+            try {
+                await window.supabaseClient.downloadOfertas(onProgress);
+                console.log('✅ Ofertas descargadas y guardadas en caché');
+            } catch (ofertaError) {
+                console.error('Error al descargar ofertas (no crítico):', ofertaError);
+            }
 
             // Actualizar hash local
             await window.supabaseClient.actualizarVersionLocal(versionCheck.versionRemota);
@@ -1405,7 +1418,7 @@ class ScanAsYouShopApp {
     /**
      * Actualiza la vista del carrito
      */
-    updateCartView() {
+    async updateCartView() {
         const cart = window.cartManager.getCart();
         const container = document.getElementById('cartItems');
         const emptyState = document.getElementById('emptyCart');
@@ -1432,11 +1445,11 @@ class ScanAsYouShopApp {
         container.style.display = 'block';
         container.innerHTML = '';
 
-        // Añadir productos
-        cart.productos.forEach(producto => {
-            const card = this.createCartProductCard(producto);
+        // Añadir productos (ahora es async)
+        for (const producto of cart.productos) {
+            const card = await this.createCartProductCard(producto);
             container.appendChild(card);
-        });
+        }
 
         // Actualizar header con totales
         const totalWithIVA = cart.total_importe * 1.21;
@@ -1460,9 +1473,74 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Verifica si una oferta se cumple según su tipo y las cantidades en el carrito
+     */
+    async verificarOfertaCumplida(oferta, codigoArticulo, cantidad, carrito) {
+        try {
+            const tipoOferta = oferta.tipo_oferta;
+            
+            if (tipoOferta === 1) {
+                // ESTANDAR: Se cumple si la cantidad del producto >= unidades_minimas
+                return cantidad >= (oferta.unidades_minimas || 0);
+            }
+            
+            if (tipoOferta === 2) {
+                // INTERVALO: Se cumple si la suma de unidades de todos los productos de la oferta está en algún intervalo
+                const intervalos = await window.supabaseClient.getIntervalosOferta(oferta.numero_oferta, true);
+                if (!intervalos || intervalos.length === 0) return false;
+                
+                // Sumar unidades de todos los productos de esta oferta en el carrito
+                let totalUnidades = 0;
+                for (const prod of carrito.productos) {
+                    const ofertasProd = await window.supabaseClient.getOfertasProducto(prod.codigo_producto, this.currentUser?.codigo_cliente || null, true);
+                    const tieneEstaOferta = ofertasProd.some(o => o.numero_oferta === oferta.numero_oferta);
+                    if (tieneEstaOferta) {
+                        totalUnidades += prod.cantidad;
+                    }
+                }
+                
+                // Verificar si el total está en algún intervalo
+                return intervalos.some(intervalo => 
+                    totalUnidades >= intervalo.desde_unidades && totalUnidades <= intervalo.hasta_unidades
+                );
+            }
+            
+            if (tipoOferta === 3) {
+                // LOTE: Se cumple si la suma de unidades de todos los productos de la oferta >= unidades_lote
+                const unidadesLote = await window.supabaseClient.getLoteOferta(oferta.numero_oferta, true);
+                if (!unidadesLote) return false;
+                
+                // Sumar unidades de todos los productos de esta oferta en el carrito
+                let totalUnidades = 0;
+                for (const prod of carrito.productos) {
+                    const ofertasProd = await window.supabaseClient.getOfertasProducto(prod.codigo_producto, this.currentUser?.codigo_cliente || null, true);
+                    const tieneEstaOferta = ofertasProd.some(o => o.numero_oferta === oferta.numero_oferta);
+                    if (tieneEstaOferta) {
+                        totalUnidades += prod.cantidad;
+                    }
+                }
+                
+                return totalUnidades >= unidadesLote;
+            }
+            
+            if (tipoOferta === 4) {
+                // MULTIPLO: Se cumple si la cantidad es múltiplo de unidades_multiplo
+                const unidadesMultiplo = oferta.unidades_multiplo || 0;
+                if (unidadesMultiplo === 0) return false;
+                return cantidad >= unidadesMultiplo && (cantidad % unidadesMultiplo === 0);
+            }
+            
+            return false;
+        } catch (error) {
+            console.error('Error al verificar oferta:', error);
+            return false;
+        }
+    }
+
+    /**
      * Crea una tarjeta de producto para el carrito (estilo Tesco)
      */
-    createCartProductCard(producto) {
+    async createCartProductCard(producto) {
         const card = document.createElement('div');
         card.className = 'cart-product-card';
 
@@ -1470,6 +1548,28 @@ class ScanAsYouShopApp {
         const subtotalWithIVA = producto.subtotal * 1.21;
 
         const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo_producto}_1.JPG`;
+        
+        // Obtener ofertas del producto desde cache
+        const codigoCliente = this.currentUser?.codigo_cliente || null;
+        const ofertas = await window.supabaseClient.getOfertasProducto(producto.codigo_producto, codigoCliente, true);
+        
+        // Verificar si alguna oferta se cumple
+        let ofertaCumplida = null;
+        let ofertaActiva = null;
+        if (ofertas && ofertas.length > 0) {
+            // Tomar la primera oferta (puedes ajustar la lógica si hay múltiples)
+            ofertaActiva = ofertas[0];
+            const carrito = window.cartManager.getCart();
+            ofertaCumplida = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito);
+        }
+        
+        // Generar HTML del rectángulo de oferta
+        let ofertaHTML = '';
+        if (ofertaActiva) {
+            const tituloOferta = ofertaActiva.titulo_descripcion || 'Oferta disponible';
+            const claseOferta = ofertaCumplida ? 'oferta-cumplida' : 'oferta-pendiente';
+            ofertaHTML = `<div class="oferta-badge ${claseOferta}">${this.escapeForHtmlAttribute(tituloOferta)}</div>`;
+        }
         
         card.innerHTML = `
             <div class="cart-product-image">
@@ -1484,6 +1584,7 @@ class ScanAsYouShopApp {
                         <div class="cart-product-name">${producto.descripcion_producto}</div>
                         <div class="cart-product-code">${producto.codigo_producto}</div>
                         <div class="cart-product-price">${priceWithIVA.toFixed(2)} €</div>
+                        ${ofertaHTML}
                     </div>
                     <div class="cart-product-subtotal">${subtotalWithIVA.toFixed(2)} €</div>
                 </div>
