@@ -1244,7 +1244,12 @@ class CartManager {
      */
     async getOfertasProductoFromCache(codigoArticulo, codigoCliente = null) {
         try {
-            if (!this.db) return [];
+            if (!this.db) {
+                console.log(`⚠️ DB no disponible para ${codigoArticulo}`);
+                return [];
+            }
+
+            console.log(`🔍 Buscando ofertas en cache para ${codigoArticulo} (cliente: ${codigoCliente})...`);
 
             const transaction = this.db.transaction(['ofertas_productos', 'ofertas', 'ofertas_grupos_asignaciones'], 'readonly');
             const productosStore = transaction.objectStore('ofertas_productos');
@@ -1259,12 +1264,15 @@ class CartManager {
             return new Promise((resolve, reject) => {
                 productosRequest.onsuccess = async () => {
                     const productosOferta = productosRequest.result || [];
+                    console.log(`   📦 Productos en ofertas encontrados: ${productosOferta.length}`);
                     if (productosOferta.length === 0) {
+                        console.log(`   ⚠️ No hay productos en ofertas para ${codigoUpper}`);
                         resolve([]);
                         return;
                     }
 
                     // Obtener información de las ofertas
+                    console.log(`   🔎 Procesando ${productosOferta.length} productos en ofertas...`);
                     const ofertasEncontradas = [];
                     for (const productoOferta of productosOferta) {
                         const ofertaRequest = ofertasStore.get(productoOferta.numero_oferta);
@@ -1280,11 +1288,19 @@ class CartManager {
                                         
                                         gruposRequest.onsuccess = () => {
                                             const grupos = gruposRequest.result || [];
-                                            const tieneGrupo = grupos.some(g => g.codigo_grupo === codigoCliente.toString());
+                                            // Normalizar ambos valores a número para comparar
+                                            const codigoClienteNum = parseInt(codigoCliente);
+                                            const tieneGrupo = grupos.some(g => {
+                                                const codigoGrupoNum = parseInt(g.codigo_grupo);
+                                                return codigoGrupoNum === codigoClienteNum;
+                                            });
+                                            
+                                            console.log(`   🔐 Producto ${codigoUpper} en oferta ${productoOferta.numero_oferta} - Grupos:`, grupos.map(g => g.codigo_grupo), `- Acceso: ${tieneGrupo}`);
                                             
                                             if (tieneGrupo) {
                                                 ofertasEncontradas.push({
                                                     numero_oferta: productoOferta.numero_oferta,
+                                                    codigo_articulo: productoOferta.codigo_articulo,
                                                     descuento_oferta: productoOferta.descuento_oferta,
                                                     unidades_minimas: productoOferta.unidades_minimas,
                                                     unidades_multiplo: productoOferta.unidades_multiplo,
@@ -1320,9 +1336,13 @@ class CartManager {
                         });
                     }
 
+                    console.log(`   ✅ Total ofertas encontradas para ${codigoUpper}: ${ofertasEncontradas.length}`);
                     resolve(ofertasEncontradas);
                 };
-                productosRequest.onerror = () => reject(productosRequest.error);
+                productosRequest.onerror = () => {
+                    console.error('   ❌ Error al buscar productos en ofertas:', productosRequest.error);
+                    reject(productosRequest.error);
+                };
             });
 
         } catch (error) {
