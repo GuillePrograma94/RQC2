@@ -1241,14 +1241,8 @@ class CartManager {
                 return false;
             }
 
-            console.log(`💾 Guardando ${ofertasProductos.length} productos en ofertas...`);
-            console.log(`   📋 Muestra de productos a guardar:`, ofertasProductos.slice(0, 5));
-            
-            // Verificar que codigo_articulo está presente y en mayúsculas
-            const sinCodigo = ofertasProductos.filter(op => !op.codigo_articulo);
-            if (sinCodigo.length > 0) {
-                console.warn(`   ⚠️ ${sinCodigo.length} productos sin codigo_articulo:`, sinCodigo.slice(0, 3));
-            }
+            console.log(`💾 Guardando ${asignaciones.length} asignaciones de grupos...`);
+            console.log(`   📋 Muestra de asignaciones a guardar:`, asignaciones.slice(0, 3));
 
             const transaction = this.db.transaction(['ofertas_grupos_asignaciones'], 'readwrite');
             const store = transaction.objectStore('ofertas_grupos_asignaciones');
