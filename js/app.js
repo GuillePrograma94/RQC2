@@ -1357,7 +1357,10 @@ class ScanAsYouShopApp {
                 qtyInput.removeEventListener('keypress', handleKeyPress);
             };
 
-            // Añadir listeners
+            // Limpiar listeners previos antes de añadir nuevos (por si el modal se abrió antes sin limpiarse)
+            cleanup();
+
+            // Añadir listeners - usar { once: false } explícitamente
             closeBtn.addEventListener('click', handleClose);
             overlay.addEventListener('click', handleClose);
             confirmBtn.addEventListener('click', handleConfirm);
@@ -2076,72 +2079,77 @@ class ScanAsYouShopApp {
             </div>
         `;
 
-        // Añadir event listeners
-        const decreaseBtn = card.querySelector('[data-action="decrease"]');
-        const increaseBtn = card.querySelector('[data-action="increase"]');
-        const qtyInput = card.querySelector('.qty-value-input');
+        // Añadir event listeners solo si no se han añadido antes
+        if (!card.dataset.listenersAdded) {
+            const decreaseBtn = card.querySelector('[data-action="decrease"]');
+            const increaseBtn = card.querySelector('[data-action="increase"]');
+            const qtyInput = card.querySelector('.qty-value-input');
 
-        decreaseBtn.addEventListener('click', async () => {
-            const newQty = producto.cantidad - 1;
-            
-            // Si la cantidad es 1, preguntar antes de eliminar
-            if (producto.cantidad === 1) {
-                const confirmDelete = await window.ui.showConfirm(
-                    '¿ELIMINAR ARTÍCULO?',
-                    `¿Deseas eliminar "${producto.descripcion_producto}" del carrito?`,
-                    'Eliminar',
-                    'Cancelar'
-                );
-                if (!confirmDelete) return;
-            }
-            
-            await this.updateProductQuantity(producto.codigo_producto, newQty);
-        });
-
-        increaseBtn.addEventListener('click', async () => {
-            const newQty = producto.cantidad + 1;
-            await this.updateProductQuantity(producto.codigo_producto, newQty);
-        });
-
-        // Input manual de cantidad
-        qtyInput.addEventListener('blur', async (e) => {
-            let newQty = parseInt(e.target.value) || 0;
-            
-            // Limitar entre 0 y 999
-            if (newQty < 0) newQty = 0;
-            if (newQty > 999) newQty = 999;
-            
-            // Si ponen 0, preguntar antes de eliminar
-            if (newQty === 0) {
-                const confirmDelete = await window.ui.showConfirm(
-                    '¿ELIMINAR ARTÍCULO?',
-                    `¿Deseas eliminar "${producto.descripcion_producto}" del carrito?`,
-                    'Eliminar',
-                    'Cancelar'
-                );
-                if (!confirmDelete) {
-                    e.target.value = producto.cantidad;
-                    return;
+            decreaseBtn.addEventListener('click', async () => {
+                const newQty = producto.cantidad - 1;
+                
+                // Si la cantidad es 1, preguntar antes de eliminar
+                if (producto.cantidad === 1) {
+                    const confirmDelete = await window.ui.showConfirm(
+                        '¿ELIMINAR ARTÍCULO?',
+                        `¿Deseas eliminar "${producto.descripcion_producto}" del carrito?`,
+                        'Eliminar',
+                        'Cancelar'
+                    );
+                    if (!confirmDelete) return;
                 }
-            }
-            
-            // Si la cantidad no cambió, no hacer nada
-            if (newQty === producto.cantidad) return;
-            
-            await this.updateProductQuantity(producto.codigo_producto, newQty);
-        });
+                
+                await this.updateProductQuantity(producto.codigo_producto, newQty);
+            });
 
-        // Permitir Enter para confirmar
-        qtyInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.target.blur();
-            }
-        });
+            increaseBtn.addEventListener('click', async () => {
+                const newQty = producto.cantidad + 1;
+                await this.updateProductQuantity(producto.codigo_producto, newQty);
+            });
 
-        // Seleccionar todo al hacer foco
-        qtyInput.addEventListener('focus', (e) => {
-            e.target.select();
-        });
+            // Input manual de cantidad
+            qtyInput.addEventListener('blur', async (e) => {
+                let newQty = parseInt(e.target.value) || 0;
+                
+                // Limitar entre 0 y 999
+                if (newQty < 0) newQty = 0;
+                if (newQty > 999) newQty = 999;
+                
+                // Si ponen 0, preguntar antes de eliminar
+                if (newQty === 0) {
+                    const confirmDelete = await window.ui.showConfirm(
+                        '¿ELIMINAR ARTÍCULO?',
+                        `¿Deseas eliminar "${producto.descripcion_producto}" del carrito?`,
+                        'Eliminar',
+                        'Cancelar'
+                    );
+                    if (!confirmDelete) {
+                        e.target.value = producto.cantidad;
+                        return;
+                    }
+                }
+                
+                // Si la cantidad no cambió, no hacer nada
+                if (newQty === producto.cantidad) return;
+                
+                await this.updateProductQuantity(producto.codigo_producto, newQty);
+            });
+
+            // Permitir Enter para confirmar
+            qtyInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.target.blur();
+                }
+            });
+
+            // Seleccionar todo al hacer foco
+            qtyInput.addEventListener('focus', (e) => {
+                e.target.select();
+            });
+            
+            // Marcar que los listeners ya están añadidos
+            card.dataset.listenersAdded = 'true';
+        }
 
         return card;
     }
