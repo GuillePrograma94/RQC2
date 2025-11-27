@@ -965,26 +965,69 @@ class CartManager {
      */
     async saveOfertasProductosToCache(ofertasProductos) {
         try {
-            if (!this.db || !ofertasProductos || ofertasProductos.length === 0) return;
+            if (!this.db) {
+                console.error('❌ DB no disponible para guardar productos en ofertas');
+                return false;
+            }
+            
+            if (!ofertasProductos || ofertasProductos.length === 0) {
+                console.log('⚠️ No hay productos en ofertas para guardar');
+                return false;
+            }
+
+            console.log(`💾 Guardando ${ofertasProductos.length} productos en ofertas...`);
+            console.log(`   📋 Muestra de productos a guardar:`, ofertasProductos.slice(0, 5));
+            
+            // Verificar que codigo_articulo está presente
+            const sinCodigo = ofertasProductos.filter(op => !op.codigo_articulo);
+            if (sinCodigo.length > 0) {
+                console.warn(`   ⚠️ ${sinCodigo.length} productos sin codigo_articulo:`, sinCodigo.slice(0, 3));
+            }
 
             const transaction = this.db.transaction(['ofertas_productos'], 'readwrite');
             const store = transaction.objectStore('ofertas_productos');
 
             // Limpiar todos los productos de ofertas anteriores
             await store.clear();
+            console.log('   🗑️ Productos anteriores eliminados');
 
+            let guardados = 0;
+            let errores = 0;
             for (const op of ofertasProductos) {
-                await store.add({
-                    ...op,
-                    cached_at: new Date().toISOString()
-                });
+                try {
+                    // Normalizar codigo_articulo a mayúsculas
+                    const productoNormalizado = {
+                        ...op,
+                        codigo_articulo: op.codigo_articulo ? op.codigo_articulo.toUpperCase() : null,
+                        cached_at: new Date().toISOString()
+                    };
+                    await store.add(productoNormalizado);
+                    guardados++;
+                } catch (addError) {
+                    errores++;
+                    if (errores <= 3) { // Solo mostrar primeros 3 errores
+                        console.error(`   ❌ Error al guardar producto:`, op, addError);
+                    }
+                }
             }
 
-            console.log(`✅ ${ofertasProductos.length} productos en ofertas guardados en caché`);
+            console.log(`✅ ${guardados}/${ofertasProductos.length} productos en ofertas guardados en caché`);
+            if (errores > 0) {
+                console.warn(`   ⚠️ ${errores} errores al guardar productos`);
+            }
+            
+            // Verificar que se guardaron correctamente
+            const verificacion = await new Promise((resolve) => {
+                const verifyRequest = store.count();
+                verifyRequest.onsuccess = () => resolve(verifyRequest.result);
+                verifyRequest.onerror = () => resolve(0);
+            });
+            console.log(`   ✓ Verificación: ${verificacion} productos en IndexedDB`);
+
             return true;
 
         } catch (error) {
-            console.error('Error al guardar productos en ofertas en caché:', error);
+            console.error('❌ Error al guardar productos en ofertas en caché:', error);
             return false;
         }
     }
@@ -1198,8 +1241,14 @@ class CartManager {
                 return false;
             }
 
-            console.log(`💾 Guardando ${asignaciones.length} asignaciones de grupos...`);
-            console.log(`   📋 Muestra de asignaciones a guardar:`, asignaciones.slice(0, 3));
+            console.log(`💾 Guardando ${ofertasProductos.length} productos en ofertas...`);
+            console.log(`   📋 Muestra de productos a guardar:`, ofertasProductos.slice(0, 5));
+            
+            // Verificar que codigo_articulo está presente y en mayúsculas
+            const sinCodigo = ofertasProductos.filter(op => !op.codigo_articulo);
+            if (sinCodigo.length > 0) {
+                console.warn(`   ⚠️ ${sinCodigo.length} productos sin codigo_articulo:`, sinCodigo.slice(0, 3));
+            }
 
             const transaction = this.db.transaction(['ofertas_grupos_asignaciones'], 'readwrite');
             const store = transaction.objectStore('ofertas_grupos_asignaciones');
