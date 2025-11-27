@@ -2734,7 +2734,6 @@ class ScanAsYouShopApp {
     showOfertaInfoModal(ofertaData) {
         const modal = document.getElementById('ofertaInfoModal');
         const overlay = modal.querySelector('.oferta-info-overlay');
-        const closeBtn = document.getElementById('closeOfertaInfoModal');
         const closeBtnBottom = document.getElementById('closeOfertaInfoBtn');
         const verOfertaBtn = document.getElementById('verOfertaBtn');
         const titleEl = document.getElementById('ofertaInfoTitle');
@@ -2758,24 +2757,117 @@ class ScanAsYouShopApp {
             cleanup();
         };
 
-        const handleVerOferta = () => {
-            // Por ahora no hace nada, preparado para el futuro
-            console.log('Ver oferta completa - funcionalidad pendiente');
-            window.ui.showToast('Funcionalidad en desarrollo', 'info');
+        const handleVerOferta = async () => {
+            // Cerrar el modal de información
+            modal.style.display = 'none';
+            cleanup();
+
+            // Cerrar también el modal de añadir al carrito si está abierto
+            const addToCartModal = document.getElementById('addToCartModal');
+            if (addToCartModal) {
+                addToCartModal.style.display = 'none';
+            }
+
+            // Cambiar a la pantalla de búsqueda
+            this.switchScreen('search');
+
+            // Buscar todos los productos de esta oferta
+            await this.searchProductsByOferta(ofertaData.numero_oferta);
         };
 
         const cleanup = () => {
-            closeBtn.removeEventListener('click', handleClose);
             closeBtnBottom.removeEventListener('click', handleClose);
             overlay.removeEventListener('click', handleClose);
             verOfertaBtn.removeEventListener('click', handleVerOferta);
         };
 
         // Añadir listeners
-        closeBtn.addEventListener('click', handleClose);
         closeBtnBottom.addEventListener('click', handleClose);
         overlay.addEventListener('click', handleClose);
         verOfertaBtn.addEventListener('click', handleVerOferta);
+    }
+
+    /**
+     * Busca todos los productos que pertenecen a una oferta
+     */
+    async searchProductsByOferta(numeroOferta) {
+        try {
+            console.log(`🔍 Buscando productos de la oferta ${numeroOferta}...`);
+            window.ui.showLoading();
+
+            // Obtener todos los códigos de artículos de esta oferta desde el cache local
+            const codigosArticulos = await this.getCodigosArticulosOferta(numeroOferta);
+
+            if (!codigosArticulos || codigosArticulos.length === 0) {
+                window.ui.hideLoading();
+                window.ui.showToast('No se encontraron productos en esta oferta', 'warning');
+                await this.displaySearchResults([]);
+                return;
+            }
+
+            console.log(`📦 ${codigosArticulos.length} productos en la oferta`);
+
+            // Buscar cada producto en el cache local
+            const productos = [];
+            for (const codigo of codigosArticulos) {
+                const producto = await window.cartManager.searchProductsExact(codigo);
+                if (producto && producto.length > 0) {
+                    productos.push(producto[0]);
+                }
+            }
+
+            console.log(`✅ ${productos.length} productos encontrados en cache local`);
+
+            // Actualizar el título de resultados
+            const resultsTitle = document.getElementById('searchResultsTitle');
+            if (resultsTitle) {
+                resultsTitle.textContent = `Productos de la oferta (${productos.length})`;
+            }
+
+            // Mostrar resultados
+            await this.displaySearchResults(productos, false);
+            window.ui.showToast(`${productos.length} productos de la oferta`, 'success');
+
+        } catch (error) {
+            console.error('Error al buscar productos de oferta:', error);
+            window.ui.showToast('Error al cargar productos de la oferta', 'error');
+        } finally {
+            window.ui.hideLoading();
+        }
+    }
+
+    /**
+     * Obtiene los códigos de artículos de una oferta desde el cache local
+     */
+    async getCodigosArticulosOferta(numeroOferta) {
+        try {
+            if (!window.cartManager || !window.cartManager.db) {
+                console.warn('⚠️ CartManager o DB no disponible');
+                return [];
+            }
+
+            return new Promise((resolve) => {
+                const transaction = window.cartManager.db.transaction(['ofertas_productos'], 'readonly');
+                const store = transaction.objectStore('ofertas_productos');
+                const index = store.index('numero_oferta');
+                const request = index.getAll(numeroOferta);
+
+                request.onsuccess = () => {
+                    const productos = request.result || [];
+                    const codigos = productos.map(p => p.codigo_articulo);
+                    console.log(`📋 Códigos de artículos en oferta ${numeroOferta}:`, codigos);
+                    resolve(codigos);
+                };
+
+                request.onerror = () => {
+                    console.error('❌ Error al obtener códigos de artículos:', request.error);
+                    resolve([]);
+                };
+            });
+        } catch (error) {
+            console.error('❌ Error al obtener códigos de artículos:', error);
+            return [];
+        }
     }
 }
 
