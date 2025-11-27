@@ -3168,13 +3168,14 @@ class ScanAsYouShopApp {
     /**
      * Muestra el modal con información detallada de la oferta
      */
-    showOfertaInfoModal(ofertaData) {
+    async showOfertaInfoModal(ofertaData) {
         const modal = document.getElementById('ofertaInfoModal');
         const overlay = modal.querySelector('.oferta-info-overlay');
         const closeBtnBottom = document.getElementById('closeOfertaInfoBtn');
         const verOfertaBtn = document.getElementById('verOfertaBtn');
         const titleEl = document.getElementById('ofertaInfoTitle');
         const descriptionEl = document.getElementById('ofertaInfoDescription');
+        const imagesContainer = document.getElementById('ofertaInfoImages');
 
         if (!modal || !ofertaData) {
             console.error('Modal de oferta o datos no encontrados');
@@ -3184,6 +3185,39 @@ class ScanAsYouShopApp {
         // Establecer título y descripción desde los datos de la oferta
         titleEl.textContent = ofertaData.titulo_descripcion || 'Oferta disponible';
         descriptionEl.textContent = ofertaData.descripcion_detallada || 'Esta oferta está disponible para este producto.';
+
+        // Cargar miniaturas de productos de la oferta (máximo 5)
+        if (imagesContainer) {
+            imagesContainer.innerHTML = ''; // Limpiar
+            
+            try {
+                const codigosArticulos = await this.getCodigosArticulosOferta(ofertaData.numero_oferta);
+                const codigosLimitados = codigosArticulos.slice(0, 5);
+                
+                for (const codigo of codigosLimitados) {
+                    const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${codigo}_1.JPG`;
+                    const imgDiv = document.createElement('div');
+                    imgDiv.className = 'oferta-info-thumbnail';
+                    imgDiv.innerHTML = `
+                        <img src="${imageUrl}" alt="${codigo}" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="oferta-info-thumbnail-placeholder" style="display: none;">📦</div>
+                    `;
+                    imagesContainer.appendChild(imgDiv);
+                }
+                
+                // Si hay más de 5 productos, añadir indicador
+                if (codigosArticulos.length > 5) {
+                    const moreDiv = document.createElement('div');
+                    moreDiv.className = 'oferta-info-thumbnail oferta-info-more';
+                    moreDiv.innerHTML = `<div class="oferta-info-more-text">+${codigosArticulos.length - 5}</div>`;
+                    imagesContainer.appendChild(moreDiv);
+                }
+            } catch (error) {
+                console.error('Error al cargar imágenes de productos:', error);
+                imagesContainer.innerHTML = '<div class="oferta-info-icon">🎉</div>';
+            }
+        }
 
         // Mostrar modal
         modal.style.display = 'flex';
