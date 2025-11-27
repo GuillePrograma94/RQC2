@@ -1238,30 +1238,41 @@ class ScanAsYouShopApp {
             const priceWithIVA = producto.pvp * 1.21;
             priceEl.textContent = `${priceWithIVA.toFixed(2)} €`;
 
-            // Verificar si el producto tiene ofertas
+            // Verificar si el producto tiene ofertas (solo para usuarios con codigo_cliente)
             let ofertaData = null;
-            try {
-                const codigoCliente = this.currentUser?.codigo_cliente || null;
-                const ofertasProducto = await window.supabaseClient.getOfertasProducto(producto.codigo, codigoCliente, true);
-                
-                if (ofertasProducto && ofertasProducto.length > 0 && ofertaBadge) {
-                    // Obtener información completa de la primera oferta
-                    const primeraOferta = ofertasProducto[0];
-                    ofertaData = await this.getOfertaInfo(primeraOferta.numero_oferta);
-                    
-                    ofertaBadge.style.display = 'block';
-                    
-                    // Añadir manejador de clic al badge
-                    ofertaBadge.onclick = () => this.showOfertaInfoModal(ofertaData);
-                } else if (ofertaBadge) {
-                    ofertaBadge.style.display = 'none';
-                    ofertaBadge.onclick = null;
-                }
-            } catch (error) {
-                console.error('Error al verificar ofertas en modal:', error);
+            const codigoCliente = this.currentUser?.codigo_cliente || null;
+            
+            if (!codigoCliente) {
+                // Usuario invitado: no mostrar ofertas
+                console.log('🚫 Usuario invitado - no se verifican ofertas en modal');
                 if (ofertaBadge) {
                     ofertaBadge.style.display = 'none';
                     ofertaBadge.onclick = null;
+                }
+            } else {
+                // Usuario con código de cliente: verificar ofertas
+                try {
+                    const ofertasProducto = await window.supabaseClient.getOfertasProducto(producto.codigo, codigoCliente, true);
+                    
+                    if (ofertasProducto && ofertasProducto.length > 0 && ofertaBadge) {
+                        // Obtener información completa de la primera oferta
+                        const primeraOferta = ofertasProducto[0];
+                        ofertaData = await this.getOfertaInfo(primeraOferta.numero_oferta);
+                        
+                        ofertaBadge.style.display = 'block';
+                        
+                        // Añadir manejador de clic al badge
+                        ofertaBadge.onclick = () => this.showOfertaInfoModal(ofertaData);
+                    } else if (ofertaBadge) {
+                        ofertaBadge.style.display = 'none';
+                        ofertaBadge.onclick = null;
+                    }
+                } catch (error) {
+                    console.error('Error al verificar ofertas en modal:', error);
+                    if (ofertaBadge) {
+                        ofertaBadge.style.display = 'none';
+                        ofertaBadge.onclick = null;
+                    }
                 }
             }
 
