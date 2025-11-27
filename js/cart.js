@@ -1030,47 +1030,79 @@ class CartManager {
                 return [];
             }
 
+            console.log(`🔍 Buscando TODAS las ofertas para cliente ${codigoCliente}...`);
+
             const transaction = this.db.transaction(['ofertas_productos', 'ofertas', 'ofertas_grupos_asignaciones'], 'readonly');
             const productosStore = transaction.objectStore('ofertas_productos');
             const ofertasStore = transaction.objectStore('ofertas');
             const gruposStore = transaction.objectStore('ofertas_grupos_asignaciones');
 
-            // 1. Obtener TODAS las asignaciones de grupo para este cliente
-            const asignaciones = await new Promise((resolve) => {
-                const gruposIndex = gruposStore.index('codigo_grupo');
-                const request = gruposIndex.getAll(parseInt(codigoCliente));
-                request.onsuccess = () => resolve(request.result || []);
-                request.onerror = () => resolve([]);
+            // 1. Obtener TODAS las asignaciones de grupo (sin filtrar por índice primero)
+            const todasAsignaciones = await new Promise((resolve) => {
+                const request = gruposStore.getAll();
+                request.onsuccess = () => {
+                    const results = request.result || [];
+                    console.log(`   📊 Total asignaciones en DB: ${results.length}`);
+                    if (results.length > 0) {
+                        console.log(`   📋 Muestra de asignaciones:`, results.slice(0, 3));
+                    }
+                    resolve(results);
+                };
+                request.onerror = () => {
+                    console.error('   ❌ Error al obtener asignaciones:', request.error);
+                    resolve([]);
+                };
             });
 
+            // 2. Filtrar manualmente las asignaciones para este cliente
+            const codigoClienteNum = parseInt(codigoCliente);
+            const asignaciones = todasAsignaciones.filter(a => {
+                const codigoGrupoNum = parseInt(a.codigo_grupo);
+                return codigoGrupoNum === codigoClienteNum;
+            });
+
+            console.log(`   🔐 Asignaciones para cliente ${codigoCliente}: ${asignaciones.length}`);
+            
             if (asignaciones.length === 0) {
-                console.log(`⚠️ Cliente ${codigoCliente} no tiene asignaciones de grupo`);
+                console.log(`   ⚠️ Cliente ${codigoCliente} no tiene asignaciones de grupo`);
                 return [];
             }
 
-            // 2. Crear Set de números de oferta accesibles
+            // 3. Crear Set de números de oferta accesibles
             const ofertasAccesibles = new Set(asignaciones.map(a => a.numero_oferta));
-            console.log(`✅ Cliente ${codigoCliente} tiene acceso a ${ofertasAccesibles.size} ofertas`);
+            console.log(`   ✅ Cliente ${codigoCliente} tiene acceso a ${ofertasAccesibles.size} ofertas:`, Array.from(ofertasAccesibles).slice(0, 10));
 
-            // 3. Obtener TODOS los productos en ofertas
+            // 4. Obtener TODOS los productos en ofertas
             const todosProductos = await new Promise((resolve) => {
                 const request = productosStore.getAll();
-                request.onsuccess = () => resolve(request.result || []);
+                request.onsuccess = () => {
+                    const results = request.result || [];
+                    console.log(`   📦 Total productos en ofertas: ${results.length}`);
+                    resolve(results);
+                };
                 request.onerror = () => resolve([]);
             });
 
-            // 4. Filtrar solo los productos de ofertas accesibles y activas
+            // 5. Filtrar solo los productos de ofertas accesibles y activas
             const resultado = [];
+            const ofertasVerificadas = new Set();
+            
             for (const producto of todosProductos) {
                 if (ofertasAccesibles.has(producto.numero_oferta)) {
-                    // Verificar que la oferta esté activa
-                    const oferta = await new Promise((resolve) => {
-                        const request = ofertasStore.get(producto.numero_oferta);
-                        request.onsuccess = () => resolve(request.result);
-                        request.onerror = () => resolve(null);
-                    });
+                    // Verificar que la oferta esté activa (cachear resultado)
+                    if (!ofertasVerificadas.has(producto.numero_oferta)) {
+                        const oferta = await new Promise((resolve) => {
+                            const request = ofertasStore.get(producto.numero_oferta);
+                            request.onsuccess = () => resolve(request.result);
+                            request.onerror = () => resolve(null);
+                        });
 
-                    if (oferta && oferta.activa) {
+                        if (oferta && oferta.activa) {
+                            ofertasVerificadas.add(producto.numero_oferta);
+                        }
+                    }
+
+                    if (ofertasVerificadas.has(producto.numero_oferta)) {
                         resultado.push({
                             codigo_articulo: producto.codigo_articulo,
                             numero_oferta: producto.numero_oferta,
@@ -1080,11 +1112,15 @@ class CartManager {
                 }
             }
 
-            console.log(`✅ ${resultado.length} productos con ofertas cargados para cliente ${codigoCliente}`);
+            console.log(`✅ ${resultado.length} productos con ofertas accesibles para cliente ${codigoCliente}`);
+            if (resultado.length > 0) {
+                console.log(`   📋 Muestra de productos con ofertas:`, resultado.slice(0, 5).map(r => r.codigo_articulo));
+            }
+            
             return resultado;
 
         } catch (error) {
-            console.error('Error al obtener todos los productos en ofertas:', error);
+            console.error('❌ Error al obtener todos los productos en ofertas:', error);
             return [];
         }
     }
@@ -1152,26 +1188,53 @@ class CartManager {
      */
     async saveOfertasGruposToCache(asignaciones) {
         try {
-            if (!this.db || !asignaciones || asignaciones.length === 0) return;
+            if (!this.db) {
+                console.error('❌ DB no disponible para guardar asignaciones');
+                return false;
+            }
+
+            if (!asignaciones || asignaciones.length === 0) {
+                console.log('⚠️ No hay asignaciones de grupos para guardar');
+                return false;
+            }
+
+            console.log(`💾 Guardando ${asignaciones.length} asignaciones de grupos...`);
+            console.log(`   📋 Muestra de asignaciones a guardar:`, asignaciones.slice(0, 3));
 
             const transaction = this.db.transaction(['ofertas_grupos_asignaciones'], 'readwrite');
             const store = transaction.objectStore('ofertas_grupos_asignaciones');
 
             // Limpiar asignaciones anteriores
             await store.clear();
+            console.log('   🗑️ Asignaciones anteriores eliminadas');
 
+            let guardadas = 0;
             for (const asignacion of asignaciones) {
-                await store.add({
-                    ...asignacion,
-                    cached_at: new Date().toISOString()
-                });
+                try {
+                    await store.add({
+                        ...asignacion,
+                        cached_at: new Date().toISOString()
+                    });
+                    guardadas++;
+                } catch (addError) {
+                    console.error(`   ❌ Error al guardar asignación:`, asignacion, addError);
+                }
             }
 
-            console.log(`✅ ${asignaciones.length} asignaciones de grupos guardadas en caché`);
+            console.log(`✅ ${guardadas}/${asignaciones.length} asignaciones de grupos guardadas en caché`);
+            
+            // Verificar que se guardaron correctamente
+            const verificacion = await new Promise((resolve) => {
+                const verifyRequest = store.count();
+                verifyRequest.onsuccess = () => resolve(verifyRequest.result);
+                verifyRequest.onerror = () => resolve(0);
+            });
+            console.log(`   ✓ Verificación: ${verificacion} asignaciones en IndexedDB`);
+
             return true;
 
         } catch (error) {
-            console.error('Error al guardar asignaciones en caché:', error);
+            console.error('❌ Error al guardar asignaciones en caché:', error);
             return false;
         }
     }

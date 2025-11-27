@@ -1144,6 +1144,13 @@ class SupabaseClient {
             // Descargar asignaciones de grupos con paginación
             console.log('📥 Descargando tabla ofertas_grupos_asignaciones...');
             const ofertasGruposAsignaciones = await this._downloadWithPagination('ofertas_grupos_asignaciones', onProgress);
+            
+            // Log detallado de asignaciones descargadas
+            if (ofertasGruposAsignaciones && ofertasGruposAsignaciones.length > 0) {
+                console.log('📋 Muestra de asignaciones descargadas:', ofertasGruposAsignaciones.slice(0, 5));
+            } else {
+                console.log('⚠️ No se descargaron asignaciones de grupos');
+            }
 
             // Guardar en cache local
             if (window.cartManager) {
