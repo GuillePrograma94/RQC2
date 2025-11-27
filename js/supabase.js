@@ -1071,6 +1071,94 @@ class SupabaseClient {
             return null;
         }
     }
+
+    /**
+     * Descarga todas las ofertas y datos relacionados desde Supabase
+     * y los guarda en cache local
+     */
+    async downloadOfertas(onProgress = null) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            console.log('📥 Descargando datos de ofertas desde Supabase...');
+
+            // Descargar ofertas activas
+            const { data: ofertas, error: errorOfertas } = await this.client
+                .from('ofertas')
+                .select('*')
+                .eq('activa', true);
+
+            if (errorOfertas) {
+                console.error('Error al descargar ofertas:', errorOfertas);
+                throw errorOfertas;
+            }
+
+            // Descargar productos en ofertas
+            const { data: ofertasProductos, error: errorProductos } = await this.client
+                .from('ofertas_productos')
+                .select('*');
+
+            if (errorProductos) {
+                console.error('Error al descargar productos en ofertas:', errorProductos);
+            }
+
+            // Descargar intervalos
+            const { data: ofertasIntervalos, error: errorIntervalos } = await this.client
+                .from('ofertas_intervalos')
+                .select('*');
+
+            if (errorIntervalos) {
+                console.error('Error al descargar intervalos:', errorIntervalos);
+            }
+
+            // Descargar detalles
+            const { data: ofertasDetalles, error: errorDetalles } = await this.client
+                .from('ofertas_detalles')
+                .select('*');
+
+            if (errorDetalles) {
+                console.error('Error al descargar detalles:', errorDetalles);
+            }
+
+            // Descargar asignaciones de grupos
+            const { data: ofertasGruposAsignaciones, error: errorGrupos } = await this.client
+                .from('ofertas_grupos_asignaciones')
+                .select('*');
+
+            if (errorGrupos) {
+                console.error('Error al descargar asignaciones de grupos:', errorGrupos);
+            }
+
+            // Guardar en cache local
+            if (window.cartManager) {
+                await window.cartManager.saveOfertasToCache(ofertas || []);
+                await window.cartManager.saveOfertasProductosToCache(ofertasProductos || []);
+                await window.cartManager.saveOfertasIntervalosToCache(ofertasIntervalos || []);
+                await window.cartManager.saveOfertasDetallesToCache(ofertasDetalles || []);
+                await window.cartManager.saveOfertasGruposToCache(ofertasGruposAsignaciones || []);
+            }
+
+            console.log(`✅ Ofertas descargadas: ${ofertas?.length || 0}`);
+            console.log(`✅ Productos en ofertas: ${ofertasProductos?.length || 0}`);
+            console.log(`✅ Intervalos: ${ofertasIntervalos?.length || 0}`);
+            console.log(`✅ Detalles: ${ofertasDetalles?.length || 0}`);
+            console.log(`✅ Asignaciones de grupos: ${ofertasGruposAsignaciones?.length || 0}`);
+
+            return {
+                ofertas: ofertas || [],
+                ofertasProductos: ofertasProductos || [],
+                ofertasIntervalos: ofertasIntervalos || [],
+                ofertasDetalles: ofertasDetalles || [],
+                ofertasGruposAsignaciones: ofertasGruposAsignaciones || []
+            };
+
+        } catch (error) {
+            console.error('❌ Error al descargar ofertas:', error);
+            throw error;
+        }
+    }
 }
 
 // Crear instancia global
