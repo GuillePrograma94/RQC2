@@ -1337,10 +1337,18 @@ body {
 
 .cart-product-footer {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     gap: 8px;
     padding-top: 8px;
+    margin-left: -12px; /* Extiende hasta el borde de la imagen */
+    margin-right: -12px;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+.cart-product-footer.has-oferta {
+    justify-content: space-between;
 }
 
 .quantity-controls-compact {

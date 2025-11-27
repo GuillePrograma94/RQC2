@@ -1813,6 +1813,9 @@ class ScanAsYouShopApp {
             subtotalHTML = `<div class="cart-product-subtotal">${subtotalWithIVA.toFixed(2)} €</div>`;
         }
 
+        // Determinar si hay oferta para ajustar el layout
+        const footerClass = ofertaHTML ? 'cart-product-footer has-oferta' : 'cart-product-footer';
+
         card.innerHTML = `
             <div class="cart-product-image">
                 <div class="cart-product-quantity-badge">${producto.cantidad}</div>
@@ -1829,7 +1832,7 @@ class ScanAsYouShopApp {
                     </div>
                     ${subtotalHTML}
                 </div>
-                <div class="cart-product-footer">
+                <div class="${footerClass}">
                     ${ofertaHTML}
                     <div class="quantity-controls-compact">
                         <button class="qty-btn-compact" data-action="decrease" data-code="${producto.codigo_producto}">−</button>
