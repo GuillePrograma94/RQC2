@@ -1173,26 +1173,59 @@ class CartManager {
      */
     async saveOfertasIntervalosToCache(intervalos) {
         try {
-            if (!this.db || !intervalos || intervalos.length === 0) return;
+            if (!this.db) {
+                console.error('❌ DB no disponible para guardar intervalos');
+                return false;
+            }
+            
+            if (!intervalos || intervalos.length === 0) {
+                console.log('⚠️ No hay intervalos de ofertas para guardar');
+                return false;
+            }
+
+            console.log(`💾 Guardando ${intervalos.length} intervalos de ofertas...`);
+            console.log(`   📋 Muestra de intervalos a guardar:`, intervalos.slice(0, 3));
+            
+            // Verificar que tienen los campos necesarios
+            const sinDescuento = intervalos.filter(i => i.descuento_porcentaje === undefined || i.descuento_porcentaje === null);
+            if (sinDescuento.length > 0) {
+                console.warn(`   ⚠️ ${sinDescuento.length} intervalos sin descuento_porcentaje:`, sinDescuento.slice(0, 3));
+            }
 
             const transaction = this.db.transaction(['ofertas_intervalos'], 'readwrite');
             const store = transaction.objectStore('ofertas_intervalos');
 
             // Limpiar intervalos anteriores
             await store.clear();
+            console.log('   🗑️ Intervalos anteriores eliminados');
 
+            let guardados = 0;
             for (const intervalo of intervalos) {
-                await store.add({
-                    ...intervalo,
-                    cached_at: new Date().toISOString()
-                });
+                try {
+                    await store.add({
+                        ...intervalo,
+                        cached_at: new Date().toISOString()
+                    });
+                    guardados++;
+                } catch (addError) {
+                    console.error(`   ❌ Error al guardar intervalo:`, intervalo, addError);
+                }
             }
 
-            console.log(`✅ ${intervalos.length} intervalos de ofertas guardados en caché`);
+            console.log(`✅ ${guardados}/${intervalos.length} intervalos de ofertas guardados en caché`);
+            
+            // Verificar que se guardaron correctamente
+            const verificacion = await new Promise((resolve) => {
+                const verifyRequest = store.count();
+                verifyRequest.onsuccess = () => resolve(verifyRequest.result);
+                verifyRequest.onerror = () => resolve(0);
+            });
+            console.log(`   ✓ Verificación: ${verificacion} intervalos en IndexedDB`);
+
             return true;
 
         } catch (error) {
-            console.error('Error al guardar intervalos en caché:', error);
+            console.error('❌ Error al guardar intervalos en caché:', error);
             return false;
         }
     }
@@ -1430,7 +1463,7 @@ class CartManager {
                     const intervalos = request.result || [];
                     // Ordenar por desde_unidades
                     intervalos.sort((a, b) => a.desde_unidades - b.desde_unidades);
-                    console.log(`   ✅ ${intervalos.length} intervalos encontrados:`, intervalos.map(i => `${i.desde_unidades}-${i.hasta_unidades}: ${i.descuento}%`));
+                    console.log(`   ✅ ${intervalos.length} intervalos encontrados:`, intervalos.map(i => `${i.desde_unidades}-${i.hasta_unidades}: ${i.descuento_porcentaje}%`));
                     resolve(intervalos);
                 };
                 request.onerror = () => {

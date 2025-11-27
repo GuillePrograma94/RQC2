@@ -1136,6 +1136,14 @@ class SupabaseClient {
             // Descargar intervalos con paginación
             console.log('📥 Descargando tabla ofertas_intervalos...');
             const ofertasIntervalos = await this._downloadWithPagination('ofertas_intervalos', onProgress);
+            
+            // Log detallado de intervalos descargados
+            if (ofertasIntervalos && ofertasIntervalos.length > 0) {
+                console.log('📋 Muestra de intervalos descargados:', ofertasIntervalos.slice(0, 3));
+                console.log('📋 Campos del primer intervalo:', Object.keys(ofertasIntervalos[0]));
+            } else {
+                console.log('⚠️ No se descargaron intervalos');
+            }
 
             // Descargar detalles con paginación
             console.log('📥 Descargando tabla ofertas_detalles...');

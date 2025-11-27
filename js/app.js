@@ -1611,13 +1611,13 @@ class ScanAsYouShopApp {
                         const faltantes = siguienteIntervalo.desde_unidades - totalUnidades;
                         return { 
                             cumplida: true, 
-                            mensaje: `¡${intervaloActual.descuento}% de descuento! (${totalUnidades} uds) Añade ${faltantes} más para ${siguienteIntervalo.descuento}%`
+                            mensaje: `¡${intervaloActual.descuento_porcentaje}% de descuento! (${totalUnidades} uds) Añade ${faltantes} más para ${siguienteIntervalo.descuento_porcentaje}%`
                         };
                     } else {
                         // Está en el último escalón
                         return { 
                             cumplida: true, 
-                            mensaje: `¡${intervaloActual.descuento}% de descuento máximo! (${totalUnidades} uds)`
+                            mensaje: `¡${intervaloActual.descuento_porcentaje}% de descuento máximo! (${totalUnidades} uds)`
                         };
                     }
                 } else {
@@ -1628,14 +1628,14 @@ class ScanAsYouShopApp {
                         const faltantes = primerIntervalo.desde_unidades - totalUnidades;
                         return { 
                             cumplida: false, 
-                            mensaje: `Añade ${faltantes} unidad${faltantes !== 1 ? 'es' : ''} más para ${primerIntervalo.descuento}% de descuento (${totalUnidades}/${primerIntervalo.desde_unidades} uds)`
+                            mensaje: `Añade ${faltantes} unidad${faltantes !== 1 ? 'es' : ''} más para ${primerIntervalo.descuento_porcentaje}% de descuento (${totalUnidades}/${primerIntervalo.desde_unidades} uds)`
                         };
                     } else {
                         // Está por encima del último intervalo (caso raro)
                         const ultimoIntervalo = intervalosOrdenados[intervalosOrdenados.length - 1];
                         return { 
                             cumplida: true, 
-                            mensaje: `¡${ultimoIntervalo.descuento}% de descuento! (${totalUnidades} uds)`
+                            mensaje: `¡${ultimoIntervalo.descuento_porcentaje}% de descuento! (${totalUnidades} uds)`
                         };
                     }
                 }
@@ -1772,18 +1772,18 @@ class ScanAsYouShopApp {
                 );
                 
                 if (intervaloActual) {
-                    console.log(`✅ Oferta ${oferta.numero_oferta} - ${totalUnidades} uds en intervalo ${intervaloActual.desde_unidades}-${intervaloActual.hasta_unidades}: ${intervaloActual.descuento}%`);
+                    console.log(`✅ Oferta ${oferta.numero_oferta} - ${totalUnidades} uds en intervalo ${intervaloActual.desde_unidades}-${intervaloActual.hasta_unidades}: ${intervaloActual.descuento_porcentaje}%`);
                     return {
-                        descuento: intervaloActual.descuento || 0,
+                        descuento: intervaloActual.descuento_porcentaje || 0,
                         factor: 1.0 // Aplica a todas las unidades del intervalo
                     };
                 } else {
                     // Si está por encima del último intervalo, aplicar el descuento máximo
                     const ultimoIntervalo = intervalosOrdenados[intervalosOrdenados.length - 1];
                     if (totalUnidades > ultimoIntervalo.hasta_unidades) {
-                        console.log(`✅ Oferta ${oferta.numero_oferta} - ${totalUnidades} uds (por encima del último intervalo): ${ultimoIntervalo.descuento}%`);
+                        console.log(`✅ Oferta ${oferta.numero_oferta} - ${totalUnidades} uds (por encima del último intervalo): ${ultimoIntervalo.descuento_porcentaje}%`);
                         return {
-                            descuento: ultimoIntervalo.descuento || 0,
+                            descuento: ultimoIntervalo.descuento_porcentaje || 0,
                             factor: 1.0
                         };
                     }
