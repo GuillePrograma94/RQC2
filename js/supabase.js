@@ -913,11 +913,21 @@ class SupabaseClient {
      */
     async getOfertasProducto(codigoArticulo, codigoCliente = null, useCache = true) {
         try {
+            // Si no hay codigo_cliente, el usuario es invitado y NO ve ofertas
+            if (!codigoCliente) {
+                console.log('🚫 Usuario invitado - no se buscan ofertas');
+                return [];
+            }
+
             // Intentar obtener desde cache primero
-            if (useCache && window.cartManager) {
+            if (useCache && window.cartManager && window.cartManager.db) {
+                console.log(`🔍 Buscando ofertas de ${codigoArticulo} en cache (cliente: ${codigoCliente})...`);
                 const ofertasCache = await window.cartManager.getOfertasProductoFromCache(codigoArticulo, codigoCliente);
                 if (ofertasCache && ofertasCache.length > 0) {
+                    console.log(`✅ ${ofertasCache.length} ofertas encontradas en cache para ${codigoArticulo}`);
                     return ofertasCache;
+                } else {
+                    console.log(`⚠️ No se encontraron ofertas en cache para ${codigoArticulo} - buscando en Supabase...`);
                 }
             }
 

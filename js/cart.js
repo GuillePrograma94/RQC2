@@ -112,12 +112,13 @@ class CartManager {
                     detallesStore.createIndex('campo', 'campo', { unique: false });
                 }
                 
-                // Crear object store para grupos de ofertas (caché local)
-                if (!db.objectStoreNames.contains('ofertas_grupos_asignaciones')) {
-                    const gruposStore = db.createObjectStore('ofertas_grupos_asignaciones', { keyPath: 'id', autoIncrement: true });
-                    gruposStore.createIndex('numero_oferta', 'numero_oferta', { unique: false });
-                    gruposStore.createIndex('codigo_grupo', 'codigo_grupo', { unique: false });
-                }
+            // Crear object store para grupos de ofertas (caché local)
+            if (!db.objectStoreNames.contains('ofertas_grupos_asignaciones')) {
+                const gruposStore = db.createObjectStore('ofertas_grupos_asignaciones', { keyPath: 'id', autoIncrement: true });
+                gruposStore.createIndex('numero_oferta', 'numero_oferta', { unique: false });
+                gruposStore.createIndex('codigo_grupo', 'codigo_grupo', { unique: false });
+                console.log('✅ Object store ofertas_grupos_asignaciones creado con índices');
+            }
                 
                 console.log('✅ Esquema de base de datos creado/actualizado');
             };
@@ -985,6 +986,106 @@ class CartManager {
         } catch (error) {
             console.error('Error al guardar productos en ofertas en caché:', error);
             return false;
+        }
+    }
+
+    /**
+     * Obtiene productos en ofertas desde caché local por código de artículo
+     */
+    async getOfertasProductosFromCache(codigoArticulo) {
+        try {
+            if (!this.db) return [];
+
+            return new Promise((resolve) => {
+                const transaction = this.db.transaction(['ofertas_productos'], 'readonly');
+                const store = transaction.objectStore('ofertas_productos');
+                const index = store.index('codigo_articulo');
+                const request = index.getAll(codigoArticulo.toUpperCase());
+
+                request.onsuccess = () => {
+                    resolve(request.result || []);
+                };
+
+                request.onerror = () => {
+                    console.error('Error al obtener ofertas de productos desde cache:', request.error);
+                    resolve([]);
+                };
+            });
+        } catch (error) {
+            console.error('Error al obtener ofertas de productos:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Obtiene TODOS los productos en ofertas accesibles para un cliente
+     * Usa para crear un índice rápido de productos con ofertas
+     * @param {number} codigoCliente - Código del cliente
+     * @returns {Promise<Array>} - Lista de productos en ofertas
+     */
+    async getAllOfertasProductosFromCache(codigoCliente) {
+        try {
+            if (!this.db) {
+                console.log('⚠️ DB no disponible');
+                return [];
+            }
+
+            const transaction = this.db.transaction(['ofertas_productos', 'ofertas', 'ofertas_grupos_asignaciones'], 'readonly');
+            const productosStore = transaction.objectStore('ofertas_productos');
+            const ofertasStore = transaction.objectStore('ofertas');
+            const gruposStore = transaction.objectStore('ofertas_grupos_asignaciones');
+
+            // 1. Obtener TODAS las asignaciones de grupo para este cliente
+            const asignaciones = await new Promise((resolve) => {
+                const gruposIndex = gruposStore.index('codigo_grupo');
+                const request = gruposIndex.getAll(parseInt(codigoCliente));
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => resolve([]);
+            });
+
+            if (asignaciones.length === 0) {
+                console.log(`⚠️ Cliente ${codigoCliente} no tiene asignaciones de grupo`);
+                return [];
+            }
+
+            // 2. Crear Set de números de oferta accesibles
+            const ofertasAccesibles = new Set(asignaciones.map(a => a.numero_oferta));
+            console.log(`✅ Cliente ${codigoCliente} tiene acceso a ${ofertasAccesibles.size} ofertas`);
+
+            // 3. Obtener TODOS los productos en ofertas
+            const todosProductos = await new Promise((resolve) => {
+                const request = productosStore.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => resolve([]);
+            });
+
+            // 4. Filtrar solo los productos de ofertas accesibles y activas
+            const resultado = [];
+            for (const producto of todosProductos) {
+                if (ofertasAccesibles.has(producto.numero_oferta)) {
+                    // Verificar que la oferta esté activa
+                    const oferta = await new Promise((resolve) => {
+                        const request = ofertasStore.get(producto.numero_oferta);
+                        request.onsuccess = () => resolve(request.result);
+                        request.onerror = () => resolve(null);
+                    });
+
+                    if (oferta && oferta.activa) {
+                        resultado.push({
+                            codigo_articulo: producto.codigo_articulo,
+                            numero_oferta: producto.numero_oferta,
+                            descuento_oferta: producto.descuento_oferta
+                        });
+                    }
+                }
+            }
+
+            console.log(`✅ ${resultado.length} productos con ofertas cargados para cliente ${codigoCliente}`);
+            return resultado;
+
+        } catch (error) {
+            console.error('Error al obtener todos los productos en ofertas:', error);
+            return [];
         }
     }
 

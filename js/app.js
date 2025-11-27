@@ -1116,34 +1116,42 @@ class ScanAsYouShopApp {
         if (emptyState) emptyState.style.display = 'none';
         if (resultsContainer) resultsContainer.style.display = 'block';
         
+        // Limitar resultados mostrados para mantener velocidad
+        const LIMITE_RESULTADOS = 200;
+        const productosLimitados = productos.slice(0, LIMITE_RESULTADOS);
+        const hayMasResultados = productos.length > LIMITE_RESULTADOS;
+        
+        // Actualizar título con información de límite si aplicla
         if (resultsTitle) {
-            resultsTitle.textContent = isFromHistory 
-                ? `${productos.length} producto${productos.length !== 1 ? 's' : ''} comprado${productos.length !== 1 ? 's' : ''} anteriormente`
-                : `${productos.length} resultado${productos.length !== 1 ? 's' : ''}`;
+            const totalText = `${productos.length} resultado${productos.length !== 1 ? 's' : ''}`;
+            const limitText = hayMasResultados ? ` (mostrando ${LIMITE_RESULTADOS})` : '';
+            const historyText = isFromHistory ? ' comprado' + (productos.length !== 1 ? 's' : '') + ' anteriormente' : '';
+            resultsTitle.textContent = totalText + limitText + historyText;
         }
 
-        // Verificar qué productos tienen ofertas (solo para usuarios con codigo_cliente)
+        // Pre-cargar índice de productos con ofertas desde cache LOCAL (RÁPIDO)
         const productosConOfertas = new Set();
         const codigoCliente = this.currentUser?.codigo_cliente || null;
         
-        // Solo verificar ofertas si el usuario tiene codigo_cliente
-        if (codigoCliente) {
-            for (const producto of productos) {
-                try {
-                    const ofertas = await window.supabaseClient.getOfertasProducto(producto.codigo, codigoCliente, true);
-                    if (ofertas && ofertas.length > 0) {
-                        productosConOfertas.add(producto.codigo);
-                    }
-                } catch (error) {
-                    // Si hay error, simplemente no marcar como oferta
-                    console.error(`Error al verificar ofertas para ${producto.codigo}:`, error);
+        if (codigoCliente && window.cartManager && window.cartManager.db) {
+            console.log('🔍 Cargando índice de ofertas desde cache local...');
+            const inicio = performance.now();
+            try {
+                // Obtener TODOS los productos en ofertas de UNA SOLA VEZ desde IndexedDB
+                const ofertasProductosCache = await window.cartManager.getAllOfertasProductosFromCache(codigoCliente);
+                for (const op of ofertasProductosCache) {
+                    productosConOfertas.add(op.codigo_articulo.toUpperCase());
                 }
+                const tiempo = (performance.now() - inicio).toFixed(0);
+                console.log(`✅ Índice de ofertas cargado en ${tiempo}ms: ${productosConOfertas.size} productos con ofertas`);
+            } catch (error) {
+                console.error('Error al cargar índice de ofertas:', error);
             }
         } else {
             console.log('🚫 Usuario invitado - no se muestran ofertas en búsqueda');
         }
 
-        resultsList.innerHTML = productos.map(producto => {
+        resultsList.innerHTML = productosLimitados.map(producto => {
             const priceWithIVA = producto.pvp * 1.21;
             const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
             const escapedDescripcion = this.escapeForHtmlAttribute(producto.descripcion);
@@ -1617,7 +1625,7 @@ class ScanAsYouShopApp {
             }
             
             if (tipoOferta === 3) {
-                // LOTE: Se cumple si la suma de unidades de todos los productos de la oferta >= unidades_lote
+                // LOTE: Se aplica por cada X unidades (pueden ser lotes múltiples)
                 const unidadesLote = await window.supabaseClient.getLoteOferta(oferta.numero_oferta, true);
                 if (!unidadesLote) {
                     return { cumplida: false, mensaje: oferta.titulo_descripcion || 'Oferta por lote' };
@@ -1633,18 +1641,27 @@ class ScanAsYouShopApp {
                     }
                 }
                 
-                const cumplida = totalUnidades >= unidadesLote;
-                const faltantes = unidadesLote - totalUnidades;
+                const lotesCompletos = Math.floor(totalUnidades / unidadesLote);
+                const unidadesConDescuento = lotesCompletos * unidadesLote;
+                const resto = totalUnidades % unidadesLote;
                 
-                if (cumplida) {
-                    return { 
-                        cumplida: true, 
-                        mensaje: oferta.titulo_descripcion || `¡Oferta aplicada! (${totalUnidades}/${unidadesLote} uds)`
-                    };
+                if (lotesCompletos > 0) {
+                    if (resto === 0) {
+                        return { 
+                            cumplida: true, 
+                            mensaje: `${oferta.titulo_descripcion || `¡${lotesCompletos} lote${lotesCompletos !== 1 ? 's' : ''} completo${lotesCompletos !== 1 ? 's' : ''}!`}`
+                        };
+                    } else {
+                        return { 
+                            cumplida: true, 
+                            mensaje: `${lotesCompletos} lote${lotesCompletos !== 1 ? 's' : ''} aplicado${lotesCompletos !== 1 ? 's' : ''} (${resto} ud${resto !== 1 ? 's' : ''} sin oferta)`
+                        };
+                    }
                 } else {
+                    const faltantes = unidadesLote - totalUnidades;
                     return { 
                         cumplida: false, 
-                        mensaje: `Añade ${faltantes} unidad${faltantes !== 1 ? 'es' : ''} más de esta u otro artículo de la oferta (lote: ${unidadesLote})`
+                        mensaje: `Añade ${faltantes} unidad${faltantes !== 1 ? 'es' : ''} más de esta u otro artículo para el 1er lote (lote: ${unidadesLote})`
                     };
                 }
             }
@@ -1691,24 +1708,28 @@ class ScanAsYouShopApp {
 
     /**
      * Calcula el descuento a aplicar según el tipo y condiciones de la oferta
+     * Devuelve el porcentaje de descuento y el factor de aplicación (qué proporción tiene descuento)
      * @param {Object} oferta - Datos de la oferta
      * @param {Object} producto - Producto del carrito
      * @param {Object} carrito - Carrito completo
-     * @returns {Promise<number>} - Porcentaje de descuento (0-100)
+     * @returns {Promise<{descuento: number, factor: number}>} - Porcentaje y factor de aplicación
      */
     async calcularDescuentoOferta(oferta, producto, carrito) {
         try {
             const tipoOferta = oferta.tipo_oferta;
             
-            // ESTANDAR, LOTE y MULTIPLO: usar descuento_oferta directamente
-            if (tipoOferta === 1 || tipoOferta === 3 || tipoOferta === 4) {
-                return oferta.descuento_oferta || 0;
+            // ESTANDAR: Aplica a todas las unidades si se cumple el mínimo
+            if (tipoOferta === 1) {
+                return {
+                    descuento: oferta.descuento_oferta || 0,
+                    factor: 1.0 // 100% de las unidades
+                };
             }
             
             // INTERVALO: buscar el descuento del intervalo correspondiente
             if (tipoOferta === 2) {
                 const intervalos = await window.supabaseClient.getIntervalosOferta(oferta.numero_oferta, true);
-                if (!intervalos || intervalos.length === 0) return 0;
+                if (!intervalos || intervalos.length === 0) return { descuento: 0, factor: 0 };
                 
                 // Calcular total de unidades de la oferta en el carrito
                 let totalUnidades = 0;
@@ -1728,14 +1749,68 @@ class ScanAsYouShopApp {
                 );
                 
                 if (intervaloActual) {
-                    return intervaloActual.descuento || 0;
+                    return {
+                        descuento: intervaloActual.descuento || 0,
+                        factor: 1.0 // Aplica a todas las unidades del intervalo
+                    };
                 }
             }
             
-            return 0;
+            // LOTE: Aplica solo a lotes completos
+            if (tipoOferta === 3) {
+                const unidadesLote = await window.supabaseClient.getLoteOferta(oferta.numero_oferta, true);
+                if (!unidadesLote) return { descuento: 0, factor: 0 };
+                
+                // Calcular total de unidades de la oferta en el carrito
+                let totalUnidades = 0;
+                const codigoCliente = this.currentUser?.codigo_cliente || null;
+                
+                for (const prod of carrito.productos) {
+                    const ofertasProd = await window.supabaseClient.getOfertasProducto(prod.codigo_producto, codigoCliente, true);
+                    const tieneEstaOferta = ofertasProd.some(o => o.numero_oferta === oferta.numero_oferta);
+                    if (tieneEstaOferta) {
+                        totalUnidades += prod.cantidad;
+                    }
+                }
+                
+                // Calcular cuántas unidades entran en lotes completos
+                const lotesCompletos = Math.floor(totalUnidades / unidadesLote);
+                const unidadesConDescuento = lotesCompletos * unidadesLote;
+                
+                if (lotesCompletos > 0) {
+                    // El factor es la proporción de unidades con descuento del PRODUCTO ACTUAL
+                    // Calculamos la proporción del producto en el total de la oferta
+                    const proporcionProducto = producto.cantidad / totalUnidades;
+                    const unidadesProductoConDescuento = Math.floor(unidadesConDescuento * proporcionProducto);
+                    const factorProducto = unidadesProductoConDescuento / producto.cantidad;
+                    
+                    return {
+                        descuento: oferta.descuento_oferta || 0,
+                        factor: factorProducto
+                    };
+                }
+            }
+            
+            // MULTIPLO: Aplica solo a múltiplos completos del producto individual
+            if (tipoOferta === 4) {
+                const unidadesMultiplo = oferta.unidades_multiplo || 0;
+                if (unidadesMultiplo === 0) return { descuento: 0, factor: 0 };
+                
+                const multiplosCompletos = Math.floor(producto.cantidad / unidadesMultiplo);
+                const unidadesConDescuento = multiplosCompletos * unidadesMultiplo;
+                
+                if (multiplosCompletos > 0) {
+                    return {
+                        descuento: oferta.descuento_oferta || 0,
+                        factor: unidadesConDescuento / producto.cantidad
+                    };
+                }
+            }
+            
+            return { descuento: 0, factor: 0 };
         } catch (error) {
             console.error('Error al calcular descuento de oferta:', error);
-            return 0;
+            return { descuento: 0, factor: 0 };
         }
     }
 
@@ -1772,11 +1847,22 @@ class ScanAsYouShopApp {
                 
                 // Si la oferta está cumplida, calcular el precio con descuento
                 if (resultadoOferta && resultadoOferta.cumplida) {
-                    const descuento = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito);
-                    if (descuento > 0) {
+                    const { descuento, factor } = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito);
+                    if (descuento > 0 && factor > 0) {
                         descuentoAplicado = descuento;
-                        precioConDescuento = priceWithIVA * (1 - descuento / 100);
-                        subtotalConDescuento = subtotalWithIVA * (1 - descuento / 100);
+                        
+                        // Para LOTE y MULTIPLO, aplicar descuento solo a la proporción correspondiente
+                        if (ofertaActiva.tipo_oferta === 3 || ofertaActiva.tipo_oferta === 4) {
+                            // Precio promedio: mezcla de unidades con y sin descuento
+                            const precioSinDescuento = priceWithIVA;
+                            const precioConDescuentoTotal = priceWithIVA * (1 - descuento / 100);
+                            precioConDescuento = (precioConDescuentoTotal * factor) + (precioSinDescuento * (1 - factor));
+                            subtotalConDescuento = precioConDescuento * producto.cantidad;
+                        } else {
+                            // Para ESTANDAR e INTERVALO, aplica a todas las unidades
+                            precioConDescuento = priceWithIVA * (1 - descuento / 100);
+                            subtotalConDescuento = subtotalWithIVA * (1 - descuento / 100);
+                        }
                     }
                 }
             }
