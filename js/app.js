@@ -2591,6 +2591,50 @@ class ScanAsYouShopApp {
             window.ui.showToast('Error al agregar producto', 'error');
         }
     }
+
+    /**
+     * Carga ofertas si no están en cache o si es necesario actualizarlas
+     */
+    async loadOfertasIfNeeded() {
+        try {
+            // Verificar si hay ofertas en cache
+            if (window.cartManager && window.cartManager.db) {
+                const transaction = window.cartManager.db.transaction(['ofertas'], 'readonly');
+                const store = transaction.objectStore('ofertas');
+                const countRequest = store.count();
+                
+                countRequest.onsuccess = async () => {
+                    const count = countRequest.result;
+                    if (count === 0) {
+                        // No hay ofertas en cache, descargarlas
+                        console.log('📥 Descargando ofertas por primera vez...');
+                        try {
+                            await window.supabaseClient.downloadOfertas();
+                            console.log('✅ Ofertas descargadas y guardadas en caché');
+                        } catch (error) {
+                            console.error('Error al descargar ofertas (no crítico):', error);
+                        }
+                    } else {
+                        console.log(`✅ Ofertas en cache: ${count} ofertas`);
+                    }
+                };
+                
+                countRequest.onerror = () => {
+                    console.log('No se pudo verificar cache de ofertas, descargando...');
+                    window.supabaseClient.downloadOfertas().catch(err => {
+                        console.error('Error al descargar ofertas (no crítico):', err);
+                    });
+                };
+            } else {
+                // Si no hay db, intentar descargar directamente
+                window.supabaseClient.downloadOfertas().catch(err => {
+                    console.error('Error al descargar ofertas (no crítico):', err);
+                });
+            }
+        } catch (error) {
+            console.error('Error al verificar ofertas en cache:', error);
+        }
+    }
 }
 
 // Crear instancia global
