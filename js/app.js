@@ -1579,11 +1579,14 @@ class ScanAsYouShopApp {
             }
             
             if (tipoOferta === 2) {
-                // INTERVALO: Se cumple si la suma de unidades de todos los productos de la oferta está en algún intervalo
+                // INTERVALO: Descuentos escalonados según el total de unidades de todos los productos de la oferta
                 const intervalos = await window.supabaseClient.getIntervalosOferta(oferta.numero_oferta, true);
                 if (!intervalos || intervalos.length === 0) {
-                    return { cumplida: false, mensaje: oferta.titulo_descripcion || 'Oferta por intervalo' };
+                    return { cumplida: false, mensaje: oferta.titulo_descripcion || 'Oferta por intervalo (sin intervalos definidos)' };
                 }
+                
+                // Ordenar intervalos por desde_unidades
+                const intervalosOrdenados = intervalos.sort((a, b) => a.desde_unidades - b.desde_unidades);
                 
                 // Sumar unidades de todos los productos de esta oferta en el carrito
                 let totalUnidades = 0;
@@ -1596,33 +1599,43 @@ class ScanAsYouShopApp {
                 }
                 
                 // Verificar si el total está en algún intervalo
-                const intervaloActual = intervalos.find(intervalo => 
+                const intervaloActual = intervalosOrdenados.find(intervalo => 
                     totalUnidades >= intervalo.desde_unidades && totalUnidades <= intervalo.hasta_unidades
                 );
                 
                 if (intervaloActual) {
-                    return { 
-                        cumplida: true, 
-                        mensaje: oferta.titulo_descripcion || `¡Oferta aplicada! (${totalUnidades} uds)`
-                    };
-                } else {
-                    // Buscar el siguiente intervalo más cercano
-                    const siguienteIntervalo = intervalos
-                        .filter(i => i.desde_unidades > totalUnidades)
-                        .sort((a, b) => a.desde_unidades - b.desde_unidades)[0];
+                    // Buscar si hay un siguiente escalón
+                    const siguienteIntervalo = intervalosOrdenados.find(i => i.desde_unidades > intervaloActual.hasta_unidades);
                     
                     if (siguienteIntervalo) {
                         const faltantes = siguienteIntervalo.desde_unidades - totalUnidades;
                         return { 
-                            cumplida: false, 
-                            mensaje: `Añade ${faltantes} unidad${faltantes !== 1 ? 'es' : ''} más de esta u otro artículo de la oferta (mín: ${siguienteIntervalo.desde_unidades})`
+                            cumplida: true, 
+                            mensaje: `¡${intervaloActual.descuento}% de descuento! (${totalUnidades} uds) Añade ${faltantes} más para ${siguienteIntervalo.descuento}%`
                         };
                     } else {
-                        const primerIntervalo = intervalos.sort((a, b) => a.desde_unidades - b.desde_unidades)[0];
+                        // Está en el último escalón
+                        return { 
+                            cumplida: true, 
+                            mensaje: `¡${intervaloActual.descuento}% de descuento máximo! (${totalUnidades} uds)`
+                        };
+                    }
+                } else {
+                    // No está en ningún intervalo, buscar el primer intervalo
+                    const primerIntervalo = intervalosOrdenados[0];
+                    
+                    if (totalUnidades < primerIntervalo.desde_unidades) {
                         const faltantes = primerIntervalo.desde_unidades - totalUnidades;
                         return { 
                             cumplida: false, 
-                            mensaje: `Añade ${faltantes} unidad${faltantes !== 1 ? 'es' : ''} más de esta u otro artículo de la oferta (mín: ${primerIntervalo.desde_unidades})`
+                            mensaje: `Añade ${faltantes} unidad${faltantes !== 1 ? 'es' : ''} más para ${primerIntervalo.descuento}% de descuento (${totalUnidades}/${primerIntervalo.desde_unidades} uds)`
+                        };
+                    } else {
+                        // Está por encima del último intervalo (caso raro)
+                        const ultimoIntervalo = intervalosOrdenados[intervalosOrdenados.length - 1];
+                        return { 
+                            cumplida: true, 
+                            mensaje: `¡${ultimoIntervalo.descuento}% de descuento! (${totalUnidades} uds)`
                         };
                     }
                 }
@@ -1733,7 +1746,13 @@ class ScanAsYouShopApp {
             // INTERVALO: buscar el descuento del intervalo correspondiente
             if (tipoOferta === 2) {
                 const intervalos = await window.supabaseClient.getIntervalosOferta(oferta.numero_oferta, true);
-                if (!intervalos || intervalos.length === 0) return { descuento: 0, factor: 0 };
+                if (!intervalos || intervalos.length === 0) {
+                    console.log(`⚠️ Oferta ${oferta.numero_oferta} tipo INTERVALO sin intervalos definidos`);
+                    return { descuento: 0, factor: 0 };
+                }
+                
+                // Ordenar intervalos
+                const intervalosOrdenados = intervalos.sort((a, b) => a.desde_unidades - b.desde_unidades);
                 
                 // Calcular total de unidades de la oferta en el carrito
                 let totalUnidades = 0;
@@ -1748,15 +1767,27 @@ class ScanAsYouShopApp {
                 }
                 
                 // Encontrar el intervalo que corresponde al total de unidades
-                const intervaloActual = intervalos.find(intervalo => 
+                const intervaloActual = intervalosOrdenados.find(intervalo => 
                     totalUnidades >= intervalo.desde_unidades && totalUnidades <= intervalo.hasta_unidades
                 );
                 
                 if (intervaloActual) {
+                    console.log(`✅ Oferta ${oferta.numero_oferta} - ${totalUnidades} uds en intervalo ${intervaloActual.desde_unidades}-${intervaloActual.hasta_unidades}: ${intervaloActual.descuento}%`);
                     return {
                         descuento: intervaloActual.descuento || 0,
                         factor: 1.0 // Aplica a todas las unidades del intervalo
                     };
+                } else {
+                    // Si está por encima del último intervalo, aplicar el descuento máximo
+                    const ultimoIntervalo = intervalosOrdenados[intervalosOrdenados.length - 1];
+                    if (totalUnidades > ultimoIntervalo.hasta_unidades) {
+                        console.log(`✅ Oferta ${oferta.numero_oferta} - ${totalUnidades} uds (por encima del último intervalo): ${ultimoIntervalo.descuento}%`);
+                        return {
+                            descuento: ultimoIntervalo.descuento || 0,
+                            factor: 1.0
+                        };
+                    }
+                    console.log(`⚠️ Oferta ${oferta.numero_oferta} - ${totalUnidades} uds no alcanza ningún intervalo`);
                 }
             }
             

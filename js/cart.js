@@ -1413,7 +1413,12 @@ class CartManager {
      */
     async getIntervalosOfertaFromCache(numeroOferta) {
         try {
-            if (!this.db) return [];
+            if (!this.db) {
+                console.log(`⚠️ DB no disponible para obtener intervalos de oferta ${numeroOferta}`);
+                return [];
+            }
+
+            console.log(`🔍 Buscando intervalos de oferta ${numeroOferta} en cache...`);
 
             const transaction = this.db.transaction(['ofertas_intervalos'], 'readonly');
             const store = transaction.objectStore('ofertas_intervalos');
@@ -1425,13 +1430,17 @@ class CartManager {
                     const intervalos = request.result || [];
                     // Ordenar por desde_unidades
                     intervalos.sort((a, b) => a.desde_unidades - b.desde_unidades);
+                    console.log(`   ✅ ${intervalos.length} intervalos encontrados:`, intervalos.map(i => `${i.desde_unidades}-${i.hasta_unidades}: ${i.descuento}%`));
                     resolve(intervalos);
                 };
-                request.onerror = () => reject(request.error);
+                request.onerror = () => {
+                    console.error(`   ❌ Error al buscar intervalos:`, request.error);
+                    reject(request.error);
+                };
             });
 
         } catch (error) {
-            console.error('Error al obtener intervalos desde caché:', error);
+            console.error('❌ Error al obtener intervalos desde caché:', error);
             return [];
         }
     }
