@@ -2751,6 +2751,9 @@ class ScanAsYouShopApp {
         // Mostrar modal
         modal.style.display = 'flex';
 
+        // Guardar referencia al contexto
+        const self = this;
+
         // Manejadores de eventos
         const handleClose = () => {
             modal.style.display = 'none';
@@ -2769,10 +2772,10 @@ class ScanAsYouShopApp {
             }
 
             // Cambiar a la pantalla de búsqueda
-            this.switchScreen('search');
+            self.showScreen('search');
 
             // Buscar todos los productos de esta oferta
-            await this.searchProductsByOferta(ofertaData.numero_oferta);
+            await self.searchProductsByOferta(ofertaData.numero_oferta);
         };
 
         const cleanup = () => {
