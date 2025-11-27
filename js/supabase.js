@@ -957,7 +957,9 @@ class SupabaseClient {
             }
 
             // Si hay código de cliente, filtrar por grupos
-            if (codigoCliente !== null) {
+            if (codigoCliente !== null && codigoCliente !== undefined) {
+                console.log(`🔍 Filtrando ofertas para cliente con código: ${codigoCliente}`);
+                
                 // Obtener ofertas asignadas a grupos del cliente
                 const { data: ofertasGrupos, error: errorGrupos } = await this.client
                     .from('ofertas_grupos_asignaciones')
@@ -967,14 +969,30 @@ class SupabaseClient {
                 if (!errorGrupos && ofertasGrupos && ofertasGrupos.length > 0) {
                     // Filtrar ofertas: solo las que están asignadas al grupo del cliente
                     const numerosOfertasGrupo = new Set(ofertasGrupos.map(og => og.numero_oferta));
-                    return ofertasProducto.filter(op => numerosOfertasGrupo.has(op.numero_oferta));
+                    const ofertasFiltradas = ofertasProducto.filter(op => numerosOfertasGrupo.has(op.numero_oferta));
+                    console.log(`✅ ${ofertasFiltradas.length} ofertas visibles para el cliente ${codigoCliente}`);
+                    return ofertasFiltradas.map(op => ({
+                        numero_oferta: op.numero_oferta,
+                        descuento_oferta: op.descuento_oferta,
+                        unidades_minimas: op.unidades_minimas,
+                        unidades_multiplo: op.unidades_multiplo,
+                        tipo_oferta: op.ofertas.tipo_oferta,
+                        tipo_oferta_nombre: op.ofertas.tipo_oferta_nombre,
+                        titulo_descripcion: op.ofertas.titulo_descripcion,
+                        descripcion_detallada: op.ofertas.descripcion_detallada
+                    }));
                 } else {
                     // Si el cliente tiene grupo pero no hay ofertas asignadas, no mostrar ninguna
+                    console.log(`⚠️ Cliente ${codigoCliente} no tiene ofertas asignadas`);
                     return [];
                 }
             }
 
-            // Si no hay código de cliente, devolver todas las ofertas activas
+            // Si no hay código de cliente (INVITADO), NO mostrar ofertas
+            console.log('🚫 Usuario invitado - no se muestran ofertas');
+            return [];
+
+            /* CÓDIGO COMENTADO - Ya no devolvemos ofertas a invitados
             return ofertasProducto.map(op => ({
                 numero_oferta: op.numero_oferta,
                 descuento_oferta: op.descuento_oferta,
@@ -985,6 +1003,7 @@ class SupabaseClient {
                 titulo_descripcion: op.ofertas.titulo_descripcion,
                 descripcion_detallada: op.ofertas.descripcion_detallada
             }));
+            */
 
         } catch (error) {
             console.error('Error al obtener ofertas del producto:', error);

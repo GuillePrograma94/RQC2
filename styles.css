@@ -1259,6 +1259,53 @@ body {
     margin-top: 2px;
 }
 
+/* Estilos para precios con descuento */
+.cart-product-price-container {
+    margin-top: 2px;
+}
+
+.cart-product-price-original {
+    font-size: 0.7rem;
+    color: var(--gray-500);
+    text-decoration: line-through;
+    margin-bottom: 2px;
+}
+
+.cart-product-price-discount {
+    font-size: 0.9rem;
+    color: var(--danger);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.discount-badge {
+    background: var(--danger);
+    color: var(--white);
+    font-size: 0.6rem;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+.cart-product-subtotal-container {
+    text-align: right;
+}
+
+.cart-product-subtotal-original {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    text-decoration: line-through;
+    margin-bottom: 2px;
+}
+
+.cart-product-subtotal-discount {
+    font-size: 1.2rem;
+    color: var(--danger);
+    font-weight: 700;
+}
+
 /* Rectángulo de oferta */
 .oferta-badge {
     margin-top: 6px;

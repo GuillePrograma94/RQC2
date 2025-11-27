@@ -1522,7 +1522,8 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Verifica si una oferta se cumple según su tipo y las cantidades en el carrito
+     * Verifica si una oferta se cumple y genera mensaje contextual inteligente
+     * @returns {Object} { cumplida: boolean, mensaje: string }
      */
     async verificarOfertaCumplida(oferta, codigoArticulo, cantidad, carrito) {
         try {
@@ -1530,13 +1531,31 @@ class ScanAsYouShopApp {
             
             if (tipoOferta === 1) {
                 // ESTANDAR: Se cumple si la cantidad del producto >= unidades_minimas
-                return cantidad >= (oferta.unidades_minimas || 0);
+                const unidadesMinimas = oferta.unidades_minimas || 0;
+                
+                if (unidadesMinimas === 0) {
+                    return { cumplida: false, mensaje: oferta.titulo_descripcion || 'Oferta disponible' };
+                }
+                
+                const cumplida = cantidad >= unidadesMinimas;
+                const faltantes = unidadesMinimas - cantidad;
+                
+                if (cumplida) {
+                    return { cumplida: true, mensaje: `${oferta.titulo_descripcion || '¡Oferta aplicada!'}` };
+                } else {
+                    return { 
+                        cumplida: false, 
+                        mensaje: `Añade ${faltantes} unidad${faltantes !== 1 ? 'es' : ''} más para conseguir la oferta (mín: ${unidadesMinimas})`
+                    };
+                }
             }
             
             if (tipoOferta === 2) {
                 // INTERVALO: Se cumple si la suma de unidades de todos los productos de la oferta está en algún intervalo
                 const intervalos = await window.supabaseClient.getIntervalosOferta(oferta.numero_oferta, true);
-                if (!intervalos || intervalos.length === 0) return false;
+                if (!intervalos || intervalos.length === 0) {
+                    return { cumplida: false, mensaje: oferta.titulo_descripcion || 'Oferta por intervalo' };
+                }
                 
                 // Sumar unidades de todos los productos de esta oferta en el carrito
                 let totalUnidades = 0;
@@ -1549,15 +1568,44 @@ class ScanAsYouShopApp {
                 }
                 
                 // Verificar si el total está en algún intervalo
-                return intervalos.some(intervalo => 
+                const intervaloActual = intervalos.find(intervalo => 
                     totalUnidades >= intervalo.desde_unidades && totalUnidades <= intervalo.hasta_unidades
                 );
+                
+                if (intervaloActual) {
+                    return { 
+                        cumplida: true, 
+                        mensaje: oferta.titulo_descripcion || `¡Oferta aplicada! (${totalUnidades} uds)`
+                    };
+                } else {
+                    // Buscar el siguiente intervalo más cercano
+                    const siguienteIntervalo = intervalos
+                        .filter(i => i.desde_unidades > totalUnidades)
+                        .sort((a, b) => a.desde_unidades - b.desde_unidades)[0];
+                    
+                    if (siguienteIntervalo) {
+                        const faltantes = siguienteIntervalo.desde_unidades - totalUnidades;
+                        return { 
+                            cumplida: false, 
+                            mensaje: `Añade ${faltantes} unidad${faltantes !== 1 ? 'es' : ''} más de esta u otro artículo de la oferta (mín: ${siguienteIntervalo.desde_unidades})`
+                        };
+                    } else {
+                        const primerIntervalo = intervalos.sort((a, b) => a.desde_unidades - b.desde_unidades)[0];
+                        const faltantes = primerIntervalo.desde_unidades - totalUnidades;
+                        return { 
+                            cumplida: false, 
+                            mensaje: `Añade ${faltantes} unidad${faltantes !== 1 ? 'es' : ''} más de esta u otro artículo de la oferta (mín: ${primerIntervalo.desde_unidades})`
+                        };
+                    }
+                }
             }
             
             if (tipoOferta === 3) {
                 // LOTE: Se cumple si la suma de unidades de todos los productos de la oferta >= unidades_lote
                 const unidadesLote = await window.supabaseClient.getLoteOferta(oferta.numero_oferta, true);
-                if (!unidadesLote) return false;
+                if (!unidadesLote) {
+                    return { cumplida: false, mensaje: oferta.titulo_descripcion || 'Oferta por lote' };
+                }
                 
                 // Sumar unidades de todos los productos de esta oferta en el carrito
                 let totalUnidades = 0;
@@ -1569,20 +1617,109 @@ class ScanAsYouShopApp {
                     }
                 }
                 
-                return totalUnidades >= unidadesLote;
+                const cumplida = totalUnidades >= unidadesLote;
+                const faltantes = unidadesLote - totalUnidades;
+                
+                if (cumplida) {
+                    return { 
+                        cumplida: true, 
+                        mensaje: oferta.titulo_descripcion || `¡Oferta aplicada! (${totalUnidades}/${unidadesLote} uds)`
+                    };
+                } else {
+                    return { 
+                        cumplida: false, 
+                        mensaje: `Añade ${faltantes} unidad${faltantes !== 1 ? 'es' : ''} más de esta u otro artículo de la oferta (lote: ${unidadesLote})`
+                    };
+                }
             }
             
             if (tipoOferta === 4) {
-                // MULTIPLO: Se cumple si la cantidad es múltiplo de unidades_multiplo
+                // MULTIPLO: Se cumple si la cantidad es múltiplo exacto de unidades_multiplo
                 const unidadesMultiplo = oferta.unidades_multiplo || 0;
-                if (unidadesMultiplo === 0) return false;
-                return cantidad >= unidadesMultiplo && (cantidad % unidadesMultiplo === 0);
+                
+                if (unidadesMultiplo === 0) {
+                    return { cumplida: false, mensaje: oferta.titulo_descripcion || 'Oferta por múltiplo' };
+                }
+                
+                if (cantidad >= unidadesMultiplo) {
+                    const numMultiplos = Math.floor(cantidad / unidadesMultiplo);
+                    const resto = cantidad % unidadesMultiplo;
+                    
+                    if (resto === 0) {
+                        return { 
+                            cumplida: true, 
+                            mensaje: oferta.titulo_descripcion || `¡Oferta aplicada! (${numMultiplos} x ${unidadesMultiplo})`
+                        };
+                    } else {
+                        const enOferta = cantidad - resto;
+                        return { 
+                            cumplida: true, 
+                            mensaje: `Oferta aplicada a ${enOferta} uds (múltiplo de ${unidadesMultiplo})`
+                        };
+                    }
+                } else {
+                    const faltantes = unidadesMultiplo - cantidad;
+                    return { 
+                        cumplida: false, 
+                        mensaje: `Añade ${faltantes} unidad${faltantes !== 1 ? 'es' : ''} más para conseguir la oferta (múltiplo: ${unidadesMultiplo})`
+                    };
+                }
             }
             
-            return false;
+            return { cumplida: false, mensaje: oferta.titulo_descripcion || 'Oferta disponible' };
         } catch (error) {
             console.error('Error al verificar oferta:', error);
-            return false;
+            return { cumplida: false, mensaje: 'Error al verificar oferta' };
+        }
+    }
+
+    /**
+     * Calcula el descuento a aplicar según el tipo y condiciones de la oferta
+     * @param {Object} oferta - Datos de la oferta
+     * @param {Object} producto - Producto del carrito
+     * @param {Object} carrito - Carrito completo
+     * @returns {Promise<number>} - Porcentaje de descuento (0-100)
+     */
+    async calcularDescuentoOferta(oferta, producto, carrito) {
+        try {
+            const tipoOferta = oferta.tipo_oferta;
+            
+            // ESTANDAR, LOTE y MULTIPLO: usar descuento_oferta directamente
+            if (tipoOferta === 1 || tipoOferta === 3 || tipoOferta === 4) {
+                return oferta.descuento_oferta || 0;
+            }
+            
+            // INTERVALO: buscar el descuento del intervalo correspondiente
+            if (tipoOferta === 2) {
+                const intervalos = await window.supabaseClient.getIntervalosOferta(oferta.numero_oferta, true);
+                if (!intervalos || intervalos.length === 0) return 0;
+                
+                // Calcular total de unidades de la oferta en el carrito
+                let totalUnidades = 0;
+                const codigoCliente = this.currentUser?.codigo_cliente || null;
+                
+                for (const prod of carrito.productos) {
+                    const ofertasProd = await window.supabaseClient.getOfertasProducto(prod.codigo_producto, codigoCliente, true);
+                    const tieneEstaOferta = ofertasProd.some(o => o.numero_oferta === oferta.numero_oferta);
+                    if (tieneEstaOferta) {
+                        totalUnidades += prod.cantidad;
+                    }
+                }
+                
+                // Encontrar el intervalo que corresponde al total de unidades
+                const intervaloActual = intervalos.find(intervalo => 
+                    totalUnidades >= intervalo.desde_unidades && totalUnidades <= intervalo.hasta_unidades
+                );
+                
+                if (intervaloActual) {
+                    return intervaloActual.descuento || 0;
+                }
+            }
+            
+            return 0;
+        } catch (error) {
+            console.error('Error al calcular descuento de oferta:', error);
+            return 0;
         }
     }
 
@@ -1602,24 +1739,61 @@ class ScanAsYouShopApp {
         const codigoCliente = this.currentUser?.codigo_cliente || null;
         const ofertas = await window.supabaseClient.getOfertasProducto(producto.codigo_producto, codigoCliente, true);
         
-        // Verificar si alguna oferta se cumple
-        let ofertaCumplida = null;
+        // Verificar si alguna oferta se cumple y calcular descuentos
+        let resultadoOferta = null;
         let ofertaActiva = null;
+        let precioConDescuento = priceWithIVA;
+        let subtotalConDescuento = subtotalWithIVA;
+        let descuentoAplicado = 0;
+        
         if (ofertas && ofertas.length > 0) {
             // Tomar la primera oferta (puedes ajustar la lógica si hay múltiples)
             ofertaActiva = ofertas[0];
             const carrito = window.cartManager.getCart();
-            ofertaCumplida = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito);
+            resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito);
+            
+            // Si la oferta está cumplida, calcular el precio con descuento
+            if (resultadoOferta && resultadoOferta.cumplida) {
+                const descuento = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito);
+                if (descuento > 0) {
+                    descuentoAplicado = descuento;
+                    precioConDescuento = priceWithIVA * (1 - descuento / 100);
+                    subtotalConDescuento = subtotalWithIVA * (1 - descuento / 100);
+                }
+            }
         }
         
-        // Generar HTML del rectángulo de oferta
+        // Generar HTML del rectángulo de oferta con mensaje inteligente
         let ofertaHTML = '';
-        if (ofertaActiva) {
-            const tituloOferta = ofertaActiva.titulo_descripcion || 'Oferta disponible';
-            const claseOferta = ofertaCumplida ? 'oferta-cumplida' : 'oferta-pendiente';
-            ofertaHTML = `<div class="oferta-badge ${claseOferta}">${this.escapeForHtmlAttribute(tituloOferta)}</div>`;
+        if (ofertaActiva && resultadoOferta) {
+            const claseOferta = resultadoOferta.cumplida ? 'oferta-cumplida' : 'oferta-pendiente';
+            ofertaHTML = `<div class="oferta-badge ${claseOferta}">${this.escapeForHtmlAttribute(resultadoOferta.mensaje)}</div>`;
         }
         
+        // Generar HTML del precio (con descuento si aplica)
+        let precioHTML = '';
+        let subtotalHTML = '';
+        
+        if (descuentoAplicado > 0) {
+            // Mostrar precio original tachado y precio con descuento
+            precioHTML = `
+                <div class="cart-product-price-container">
+                    <div class="cart-product-price-original">${priceWithIVA.toFixed(2)} €</div>
+                    <div class="cart-product-price-discount">${precioConDescuento.toFixed(2)} € <span class="discount-badge">-${descuentoAplicado}%</span></div>
+                </div>
+            `;
+            subtotalHTML = `
+                <div class="cart-product-subtotal-container">
+                    <div class="cart-product-subtotal-original">${subtotalWithIVA.toFixed(2)} €</div>
+                    <div class="cart-product-subtotal-discount">${subtotalConDescuento.toFixed(2)} €</div>
+                </div>
+            `;
+        } else {
+            // Mostrar precio normal
+            precioHTML = `<div class="cart-product-price">${priceWithIVA.toFixed(2)} €</div>`;
+            subtotalHTML = `<div class="cart-product-subtotal">${subtotalWithIVA.toFixed(2)} €</div>`;
+        }
+
         card.innerHTML = `
             <div class="cart-product-image">
                 <div class="cart-product-quantity-badge">${producto.cantidad}</div>
@@ -1632,10 +1806,10 @@ class ScanAsYouShopApp {
                     <div class="cart-product-details">
                         <div class="cart-product-name">${producto.descripcion_producto}</div>
                         <div class="cart-product-code">${producto.codigo_producto}</div>
-                        <div class="cart-product-price">${priceWithIVA.toFixed(2)} €</div>
+                        ${precioHTML}
                         ${ofertaHTML}
                     </div>
-                    <div class="cart-product-subtotal">${subtotalWithIVA.toFixed(2)} €</div>
+                    ${subtotalHTML}
                 </div>
                 <div class="cart-product-footer">
                     <div class="quantity-controls-compact">
