@@ -759,6 +759,13 @@ body {
     font-weight: 600;
 }
 
+/* Etiqueta de oferta dentro del código de producto */
+.oferta-tag {
+    color: var(--warning);
+    font-weight: 700;
+    font-size: 0.75rem;
+}
+
 .result-name {
     font-size: 1rem;
     font-weight: 600;
@@ -1646,6 +1653,30 @@ body {
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--primary);
+}
+
+.add-to-cart-oferta-badge {
+    background: linear-gradient(135deg, var(--warning) 0%, #f39c12 100%);
+    color: var(--white);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3);
+    margin-top: 0.5rem;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3);
+    }
+    50% {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(243, 156, 18, 0.5);
+    }
 }
 
 .add-to-cart-quantity-section {

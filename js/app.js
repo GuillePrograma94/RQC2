@@ -1083,7 +1083,7 @@ class ScanAsYouShopApp {
                 }
             }
             
-            this.displaySearchResults(productos, onlyPurchased);
+            await this.displaySearchResults(productos, onlyPurchased);
         } catch (error) {
             console.error('Error en búsqueda:', error);
             window.ui.showToast('Error al buscar productos', 'error');
@@ -1093,7 +1093,7 @@ class ScanAsYouShopApp {
     /**
      * Muestra resultados de búsqueda con imágenes
      */
-    displaySearchResults(productos, isFromHistory = false) {
+    async displaySearchResults(productos, isFromHistory = false) {
         const resultsContainer = document.getElementById('searchResults');
         const emptyState = document.getElementById('searchEmpty');
         const resultsList = document.getElementById('searchResultsList');
@@ -1122,10 +1122,31 @@ class ScanAsYouShopApp {
                 : `${productos.length} resultado${productos.length !== 1 ? 's' : ''}`;
         }
 
+        // Verificar qué productos tienen ofertas (de manera eficiente)
+        const productosConOfertas = new Set();
+        const codigoCliente = this.currentUser?.codigo_cliente || null;
+        
+        for (const producto of productos) {
+            try {
+                const ofertas = await window.supabaseClient.getOfertasProducto(producto.codigo, codigoCliente, true);
+                if (ofertas && ofertas.length > 0) {
+                    productosConOfertas.add(producto.codigo);
+                }
+            } catch (error) {
+                // Si hay error, simplemente no marcar como oferta
+                console.error(`Error al verificar ofertas para ${producto.codigo}:`, error);
+            }
+        }
+
         resultsList.innerHTML = productos.map(producto => {
             const priceWithIVA = producto.pvp * 1.21;
             const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
             const escapedDescripcion = this.escapeForHtmlAttribute(producto.descripcion);
+            
+            // Añadir indicador de oferta al código si tiene ofertas
+            const codigoConOferta = productosConOfertas.has(producto.codigo) 
+                ? `${producto.codigo} - <span class="oferta-tag">[OFERTA]</span>` 
+                : producto.codigo;
             
             // Si es del historial, mostrar fecha de última compra y botón de eliminar
             if (isFromHistory && producto.fecha_ultima_compra) {
@@ -1144,7 +1165,7 @@ class ScanAsYouShopApp {
                             <div class="result-image-placeholder" style="display: none;">📦</div>
                         </div>
                         <div class="result-info" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${producto.pvp})">
-                            <div class="result-code">${producto.codigo}</div>
+                            <div class="result-code">${codigoConOferta}</div>
                             <div class="result-name">${producto.descripcion}</div>
                             <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
                             <div class="result-meta">
@@ -1167,7 +1188,7 @@ class ScanAsYouShopApp {
                         <div class="result-image-placeholder" style="display: none;">📦</div>
                     </div>
                     <div class="result-info">
-                        <div class="result-code">${producto.codigo}</div>
+                        <div class="result-code">${codigoConOferta}</div>
                         <div class="result-name">${producto.descripcion}</div>
                         <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
                     </div>
@@ -1180,7 +1201,7 @@ class ScanAsYouShopApp {
      * Muestra el modal de añadir al carrito con selección de cantidad
      */
     async showAddToCartModal(producto) {
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
             const modal = document.getElementById('addToCartModal');
             const overlay = modal.querySelector('.add-to-cart-overlay');
             const closeBtn = document.getElementById('closeAddToCartModal');
@@ -1189,6 +1210,7 @@ class ScanAsYouShopApp {
             const codeEl = document.getElementById('addToCartCode');
             const descriptionEl = document.getElementById('addToCartDescription');
             const priceEl = document.getElementById('addToCartPrice');
+            const ofertaBadge = document.getElementById('addToCartOfertaBadge');
             const qtyInput = document.getElementById('qtyInputModal');
             const decreaseBtn = document.getElementById('decreaseQtyModal');
             const increaseBtn = document.getElementById('increaseQtyModal');
@@ -1215,6 +1237,21 @@ class ScanAsYouShopApp {
             descriptionEl.textContent = producto.descripcion;
             const priceWithIVA = producto.pvp * 1.21;
             priceEl.textContent = `${priceWithIVA.toFixed(2)} €`;
+
+            // Verificar si el producto tiene ofertas
+            try {
+                const codigoCliente = this.currentUser?.codigo_cliente || null;
+                const ofertas = await window.supabaseClient.getOfertasProducto(producto.codigo, codigoCliente, true);
+                
+                if (ofertas && ofertas.length > 0 && ofertaBadge) {
+                    ofertaBadge.style.display = 'block';
+                } else if (ofertaBadge) {
+                    ofertaBadge.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error al verificar ofertas en modal:', error);
+                if (ofertaBadge) ofertaBadge.style.display = 'none';
+            }
 
             // Resetear cantidad a 1
             qtyInput.value = 1;
