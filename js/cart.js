@@ -1258,6 +1258,8 @@ class CartManager {
 
             // Buscar productos en ofertas con este código
             const codigoUpper = codigoArticulo.toUpperCase();
+            console.log(`   🔎 Buscando en IndexedDB por código: "${codigoUpper}"`);
+            
             const index = productosStore.index('codigo_articulo');
             const productosRequest = index.getAll(codigoUpper);
 
@@ -1265,8 +1267,20 @@ class CartManager {
                 productosRequest.onsuccess = async () => {
                     const productosOferta = productosRequest.result || [];
                     console.log(`   📦 Productos en ofertas encontrados: ${productosOferta.length}`);
+                    
                     if (productosOferta.length === 0) {
                         console.log(`   ⚠️ No hay productos en ofertas para ${codigoUpper}`);
+                        
+                        // DEBUG: Ver qué hay en la DB alrededor de este código
+                        const allProductosRequest = productosStore.getAll();
+                        allProductosRequest.onsuccess = () => {
+                            const allProds = allProductosRequest.result || [];
+                            console.log(`   🔍 DEBUG: Total productos en ofertas_productos: ${allProds.length}`);
+                            // Buscar códigos que empiecen con las primeras letras
+                            const similares = allProds.filter(p => p.codigo_articulo && p.codigo_articulo.startsWith(codigoUpper.substring(0, 4)));
+                            console.log(`   🔍 DEBUG: Códigos similares a ${codigoUpper}:`, similares.slice(0, 10).map(p => p.codigo_articulo));
+                        };
+                        
                         resolve([]);
                         return;
                     }

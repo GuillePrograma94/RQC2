@@ -1157,7 +1157,11 @@ class ScanAsYouShopApp {
             const escapedDescripcion = this.escapeForHtmlAttribute(producto.descripcion);
             
             // Añadir indicador de oferta al código si tiene ofertas
-            const codigoConOferta = productosConOfertas.has(producto.codigo) 
+            const tieneOferta = productosConOfertas.has(producto.codigo.toUpperCase());
+            if (tieneOferta) {
+                console.log(`✅ Código ${producto.codigo} encontrado con oferta`);
+            }
+            const codigoConOferta = tieneOferta 
                 ? `${producto.codigo} - <span class="oferta-tag">[OFERTA]</span>` 
                 : producto.codigo;
             
