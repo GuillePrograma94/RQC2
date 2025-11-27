@@ -1084,15 +1084,26 @@ class SupabaseClient {
 
             console.log('📥 Descargando datos de ofertas desde Supabase...');
 
-            // Descargar ofertas activas
+            // Descargar ofertas activas con TODOS los campos (incluye titulo_descripcion y descripcion_detallada)
             const { data: ofertas, error: errorOfertas } = await this.client
                 .from('ofertas')
                 .select('*')
                 .eq('activa', true);
 
             if (errorOfertas) {
-                console.error('Error al descargar ofertas:', errorOfertas);
+                console.error('❌ Error al descargar ofertas:', errorOfertas);
                 throw errorOfertas;
+            }
+
+            // Log de muestra para verificar que se descargan los campos de título y descripción
+            if (ofertas && ofertas.length > 0) {
+                const primeraOferta = ofertas[0];
+                console.log('📋 Muestra de campos descargados en ofertas:', {
+                    numero_oferta: primeraOferta.numero_oferta,
+                    tiene_titulo: !!primeraOferta.titulo_descripcion,
+                    tiene_descripcion: !!primeraOferta.descripcion_detallada,
+                    tipo_oferta: primeraOferta.tipo_oferta
+                });
             }
 
             // Descargar productos en ofertas

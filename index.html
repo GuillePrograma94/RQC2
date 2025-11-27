@@ -459,6 +459,23 @@
         </div>
     </div>
 
+    <!-- Modal de Información de Oferta -->
+    <div id="ofertaInfoModal" class="oferta-info-modal" style="display: none;">
+        <div class="oferta-info-overlay"></div>
+        <div class="oferta-info-content">
+            <button id="closeOfertaInfoModal" class="close-oferta-info-btn">✕</button>
+            <div class="oferta-info-icon">🎉</div>
+            <h2 class="oferta-info-title" id="ofertaInfoTitle">Título de la oferta</h2>
+            <div class="oferta-info-description" id="ofertaInfoDescription">
+                Descripción detallada de la oferta...
+            </div>
+            <div class="oferta-info-actions">
+                <button id="closeOfertaInfoBtn" class="btn btn-secondary">CERRAR</button>
+                <button id="verOfertaBtn" class="btn btn-primary">VER OFERTA</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <!-- Supabase Client Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

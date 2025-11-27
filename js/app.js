@@ -1239,18 +1239,30 @@ class ScanAsYouShopApp {
             priceEl.textContent = `${priceWithIVA.toFixed(2)} €`;
 
             // Verificar si el producto tiene ofertas
+            let ofertaData = null;
             try {
                 const codigoCliente = this.currentUser?.codigo_cliente || null;
-                const ofertas = await window.supabaseClient.getOfertasProducto(producto.codigo, codigoCliente, true);
+                const ofertasProducto = await window.supabaseClient.getOfertasProducto(producto.codigo, codigoCliente, true);
                 
-                if (ofertas && ofertas.length > 0 && ofertaBadge) {
+                if (ofertasProducto && ofertasProducto.length > 0 && ofertaBadge) {
+                    // Obtener información completa de la primera oferta
+                    const primeraOferta = ofertasProducto[0];
+                    ofertaData = await this.getOfertaInfo(primeraOferta.numero_oferta);
+                    
                     ofertaBadge.style.display = 'block';
+                    
+                    // Añadir manejador de clic al badge
+                    ofertaBadge.onclick = () => this.showOfertaInfoModal(ofertaData);
                 } else if (ofertaBadge) {
                     ofertaBadge.style.display = 'none';
+                    ofertaBadge.onclick = null;
                 }
             } catch (error) {
                 console.error('Error al verificar ofertas en modal:', error);
-                if (ofertaBadge) ofertaBadge.style.display = 'none';
+                if (ofertaBadge) {
+                    ofertaBadge.style.display = 'none';
+                    ofertaBadge.onclick = null;
+                }
             }
 
             // Resetear cantidad a 1
@@ -2671,6 +2683,99 @@ class ScanAsYouShopApp {
         } catch (error) {
             console.error('Error al verificar ofertas en cache:', error);
         }
+    }
+
+    /**
+     * Obtiene información completa de una oferta desde cache local
+     * La información incluye titulo_descripcion y descripcion_detallada
+     */
+    async getOfertaInfo(numeroOferta) {
+        try {
+            if (!window.cartManager || !window.cartManager.db) {
+                console.warn('⚠️ CartManager o DB no disponible para obtener info de oferta');
+                return null;
+            }
+
+            console.log(`🔍 Buscando información de oferta ${numeroOferta} en cache local...`);
+
+            return new Promise((resolve) => {
+                const transaction = window.cartManager.db.transaction(['ofertas'], 'readonly');
+                const store = transaction.objectStore('ofertas');
+                const request = store.get(numeroOferta);
+
+                request.onsuccess = () => {
+                    const oferta = request.result;
+                    if (oferta) {
+                        console.log(`✅ Oferta ${numeroOferta} encontrada en cache:`, {
+                            numero: oferta.numero_oferta,
+                            titulo: oferta.titulo_descripcion,
+                            tiene_descripcion: !!oferta.descripcion_detallada
+                        });
+                    } else {
+                        console.warn(`⚠️ Oferta ${numeroOferta} NO encontrada en cache local`);
+                    }
+                    resolve(oferta || null);
+                };
+
+                request.onerror = () => {
+                    console.error('❌ Error al obtener información de oferta desde IndexedDB:', request.error);
+                    resolve(null);
+                };
+            });
+        } catch (error) {
+            console.error('❌ Error al obtener oferta:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Muestra el modal con información detallada de la oferta
+     */
+    showOfertaInfoModal(ofertaData) {
+        const modal = document.getElementById('ofertaInfoModal');
+        const overlay = modal.querySelector('.oferta-info-overlay');
+        const closeBtn = document.getElementById('closeOfertaInfoModal');
+        const closeBtnBottom = document.getElementById('closeOfertaInfoBtn');
+        const verOfertaBtn = document.getElementById('verOfertaBtn');
+        const titleEl = document.getElementById('ofertaInfoTitle');
+        const descriptionEl = document.getElementById('ofertaInfoDescription');
+
+        if (!modal || !ofertaData) {
+            console.error('Modal de oferta o datos no encontrados');
+            return;
+        }
+
+        // Establecer título y descripción desde los datos de la oferta
+        titleEl.textContent = ofertaData.titulo_descripcion || 'Oferta disponible';
+        descriptionEl.textContent = ofertaData.descripcion_detallada || 'Esta oferta está disponible para este producto.';
+
+        // Mostrar modal
+        modal.style.display = 'flex';
+
+        // Manejadores de eventos
+        const handleClose = () => {
+            modal.style.display = 'none';
+            cleanup();
+        };
+
+        const handleVerOferta = () => {
+            // Por ahora no hace nada, preparado para el futuro
+            console.log('Ver oferta completa - funcionalidad pendiente');
+            window.ui.showToast('Funcionalidad en desarrollo', 'info');
+        };
+
+        const cleanup = () => {
+            closeBtn.removeEventListener('click', handleClose);
+            closeBtnBottom.removeEventListener('click', handleClose);
+            overlay.removeEventListener('click', handleClose);
+            verOfertaBtn.removeEventListener('click', handleVerOferta);
+        };
+
+        // Añadir listeners
+        closeBtn.addEventListener('click', handleClose);
+        closeBtnBottom.addEventListener('click', handleClose);
+        overlay.addEventListener('click', handleClose);
+        verOfertaBtn.addEventListener('click', handleVerOferta);
     }
 }
 
