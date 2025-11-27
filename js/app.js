@@ -1122,20 +1122,25 @@ class ScanAsYouShopApp {
                 : `${productos.length} resultado${productos.length !== 1 ? 's' : ''}`;
         }
 
-        // Verificar qué productos tienen ofertas (de manera eficiente)
+        // Verificar qué productos tienen ofertas (solo para usuarios con codigo_cliente)
         const productosConOfertas = new Set();
         const codigoCliente = this.currentUser?.codigo_cliente || null;
         
-        for (const producto of productos) {
-            try {
-                const ofertas = await window.supabaseClient.getOfertasProducto(producto.codigo, codigoCliente, true);
-                if (ofertas && ofertas.length > 0) {
-                    productosConOfertas.add(producto.codigo);
+        // Solo verificar ofertas si el usuario tiene codigo_cliente
+        if (codigoCliente) {
+            for (const producto of productos) {
+                try {
+                    const ofertas = await window.supabaseClient.getOfertasProducto(producto.codigo, codigoCliente, true);
+                    if (ofertas && ofertas.length > 0) {
+                        productosConOfertas.add(producto.codigo);
+                    }
+                } catch (error) {
+                    // Si hay error, simplemente no marcar como oferta
+                    console.error(`Error al verificar ofertas para ${producto.codigo}:`, error);
                 }
-            } catch (error) {
-                // Si hay error, simplemente no marcar como oferta
-                console.error(`Error al verificar ofertas para ${producto.codigo}:`, error);
             }
+        } else {
+            console.log('🚫 Usuario invitado - no se muestran ofertas en búsqueda');
         }
 
         resultsList.innerHTML = productos.map(producto => {
@@ -1746,30 +1751,33 @@ class ScanAsYouShopApp {
 
         const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo_producto}_1.JPG`;
         
-        // Obtener ofertas del producto desde cache
+        // Obtener ofertas del producto desde cache (solo para usuarios con codigo_cliente)
         const codigoCliente = this.currentUser?.codigo_cliente || null;
-        const ofertas = await window.supabaseClient.getOfertasProducto(producto.codigo_producto, codigoCliente, true);
-        
-        // Verificar si alguna oferta se cumple y calcular descuentos
         let resultadoOferta = null;
         let ofertaActiva = null;
         let precioConDescuento = priceWithIVA;
         let subtotalConDescuento = subtotalWithIVA;
         let descuentoAplicado = 0;
         
-        if (ofertas && ofertas.length > 0) {
-            // Tomar la primera oferta (puedes ajustar la lógica si hay múltiples)
-            ofertaActiva = ofertas[0];
-            const carrito = window.cartManager.getCart();
-            resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito);
+        // Solo verificar ofertas si el usuario tiene codigo_cliente
+        if (codigoCliente) {
+            const ofertas = await window.supabaseClient.getOfertasProducto(producto.codigo_producto, codigoCliente, true);
             
-            // Si la oferta está cumplida, calcular el precio con descuento
-            if (resultadoOferta && resultadoOferta.cumplida) {
-                const descuento = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito);
-                if (descuento > 0) {
-                    descuentoAplicado = descuento;
-                    precioConDescuento = priceWithIVA * (1 - descuento / 100);
-                    subtotalConDescuento = subtotalWithIVA * (1 - descuento / 100);
+            // Verificar si alguna oferta se cumple y calcular descuentos
+            if (ofertas && ofertas.length > 0) {
+                // Tomar la primera oferta (puedes ajustar la lógica si hay múltiples)
+                ofertaActiva = ofertas[0];
+                const carrito = window.cartManager.getCart();
+                resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito);
+                
+                // Si la oferta está cumplida, calcular el precio con descuento
+                if (resultadoOferta && resultadoOferta.cumplida) {
+                    const descuento = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito);
+                    if (descuento > 0) {
+                        descuentoAplicado = descuento;
+                        precioConDescuento = priceWithIVA * (1 - descuento / 100);
+                        subtotalConDescuento = subtotalWithIVA * (1 - descuento / 100);
+                    }
                 }
             }
         }
@@ -1818,11 +1826,11 @@ class ScanAsYouShopApp {
                         <div class="cart-product-name">${producto.descripcion_producto}</div>
                         <div class="cart-product-code">${producto.codigo_producto}</div>
                         ${precioHTML}
-                        ${ofertaHTML}
                     </div>
                     ${subtotalHTML}
                 </div>
                 <div class="cart-product-footer">
+                    ${ofertaHTML}
                     <div class="quantity-controls-compact">
                         <button class="qty-btn-compact" data-action="decrease" data-code="${producto.codigo_producto}">−</button>
                         <input type="number" class="qty-value-input" value="${producto.cantidad}" min="0" max="999" data-code="${producto.codigo_producto}">

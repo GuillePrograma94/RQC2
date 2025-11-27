@@ -1308,16 +1308,18 @@ body {
 
 /* Rectángulo de oferta */
 .oferta-badge {
-    margin-top: 6px;
     padding: 6px 10px;
     border-radius: 6px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 600;
     text-align: center;
     display: inline-block;
-    width: 100%;
     box-sizing: border-box;
     transition: all 0.2s;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .oferta-badge.oferta-cumplida {
@@ -1335,9 +1337,10 @@ body {
 
 .cart-product-footer {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
     align-items: center;
-    padding-top: 4px;
+    gap: 8px;
+    padding-top: 8px;
 }
 
 .quantity-controls-compact {
