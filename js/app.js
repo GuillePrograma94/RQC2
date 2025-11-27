@@ -1520,12 +1520,27 @@ class ScanAsYouShopApp {
         // Ocultar estado vacío y mostrar productos
         emptyState.style.display = 'none';
         container.style.display = 'block';
-        container.innerHTML = '';
 
-        // Añadir productos (ahora es async)
-        for (const producto of cart.productos) {
-            const card = await this.createCartProductCard(producto);
-            container.appendChild(card);
+        // Verificar si necesitamos regenerar todo o solo actualizar
+        const existingCards = container.querySelectorAll('.cart-product-card');
+        const needsFullRefresh = existingCards.length !== cart.productos.length;
+
+        if (needsFullRefresh) {
+            // Solo regenerar todo si cambió el número de productos
+            container.innerHTML = '';
+            for (const producto of cart.productos) {
+                const card = await this.createCartProductCard(producto);
+                container.appendChild(card);
+            }
+        } else {
+            // Actualizar solo los valores sin regenerar el DOM
+            for (let i = 0; i < cart.productos.length; i++) {
+                const producto = cart.productos[i];
+                const card = existingCards[i];
+                
+                // Actualizar solo los elementos que pueden cambiar
+                await this.updateCartProductCard(card, producto);
+            }
         }
 
         // Actualizar header con totales
@@ -1850,6 +1865,103 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Actualiza una tarjeta de producto existente sin regenerar el DOM
+     * Evita glitches y mantiene la posición de scroll
+     */
+    async updateCartProductCard(card, producto) {
+        const priceWithIVA = producto.precio_unitario * 1.21;
+        const subtotalWithIVA = producto.subtotal * 1.21;
+        
+        // Actualizar cantidad en el input
+        const qtyInput = card.querySelector('.qty-value-input');
+        if (qtyInput && qtyInput.value != producto.cantidad) {
+            qtyInput.value = producto.cantidad;
+        }
+        
+        // Actualizar badge de cantidad en la imagen
+        const qtyBadge = card.querySelector('.cart-product-quantity-badge');
+        if (qtyBadge) {
+            qtyBadge.textContent = producto.cantidad;
+        }
+        
+        // Recalcular ofertas y precios
+        const codigoCliente = this.currentUser?.codigo_cliente || null;
+        let precioConDescuento = priceWithIVA;
+        let subtotalConDescuento = subtotalWithIVA;
+        let descuentoAplicado = 0;
+        let ofertaActiva = null;
+        let resultadoOferta = null;
+        
+        if (codigoCliente) {
+            const ofertas = await window.supabaseClient.getOfertasProducto(producto.codigo_producto, codigoCliente, true);
+            if (ofertas && ofertas.length > 0) {
+                ofertaActiva = ofertas[0];
+                const carrito = window.cartManager.getCart();
+                resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito);
+                
+                if (resultadoOferta && resultadoOferta.cumplida) {
+                    const { descuento, factor } = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito);
+                    if (descuento > 0 && factor > 0) {
+                        descuentoAplicado = descuento;
+                        
+                        if (ofertaActiva.tipo_oferta === 3 || ofertaActiva.tipo_oferta === 4) {
+                            const precioSinDescuento = priceWithIVA;
+                            const precioConDescuentoTotal = priceWithIVA * (1 - descuento / 100);
+                            precioConDescuento = (precioConDescuentoTotal * factor) + (precioSinDescuento * (1 - factor));
+                            subtotalConDescuento = precioConDescuento * producto.cantidad;
+                        } else {
+                            precioConDescuento = priceWithIVA * (1 - descuento / 100);
+                            subtotalConDescuento = subtotalWithIVA * (1 - descuento / 100);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Actualizar badge de oferta
+        const ofertaBadge = card.querySelector('.oferta-badge');
+        if (ofertaActiva && resultadoOferta) {
+            if (ofertaBadge) {
+                ofertaBadge.textContent = resultadoOferta.mensaje;
+                ofertaBadge.className = `oferta-badge ${resultadoOferta.cumplida ? 'oferta-cumplida' : 'oferta-pendiente'}`;
+            }
+        }
+        
+        // Actualizar precios
+        if (descuentoAplicado > 0) {
+            const priceContainer = card.querySelector('.cart-product-price-container, .cart-product-price');
+            if (priceContainer) {
+                priceContainer.innerHTML = `
+                    <div class="cart-product-price-original">${priceWithIVA.toFixed(2)} €</div>
+                    <div class="cart-product-price-discount">${precioConDescuento.toFixed(2)} € <span class="discount-badge">-${descuentoAplicado}%</span></div>
+                `;
+                priceContainer.className = 'cart-product-price-container';
+            }
+            
+            const subtotalContainer = card.querySelector('.cart-product-subtotal-container, .cart-product-subtotal');
+            if (subtotalContainer) {
+                subtotalContainer.innerHTML = `
+                    <div class="cart-product-subtotal-original">${subtotalWithIVA.toFixed(2)} €</div>
+                    <div class="cart-product-subtotal-discount">${subtotalConDescuento.toFixed(2)} €</div>
+                `;
+                subtotalContainer.className = 'cart-product-subtotal-container';
+            }
+        } else {
+            const priceContainer = card.querySelector('.cart-product-price-container, .cart-product-price');
+            if (priceContainer) {
+                priceContainer.textContent = `${priceWithIVA.toFixed(2)} €`;
+                priceContainer.className = 'cart-product-price';
+            }
+            
+            const subtotalContainer = card.querySelector('.cart-product-subtotal-container, .cart-product-subtotal');
+            if (subtotalContainer) {
+                subtotalContainer.textContent = `${subtotalWithIVA.toFixed(2)} €`;
+                subtotalContainer.className = 'cart-product-subtotal';
+            }
+        }
+    }
+
+    /**
      * Crea una tarjeta de producto para el carrito (estilo Tesco)
      */
     async createCartProductCard(producto) {
@@ -1907,7 +2019,7 @@ class ScanAsYouShopApp {
         let ofertaHTML = '';
         if (ofertaActiva && resultadoOferta) {
             const claseOferta = resultadoOferta.cumplida ? 'oferta-cumplida' : 'oferta-pendiente';
-            ofertaHTML = `<div class="oferta-badge ${claseOferta}">${this.escapeForHtmlAttribute(resultadoOferta.mensaje)}</div>`;
+            ofertaHTML = `<div class="oferta-badge ${claseOferta}" onclick="event.stopPropagation(); window.app.verProductosOfertaDesdeCarrito('${ofertaActiva.numero_oferta}')">${this.escapeForHtmlAttribute(resultadoOferta.mensaje)}</div>`;
         }
         
         // Generar HTML del precio (con descuento si aplica)
@@ -3105,6 +3217,25 @@ class ScanAsYouShopApp {
         closeBtnBottom.addEventListener('click', handleClose);
         overlay.addEventListener('click', handleClose);
         verOfertaBtn.addEventListener('click', handleVerOferta);
+    }
+
+    /**
+     * Navega a la búsqueda de productos de una oferta desde el carrito
+     */
+    async verProductosOfertaDesdeCarrito(numeroOferta) {
+        try {
+            console.log(`🔍 Navegando a productos de oferta ${numeroOferta} desde carrito...`);
+            
+            // Cambiar a la pantalla de búsqueda
+            this.showScreen('search');
+            
+            // Buscar los productos de la oferta
+            await this.searchProductsByOferta(numeroOferta);
+            
+        } catch (error) {
+            console.error('Error al navegar a productos de oferta:', error);
+            window.ui.showToast('Error al cargar productos de la oferta', 'error');
+        }
     }
 
     /**
