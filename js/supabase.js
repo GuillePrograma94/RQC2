@@ -1075,6 +1075,7 @@ class SupabaseClient {
     /**
      * Descarga todas las ofertas y datos relacionados desde Supabase
      * y los guarda en cache local
+     * Usa paginación para evitar el límite de 1000 registros por consulta
      */
     async downloadOfertas(onProgress = null) {
         try {
@@ -1082,18 +1083,11 @@ class SupabaseClient {
                 throw new Error('Cliente de Supabase no inicializado');
             }
 
-            console.log('📥 Descargando datos de ofertas desde Supabase...');
+            console.log('📥 Descargando datos de ofertas desde Supabase con paginación...');
 
-            // Descargar ofertas activas con TODOS los campos (incluye titulo_descripcion y descripcion_detallada)
-            const { data: ofertas, error: errorOfertas } = await this.client
-                .from('ofertas')
-                .select('*')
-                .eq('activa', true);
-
-            if (errorOfertas) {
-                console.error('❌ Error al descargar ofertas:', errorOfertas);
-                throw errorOfertas;
-            }
+            // Descargar ofertas activas con TODOS los campos usando paginación
+            console.log('📥 Descargando tabla ofertas...');
+            const ofertas = await this._downloadWithPagination('ofertas', onProgress, { activa: true });
 
             // Log de muestra para verificar que se descargan los campos de título y descripción
             if (ofertas && ofertas.length > 0) {
@@ -1106,44 +1100,25 @@ class SupabaseClient {
                 });
             }
 
-            // Descargar productos en ofertas
-            const { data: ofertasProductos, error: errorProductos } = await this.client
-                .from('ofertas_productos')
-                .select('*');
+            // Descargar productos en ofertas con paginación
+            console.log('📥 Descargando tabla ofertas_productos...');
+            const ofertasProductos = await this._downloadWithPagination('ofertas_productos', onProgress);
 
-            if (errorProductos) {
-                console.error('Error al descargar productos en ofertas:', errorProductos);
-            }
+            // Descargar intervalos con paginación
+            console.log('📥 Descargando tabla ofertas_intervalos...');
+            const ofertasIntervalos = await this._downloadWithPagination('ofertas_intervalos', onProgress);
 
-            // Descargar intervalos
-            const { data: ofertasIntervalos, error: errorIntervalos } = await this.client
-                .from('ofertas_intervalos')
-                .select('*');
+            // Descargar detalles con paginación
+            console.log('📥 Descargando tabla ofertas_detalles...');
+            const ofertasDetalles = await this._downloadWithPagination('ofertas_detalles', onProgress);
 
-            if (errorIntervalos) {
-                console.error('Error al descargar intervalos:', errorIntervalos);
-            }
-
-            // Descargar detalles
-            const { data: ofertasDetalles, error: errorDetalles } = await this.client
-                .from('ofertas_detalles')
-                .select('*');
-
-            if (errorDetalles) {
-                console.error('Error al descargar detalles:', errorDetalles);
-            }
-
-            // Descargar asignaciones de grupos
-            const { data: ofertasGruposAsignaciones, error: errorGrupos } = await this.client
-                .from('ofertas_grupos_asignaciones')
-                .select('*');
-
-            if (errorGrupos) {
-                console.error('Error al descargar asignaciones de grupos:', errorGrupos);
-            }
+            // Descargar asignaciones de grupos con paginación
+            console.log('📥 Descargando tabla ofertas_grupos_asignaciones...');
+            const ofertasGruposAsignaciones = await this._downloadWithPagination('ofertas_grupos_asignaciones', onProgress);
 
             // Guardar en cache local
             if (window.cartManager) {
+                console.log('💾 Guardando ofertas en cache local...');
                 await window.cartManager.saveOfertasToCache(ofertas || []);
                 await window.cartManager.saveOfertasProductosToCache(ofertasProductos || []);
                 await window.cartManager.saveOfertasIntervalosToCache(ofertasIntervalos || []);
@@ -1151,11 +1126,13 @@ class SupabaseClient {
                 await window.cartManager.saveOfertasGruposToCache(ofertasGruposAsignaciones || []);
             }
 
+            console.log('✅ ========================================');
             console.log(`✅ Ofertas descargadas: ${ofertas?.length || 0}`);
             console.log(`✅ Productos en ofertas: ${ofertasProductos?.length || 0}`);
             console.log(`✅ Intervalos: ${ofertasIntervalos?.length || 0}`);
             console.log(`✅ Detalles: ${ofertasDetalles?.length || 0}`);
             console.log(`✅ Asignaciones de grupos: ${ofertasGruposAsignaciones?.length || 0}`);
+            console.log('✅ ========================================');
 
             return {
                 ofertas: ofertas || [],
