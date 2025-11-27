@@ -1308,19 +1308,22 @@ body {
 
 /* Rectángulo de oferta */
 .oferta-badge {
-    padding: 6px 10px;
+    padding: 10px 12px;
     border-radius: 6px;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 600;
     text-align: left;
-    display: inline-block;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
     box-sizing: border-box;
     transition: all 0.2s;
     flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     min-width: 0;
+    min-height: 40px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
 }
 
 .oferta-badge.oferta-cumplida {
@@ -1339,7 +1342,7 @@ body {
 .cart-product-footer {
     display: flex;
     justify-content: flex-end;
-    align-items: center;
+    align-items: stretch;
     gap: 8px;
     padding-top: 8px;
 }
@@ -1348,6 +1351,7 @@ body {
     justify-content: space-between;
     margin-left: -92px; /* Extiende hasta el borde de la imagen (ancho imagen 80px + gap 12px) */
     padding-left: 0;
+    min-height: 40px;
 }
 
 .quantity-controls-compact {
