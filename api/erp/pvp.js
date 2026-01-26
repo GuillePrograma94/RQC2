@@ -43,13 +43,25 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const token = await loginToErp({
-            baseUrl,
-            loginPath,
-            username,
-            password,
-            timeoutMs
-        });
+        // Intentar obtener token del header Authorization o del query
+        let token = null;
+        const authHeader = req.headers.authorization || req.headers.Authorization || '';
+        if (authHeader.startsWith('Bearer ')) {
+            token = authHeader.substring(7);
+        } else if (req.query && req.query.token) {
+            token = req.query.token;
+        }
+        
+        // Si no hay token, hacer login
+        if (!token) {
+            token = await loginToErp({
+                baseUrl,
+                loginPath,
+                username,
+                password,
+                timeoutMs
+            });
+        }
 
         const url = buildUrl(baseUrl, `${pvpPath}?codigo=${encodeURIComponent(codigo)}`);
         const response = await fetchWithTimeout(url, {

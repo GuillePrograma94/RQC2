@@ -1,12 +1,15 @@
 /**
  * Serverless function para Vercel
- * Prueba el endpoint de pedidos usando GET /api/tienda/v1/pedidos/prueba
+ * Prueba el endpoint de pedidos usando GET o POST /api/tienda/v1/pedidos/prueba
  * Requiere token Bearer (hace login automaticamente)
+ * 
+ * GET: Prueba simple sin payload
+ * POST: Prueba con payload completo del pedido
  */
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Content-Type', 'application/json');
 
@@ -15,8 +18,8 @@ module.exports = async (req, res) => {
         return;
     }
 
-    if (req.method !== 'GET') {
-        res.status(405).json({ message: 'Metodo no permitido' });
+    if (req.method !== 'GET' && req.method !== 'POST') {
+        res.status(405).json({ message: 'Metodo no permitido. Usa GET o POST' });
         return;
     }
 
@@ -41,22 +44,43 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const token = await loginToErp({
-            baseUrl,
-            loginPath,
-            username,
-            password,
-            timeoutMs
-        });
+        // Intentar obtener token del header Authorization o del body/query
+        let token = null;
+        const authHeader = req.headers.authorization || req.headers.Authorization || '';
+        if (authHeader.startsWith('Bearer ')) {
+            token = authHeader.substring(7);
+        } else if (req.body && req.body.token) {
+            token = req.body.token;
+        } else if (req.query && req.query.token) {
+            token = req.query.token;
+        }
+        
+        // Si no hay token, hacer login
+        if (!token) {
+            token = await loginToErp({
+                baseUrl,
+                loginPath,
+                username,
+                password,
+                timeoutMs
+            });
+        }
 
         const url = buildUrl(baseUrl, pedidosPath);
-        const response = await fetchWithTimeout(url, {
-            method: 'GET',
+        const method = req.method;
+        const requestOptions = {
+            method: method,
             headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${token}`
             }
-        }, timeoutMs);
+        };
+
+        if (method === 'POST' && req.body) {
+            requestOptions.body = JSON.stringify(req.body);
+        }
+
+        const response = await fetchWithTimeout(url, requestOptions, timeoutMs);
 
         const data = await parseJsonResponse(response);
         
@@ -67,7 +91,9 @@ module.exports = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Endpoint de pedidos funcionando',
+            message: `Endpoint de pedidos funcionando (${method})`,
+            method: method,
+            payload: method === 'POST' ? req.body : null,
             data: data,
             url: url,
             tokenUsed: token.substring(0, 20) + '...'

@@ -227,8 +227,70 @@
                 <span class="status pending" id="status-pedidos">Pendiente</span>
             </div>
             <div class="endpoint-url" id="url-pedidos"></div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="input-group">
+                    <label for="pedido-codigo-cliente">Código Cliente:</label>
+                    <input type="text" id="pedido-codigo-cliente" value="12345" placeholder="Ej: 12345">
+                </div>
+                <div class="input-group">
+                    <label for="pedido-serie">Serie:</label>
+                    <input type="text" id="pedido-serie" value="PT2026" placeholder="Ej: PT2026">
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="input-group">
+                    <label for="pedido-centro-venta">Centro de Venta:</label>
+                    <input type="text" id="pedido-centro-venta" value="CENTRO1" placeholder="Ej: CENTRO1">
+                </div>
+                <div class="input-group">
+                    <label for="pedido-referencia">Referencia:</label>
+                    <input type="text" id="pedido-referencia" value="PEDIDO_TIENDA_0001" placeholder="Ej: PEDIDO_TIENDA_0001">
+                </div>
+            </div>
+            
+            <div class="input-group" style="margin-bottom: 15px;">
+                <label for="pedido-observaciones">Observaciones:</label>
+                <input type="text" id="pedido-observaciones" value="Entregar por la mañana" placeholder="Ej: Entregar por la mañana">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 10px; color: #555; font-size: 14px; font-weight: 500;">Artículos:</label>
+                <div id="articulos-container">
+                    <div class="articulo-item" style="display: grid; grid-template-columns: 2fr 1fr auto; gap: 10px; margin-bottom: 10px; align-items: end;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #555; font-size: 12px;">Código Artículo:</label>
+                            <input type="text" class="articulo-codigo" value="ART1001" placeholder="Ej: ART1001" style="width: 100%; padding: 8px; border: 2px solid #e9ecef; border-radius: 6px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #555; font-size: 12px;">Unidades:</label>
+                            <input type="number" class="articulo-unidades" value="5" min="1" placeholder="Ej: 5" style="width: 100%; padding: 8px; border: 2px solid #e9ecef; border-radius: 6px;">
+                        </div>
+                        <button onclick="removeArticulo(this)" style="background: #dc3545; padding: 8px 12px; font-size: 12px;">✕</button>
+                    </div>
+                    <div class="articulo-item" style="display: grid; grid-template-columns: 2fr 1fr auto; gap: 10px; margin-bottom: 10px; align-items: end;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #555; font-size: 12px;">Código Artículo:</label>
+                            <input type="text" class="articulo-codigo" value="ART2007" placeholder="Ej: ART2007" style="width: 100%; padding: 8px; border: 2px solid #e9ecef; border-radius: 6px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; color: #555; font-size: 12px;">Unidades:</label>
+                            <input type="number" class="articulo-unidades" value="2" min="1" placeholder="Ej: 2" style="width: 100%; padding: 8px; border: 2px solid #e9ecef; border-radius: 6px;">
+                        </div>
+                        <button onclick="removeArticulo(this)" style="background: #dc3545; padding: 8px 12px; font-size: 12px;">✕</button>
+                    </div>
+                </div>
+                <button onclick="addArticulo()" style="background: #28a745; padding: 10px 20px; font-size: 13px; margin-top: 10px;">
+                    + Añadir Artículo
+                </button>
+            </div>
+            
             <div class="button-group">
-                <button onclick="testPedidos()">Probar Pedidos</button>
+                <button onclick="testPedidos()">Probar Pedidos (GET simple)</button>
+                <button onclick="testPedidosWithPayload()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+                    Probar Pedidos con Payload (POST)
+                </button>
             </div>
             <div id="result-pedidos" class="result" style="display: none;"></div>
         </div>
@@ -270,7 +332,7 @@
         // Inicializar URLs
         document.getElementById('url-test').textContent = `GET ${baseUrl}/api/erp/test`;
         document.getElementById('url-login').textContent = `POST ${baseUrl}/api/erp/login`;
-        document.getElementById('url-pedidos').textContent = `GET ${baseUrl}/api/erp/pedidos-prueba`;
+        document.getElementById('url-pedidos').textContent = `GET/POST ${baseUrl}/api/erp/pedidos-prueba`;
         document.getElementById('url-pvp').textContent = `GET ${baseUrl}/api/erp/pvp?codigo=XXX`;
         
         let savedToken = null;
@@ -338,9 +400,9 @@
                         savedToken = data.token;
                         tokenDisplay.style.display = 'block';
                         tokenDisplay.innerHTML = `
-                            <strong>Token obtenido:</strong><br>
+                            <strong>Token obtenido y guardado:</strong><br>
                             <div class="token-display">${data.token}</div>
-                            <small>Token guardado para pruebas posteriores</small>
+                            <small>Este token se reutilizara automaticamente en los tests 3 y 4 (valido por 8 horas)</small>
                         `;
                     }
                 } else {
@@ -363,12 +425,23 @@
             
             resultDiv.style.display = 'block';
             resultDiv.className = 'result loading';
-            resultDiv.textContent = 'Probando endpoint de pedidos...';
+            const tokenInfo = savedToken ? ' (usando token guardado)' : ' (haciendo login automatico)';
+            resultDiv.textContent = `Probando endpoint de pedidos (GET simple)${tokenInfo}...`;
             statusSpan.className = 'status pending';
             statusSpan.textContent = 'Probando...';
             
             try {
-                const response = await fetch(`${baseUrl}/api/erp/pedidos-prueba`);
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                if (savedToken) {
+                    headers['Authorization'] = `Bearer ${savedToken}`;
+                }
+                
+                const response = await fetch(`${baseUrl}/api/erp/pedidos-prueba`, {
+                    method: 'GET',
+                    headers: headers
+                });
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
@@ -390,6 +463,117 @@
             }
         }
         
+        async function testPedidosWithPayload() {
+            const resultDiv = document.getElementById('result-pedidos');
+            const statusSpan = document.getElementById('status-pedidos');
+            
+            const codigoCliente = document.getElementById('pedido-codigo-cliente').value.trim();
+            const serie = document.getElementById('pedido-serie').value.trim();
+            const centroVenta = document.getElementById('pedido-centro-venta').value.trim();
+            const referencia = document.getElementById('pedido-referencia').value.trim();
+            const observaciones = document.getElementById('pedido-observaciones').value.trim();
+            
+            const articulos = [];
+            const articulosItems = document.querySelectorAll('.articulo-item');
+            articulosItems.forEach(item => {
+                const codigo = item.querySelector('.articulo-codigo').value.trim();
+                const unidades = parseInt(item.querySelector('.articulo-unidades').value, 10);
+                if (codigo && unidades > 0) {
+                    articulos.push({
+                        codigo_articulo: codigo,
+                        unidades: unidades
+                    });
+                }
+            });
+            
+            if (!codigoCliente || !serie || !centroVenta || !referencia) {
+                alert('Por favor completa todos los campos obligatorios (Código Cliente, Serie, Centro de Venta, Referencia)');
+                return;
+            }
+            
+            if (articulos.length === 0) {
+                alert('Por favor añade al menos un artículo');
+                return;
+            }
+            
+            const payload = {
+                codigo_cliente: codigoCliente,
+                serie: serie,
+                centro_venta: centroVenta,
+                referencia: referencia,
+                observaciones: observaciones || '',
+                articulos: articulos
+            };
+            
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result loading';
+            const tokenInfo = savedToken ? ' (usando token guardado)' : ' (haciendo login automatico)';
+            resultDiv.textContent = `Enviando pedido con payload completo${tokenInfo}...`;
+            statusSpan.className = 'status pending';
+            statusSpan.textContent = 'Probando...';
+            
+            try {
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                if (savedToken) {
+                    headers['Authorization'] = `Bearer ${savedToken}`;
+                }
+                
+                const response = await fetch(`${baseUrl}/api/erp/pedidos-prueba`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                    statusSpan.className = 'status success';
+                    statusSpan.textContent = 'Exitoso';
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                    statusSpan.className = 'status error';
+                    statusSpan.textContent = 'Error';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Error: ${error.message}`;
+                statusSpan.className = 'status error';
+                statusSpan.textContent = 'Error';
+            }
+        }
+        
+        function addArticulo() {
+            const container = document.getElementById('articulos-container');
+            const newItem = document.createElement('div');
+            newItem.className = 'articulo-item';
+            newItem.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr auto; gap: 10px; margin-bottom: 10px; align-items: end;';
+            newItem.innerHTML = `
+                <div>
+                    <label style="display: block; margin-bottom: 5px; color: #555; font-size: 12px;">Código Artículo:</label>
+                    <input type="text" class="articulo-codigo" placeholder="Ej: ART1001" style="width: 100%; padding: 8px; border: 2px solid #e9ecef; border-radius: 6px;">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 5px; color: #555; font-size: 12px;">Unidades:</label>
+                    <input type="number" class="articulo-unidades" value="1" min="1" placeholder="Ej: 1" style="width: 100%; padding: 8px; border: 2px solid #e9ecef; border-radius: 6px;">
+                </div>
+                <button onclick="removeArticulo(this)" style="background: #dc3545; padding: 8px 12px; font-size: 12px;">✕</button>
+            `;
+            container.appendChild(newItem);
+        }
+        
+        function removeArticulo(button) {
+            const container = document.getElementById('articulos-container');
+            if (container.children.length > 1) {
+                button.closest('.articulo-item').remove();
+            } else {
+                alert('Debe haber al menos un artículo');
+            }
+        }
+        
         async function testPVP() {
             const codigo = document.getElementById('codigo-input').value.trim();
             const resultDiv = document.getElementById('result-pvp');
@@ -402,12 +586,28 @@
             
             resultDiv.style.display = 'block';
             resultDiv.className = 'result loading';
-            resultDiv.textContent = `Obteniendo PVP para código ${codigo}...`;
+            const tokenInfo = savedToken ? ' (usando token guardado)' : ' (haciendo login automatico)';
+            resultDiv.textContent = `Obteniendo PVP para código ${codigo}${tokenInfo}...`;
             statusSpan.className = 'status pending';
             statusSpan.textContent = 'Probando...';
             
             try {
-                const response = await fetch(`${baseUrl}/api/erp/pvp?codigo=${encodeURIComponent(codigo)}`);
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                if (savedToken) {
+                    headers['Authorization'] = `Bearer ${savedToken}`;
+                }
+                
+                let url = `${baseUrl}/api/erp/pvp?codigo=${encodeURIComponent(codigo)}`;
+                if (savedToken) {
+                    url += `&token=${encodeURIComponent(savedToken)}`;
+                }
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: headers
+                });
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
