@@ -649,29 +649,47 @@ class ScanAsYouShopApp {
             // Si hay versión local, intentar sincronización incremental
             if (versionLocalHash) {
                 console.log('⚡ Intentando sincronización incremental...');
+                console.log(`   Versión local: ${versionLocalHash.substring(0, 16)}...`);
                 window.ui.updateSyncIndicator('Analizando cambios...');
                 
                 try {
                     changeStats = await window.supabaseClient.getChangeStatistics(versionLocalHash);
+                    console.log('📊 Estadísticas obtenidas:', changeStats);
                     
-                    if (changeStats && changeStats.total_cambios !== null) {
+                    if (changeStats && changeStats.total_cambios !== null && changeStats.total_cambios !== undefined) {
                         const totalCambios = changeStats.total_cambios;
                         const totalProductos = changeStats.productos_modificados + changeStats.productos_nuevos;
+                        
+                        console.log(`   Total cambios: ${totalCambios}`);
+                        console.log(`   Productos nuevos: ${changeStats.productos_nuevos}, modificados: ${changeStats.productos_modificados}`);
+                        console.log(`   Códigos nuevos: ${changeStats.codigos_nuevos}, modificados: ${changeStats.codigos_modificados}`);
                         
                         // Usar incremental si hay menos de 1000 cambios (umbral configurable)
                         // Si hay muchos cambios, es más eficiente hacer sincronización completa
                         if (totalCambios > 0 && totalCambios < 1000) {
                             useIncremental = true;
-                            console.log(`⚡ Sincronización incremental: ${totalCambios} cambios detectados`);
+                            console.log(`✅ Sincronización incremental: ${totalCambios} cambios detectados`);
                             console.log(`   - Productos: ${changeStats.productos_nuevos} nuevos, ${changeStats.productos_modificados} modificados`);
                             console.log(`   - Códigos: ${changeStats.codigos_nuevos} nuevos, ${changeStats.codigos_modificados} modificados`);
                         } else if (totalCambios >= 1000) {
                             console.log(`📦 Muchos cambios (${totalCambios}), usando sincronización completa para mejor rendimiento`);
+                        } else if (totalCambios === 0) {
+                            console.log(`ℹ️ No hay cambios detectados (total_cambios = 0), usando sincronización completa para verificar`);
                         }
+                    } else {
+                        console.warn('⚠️ Estadísticas inválidas o nulas:', changeStats);
+                        console.warn('   Posibles causas:');
+                        console.warn('   1. La función obtener_estadisticas_cambios no existe en Supabase');
+                        console.warn('   2. El script SQL no se ejecutó correctamente');
+                        console.warn('   3. La versión local no existe en version_control');
                     }
                 } catch (statsError) {
-                    console.warn('⚠️ No se pudieron obtener estadísticas, usando sincronización completa:', statsError);
+                    console.error('❌ Error al obtener estadísticas:', statsError);
+                    console.warn('⚠️ Usando sincronización completa como fallback');
+                    console.warn('   Verifica que el script migration_sincronizacion_incremental.sql se ejecutó en Supabase');
                 }
+            } else {
+                console.log('ℹ️ No hay versión local guardada, usando sincronización completa (primera vez)');
             }
 
             console.log(useIncremental ? '⚡ Descargando cambios incrementales...' : '📥 Descargando catálogo completo...');

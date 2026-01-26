@@ -147,20 +147,30 @@ class SupabaseClient {
                 throw new Error('Cliente de Supabase no inicializado');
             }
 
+            console.log(`🔍 Llamando a obtener_estadisticas_cambios con hash: ${versionHashLocal?.substring(0, 16)}...`);
+
             const { data, error } = await this.client.rpc(
                 'obtener_estadisticas_cambios',
                 { p_version_hash_local: versionHashLocal }
             );
 
             if (error) {
-                console.warn('⚠️ Error al obtener estadísticas (usando fallback):', error);
+                console.error('❌ Error al obtener estadísticas:', error);
+                console.error('   Código:', error.code);
+                console.error('   Mensaje:', error.message);
+                console.error('   Detalles:', error.details);
+                console.error('   Hint:', error.hint);
+                console.warn('⚠️ Verifica que la función obtener_estadisticas_cambios existe en Supabase');
                 return null; // Fallback a sincronización completa
             }
+
+            console.log('📊 Respuesta de estadísticas:', data);
 
             return data && data.length > 0 ? data[0] : null;
 
         } catch (error) {
             console.error('❌ Error al obtener estadísticas de cambios:', error);
+            console.error('   Stack:', error.stack);
             return null;
         }
     }
