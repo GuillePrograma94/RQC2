@@ -35,6 +35,18 @@ let CONFIG = {
     // TEMPORAL: Reemplaza con tus credenciales reales de Supabase
     SUPABASE_URL: 'https://tu-proyecto.supabase.co',
     SUPABASE_ANON_KEY: 'tu-anon-key-aqui',
+
+    // Configuracion ERP
+    ERP: {
+        BASE_URL: '',
+        LOGIN_PATH: '/login',
+        CREATE_ORDER_PATH: '',
+        PROXY_PATH: '/api/erp/create-order',
+        USER: '',
+        PASSWORD: '',
+        TOKEN_LIFETIME_HOURS: 8,
+        REQUEST_TIMEOUT_MS: 15000
+    },
     
     /**
      * Carga la configuración de Supabase desde el servidor
@@ -68,10 +80,24 @@ let CONFIG = {
                 this.SUPABASE_URL = config.SUPABASE_URL;
                 this.SUPABASE_ANON_KEY = config.SUPABASE_ANON_KEY;
                 console.log('Configuracion de Supabase cargada correctamente desde servidor');
-                return true;
             }
-            
-            return false;
+
+            if (config.ERP) {
+                this.ERP = Object.assign({}, this.ERP, config.ERP);
+            }
+
+            if (config.ERP_BASE_URL || config.ERP_LOGIN_PATH || config.ERP_CREATE_ORDER_PATH || config.ERP_PROXY_PATH) {
+                this.ERP = Object.assign({}, this.ERP, {
+                    BASE_URL: config.ERP_BASE_URL || this.ERP.BASE_URL,
+                    LOGIN_PATH: config.ERP_LOGIN_PATH || this.ERP.LOGIN_PATH,
+                    CREATE_ORDER_PATH: config.ERP_CREATE_ORDER_PATH || this.ERP.CREATE_ORDER_PATH,
+                    PROXY_PATH: config.ERP_PROXY_PATH || this.ERP.PROXY_PATH,
+                    USER: config.ERP_USER || this.ERP.USER,
+                    PASSWORD: config.ERP_PASSWORD || this.ERP.PASSWORD
+                });
+            }
+
+            return !!(this.SUPABASE_URL && this.SUPABASE_ANON_KEY);
         } catch (error) {
             console.error('Error al cargar configuracion de Supabase:', error);
             // Si hay credenciales hardcodeadas, considerarlo válido

@@ -47,6 +47,11 @@ class ScanAsYouShopApp {
                 throw new Error('No se pudo conectar con el servidor');
             }
 
+            // Inicializar cliente ERP (sin bloqueo)
+            if (window.erpClient) {
+                window.erpClient.initialize();
+            }
+
             // Verificar si hay sesión guardada
             const savedUser = this.loadUserSession();
             if (savedUser) {
@@ -2595,6 +2600,26 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Construye el payload del pedido para el ERP
+     */
+    buildErpOrderPayload(cart, almacen) {
+        const totalWithIVA = cart.total_importe * 1.21;
+        return {
+            almacen_destino: almacen,
+            codigo_usuario: this.currentUser ? this.currentUser.codigo_usuario : null,
+            codigo_cliente: this.currentUser ? this.currentUser.codigo_cliente : null,
+            total_importe: cart.total_importe,
+            total_con_iva: totalWithIVA,
+            productos: cart.productos.map((producto) => ({
+                codigo: producto.codigo_producto,
+                descripcion: producto.descripcion_producto,
+                cantidad: producto.cantidad,
+                precio_unitario: producto.precio_unitario
+            }))
+        };
+    }
+
+    /**
      * Envía un pedido remoto al almacén seleccionado
      */
     async sendRemoteOrder(almacen) {
@@ -2614,6 +2639,26 @@ class ScanAsYouShopApp {
             this.hideAlmacenModal();
 
             // Mostrar loading
+            window.ui.showLoading(`Enviando pedido a ${almacen}...`);
+
+            // Intentar enviar pedido al ERP (si está configurado)
+            // NOTA: El endpoint de crear pedido en ERP aún no está disponible
+            // Cuando esté listo, se configurará en ERP_CREATE_ORDER_PATH
+            if (window.erpClient && window.erpClient.createOrderPath) {
+                try {
+                    window.ui.showLoading(`Conectando con ERP para ${almacen}...`);
+                    const erpPayload = this.buildErpOrderPayload(cart, almacen);
+                    await window.erpClient.createRemoteOrder(erpPayload);
+                    console.log('Pedido enviado al ERP correctamente');
+                } catch (erpError) {
+                    console.warn('Error al enviar al ERP (continuando con Supabase):', erpError);
+                    // Continuar con el flujo de Supabase aunque falle el ERP
+                }
+            } else {
+                console.log('ERP no configurado o endpoint de pedidos no disponible aún');
+            }
+
+            // Continuar con el flujo actual (Supabase)
             window.ui.showLoading(`Enviando pedido a ${almacen}...`);
 
             // Crear pedido remoto en Supabase

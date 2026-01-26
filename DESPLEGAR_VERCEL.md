@@ -47,6 +47,32 @@ En la sección **Environment Variables**, añade:
 | `SUPABASE_URL` | Tu URL de Supabase (ej: `https://xxxxx.supabase.co`) |
 | `SUPABASE_ANON_KEY` | Tu clave anónima de Supabase |
 
+Variables para ERP (no se exponen al frontend):
+
+**NOTA IMPORTANTE**: El endpoint de crear pedido aún no está disponible en el ERP. 
+Los endpoints disponibles actualmente son solo para pruebas:
+- `POST /api/tienda/v1/login` - Obtener token
+- `GET /api/tienda/v1/test` - Probar conectividad
+- `GET /api/tienda/v1/pedidos/prueba` - Probar pedidos (con token)
+- `GET /api/tienda/v1/articulos/pvp?codigo=XXX` - Obtener PVP (con token)
+
+Cuando el endpoint de crear pedido esté listo, solo necesitarás configurar `ERP_CREATE_ORDER_PATH`.
+
+| Key | Value | Estado |
+|-----|-------|--------|
+| `ERP_BASE_URL` | Base URL del ERP (ej: `http://IP:PUERTO/api/tienda/v1`) | Requerido |
+| `ERP_LOGIN_PATH` | Ruta de login del ERP: `/login` | Requerido |
+| `ERP_CREATE_ORDER_PATH` | Ruta de creación de pedidos (aún no disponible) | Opcional por ahora |
+| `ERP_USER` | Usuario del ERP (ej: `TIENDA_PRU`) | Requerido |
+| `ERP_PASSWORD` | Contraseña del ERP | Requerido |
+| `ERP_REQUEST_TIMEOUT_MS` | Timeout en ms (ej: `15000`) | Opcional |
+
+Variable opcional para el frontend:
+
+| Key | Value |
+|-----|-------|
+| `ERP_PROXY_PATH` | Endpoint proxy del ERP (default: `/api/erp/create-order`) |
+
 Para obtener tus credenciales:
 1. Ve a tu proyecto en https://supabase.com
 2. Settings → API
@@ -120,12 +146,84 @@ Para usar tu propio dominio:
 3. Añade tu dominio
 4. Configura los registros DNS según las instrucciones
 
+## Probar Endpoints del ERP
+
+Una vez desplegado, puedes probar los endpoints del ERP que están disponibles:
+
+### 1. Probar Conectividad (Test)
+**Endpoint**: `GET https://tu-proyecto.vercel.app/api/erp/test`
+
+Prueba si el ERP está accesible. Solo requiere `ERP_BASE_URL`.
+
+**Ejemplo con curl**:
+```bash
+curl https://tu-proyecto.vercel.app/api/erp/test
+```
+
+### 2. Probar Login
+**Endpoint**: `POST https://tu-proyecto.vercel.app/api/erp/login`
+
+Prueba el login y obtiene el token. Requiere `ERP_BASE_URL`, `ERP_USER`, `ERP_PASSWORD`.
+
+**Ejemplo con curl**:
+```bash
+curl -X POST https://tu-proyecto.vercel.app/api/erp/login
+```
+
+**Respuesta esperada**:
+```json
+{
+  "success": true,
+  "message": "Login exitoso",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "tokenLength": 200,
+  "note": "Token valido por 8 horas"
+}
+```
+
+### 3. Probar Endpoint de Pedidos
+**Endpoint**: `GET https://tu-proyecto.vercel.app/api/erp/pedidos-prueba`
+
+Prueba el endpoint `GET /api/tienda/v1/pedidos/prueba`. Hace login automáticamente.
+
+**Ejemplo con curl**:
+```bash
+curl https://tu-proyecto.vercel.app/api/erp/pedidos-prueba
+```
+
+### 4. Probar Endpoint de PVP
+**Endpoint**: `GET https://tu-proyecto.vercel.app/api/erp/pvp?codigo=0004223500340`
+
+Prueba el endpoint `GET /api/tienda/v1/articulos/pvp`. Hace login automáticamente.
+
+**Parámetros**:
+- `codigo` (query): Código del artículo (default: `0004223500340`)
+
+**Ejemplo con curl**:
+```bash
+curl "https://tu-proyecto.vercel.app/api/erp/pvp?codigo=0004223500340"
+```
+
+### Orden Recomendado de Pruebas
+
+1. **Primero**: Prueba `/api/erp/test` para verificar conectividad
+2. **Segundo**: Prueba `/api/erp/login` para verificar credenciales
+3. **Tercero**: Prueba `/api/erp/pedidos-prueba` para verificar token Bearer
+4. **Cuarto**: Prueba `/api/erp/pvp` para verificar endpoint de artículos
+
+### Probar desde el Navegador
+
+También puedes probar directamente en el navegador (solo GET):
+- `https://tu-proyecto.vercel.app/api/erp/test`
+- `https://tu-proyecto.vercel.app/api/erp/pedidos-prueba`
+- `https://tu-proyecto.vercel.app/api/erp/pvp?codigo=0004223500340`
+
 ## Logs y Debugging
 
 Ver logs en tiempo real:
 1. Ve a tu proyecto en Vercel
 2. Deployments → (último deployment)
-3. Functions → `/api/config`
+3. Functions → `/api/config`, `/api/erp/test`, `/api/erp/login`, `/api/erp/pedidos-prueba`, `/api/erp/pvp`
 4. Revisa los logs
 
 ## Alternativa: Configuración Manual (sin serverless)

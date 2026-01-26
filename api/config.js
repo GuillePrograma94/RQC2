@@ -19,7 +19,8 @@ module.exports = (req, res) => {
     // Obtener credenciales desde variables de entorno de Vercel
     const config = {
         SUPABASE_URL: process.env.SUPABASE_URL || '',
-        SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || ''
+        SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || '',
+        ERP_PROXY_PATH: process.env.ERP_PROXY_PATH || '/api/erp/create-order'
     };
 
     // Log para debugging (solo en desarrollo)
