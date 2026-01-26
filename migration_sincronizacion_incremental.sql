@@ -330,21 +330,21 @@ DECLARE
     v_fecha_creacion_original TIMESTAMP WITH TIME ZONE;
     v_accion TEXT;
 BEGIN
-    -- Verificar si el producto existe
-    SELECT EXISTS(SELECT 1 FROM productos WHERE codigo = p_codigo) INTO v_existe;
+    -- Verificar si el producto existe (usar nombre completo de tabla para evitar ambigüedad)
+    SELECT EXISTS(SELECT 1 FROM productos WHERE productos.codigo = p_codigo) INTO v_existe;
     
     IF v_existe THEN
         -- UPDATE: Obtener fecha_creacion original y actualizar TODO incluyendo fecha_actualizacion
-        SELECT fecha_creacion INTO v_fecha_creacion_original
+        SELECT productos.fecha_creacion INTO v_fecha_creacion_original
         FROM productos
-        WHERE codigo = p_codigo;
+        WHERE productos.codigo = p_codigo;
         
         UPDATE productos
         SET 
             descripcion = p_descripcion,
             pvp = p_pvp,
             fecha_actualizacion = NOW()  -- SIEMPRE actualizar fecha, incluso si datos son iguales
-        WHERE codigo = p_codigo;
+        WHERE productos.codigo = p_codigo;
         
         v_accion := 'UPDATE';
     ELSE
@@ -356,17 +356,17 @@ BEGIN
         v_accion := 'INSERT';
     END IF;
     
-    -- Retornar el producto actualizado/insertado
+    -- Retornar el producto actualizado/insertado (usar alias explícito)
     RETURN QUERY
     SELECT 
-        p.codigo::TEXT,
-        p.descripcion::TEXT,
-        p.pvp,
-        p.fecha_creacion,
-        p.fecha_actualizacion,
+        prod.codigo::TEXT,
+        prod.descripcion::TEXT,
+        prod.pvp,
+        prod.fecha_creacion,
+        prod.fecha_actualizacion,
         v_accion::TEXT
-    FROM productos p
-    WHERE p.codigo = p_codigo;
+    FROM productos prod
+    WHERE prod.codigo = p_codigo;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -376,6 +376,7 @@ Necesario porque PostgreSQL puede optimizar UPSERTs y no ejecutar UPDATE si no h
 
 -- Función para UPSERT masivo de productos (más eficiente para lotes)
 -- Acepta JSONB directamente (Supabase convierte automáticamente arrays Python a JSONB)
+-- IMPORTANTE: Usamos nombres de variables con prefijo 'v_' para evitar ambigüedad con RETURNS TABLE
 CREATE OR REPLACE FUNCTION upsert_productos_masivo_con_fecha(
     productos_json JSONB
 )
@@ -386,7 +387,7 @@ RETURNS TABLE (
 ) AS $$
 DECLARE
     producto_item JSONB;
-    v_codigo TEXT;
+    v_codigo_prod TEXT;  -- Variable con nombre diferente para evitar ambigüedad con RETURNS TABLE
     v_descripcion TEXT;
     v_pvp REAL;
     v_existe BOOLEAN;
@@ -396,12 +397,17 @@ BEGIN
     -- Procesar cada producto del JSON
     FOR producto_item IN SELECT * FROM jsonb_array_elements(productos_json)
     LOOP
-        v_codigo := producto_item->>'codigo';
-        v_descripcion := producto_item->>'descripcion';
+        -- Extraer valores del JSON
+        v_codigo_prod := (producto_item->>'codigo')::TEXT;
+        v_descripcion := (producto_item->>'descripcion')::TEXT;
         v_pvp := (producto_item->>'pvp')::REAL;
         
-        -- Verificar si existe
-        SELECT EXISTS(SELECT 1 FROM productos WHERE codigo = v_codigo) INTO v_existe;
+        -- Verificar si existe (usar variable explícita)
+        SELECT EXISTS(
+            SELECT 1 
+            FROM productos 
+            WHERE productos.codigo = v_codigo_prod
+        ) INTO v_existe;
         
         v_fecha_actual := NOW();
         
@@ -412,21 +418,21 @@ BEGIN
                 descripcion = v_descripcion,
                 pvp = v_pvp,
                 fecha_actualizacion = v_fecha_actual  -- Forzar actualización de fecha
-            WHERE codigo = v_codigo;
+            WHERE productos.codigo = v_codigo_prod;
             
             v_accion := 'UPDATE';
         ELSE
             -- INSERT: Crear nuevo
             INSERT INTO productos (codigo, descripcion, pvp, fecha_creacion, fecha_actualizacion)
-            VALUES (v_codigo, v_descripcion, v_pvp, v_fecha_actual, v_fecha_actual);
+            VALUES (v_codigo_prod, v_descripcion, v_pvp, v_fecha_actual, v_fecha_actual);
             
             v_accion := 'INSERT';
         END IF;
         
-        -- Retornar resultado
+        -- Retornar resultado (usar v_codigo_prod para evitar ambigüedad)
         RETURN QUERY
         SELECT 
-            v_codigo::TEXT,
+            v_codigo_prod::TEXT,
             v_accion::TEXT,
             v_fecha_actual;
     END LOOP;
@@ -453,8 +459,8 @@ DECLARE
     v_existe BOOLEAN;
     v_accion TEXT;
 BEGIN
-    -- Verificar si existe
-    SELECT EXISTS(SELECT 1 FROM codigos_secundarios WHERE codigo_secundario = p_codigo_secundario) INTO v_existe;
+    -- Verificar si existe (usar nombre completo de tabla para evitar ambigüedad)
+    SELECT EXISTS(SELECT 1 FROM codigos_secundarios WHERE codigos_secundarios.codigo_secundario = p_codigo_secundario) INTO v_existe;
     
     IF v_existe THEN
         -- UPDATE: SIEMPRE actualizar fecha_actualizacion
@@ -463,7 +469,7 @@ BEGIN
             descripcion = p_descripcion,
             codigo_principal = p_codigo_principal,
             fecha_actualizacion = NOW()  -- Forzar actualización
-        WHERE codigo_secundario = p_codigo_secundario;
+        WHERE codigos_secundarios.codigo_secundario = p_codigo_secundario;
         
         v_accion := 'UPDATE';
     ELSE
@@ -474,15 +480,15 @@ BEGIN
         v_accion := 'INSERT';
     END IF;
     
-    -- Retornar resultado
+    -- Retornar resultado (usar alias explícito diferente)
     RETURN QUERY
     SELECT 
-        cs.codigo_secundario::TEXT,
-        cs.codigo_principal::TEXT,
-        cs.fecha_actualizacion,
+        cod_sec.codigo_secundario::TEXT,
+        cod_sec.codigo_principal::TEXT,
+        cod_sec.fecha_actualizacion,
         v_accion::TEXT
-    FROM codigos_secundarios cs
-    WHERE cs.codigo_secundario = p_codigo_secundario;
+    FROM codigos_secundarios cod_sec
+    WHERE cod_sec.codigo_secundario = p_codigo_secundario;
 END;
 $$ LANGUAGE plpgsql;
 

@@ -674,7 +674,19 @@ class ScanAsYouShopApp {
                         } else if (totalCambios >= 1000) {
                             console.log(`📦 Muchos cambios (${totalCambios}), usando sincronización completa para mejor rendimiento`);
                         } else if (totalCambios === 0) {
-                            console.log(`ℹ️ No hay cambios detectados (total_cambios = 0), usando sincronización completa para verificar`);
+                            // Si total_cambios = 0 pero el hash cambió, puede ser que:
+                            // 1. Los productos fueron modificados pero fecha_actualizacion no se actualizó (problema con UPSERT)
+                            // 2. La versión local no existe en version_control (primera vez)
+                            // 3. Realmente no hay cambios (hash cambió por otra razón)
+                            // En cualquier caso, es más seguro hacer sincronización completa para verificar
+                            console.log(`⚠️ PROBLEMA DETECTADO: total_cambios = 0 pero el hash cambió`);
+                            console.log(`   Esto indica que fecha_actualizacion NO se actualizó en los productos modificados`);
+                            console.log(`   Posibles causas:`);
+                            console.log(`   1. Se usó UPSERT normal en lugar de upsert_productos_masivo_con_fecha`);
+                            console.log(`   2. La función RPC falló y se usó el fallback`);
+                            console.log(`   3. Los cambios se hicieron antes de aplicar la función RPC nueva`);
+                            console.log(`   💡 SOLUCIÓN: Verifica que generate_supabase_file.py use la función RPC correcta`);
+                            console.log(`   📥 Usando sincronización completa para corregir fecha_actualizacion`);
                         }
                     } else {
                         console.warn('⚠️ Estadísticas inválidas o nulas:', changeStats);

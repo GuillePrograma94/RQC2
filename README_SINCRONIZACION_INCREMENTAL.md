@@ -196,6 +196,43 @@ if (totalCambios > 0 && totalCambios < 1000) {  // Cambiar 1000 por otro valor
 
 ## 🐛 Troubleshooting
 
+### Problema: `total_cambios = 0` pero el hash cambió
+
+**Síntoma**: 
+- El hash de versión cambió (nueva versión en Supabase)
+- Pero `obtener_estadisticas_cambios` retorna `total_cambios = 0`
+- El sistema hace descarga completa en lugar de incremental
+
+**Causa**:
+- Los productos fueron modificados pero `fecha_actualizacion` NO se actualizó
+- Esto ocurre cuando se usa UPSERT normal en lugar de la función RPC `upsert_productos_masivo_con_fecha`
+- O cuando la función RPC falló y se usó el fallback
+
+**Solución**:
+1. Verifica que la función RPC existe en Supabase:
+   ```sql
+   SELECT proname FROM pg_proc WHERE proname = 'upsert_productos_masivo_con_fecha';
+   ```
+   Si no existe, ejecuta `migration_sincronizacion_incremental.sql`
+
+2. Verifica que `generate_supabase_file.py` use la función RPC:
+   - Debe llamar a `self.client.rpc('upsert_productos_masivo_con_fecha', ...)`
+   - NO debe usar `self.client.table('productos').upsert(...)` directamente
+
+3. Si usaste UPSERT normal antes, los productos modificados no tienen `fecha_actualizacion` actualizada.
+   - La próxima vez que subas datos, usa la función RPC
+   - O ejecuta este SQL para actualizar manualmente:
+     ```sql
+     UPDATE productos SET fecha_actualizacion = NOW() WHERE codigo IN (...);
+     ```
+
+4. Usa el script de verificación:
+   ```bash
+   python scan_client_mobile/verificar_funcion_rpc.py
+   ```
+
+---
+
 ### Error: "function obtener_productos_modificados does not exist"
 
 **Causa**: El script SQL no se ejecutó correctamente.
