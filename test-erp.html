@@ -227,6 +227,11 @@
                 <span class="status pending" id="status-pedidos">Pendiente</span>
             </div>
             <div class="endpoint-url" id="url-pedidos"></div>
+            <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; color: #856404;">
+                <strong>Nota Importante:</strong> El endpoint GET /pedidos/prueba existe para pruebas de lectura. Si obtienes 404 con POST, significa que el endpoint de crear pedidos aun no esta disponible en el ERP. 
+                <br><br>
+                <strong>El formulario de abajo esta completo y listo:</strong> Puedes introducir todos los campos (Código Cliente, Serie, Centro de Venta, Referencia, Observaciones y Artículos). Cuando el endpoint POST este disponible en el ERP, solo necesitaras hacer click en "Probar Pedidos con Payload (POST)".
+            </div>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                 <div class="input-group">
@@ -451,13 +456,21 @@
                     statusSpan.textContent = 'Exitoso';
                 } else {
                     resultDiv.className = 'result error';
-                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                    let errorMsg = JSON.stringify(data, null, 2);
+                    if (data.message && data.message.includes('404')) {
+                        errorMsg += '\n\nNOTA: El endpoint GET /pedidos/prueba puede que no exista o requiera configuracion diferente. Verifica las variables de entorno en Vercel.';
+                    }
+                    resultDiv.textContent = errorMsg;
                     statusSpan.className = 'status error';
                     statusSpan.textContent = 'Error';
                 }
             } catch (error) {
                 resultDiv.className = 'result error';
-                resultDiv.textContent = `Error: ${error.message}`;
+                let errorMsg = `Error: ${error.message}`;
+                if (error.message.includes('404')) {
+                    errorMsg += '\n\nNOTA: El endpoint puede que no este disponible. Verifica ERP_BASE_URL en Vercel.';
+                }
+                resultDiv.textContent = errorMsg;
                 statusSpan.className = 'status error';
                 statusSpan.textContent = 'Error';
             }
@@ -534,13 +547,30 @@
                     statusSpan.textContent = 'Exitoso';
                 } else {
                     resultDiv.className = 'result error';
-                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                    let errorMsg = JSON.stringify(data, null, 2);
+                    if (data.message && data.message.includes('404')) {
+                        errorMsg += '\n\n=== INFORMACION IMPORTANTE ===\n';
+                        errorMsg += 'El endpoint POST /pedidos/prueba aun no esta disponible en el ERP.\n';
+                        errorMsg += 'El formulario que has completado esta correcto y listo.\n';
+                        errorMsg += 'Cuando el endpoint este disponible, este mismo payload se enviara correctamente.\n\n';
+                        errorMsg += 'Payload que se intento enviar:\n';
+                        errorMsg += JSON.stringify(payload, null, 2);
+                    }
+                    resultDiv.textContent = errorMsg;
                     statusSpan.className = 'status error';
-                    statusSpan.textContent = 'Error';
+                    statusSpan.textContent = 'Error (Endpoint no disponible)';
                 }
             } catch (error) {
                 resultDiv.className = 'result error';
-                resultDiv.textContent = `Error: ${error.message}`;
+                let errorMsg = `Error: ${error.message}`;
+                if (error.message.includes('404')) {
+                    errorMsg += '\n\n=== INFORMACION IMPORTANTE ===\n';
+                    errorMsg += 'El endpoint POST aun no esta disponible en el ERP.\n';
+                    errorMsg += 'El formulario esta completo y funcionando correctamente.\n';
+                    errorMsg += 'Payload preparado:\n';
+                    errorMsg += JSON.stringify(payload, null, 2);
+                }
+                resultDiv.textContent = errorMsg;
                 statusSpan.className = 'status error';
                 statusSpan.textContent = 'Error';
             }

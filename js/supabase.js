@@ -138,6 +138,97 @@ class SupabaseClient {
     }
 
     /**
+     * Obtiene estadísticas de cambios desde una versión específica
+     * Útil para decidir si hacer sincronización incremental o completa
+     */
+    async getChangeStatistics(versionHashLocal) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            const { data, error } = await this.client.rpc(
+                'obtener_estadisticas_cambios',
+                { p_version_hash_local: versionHashLocal }
+            );
+
+            if (error) {
+                console.warn('⚠️ Error al obtener estadísticas (usando fallback):', error);
+                return null; // Fallback a sincronización completa
+            }
+
+            return data && data.length > 0 ? data[0] : null;
+
+        } catch (error) {
+            console.error('❌ Error al obtener estadísticas de cambios:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Descarga solo los productos modificados/agregados desde una versión específica
+     * Sincronización incremental - mucho más rápida que descargar todo
+     */
+    async downloadProductsIncremental(versionHashLocal, onProgress = null) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            console.log('⚡ Descargando cambios incrementales desde versión:', versionHashLocal?.substring(0, 8) + '...');
+
+            // Obtener productos modificados
+            const { data: productosData, error: productosError } = await this.client.rpc(
+                'obtener_productos_modificados',
+                { p_version_hash_local: versionHashLocal }
+            );
+
+            if (productosError) {
+                console.error('❌ Error al obtener productos modificados:', productosError);
+                throw productosError;
+            }
+
+            // Obtener códigos secundarios modificados
+            const { data: codigosData, error: codigosError } = await this.client.rpc(
+                'obtener_codigos_secundarios_modificados',
+                { p_version_hash_local: versionHashLocal }
+            );
+
+            if (codigosError) {
+                console.error('❌ Error al obtener códigos modificados:', codigosError);
+                throw codigosError;
+            }
+
+            const productos = productosData || [];
+            const codigosSecundarios = codigosData || [];
+
+            // Reportar progreso
+            if (onProgress) {
+                onProgress({
+                    table: 'cambios',
+                    loaded: productos.length + codigosSecundarios.length,
+                    total: productos.length + codigosSecundarios.length,
+                    batch: productos.length + codigosSecundarios.length
+                });
+            }
+
+            console.log(`✅ Cambios descargados: ${productos.length} productos, ${codigosSecundarios.length} códigos`);
+
+            return {
+                productos: productos,
+                codigosSecundarios: codigosSecundarios,
+                isIncremental: true
+            };
+
+        } catch (error) {
+            console.error('❌ Error en sincronización incremental:', error);
+            // Fallback a sincronización completa
+            console.log('🔄 Fallback a sincronización completa...');
+            return await this.downloadProducts(onProgress);
+        }
+    }
+
+    /**
      * Descarga datos con paginación automática
      */
     async _downloadWithPagination(tableName, onProgress = null, filters = {}) {

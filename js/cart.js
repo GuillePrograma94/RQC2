@@ -450,6 +450,87 @@ class CartManager {
             throw error;
         }
     }
+
+    /**
+     * Actualiza productos de forma incremental (sin limpiar todo)
+     * Inserta nuevos productos y actualiza los existentes
+     * Mucho más rápido que reemplazar toda la tabla
+     */
+    async updateProductsIncremental(productos) {
+        try {
+            if (!productos || productos.length === 0) {
+                console.log('⚠️ No hay productos para actualizar');
+                return { inserted: 0, updated: 0 };
+            }
+
+            const transaction = this.db.transaction(['products'], 'readwrite');
+            const store = transaction.objectStore('products');
+
+            let inserted = 0;
+            let updated = 0;
+
+            return new Promise((resolve, reject) => {
+                const processNext = async (index) => {
+                    if (index >= productos.length) {
+                        transaction.oncomplete = () => {
+                            console.log(`✅ Actualización incremental: ${inserted} insertados, ${updated} actualizados`);
+                            resolve({ inserted, updated });
+                        };
+                        transaction.onerror = () => reject(transaction.error);
+                        return;
+                    }
+
+                    const producto = productos[index];
+                    const normalizedProduct = {
+                        ...producto,
+                        codigo: producto.codigo.toUpperCase()
+                    };
+
+                    // Intentar obtener producto existente
+                    const getRequest = store.get(normalizedProduct.codigo);
+                    
+                    getRequest.onsuccess = () => {
+                        if (getRequest.result) {
+                            // Producto existe, actualizar
+                            store.put(normalizedProduct);
+                            updated++;
+                        } else {
+                            // Producto nuevo, insertar
+                            store.add(normalizedProduct);
+                            inserted++;
+                        }
+                        // Procesar siguiente
+                        processNext(index + 1);
+                    };
+
+                    getRequest.onerror = () => {
+                        console.error(`Error al verificar producto ${normalizedProduct.codigo}:`, getRequest.error);
+                        // Intentar insertar de todas formas
+                        try {
+                            store.add(normalizedProduct);
+                            inserted++;
+                        } catch (err) {
+                            // Si falla, probablemente ya existe, intentar actualizar
+                            try {
+                                store.put(normalizedProduct);
+                                updated++;
+                            } catch (err2) {
+                                console.error(`Error al insertar/actualizar ${normalizedProduct.codigo}:`, err2);
+                            }
+                        }
+                        processNext(index + 1);
+                    };
+                };
+
+                // Iniciar procesamiento
+                processNext(0);
+            });
+
+        } catch (error) {
+            console.error('Error al actualizar productos incrementalmente:', error);
+            throw error;
+        }
+    }
     
     /**
      * Guarda códigos secundarios en el almacenamiento local
@@ -505,6 +586,85 @@ class CartManager {
 
         } catch (error) {
             console.error('Error al guardar códigos secundarios:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Actualiza códigos secundarios de forma incremental (sin limpiar todo)
+     * Inserta nuevos códigos y actualiza los existentes
+     */
+    async updateSecondaryCodesIncremental(codigosSecundarios) {
+        try {
+            if (!codigosSecundarios || codigosSecundarios.length === 0) {
+                console.log('⚠️ No hay códigos secundarios para actualizar');
+                return { inserted: 0, updated: 0 };
+            }
+
+            const transaction = this.db.transaction(['secondary_codes'], 'readwrite');
+            const store = transaction.objectStore('secondary_codes');
+            const index = store.index('codigo_secundario');
+
+            let inserted = 0;
+            let updated = 0;
+
+            return new Promise((resolve, reject) => {
+                const processNext = async (indexIdx) => {
+                    if (indexIdx >= codigosSecundarios.length) {
+                        transaction.oncomplete = () => {
+                            console.log(`✅ Actualización incremental códigos: ${inserted} insertados, ${updated} actualizados`);
+                            resolve({ inserted, updated });
+                        };
+                        transaction.onerror = () => reject(transaction.error);
+                        return;
+                    }
+
+                    const codigo = codigosSecundarios[indexIdx];
+                    const normalizedCode = {
+                        codigo_secundario: codigo.codigo_secundario.toUpperCase(),
+                        codigo_principal: codigo.codigo_principal.toUpperCase(),
+                        descripcion: codigo.descripcion || ''
+                    };
+
+                    // Buscar código existente por índice
+                    const getRequest = index.get(normalizedCode.codigo_secundario);
+                    
+                    getRequest.onsuccess = () => {
+                        if (getRequest.result) {
+                            // Código existe, actualizar (usar put con el ID existente)
+                            const updatedCode = {
+                                ...normalizedCode,
+                                id: getRequest.result.id
+                            };
+                            store.put(updatedCode);
+                            updated++;
+                        } else {
+                            // Código nuevo, insertar
+                            store.add(normalizedCode);
+                            inserted++;
+                        }
+                        // Procesar siguiente
+                        processNext(indexIdx + 1);
+                    };
+
+                    getRequest.onerror = () => {
+                        // Si hay error, intentar insertar
+                        try {
+                            store.add(normalizedCode);
+                            inserted++;
+                        } catch (err) {
+                            console.error(`Error al insertar código ${normalizedCode.codigo_secundario}:`, err);
+                        }
+                        processNext(indexIdx + 1);
+                    };
+                };
+
+                // Iniciar procesamiento
+                processNext(0);
+            });
+
+        } catch (error) {
+            console.error('Error al actualizar códigos secundarios incrementalmente:', error);
             throw error;
         }
     }

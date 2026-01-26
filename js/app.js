@@ -622,6 +622,7 @@ class ScanAsYouShopApp {
 
     /**
      * Sincroniza productos EN SEGUNDO PLANO (solo si hay cambios)
+     * Usa sincronización incremental cuando sea posible para mayor velocidad
      */
     async syncProductsInBackground() {
         try {
@@ -640,8 +641,41 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            console.log('📥 Nueva versión disponible - descargando productos...');
-            window.ui.updateSyncIndicator('Descargando...');
+            // Obtener versión local para sincronización incremental
+            const versionLocalHash = localStorage.getItem('version_hash_local');
+            let useIncremental = false;
+            let changeStats = null;
+
+            // Si hay versión local, intentar sincronización incremental
+            if (versionLocalHash) {
+                console.log('⚡ Intentando sincronización incremental...');
+                window.ui.updateSyncIndicator('Analizando cambios...');
+                
+                try {
+                    changeStats = await window.supabaseClient.getChangeStatistics(versionLocalHash);
+                    
+                    if (changeStats && changeStats.total_cambios !== null) {
+                        const totalCambios = changeStats.total_cambios;
+                        const totalProductos = changeStats.productos_modificados + changeStats.productos_nuevos;
+                        
+                        // Usar incremental si hay menos de 1000 cambios (umbral configurable)
+                        // Si hay muchos cambios, es más eficiente hacer sincronización completa
+                        if (totalCambios > 0 && totalCambios < 1000) {
+                            useIncremental = true;
+                            console.log(`⚡ Sincronización incremental: ${totalCambios} cambios detectados`);
+                            console.log(`   - Productos: ${changeStats.productos_nuevos} nuevos, ${changeStats.productos_modificados} modificados`);
+                            console.log(`   - Códigos: ${changeStats.codigos_nuevos} nuevos, ${changeStats.codigos_modificados} modificados`);
+                        } else if (totalCambios >= 1000) {
+                            console.log(`📦 Muchos cambios (${totalCambios}), usando sincronización completa para mejor rendimiento`);
+                        }
+                    }
+                } catch (statsError) {
+                    console.warn('⚠️ No se pudieron obtener estadísticas, usando sincronización completa:', statsError);
+                }
+            }
+
+            console.log(useIncremental ? '⚡ Descargando cambios incrementales...' : '📥 Descargando catálogo completo...');
+            window.ui.updateSyncIndicator(useIncremental ? 'Descargando cambios...' : 'Descargando...');
 
             // Callback de progreso
             const onProgress = (progress) => {
@@ -649,14 +683,39 @@ class ScanAsYouShopApp {
                 window.ui.updateSyncIndicator(`${percent}%`);
             };
 
-            const { productos, codigosSecundarios } = await window.supabaseClient.downloadProducts(onProgress);
+            let productos, codigosSecundarios, isIncremental;
+
+            if (useIncremental) {
+                // Sincronización incremental
+                const result = await window.supabaseClient.downloadProductsIncremental(versionLocalHash, onProgress);
+                productos = result.productos;
+                codigosSecundarios = result.codigosSecundarios;
+                isIncremental = result.isIncremental;
+            } else {
+                // Sincronización completa
+                const result = await window.supabaseClient.downloadProducts(onProgress);
+                productos = result.productos;
+                codigosSecundarios = result.codigosSecundarios;
+                isIncremental = false;
+            }
 
             // Guardar en almacenamiento local
-            window.ui.updateSyncIndicator('Guardando productos...');
-            await window.cartManager.saveProductsToStorage(productos);
-            
-            window.ui.updateSyncIndicator('Guardando códigos secundarios...');
-            await window.cartManager.saveSecondaryCodesToStorage(codigosSecundarios);
+            if (isIncremental) {
+                // Actualización incremental (más rápida)
+                window.ui.updateSyncIndicator('Aplicando cambios...');
+                const productosResult = await window.cartManager.updateProductsIncremental(productos);
+                window.ui.updateSyncIndicator('Aplicando códigos...');
+                const codigosResult = await window.cartManager.updateSecondaryCodesIncremental(codigosSecundarios);
+                
+                console.log(`✅ Cambios aplicados: ${productosResult.inserted + productosResult.updated} productos, ${codigosResult.inserted + codigosResult.updated} códigos`);
+            } else {
+                // Reemplazo completo (más lento pero necesario para primera sincronización o muchos cambios)
+                window.ui.updateSyncIndicator('Guardando productos...');
+                await window.cartManager.saveProductsToStorage(productos);
+                
+                window.ui.updateSyncIndicator('Guardando códigos secundarios...');
+                await window.cartManager.saveSecondaryCodesToStorage(codigosSecundarios);
+            }
 
             // Descargar ofertas en segundo plano (sin bloquear)
             window.ui.updateSyncIndicator('Descargando ofertas...');
@@ -670,9 +729,13 @@ class ScanAsYouShopApp {
             // Actualizar hash local
             await window.supabaseClient.actualizarVersionLocal(versionCheck.versionRemota);
 
+            const mensaje = isIncremental 
+                ? `Catálogo actualizado - ${productos.length} cambios aplicados`
+                : `Catálogo actualizado - ${productos.length} productos`;
+
             console.log('✅ Productos y códigos secundarios sincronizados correctamente');
             window.ui.showSyncIndicator(false);
-            window.ui.showToast(`Catálogo actualizado - ${productos.length} productos`, 'success');
+            window.ui.showToast(mensaje, 'success');
 
         } catch (error) {
             console.error('❌ Error al sincronizar productos:', error);

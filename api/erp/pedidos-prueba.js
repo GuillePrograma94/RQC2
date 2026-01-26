@@ -86,7 +86,21 @@ module.exports = async (req, res) => {
         
         if (!response.ok) {
             const statusMessage = data && data.message ? data.message : response.statusText;
-            throw new Error(`ERP pedidos error ${response.status}: ${statusMessage}`);
+            const errorDetails = {
+                status: response.status,
+                statusText: response.statusText,
+                url: url,
+                method: method,
+                hasPayload: method === 'POST' && req.body ? true : false,
+                payloadKeys: method === 'POST' && req.body ? Object.keys(req.body) : [],
+                erpResponse: data
+            };
+            
+            if (response.status === 404) {
+                throw new Error(`Endpoint no encontrado (404). El endpoint ${method} ${url} no existe en el ERP. Verifica que el endpoint este disponible o que el metodo sea correcto. Detalles: ${JSON.stringify(errorDetails)}`);
+            }
+            
+            throw new Error(`ERP pedidos error ${response.status}: ${statusMessage}. Detalles: ${JSON.stringify(errorDetails)}`);
         }
 
         res.status(200).json({
