@@ -148,7 +148,27 @@ Para usar tu propio dominio:
 
 ## Probar Endpoints del ERP
 
-Una vez desplegado, puedes probar los endpoints del ERP que están disponibles:
+Una vez desplegado, puedes probar los endpoints del ERP de dos formas:
+
+### Opción 1: Panel de Pruebas (Recomendado)
+
+Abre en tu navegador la página de pruebas:
+```
+https://tu-proyecto.vercel.app/test-erp.html
+```
+
+Esta página te permite:
+- ✅ Probar todos los endpoints con botones
+- ✅ Ver las respuestas formateadas
+- ✅ Hacer POST requests sin problemas
+- ✅ Ver el token obtenido del login
+- ✅ Probar todos los endpoints en secuencia
+
+**Ventajas**: Interfaz visual, fácil de usar, muestra resultados claros.
+
+### Opción 2: Endpoints Directos
+
+También puedes probar los endpoints directamente:
 
 ### 1. Probar Conectividad (Test)
 **Endpoint**: `GET https://tu-proyecto.vercel.app/api/erp/test`

@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pruebas ERP - Scan as You Shop</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .endpoint-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .endpoint-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .endpoint-url {
+            font-family: 'Courier New', monospace;
+            background: #e9ecef;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            word-break: break-all;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .result.loading {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        
+        .token-display {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 12px;
+            word-break: break-all;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .status.success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .status.error {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .status.pending {
+            background: #ffc107;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Panel de Pruebas ERP</h1>
+        <p class="subtitle">Prueba los endpoints del ERP desde el navegador</p>
+        
+        <!-- Test de Conectividad -->
+        <div class="endpoint-section">
+            <div class="endpoint-title">
+                1. Test de Conectividad
+                <span class="status pending" id="status-test">Pendiente</span>
+            </div>
+            <div class="endpoint-url" id="url-test"></div>
+            <div class="button-group">
+                <button onclick="testConnectivity()">Probar Conectividad</button>
+            </div>
+            <div id="result-test" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- Test de Login -->
+        <div class="endpoint-section">
+            <div class="endpoint-title">
+                2. Test de Login
+                <span class="status pending" id="status-login">Pendiente</span>
+            </div>
+            <div class="endpoint-url" id="url-login"></div>
+            <div class="button-group">
+                <button onclick="testLogin()">Hacer Login</button>
+            </div>
+            <div id="result-login" class="result" style="display: none;"></div>
+            <div id="token-display" style="display: none;"></div>
+        </div>
+        
+        <!-- Test de Pedidos -->
+        <div class="endpoint-section">
+            <div class="endpoint-title">
+                3. Test de Pedidos (Prueba)
+                <span class="status pending" id="status-pedidos">Pendiente</span>
+            </div>
+            <div class="endpoint-url" id="url-pedidos"></div>
+            <div class="button-group">
+                <button onclick="testPedidos()">Probar Pedidos</button>
+            </div>
+            <div id="result-pedidos" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- Test de PVP -->
+        <div class="endpoint-section">
+            <div class="endpoint-title">
+                4. Test de PVP (Precio)
+                <span class="status pending" id="status-pvp">Pendiente</span>
+            </div>
+            <div class="endpoint-url" id="url-pvp"></div>
+            <div class="input-group">
+                <label for="codigo-input">Código del Artículo:</label>
+                <input type="text" id="codigo-input" value="0004223500340" placeholder="Ej: 0004223500340">
+            </div>
+            <div class="button-group">
+                <button onclick="testPVP()">Obtener PVP</button>
+            </div>
+            <div id="result-pvp" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- Probar Todos -->
+        <div class="endpoint-section" style="background: #e7f3ff; border-left-color: #2196F3;">
+            <div class="endpoint-title">🚀 Probar Todos los Endpoints</div>
+            <div class="button-group">
+                <button onclick="testAll()" style="background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);">
+                    Ejecutar Todas las Pruebas
+                </button>
+                <button onclick="clearAll()" style="background: #6c757d;">
+                    Limpiar Resultados
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const baseUrl = window.location.origin;
+        
+        // Inicializar URLs
+        document.getElementById('url-test').textContent = `GET ${baseUrl}/api/erp/test`;
+        document.getElementById('url-login').textContent = `POST ${baseUrl}/api/erp/login`;
+        document.getElementById('url-pedidos').textContent = `GET ${baseUrl}/api/erp/pedidos-prueba`;
+        document.getElementById('url-pvp').textContent = `GET ${baseUrl}/api/erp/pvp?codigo=XXX`;
+        
+        let savedToken = null;
+        
+        async function testConnectivity() {
+            const resultDiv = document.getElementById('result-test');
+            const statusSpan = document.getElementById('status-test');
+            
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result loading';
+            resultDiv.textContent = 'Probando conectividad...';
+            statusSpan.className = 'status pending';
+            statusSpan.textContent = 'Probando...';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/erp/test`);
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                    statusSpan.className = 'status success';
+                    statusSpan.textContent = 'Exitoso';
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                    statusSpan.className = 'status error';
+                    statusSpan.textContent = 'Error';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Error: ${error.message}`;
+                statusSpan.className = 'status error';
+                statusSpan.textContent = 'Error';
+            }
+        }
+        
+        async function testLogin() {
+            const resultDiv = document.getElementById('result-login');
+            const tokenDisplay = document.getElementById('token-display');
+            const statusSpan = document.getElementById('status-login');
+            
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result loading';
+            resultDiv.textContent = 'Haciendo login...';
+            statusSpan.className = 'status pending';
+            statusSpan.textContent = 'Probando...';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/erp/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                    statusSpan.className = 'status success';
+                    statusSpan.textContent = 'Exitoso';
+                    
+                    if (data.token) {
+                        savedToken = data.token;
+                        tokenDisplay.style.display = 'block';
+                        tokenDisplay.innerHTML = `
+                            <strong>Token obtenido:</strong><br>
+                            <div class="token-display">${data.token}</div>
+                            <small>Token guardado para pruebas posteriores</small>
+                        `;
+                    }
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                    statusSpan.className = 'status error';
+                    statusSpan.textContent = 'Error';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Error: ${error.message}`;
+                statusSpan.className = 'status error';
+                statusSpan.textContent = 'Error';
+            }
+        }
+        
+        async function testPedidos() {
+            const resultDiv = document.getElementById('result-pedidos');
+            const statusSpan = document.getElementById('status-pedidos');
+            
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result loading';
+            resultDiv.textContent = 'Probando endpoint de pedidos...';
+            statusSpan.className = 'status pending';
+            statusSpan.textContent = 'Probando...';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/erp/pedidos-prueba`);
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                    statusSpan.className = 'status success';
+                    statusSpan.textContent = 'Exitoso';
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                    statusSpan.className = 'status error';
+                    statusSpan.textContent = 'Error';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Error: ${error.message}`;
+                statusSpan.className = 'status error';
+                statusSpan.textContent = 'Error';
+            }
+        }
+        
+        async function testPVP() {
+            const codigo = document.getElementById('codigo-input').value.trim();
+            const resultDiv = document.getElementById('result-pvp');
+            const statusSpan = document.getElementById('status-pvp');
+            
+            if (!codigo) {
+                alert('Por favor ingresa un código');
+                return;
+            }
+            
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result loading';
+            resultDiv.textContent = `Obteniendo PVP para código ${codigo}...`;
+            statusSpan.className = 'status pending';
+            statusSpan.textContent = 'Probando...';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/erp/pvp?codigo=${encodeURIComponent(codigo)}`);
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                    statusSpan.className = 'status success';
+                    statusSpan.textContent = 'Exitoso';
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                    statusSpan.className = 'status error';
+                    statusSpan.textContent = 'Error';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Error: ${error.message}`;
+                statusSpan.className = 'status error';
+                statusSpan.textContent = 'Error';
+            }
+        }
+        
+        async function testAll() {
+            await testConnectivity();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await testLogin();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await testPedidos();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await testPVP();
+        }
+        
+        function clearAll() {
+            const results = ['result-test', 'result-login', 'result-pedidos', 'result-pvp'];
+            const statuses = ['status-test', 'status-login', 'status-pedidos', 'status-pvp'];
+            
+            results.forEach(id => {
+                const div = document.getElementById(id);
+                div.style.display = 'none';
+                div.textContent = '';
+            });
+            
+            statuses.forEach(id => {
+                const span = document.getElementById(id);
+                span.className = 'status pending';
+                span.textContent = 'Pendiente';
+            });
+            
+            document.getElementById('token-display').style.display = 'none';
+            savedToken = null;
+        }
+    </script>
+</body>
+</html>
