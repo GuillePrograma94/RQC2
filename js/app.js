@@ -2693,22 +2693,29 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Construye el payload del pedido para el ERP
+     * Construye el payload del pedido para el ERP.
+     * serie = almacen destino (donde recoge). centro_venta = almacen habitual del cliente.
+     * Solo se usan valores permitidos definidos en erp-pedido-opciones.js.
      */
     buildErpOrderPayload(cart, almacen) {
-        const totalWithIVA = cart.total_importe * 1.21;
+        const almacenHabitual = this.currentUser ? this.currentUser.almacen_habitual : null;
+        const { serie, centro_venta } = typeof ERP_PEDIDO_OPCIONES !== 'undefined'
+            ? ERP_PEDIDO_OPCIONES.getSerieYCentroVenta(almacen, almacenHabitual)
+            : { serie: 'BT7', centro_venta: '1' };
+
+        const referencia = 'PEDIDO_TIENDA_' + (Date.now ? Date.now() : String(Math.random()).slice(2, 10));
+        const lineas = (cart.productos || []).map((p) => ({
+            codigo_articulo: p.codigo_producto || p.codigo,
+            unidades: p.cantidad != null ? p.cantidad : 0
+        }));
+
         return {
-            almacen_destino: almacen,
-            codigo_usuario: this.currentUser ? this.currentUser.codigo_usuario : null,
             codigo_cliente: this.currentUser ? this.currentUser.codigo_cliente : null,
-            total_importe: cart.total_importe,
-            total_con_iva: totalWithIVA,
-            productos: cart.productos.map((producto) => ({
-                codigo: producto.codigo_producto,
-                descripcion: producto.descripcion_producto,
-                cantidad: producto.cantidad,
-                precio_unitario: producto.precio_unitario
-            }))
+            serie: serie,
+            centro_venta: centro_venta,
+            referencia: referencia,
+            observaciones: '',
+            lineas: lineas
         };
     }
 
@@ -2734,10 +2741,8 @@ class ScanAsYouShopApp {
             // Mostrar loading
             window.ui.showLoading(`Enviando pedido a ${almacen}...`);
 
-            // Intentar enviar pedido al ERP (si está configurado)
-            // NOTA: El endpoint de crear pedido en ERP aún no está disponible
-            // Cuando esté listo, se configurará en ERP_CREATE_ORDER_PATH
-            if (window.erpClient && window.erpClient.createOrderPath) {
+            // Enviar pedido al ERP si el proxy esta configurado (serie y centro_venta segun erp-pedido-opciones.js)
+            if (window.erpClient && (window.erpClient.proxyPath || window.erpClient.createOrderPath)) {
                 try {
                     window.ui.showLoading(`Conectando con ERP para ${almacen}...`);
                     const erpPayload = this.buildErpOrderPayload(cart, almacen);
