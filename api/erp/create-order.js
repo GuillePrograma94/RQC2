@@ -57,8 +57,8 @@ module.exports = async (req, res) => {
         if (!username) missing.push('ERP_USER');
         if (!password) missing.push('ERP_PASSWORD');
         
-        res.status(500).json({ 
-            message: 'ERP no esta completamente configurado',
+        res.status(500).json({
+            message: 'ERP no esta completamente configurado. Configura en Vercel: Settings -> Environment Variables',
             missing: missing
         });
         return;

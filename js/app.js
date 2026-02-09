@@ -2746,6 +2746,7 @@ class ScanAsYouShopApp {
                 try {
                     window.ui.showLoading(`Conectando con ERP para ${almacen}...`);
                     const erpPayload = this.buildErpOrderPayload(cart, almacen);
+                    console.log('ERP create-order POST payload (detalles enviados):', JSON.stringify(erpPayload, null, 2));
                     await window.erpClient.createRemoteOrder(erpPayload);
                     console.log('Pedido enviado al ERP correctamente');
                 } catch (erpError) {

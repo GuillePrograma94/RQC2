@@ -174,8 +174,15 @@ class ERPClient {
             }
 
             if (!response.ok) {
+                if (data && typeof data === 'object') {
+                    console.error('ERP create-order respuesta de error:', data);
+                    if (data.missing && data.missing.length) {
+                        console.error('Variables de Vercel que faltan:', data.missing.join(', '));
+                    }
+                }
                 const statusMessage = data && data.message ? data.message : response.statusText;
-                throw new Error(`ERP error ${response.status}: ${statusMessage}`);
+                const missingInfo = data && data.missing && data.missing.length ? ' Faltan en Vercel: ' + data.missing.join(', ') : '';
+                throw new Error(`ERP error ${response.status}: ${statusMessage}${missingInfo}`);
             }
 
             return data;
