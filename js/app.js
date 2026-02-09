@@ -2704,15 +2704,15 @@ class ScanAsYouShopApp {
     /**
      * Construye el payload del pedido para el ERP.
      * serie = almacen destino (donde recoge). centro_venta = almacen habitual del cliente.
-     * Solo se usan valores permitidos definidos en erp-pedido-opciones.js.
+     * referencia: si se pasa, se usa (ej: RQC/id-codigo_qr); si no, fallback con timestamp.
      */
-    buildErpOrderPayload(cart, almacen) {
+    buildErpOrderPayload(cart, almacen, referencia) {
         const almacenHabitual = this.currentUser ? this.currentUser.almacen_habitual : null;
         const { serie, centro_venta } = typeof ERP_PEDIDO_OPCIONES !== 'undefined'
             ? ERP_PEDIDO_OPCIONES.getSerieYCentroVenta(almacen, almacenHabitual)
             : { serie: 'BT7', centro_venta: '1' };
 
-        const referencia = 'PEDIDO_TIENDA_' + (Date.now ? Date.now() : String(Math.random()).slice(2, 10));
+        const ref = referencia != null && referencia !== '' ? referencia : ('PEDIDO_TIENDA_' + (Date.now ? Date.now() : String(Math.random()).slice(2, 10)));
         const lineas = (cart.productos || []).map((p) => ({
             codigo_articulo: p.codigo_producto || p.codigo,
             unidades: p.cantidad != null ? p.cantidad : 0
@@ -2722,7 +2722,7 @@ class ScanAsYouShopApp {
             codigo_cliente: this.currentUser ? this.currentUser.codigo_usuario : null,
             serie: serie,
             centro_venta: centro_venta,
-            referencia: referencia,
+            referencia: ref,
             observaciones: '',
             lineas: lineas
         };
@@ -2750,21 +2750,6 @@ class ScanAsYouShopApp {
             // Mostrar loading
             window.ui.showLoading(`Enviando pedido a ${almacen}...`);
 
-            let erpResponse = null;
-            if (window.erpClient && (window.erpClient.proxyPath || window.erpClient.createOrderPath)) {
-                try {
-                    window.ui.showLoading(`Conectando con ERP para ${almacen}...`);
-                    const erpPayload = this.buildErpOrderPayload(cart, almacen);
-                    console.log('ERP create-order POST payload (detalles enviados):', JSON.stringify(erpPayload, null, 2));
-                    erpResponse = await window.erpClient.createRemoteOrder(erpPayload);
-                    console.log('Pedido enviado al ERP correctamente');
-                } catch (erpError) {
-                    console.warn('Error al enviar al ERP (continuando con Supabase):', erpError);
-                }
-            } else {
-                console.log('ERP no configurado o endpoint de pedidos no disponible aun');
-            }
-
             window.ui.showLoading(`Enviando pedido a ${almacen}...`);
 
             const result = await window.supabaseClient.crearPedidoRemoto(
@@ -2774,6 +2759,23 @@ class ScanAsYouShopApp {
 
             if (!result.success) {
                 throw new Error(result.message || 'Error al crear pedido remoto');
+            }
+
+            const referencia = 'RQC/' + result.carrito_id + '-' + result.codigo_qr;
+
+            let erpResponse = null;
+            if (window.erpClient && (window.erpClient.proxyPath || window.erpClient.createOrderPath)) {
+                try {
+                    window.ui.showLoading(`Conectando con ERP para ${almacen}...`);
+                    const erpPayload = this.buildErpOrderPayload(cart, almacen, referencia);
+                    console.log('ERP create-order POST payload (detalles enviados):', JSON.stringify(erpPayload, null, 2));
+                    erpResponse = await window.erpClient.createRemoteOrder(erpPayload);
+                    console.log('Pedido enviado al ERP correctamente');
+                } catch (erpError) {
+                    console.warn('Error al enviar al ERP (continuando con Supabase):', erpError);
+                }
+            } else {
+                console.log('ERP no configurado o endpoint de pedidos no disponible aun');
             }
 
             const pedidoErp = erpResponse && erpResponse.data && erpResponse.data.pedido != null ? erpResponse.data.pedido : null;
