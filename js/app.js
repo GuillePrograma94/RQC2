@@ -73,14 +73,14 @@ class ScanAsYouShopApp {
                 window.purchaseCache.preload(savedUser.user_id);
             }
 
-            // Solicitar permisos de notificaciones para sesion guardada
-            await this.requestNotificationPermission();
-
-            // Configurar listener de cambios de estado de pedidos
+            // Configurar listener de cambios de estado de pedidos (no bloquea)
             this.setupOrderStatusListener();
 
-            // Inicializar app (solo con usuario logueado)
+            // Inicializar app primero para ocultar loading; no bloquear en permisos de notificaciones
             await this.initializeApp();
+
+            // Solicitar permisos de notificaciones en segundo plano (no bloquear la entrada a la app)
+            this.requestNotificationPermission().catch(() => {});
 
             // Cargar ofertas en segundo plano si no estan en cache
             this.loadOfertasIfNeeded();
@@ -219,15 +219,15 @@ class ScanAsYouShopApp {
 
                 // Precargar historial de compras en segundo plano (Phase 2 - Cache)
                 if (window.purchaseCache) {
-                    console.log('🚀 Precargando historial de compras...');
+                    console.log('Precargando historial de compras...');
                     window.purchaseCache.preload(this.currentUser.user_id);
                 }
 
-                // Solicitar permisos de notificaciones
-                await this.requestNotificationPermission();
-
                 // Configurar listener de cambios de estado de pedidos
                 this.setupOrderStatusListener();
+
+                // Solicitar permisos de notificaciones en segundo plano (no bloquear)
+                this.requestNotificationPermission().catch(() => {});
 
             } else {
                 this.showLoginError(loginResult.message || 'Usuario o contraseña incorrectos');
