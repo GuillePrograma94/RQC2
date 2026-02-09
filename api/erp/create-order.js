@@ -1,10 +1,8 @@
 /**
  * Serverless function para Vercel
- * Crea pedidos en ERP usando variables de entorno
- * 
- * NOTA: El endpoint de crear pedido en el ERP aún no está disponible.
- * Este proxy está preparado para cuando el endpoint esté listo.
- * Por ahora, si ERP_CREATE_ORDER_PATH no está configurado, retornará error.
+ * Crea pedidos en ERP via POST al endpoint configurado en ERP_CREATE_ORDER_PATH.
+ * Ejemplo: ERP_CREATE_ORDER_PATH=/pedidos/crear -> https://.../api/tienda/v1/pedidos/crear
+ * Reenvia el body del POST (serie, centro_venta, lineas, etc.) con Bearer token.
  */
 
 const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
@@ -35,14 +33,13 @@ module.exports = async (req, res) => {
     if (!baseUrl || !createOrderPath || !username || !password) {
         const missing = [];
         if (!baseUrl) missing.push('ERP_BASE_URL');
-        if (!createOrderPath) missing.push('ERP_CREATE_ORDER_PATH (aun no disponible en el ERP)');
+        if (!createOrderPath) missing.push('ERP_CREATE_ORDER_PATH');
         if (!username) missing.push('ERP_USER');
         if (!password) missing.push('ERP_PASSWORD');
         
         res.status(500).json({ 
             message: 'ERP no esta completamente configurado',
-            missing: missing,
-            note: 'El endpoint de crear pedido aun no esta disponible en el ERP'
+            missing: missing
         });
         return;
     }

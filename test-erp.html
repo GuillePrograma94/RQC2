@@ -337,7 +337,7 @@
         // Inicializar URLs
         document.getElementById('url-test').textContent = `GET ${baseUrl}/api/erp/test`;
         document.getElementById('url-login').textContent = `POST ${baseUrl}/api/erp/login`;
-        document.getElementById('url-pedidos').textContent = `GET/POST ${baseUrl}/api/erp/pedidos-prueba`;
+        document.getElementById('url-pedidos').textContent = `GET/POST ${baseUrl}/api/erp/pedidos`;
         document.getElementById('url-pvp').textContent = `GET ${baseUrl}/api/erp/pvp?codigo=XXX`;
         
         let savedToken = null;
@@ -443,7 +443,7 @@
                     headers['Authorization'] = `Bearer ${savedToken}`;
                 }
                 
-                const response = await fetch(`${baseUrl}/api/erp/pedidos-prueba`, {
+                const response = await fetch(`${baseUrl}/api/erp/pedidos`, {
                     method: 'GET',
                     headers: headers
                 });
@@ -533,7 +533,7 @@
                     headers['Authorization'] = `Bearer ${savedToken}`;
                 }
                 
-                const response = await fetch(`${baseUrl}/api/erp/pedidos-prueba`, {
+                const response = await fetch(`${baseUrl}/api/erp/pedidos`, {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify(payload)

@@ -51,20 +51,18 @@ Variables para ERP (no se exponen al frontend):
 
 **URL del ERP**: La API del ERP funciona en HTTPS en el puerto 5002. Usa siempre `https://` en `ERP_BASE_URL`.
 
-**NOTA IMPORTANTE**: El endpoint de crear pedido está en desarrollo. Cuando esté disponible, se configurará `ERP_CREATE_ORDER_PATH`. 
-Los endpoints disponibles actualmente son solo para pruebas:
+Endpoints del ERP:
 - `POST /api/tienda/v1/login` - Obtener token
 - `GET /api/tienda/v1/test` - Probar conectividad
+- `POST /api/tienda/v1/pedidos/crear` - Crear pedido (serie, centro_venta, lineas, etc.)
 - `GET /api/tienda/v1/pedidos/prueba` - Probar pedidos (con token)
 - `GET /api/tienda/v1/articulos/pvp?codigo=XXX` - Obtener PVP (con token)
 
-Cuando el endpoint de crear pedido esté listo, solo necesitarás configurar `ERP_CREATE_ORDER_PATH`.
-
 | Key | Value | Estado |
 |-----|-------|--------|
-| `ERP_BASE_URL` | Base URL del ERP en HTTPS (ej: `https://tu-servidor:5002/api/tienda/v1`) | Requerido |
+| `ERP_BASE_URL` | Base URL del ERP en HTTPS (ej: `https://api.saneamiento-martinez.com:5002/api/tienda/v1`) | Requerido |
 | `ERP_LOGIN_PATH` | Ruta de login del ERP: `/login` | Requerido |
-| `ERP_CREATE_ORDER_PATH` | Ruta de creación de pedidos (aún no disponible) | Opcional por ahora |
+| `ERP_CREATE_ORDER_PATH` | Ruta de crear pedido: `/pedidos/crear` | Requerido |
 | `ERP_USER` | Usuario del ERP (ej: `TIENDA_PRU`) | Requerido |
 | `ERP_PASSWORD` | Contraseña del ERP | Requerido |
 | `ERP_REQUEST_TIMEOUT_MS` | Timeout en ms (ej: `15000`) | Opcional |
@@ -204,13 +202,13 @@ curl -X POST https://tu-proyecto.vercel.app/api/erp/login
 ```
 
 ### 3. Probar Endpoint de Pedidos
-**Endpoint**: `GET https://tu-proyecto.vercel.app/api/erp/pedidos-prueba`
+**Endpoint**: `GET https://tu-proyecto.vercel.app/api/erp/pedidos`
 
 Prueba el endpoint `GET /api/tienda/v1/pedidos/prueba`. Hace login automáticamente.
 
 **Ejemplo con curl**:
 ```bash
-curl https://tu-proyecto.vercel.app/api/erp/pedidos-prueba
+curl https://tu-proyecto.vercel.app/api/erp/pedidos
 ```
 
 ### 4. Probar Endpoint de PVP
@@ -230,14 +228,14 @@ curl "https://tu-proyecto.vercel.app/api/erp/pvp?codigo=0004223500340"
 
 1. **Primero**: Prueba `/api/erp/test` para verificar conectividad
 2. **Segundo**: Prueba `/api/erp/login` para verificar credenciales
-3. **Tercero**: Prueba `/api/erp/pedidos-prueba` para verificar token Bearer
+3. **Tercero**: Prueba `/api/erp/pedidos` para verificar token Bearer
 4. **Cuarto**: Prueba `/api/erp/pvp` para verificar endpoint de artículos
 
 ### Probar desde el Navegador
 
 También puedes probar directamente en el navegador (solo GET):
 - `https://tu-proyecto.vercel.app/api/erp/test`
-- `https://tu-proyecto.vercel.app/api/erp/pedidos-prueba`
+- `https://tu-proyecto.vercel.app/api/erp/pedidos`
 - `https://tu-proyecto.vercel.app/api/erp/pvp?codigo=0004223500340`
 
 ## Logs y Debugging
@@ -245,7 +243,7 @@ También puedes probar directamente en el navegador (solo GET):
 Ver logs en tiempo real:
 1. Ve a tu proyecto en Vercel
 2. Deployments → (último deployment)
-3. Functions → `/api/config`, `/api/erp/test`, `/api/erp/login`, `/api/erp/pedidos-prueba`, `/api/erp/pvp`
+3. Functions → `/api/config`, `/api/erp/test`, `/api/erp/login`, `/api/erp/pedidos`, `/api/erp/pvp`
 4. Revisa los logs
 
 ### Depurar error de conexion ERP (funciona por URL pero no desde Vercel)

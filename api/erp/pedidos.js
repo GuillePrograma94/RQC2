@@ -1,8 +1,8 @@
 /**
  * Serverless function para Vercel
- * Prueba el endpoint de pedidos usando GET o POST /api/tienda/v1/pedidos/prueba
+ * Endpoint de pedidos: GET o POST al ERP /api/tienda/v1/pedidos/prueba
  * Requiere token Bearer (hace login automaticamente)
- * 
+ *
  * GET: Prueba simple sin payload
  * POST: Prueba con payload completo del pedido
  */
@@ -37,8 +37,8 @@ module.exports = async (req, res) => {
         if (!baseUrl) missing.push('ERP_BASE_URL');
         if (!username) missing.push('ERP_USER');
         if (!password) missing.push('ERP_PASSWORD');
-        
-        res.status(500).json({ 
+
+        res.status(500).json({
             message: 'ERP no esta completamente configurado',
             missing: missing
         });
@@ -46,7 +46,6 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // Intentar obtener token del header Authorization o del body/query
         let token = null;
         const authHeader = req.headers.authorization || req.headers.Authorization || '';
         if (authHeader.startsWith('Bearer ')) {
@@ -56,8 +55,7 @@ module.exports = async (req, res) => {
         } else if (req.query && req.query.token) {
             token = req.query.token;
         }
-        
-        // Si no hay token, hacer login
+
         if (!token) {
             token = await loginToErp({
                 baseUrl,
@@ -85,7 +83,7 @@ module.exports = async (req, res) => {
         const response = await fetchWithTimeout(url, requestOptions, timeoutMs);
 
         const data = await parseJsonResponse(response);
-        
+
         if (!response.ok) {
             const statusMessage = data && data.message ? data.message : response.statusText;
             const errorDetails = {
@@ -97,11 +95,11 @@ module.exports = async (req, res) => {
                 payloadKeys: method === 'POST' && req.body ? Object.keys(req.body) : [],
                 erpResponse: data
             };
-            
+
             if (response.status === 404) {
                 throw new Error(`Endpoint no encontrado (404). El endpoint ${method} ${url} no existe en el ERP. Verifica que el endpoint este disponible o que el metodo sea correcto. Detalles: ${JSON.stringify(errorDetails)}`);
             }
-            
+
             throw new Error(`ERP pedidos error ${response.status}: ${statusMessage}. Detalles: ${JSON.stringify(errorDetails)}`);
         }
 
@@ -115,7 +113,7 @@ module.exports = async (req, res) => {
             tokenUsed: token.substring(0, 20) + '...'
         });
     } catch (error) {
-        res.status(502).json({ 
+        res.status(502).json({
             success: false,
             message: error.message || 'Error al probar endpoint de pedidos',
             error: error.toString()
