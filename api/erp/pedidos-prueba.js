@@ -7,6 +7,8 @@
  * POST: Prueba con payload completo del pedido
  */
 
+const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -141,35 +143,4 @@ async function loginToErp({ baseUrl, loginPath, username, password, timeoutMs })
     }
 
     return token;
-}
-
-async function fetchWithTimeout(url, options, timeoutMs) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        return await fetch(url, {
-            ...options,
-            signal: controller.signal
-        });
-    } finally {
-        clearTimeout(timeoutId);
-    }
-}
-
-async function parseJsonResponse(response) {
-    const responseText = await response.text();
-    if (!responseText) {
-        return null;
-    }
-    try {
-        return JSON.parse(responseText);
-    } catch (error) {
-        return responseText;
-    }
-}
-
-function buildUrl(baseUrl, path) {
-    const base = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${base}${cleanPath}`;
 }

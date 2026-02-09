@@ -3,6 +3,8 @@
  * Prueba la conectividad con el ERP usando GET /api/tienda/v1/test
  */
 
+const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -40,7 +42,6 @@ module.exports = async (req, res) => {
         }, timeoutMs);
 
         const data = await parseJsonResponse(response);
-        
         if (!response.ok) {
             const statusMessage = data && data.message ? data.message : response.statusText;
             throw new Error(`ERP test error ${response.status}: ${statusMessage}`);
@@ -71,34 +72,3 @@ module.exports = async (req, res) => {
         });
     }
 };
-
-async function fetchWithTimeout(url, options, timeoutMs) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        return await fetch(url, {
-            ...options,
-            signal: controller.signal
-        });
-    } finally {
-        clearTimeout(timeoutId);
-    }
-}
-
-async function parseJsonResponse(response) {
-    const responseText = await response.text();
-    if (!responseText) {
-        return null;
-    }
-    try {
-        return JSON.parse(responseText);
-    } catch (error) {
-        return responseText;
-    }
-}
-
-function buildUrl(baseUrl, path) {
-    const base = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${base}${cleanPath}`;
-}
