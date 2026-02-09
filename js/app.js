@@ -41,6 +41,9 @@ class ScanAsYouShopApp {
             window.ui.initialize();
             window.ui.showLoading('Iniciando aplicacion...');
 
+            // Configurar pantalla de acceso (gate) para visitantes sin sesion
+            this.setupGateScreen();
+
             // Inicializar Supabase
             const supabaseOK = await window.supabaseClient.initialize();
             if (!supabaseOK) {
@@ -52,30 +55,34 @@ class ScanAsYouShopApp {
                 window.erpClient.initialize();
             }
 
-            // Verificar si hay sesión guardada
+            // Verificar si hay sesion guardada: sin usuario solo se muestra la landing
             const savedUser = this.loadUserSession();
-            if (savedUser) {
-                console.log('Sesion de usuario encontrada:', savedUser.user_name);
-                this.currentUser = savedUser;
-                this.updateUserUI();
-                
-                // Precargar historial de compras en segundo plano (Phase 2 - Cache)
-                if (window.purchaseCache && savedUser.user_id) {
-                    console.log('🚀 Precargando historial para sesión guardada...');
-                    window.purchaseCache.preload(savedUser.user_id);
-                }
-
-                // Solicitar permisos de notificaciones para sesión guardada
-                await this.requestNotificationPermission();
-
-                // Configurar listener de cambios de estado de pedidos
-                this.setupOrderStatusListener();
+            if (!savedUser) {
+                this.showLanding();
+                window.ui.hideLoading();
+                return;
             }
 
-            // Inicializar app (con o sin usuario logueado)
+            console.log('Sesion de usuario encontrada:', savedUser.user_name);
+            this.currentUser = savedUser;
+            this.updateUserUI();
+
+            // Precargar historial de compras en segundo plano (Phase 2 - Cache)
+            if (window.purchaseCache && savedUser.user_id) {
+                console.log('Precargando historial para sesion guardada...');
+                window.purchaseCache.preload(savedUser.user_id);
+            }
+
+            // Solicitar permisos de notificaciones para sesion guardada
+            await this.requestNotificationPermission();
+
+            // Configurar listener de cambios de estado de pedidos
+            this.setupOrderStatusListener();
+
+            // Inicializar app (solo con usuario logueado)
             await this.initializeApp();
-            
-            // Cargar ofertas en segundo plano si no están en cache
+
+            // Cargar ofertas en segundo plano si no estan en cache
             this.loadOfertasIfNeeded();
 
         } catch (error) {
@@ -86,6 +93,34 @@ class ScanAsYouShopApp {
                 'error'
             );
         }
+    }
+
+    /**
+     * Configura la pantalla de acceso (gate): boton que abre el login
+     */
+    setupGateScreen() {
+        const gateLoginBtn = document.getElementById('gateLoginBtn');
+        if (gateLoginBtn) {
+            gateLoginBtn.addEventListener('click', () => this.showLoginModal());
+        }
+    }
+
+    /**
+     * Muestra la pantalla de acceso (solo visitantes sin sesion)
+     */
+    showLanding() {
+        document.body.classList.add('gate-visible');
+        const gateScreen = document.getElementById('gateScreen');
+        if (gateScreen) gateScreen.setAttribute('aria-hidden', 'false');
+    }
+
+    /**
+     * Oculta la pantalla de acceso y muestra la app
+     */
+    hideLanding() {
+        document.body.classList.remove('gate-visible');
+        const gateScreen = document.getElementById('gateScreen');
+        if (gateScreen) gateScreen.setAttribute('aria-hidden', 'true');
     }
 
     /**
@@ -167,12 +202,18 @@ class ScanAsYouShopApp {
                 // Actualizar UI con nombre del usuario
                 this.updateUserUI();
 
-                // Ocultar modal de login
+                // Ocultar modal de login y pantalla de acceso (gate)
                 this.hideLoginModal();
-                
+                this.hideLanding();
+
                 // Cerrar menú
                 this.closeMenu();
-                
+
+                // Inicializar app si aun no se ha hecho (primer login desde la landing)
+                if (!this.isInitialized) {
+                    await this.initializeApp();
+                }
+
                 // Mostrar mensaje de bienvenida
                 window.ui.showToast(`Bienvenido, ${this.currentUser.user_name}`, 'success');
 
@@ -566,8 +607,11 @@ class ScanAsYouShopApp {
             // Actualizar UI
             this.updateUserUI();
 
+            // Mostrar pantalla de acceso (solo usuarios logueados pueden usar la app)
+            this.showLanding();
+
             // Mostrar mensaje
-            window.ui.showToast('Sesión cerrada', 'success');
+            window.ui.showToast('Sesion cerrada', 'success');
 
             console.log('Sesion cerrada correctamente');
 

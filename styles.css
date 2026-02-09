@@ -131,6 +131,115 @@ body {
 }
 
 /* ========================================
+   GATE / LANDING (acceso solo con login)
+   ======================================== */
+.gate-screen {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9000;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    overflow: auto;
+}
+
+body.gate-visible .gate-screen {
+    display: flex;
+}
+
+body.gate-visible .app-header-fixed,
+body.gate-visible .menu-sidebar,
+body.gate-visible .menu-overlay,
+body.gate-visible .app-container {
+    display: none !important;
+}
+
+.gate-background {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(160deg, var(--primary-darker) 0%, var(--primary) 35%, var(--primary-light) 100%);
+    z-index: -1;
+}
+
+.gate-background::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255,255,255,0.15) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.gate-content {
+    text-align: center;
+    max-width: 360px;
+    width: 100%;
+}
+
+.gate-logo {
+    margin-bottom: 1.5rem;
+}
+
+.gate-logo-img {
+    width: 96px;
+    height: 96px;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    object-fit: cover;
+}
+
+.gate-title {
+    color: var(--white);
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.gate-subtitle {
+    color: rgba(255,255,255,0.95);
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: 1.25rem;
+}
+
+.gate-description {
+    color: rgba(255,255,255,0.85);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 2rem;
+}
+
+.gate-cta {
+    display: inline-block;
+    background: var(--white);
+    color: var(--primary);
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0.9rem 2rem;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gate-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+
+.gate-cta:active {
+    transform: translateY(0);
+}
+
+/* ========================================
    HEADER FIJO
    ======================================== */
 .app-header-fixed {
