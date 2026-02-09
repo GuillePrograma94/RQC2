@@ -49,7 +49,9 @@ En la sección **Environment Variables**, añade:
 
 Variables para ERP (no se exponen al frontend):
 
-**NOTA IMPORTANTE**: El endpoint de crear pedido aún no está disponible en el ERP. 
+**URL del ERP**: La API del ERP funciona en HTTPS en el puerto 5002. Usa siempre `https://` en `ERP_BASE_URL`.
+
+**NOTA IMPORTANTE**: El endpoint de crear pedido está en desarrollo. Cuando esté disponible, se configurará `ERP_CREATE_ORDER_PATH`. 
 Los endpoints disponibles actualmente son solo para pruebas:
 - `POST /api/tienda/v1/login` - Obtener token
 - `GET /api/tienda/v1/test` - Probar conectividad
@@ -60,7 +62,7 @@ Cuando el endpoint de crear pedido esté listo, solo necesitarás configurar `ER
 
 | Key | Value | Estado |
 |-----|-------|--------|
-| `ERP_BASE_URL` | Base URL del ERP (ej: `http://IP:PUERTO/api/tienda/v1`) | Requerido |
+| `ERP_BASE_URL` | Base URL del ERP en HTTPS (ej: `https://tu-servidor:5002/api/tienda/v1`) | Requerido |
 | `ERP_LOGIN_PATH` | Ruta de login del ERP: `/login` | Requerido |
 | `ERP_CREATE_ORDER_PATH` | Ruta de creación de pedidos (aún no disponible) | Opcional por ahora |
 | `ERP_USER` | Usuario del ERP (ej: `TIENDA_PRU`) | Requerido |
@@ -245,6 +247,25 @@ Ver logs en tiempo real:
 2. Deployments → (último deployment)
 3. Functions → `/api/config`, `/api/erp/test`, `/api/erp/login`, `/api/erp/pedidos-prueba`, `/api/erp/pvp`
 4. Revisa los logs
+
+### Depurar error de conexion ERP (funciona por URL pero no desde Vercel)
+
+Si la URL del ERP responde en el navegador (ej: `https://api.tudominio.com:5002/api/tienda/v1/test`) pero `/api/erp/test` en Vercel devuelve 502:
+
+1. **Ver la respuesta de error**: Llama a `GET https://tu-proyecto.vercel.app/api/erp/test` y abre la respuesta JSON. Incluye un objeto `debug` con:
+   - `urlAttempted`: URL que esta usando Vercel (comprueba que sea la correcta).
+   - `baseUrlFromEnv`: Valor de `ERP_BASE_URL` (comprueba que no tenga espacios, que sea `https://...` y que no incluya `/test` al final).
+   - `errorCode` / `errorMessage`: motivo del fallo.
+
+2. **Comprobar variable en Vercel**: En Settings → Environment Variables, `ERP_BASE_URL` debe ser exactamente la base **sin** `/test`, por ejemplo:
+   - Correcto: `https://api.saneamiento-martinez.com:5002/api/tienda/v1`
+   - Incorrecto: `https://api.saneamiento-martinez.com:5002/api/tienda/v1/test` (el endpoint anade `/test`).
+
+3. **Error de certificado SSL**: Si en `debug.errorCode` o en el mensaje aparece algo como `UNABLE_TO_VERIFY_LEAF_SIGNATURE`, `certificate has expired` o `self signed certificate`, el servidor ERP usa un certificado que Node.js (en Vercel) no acepta. Soluciones:
+   - Que el ERP use un certificado SSL valido (ej: Let's Encrypt) para ese dominio y puerto.
+   - Si es entorno interno y no puedes cambiar el certificado, se puede desactivar la verificacion SSL solo para esa peticion (no recomendado en produccion); en ese caso se puede anadir una opcion con variable de entorno.
+
+4. **Redeploy**: Despues de cambiar cualquier variable de entorno, haz un nuevo deploy para que las funciones usen el valor actualizado.
 
 ## Alternativa: Configuración Manual (sin serverless)
 

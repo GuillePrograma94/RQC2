@@ -30,12 +30,17 @@ supabase.table('productos').upsert({
 
 ### 1. Función RPC Personalizada
 
-Se creó `upsert_productos_masivo_con_fecha()` que **SIEMPRE** actualiza `fecha_actualizacion`, incluso si los datos son idénticos.
+Se creó `upsert_productos_masivo_con_fecha()` que actualiza `fecha_actualizacion` **solo cuando los datos (descripcion, pvp) cambian**.
+
+**Comportamiento**:
+- Si el producto existe y descripcion/pvp son **iguales** → no se toca `fecha_actualizacion` (evita marcar todo como "modificado" en cada ejecución de generate_supabase_file).
+- Si el producto existe y descripcion/pvp **cambian** → se actualiza `fecha_actualizacion = NOW()`.
+- Si el producto es nuevo → INSERT con fechas actuales.
 
 **Ventajas**:
-- ✅ Fuerza la actualización de fecha
-- ✅ Funciona con lotes (más eficiente)
-- ✅ Compatible con Supabase/PostgreSQL
+- ✅ Sincronización incremental detecta solo cambios reales.
+- ✅ Funciona con lotes (más eficiente).
+- ✅ Compatible con Supabase/PostgreSQL.
 
 ### 2. Modificación en `supabase_manager.py`
 
@@ -45,7 +50,7 @@ El código ahora usa la función RPC en lugar de `upsert()` directo:
 # ANTES (no funciona con datos idénticos):
 result = self.client.table('productos').upsert(batch).execute()
 
-# AHORA (siempre actualiza fecha):
+# AHORA (actualiza fecha solo cuando descripcion/pvp cambian):
 result = self.client.rpc(
     'upsert_productos_masivo_con_fecha',
     {'productos_json': batch}

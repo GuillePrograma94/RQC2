@@ -31,8 +31,9 @@ module.exports = async (req, res) => {
         return;
     }
 
+    const url = buildUrl(baseUrl, testPath);
+
     try {
-        const url = buildUrl(baseUrl, testPath);
         const response = await fetchWithTimeout(url, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' }
@@ -52,10 +53,21 @@ module.exports = async (req, res) => {
             url: url
         });
     } catch (error) {
-        res.status(502).json({ 
+        const debug = {
+            urlAttempted: url,
+            baseUrlFromEnv: baseUrl || '(vacio)',
+            errorName: error.name,
+            errorCode: error.code || null,
+            errorMessage: error.message
+        };
+        if (error.cause) {
+            debug.errorCause = String(error.cause);
+        }
+        res.status(502).json({
             success: false,
             message: error.message || 'Error al conectar con ERP',
-            error: error.toString()
+            error: error.toString(),
+            debug: debug
         });
     }
 };

@@ -228,24 +228,20 @@ ON codigos_secundarios(fecha_creacion DESC, codigo_secundario);
 -- que la sincronización incremental funcione correctamente.
 
 -- Trigger para productos
--- IMPORTANTE: En Supabase, cuando se hace UPSERT con datos idénticos,
--- PostgreSQL puede optimizar y no ejecutar el UPDATE, por lo que este trigger
--- puede no dispararse. Para garantizar que fecha_actualizacion se actualice,
--- debemos usar una función RPC personalizada (ver más abajo).
+-- Solo actualizar fecha_actualizacion cuando los datos (descripcion, pvp) cambian.
+-- Si son idénticos, no tocar fecha para no marcar todo como "modificado" en cada subida.
 CREATE OR REPLACE FUNCTION actualizar_fecha_productos()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Si es un UPDATE, SIEMPRE actualizar fecha_actualizacion
-    -- Esto asegura que se detecten cambios incluso si los datos son idénticos
     IF TG_OP = 'UPDATE' THEN
-        -- SIEMPRE actualizar fecha_actualizacion en UPDATE
-        -- Esto es necesario porque PostgreSQL puede optimizar UPSERTs
-        -- y no ejecutar UPDATE si los datos son idénticos
-        NEW.fecha_actualizacion = NOW();
-        -- Mantener fecha_creacion original (no cambiar)
+        -- Solo actualizar fecha_actualizacion cuando hay cambio real en descripcion o pvp
+        IF OLD.descripcion IS DISTINCT FROM NEW.descripcion OR OLD.pvp IS DISTINCT FROM NEW.pvp THEN
+            NEW.fecha_actualizacion = NOW();
+        ELSE
+            NEW.fecha_actualizacion = OLD.fecha_actualizacion;
+        END IF;
         NEW.fecha_creacion = OLD.fecha_creacion;
     ELSIF TG_OP = 'INSERT' THEN
-        -- En INSERT, asegurar que las fechas se establezcan si no vienen
         IF NEW.fecha_creacion IS NULL THEN
             NEW.fecha_creacion = NOW();
         END IF;
@@ -265,18 +261,18 @@ CREATE TRIGGER trigger_actualizar_fecha_productos
     EXECUTE FUNCTION actualizar_fecha_productos();
 
 -- Trigger para códigos secundarios
--- IMPORTANTE: Similar al trigger de productos, siempre actualiza fecha_actualizacion
+-- Solo actualizar fecha_actualizacion cuando los datos (descripcion, codigo_principal) cambian.
 CREATE OR REPLACE FUNCTION actualizar_fecha_codigos_secundarios()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Si es un UPDATE, SIEMPRE actualizar fecha_actualizacion
     IF TG_OP = 'UPDATE' THEN
-        -- SIEMPRE actualizar fecha_actualizacion en UPDATE
-        NEW.fecha_actualizacion = NOW();
-        -- Mantener fecha_creacion original (no cambiar)
+        IF OLD.descripcion IS DISTINCT FROM NEW.descripcion OR OLD.codigo_principal IS DISTINCT FROM NEW.codigo_principal THEN
+            NEW.fecha_actualizacion = NOW();
+        ELSE
+            NEW.fecha_actualizacion = OLD.fecha_actualizacion;
+        END IF;
         NEW.fecha_creacion = OLD.fecha_creacion;
     ELSIF TG_OP = 'INSERT' THEN
-        -- En INSERT, asegurar que las fechas se establezcan si no vienen
         IF NEW.fecha_creacion IS NULL THEN
             NEW.fecha_creacion = NOW();
         END IF;
@@ -304,14 +300,13 @@ COMMENT ON FUNCTION actualizar_fecha_codigos_secundarios IS
 Mantiene fecha_creacion sin cambios.';
 
 -- ============================================================
--- 6. Función RPC para UPSERT que SIEMPRE actualiza fecha_actualizacion
+-- 6. Función RPC para UPSERT que actualiza fecha_actualizacion solo cuando los datos cambian
 -- ============================================================
--- IMPORTANTE: En Supabase/PostgreSQL, cuando haces UPSERT con datos idénticos,
--- PostgreSQL puede optimizar y no ejecutar el UPDATE, por lo que los triggers
--- no se disparan. Esta función fuerza la actualización de fecha_actualizacion
--- incluso cuando los datos son idénticos.
+-- IMPORTANTE: Solo actualizamos fecha_actualizacion cuando descripcion/pvp (o codigo_principal
+-- en códigos) cambian. Así evitamos marcar todo como "modificado" en cada ejecución de
+-- generate_supabase_file.
 
--- Función para UPSERT de productos que siempre actualiza fecha_actualizacion
+-- Función para UPSERT de productos (actualiza fecha solo cuando descripcion o pvp cambian)
 CREATE OR REPLACE FUNCTION upsert_producto_con_fecha(
     p_codigo TEXT,
     p_descripcion TEXT,
@@ -334,16 +329,21 @@ BEGIN
     SELECT EXISTS(SELECT 1 FROM productos WHERE productos.codigo = p_codigo) INTO v_existe;
     
     IF v_existe THEN
-        -- UPDATE: Obtener fecha_creacion original y actualizar TODO incluyendo fecha_actualizacion
         SELECT productos.fecha_creacion INTO v_fecha_creacion_original
         FROM productos
         WHERE productos.codigo = p_codigo;
         
+        -- Solo actualizar fecha_actualizacion cuando descripcion o pvp cambian
         UPDATE productos
         SET 
             descripcion = p_descripcion,
             pvp = p_pvp,
-            fecha_actualizacion = NOW()  -- SIEMPRE actualizar fecha, incluso si datos son iguales
+            fecha_actualizacion = CASE
+                WHEN productos.descripcion IS DISTINCT FROM p_descripcion
+                  OR productos.pvp IS DISTINCT FROM p_pvp
+                THEN NOW()
+                ELSE productos.fecha_actualizacion
+            END
         WHERE productos.codigo = p_codigo;
         
         v_accion := 'UPDATE';
@@ -371,8 +371,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION upsert_producto_con_fecha IS 
-'UPSERT de producto que SIEMPRE actualiza fecha_actualizacion, incluso si los datos son idénticos.
-Necesario porque PostgreSQL puede optimizar UPSERTs y no ejecutar UPDATE si no hay cambios.';
+'UPSERT de producto. Solo actualiza fecha_actualizacion cuando descripcion o pvp cambian.';
 
 -- Función para UPSERT masivo de productos (más eficiente para lotes)
 -- Acepta JSONB directamente (Supabase convierte automáticamente arrays Python a JSONB)
@@ -409,23 +408,30 @@ BEGIN
             WHERE productos.codigo = v_codigo_prod
         ) INTO v_existe;
         
-        v_fecha_actual := NOW();
-        
         IF v_existe THEN
-            -- UPDATE: SIEMPRE actualizar fecha_actualizacion (incluso si datos son idénticos)
+            -- UPDATE: Solo actualizar fecha_actualizacion cuando los datos (descripcion, pvp) cambian.
+            -- Si son idénticos, no tocar fecha_actualizacion para no marcar todo como "modificado"
+            -- en cada ejecución de generate_supabase_file.
             UPDATE productos
             SET 
                 descripcion = v_descripcion,
                 pvp = v_pvp,
-                fecha_actualizacion = v_fecha_actual  -- Forzar actualización de fecha
+                fecha_actualizacion = CASE
+                    WHEN productos.descripcion IS DISTINCT FROM v_descripcion
+                      OR productos.pvp IS DISTINCT FROM v_pvp
+                    THEN NOW()
+                    ELSE productos.fecha_actualizacion
+                END
             WHERE productos.codigo = v_codigo_prod;
-            
+            -- Obtener la fecha resultante para el retorno
+            SELECT productos.fecha_actualizacion INTO v_fecha_actual
+            FROM productos WHERE productos.codigo = v_codigo_prod;
             v_accion := 'UPDATE';
         ELSE
+            v_fecha_actual := NOW();
             -- INSERT: Crear nuevo
             INSERT INTO productos (codigo, descripcion, pvp, fecha_creacion, fecha_actualizacion)
             VALUES (v_codigo_prod, v_descripcion, v_pvp, v_fecha_actual, v_fecha_actual);
-            
             v_accion := 'INSERT';
         END IF;
         
@@ -440,10 +446,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION upsert_productos_masivo_con_fecha IS 
-'UPSERT masivo de productos que SIEMPRE actualiza fecha_actualizacion.
-Recibe un JSONB con array de productos. Más eficiente que llamar upsert_producto_con_fecha múltiples veces.';
+'UPSERT masivo de productos. Solo actualiza fecha_actualizacion cuando descripcion o pvp cambian.
+Recibe un JSONB con array de productos.';
 
--- Función similar para códigos secundarios
+-- Función similar para códigos secundarios (solo actualiza fecha cuando cambian los datos)
 CREATE OR REPLACE FUNCTION upsert_codigo_secundario_con_fecha(
     p_codigo_secundario TEXT,
     p_descripcion TEXT,
@@ -459,21 +465,24 @@ DECLARE
     v_existe BOOLEAN;
     v_accion TEXT;
 BEGIN
-    -- Verificar si existe (usar nombre completo de tabla para evitar ambigüedad)
     SELECT EXISTS(SELECT 1 FROM codigos_secundarios WHERE codigos_secundarios.codigo_secundario = p_codigo_secundario) INTO v_existe;
     
     IF v_existe THEN
-        -- UPDATE: SIEMPRE actualizar fecha_actualizacion
+        -- Solo actualizar fecha_actualizacion cuando descripcion o codigo_principal cambian
         UPDATE codigos_secundarios
         SET 
             descripcion = p_descripcion,
             codigo_principal = p_codigo_principal,
-            fecha_actualizacion = NOW()  -- Forzar actualización
+            fecha_actualizacion = CASE
+                WHEN codigos_secundarios.descripcion IS DISTINCT FROM p_descripcion
+                  OR codigos_secundarios.codigo_principal IS DISTINCT FROM p_codigo_principal
+                THEN NOW()
+                ELSE codigos_secundarios.fecha_actualizacion
+            END
         WHERE codigos_secundarios.codigo_secundario = p_codigo_secundario;
         
         v_accion := 'UPDATE';
     ELSE
-        -- INSERT: Crear nuevo
         INSERT INTO codigos_secundarios (codigo_secundario, descripcion, codigo_principal, fecha_creacion, fecha_actualizacion)
         VALUES (p_codigo_secundario, p_descripcion, p_codigo_principal, NOW(), NOW());
         
@@ -493,7 +502,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION upsert_codigo_secundario_con_fecha IS 
-'UPSERT de código secundario que SIEMPRE actualiza fecha_actualizacion.';
+'UPSERT de código secundario. Solo actualiza fecha_actualizacion cuando descripcion o codigo_principal cambian.';
 
 -- ============================================================
 -- 7. Verificación y mensaje de éxito
@@ -523,8 +532,8 @@ BEGIN
     RAISE NOTICE 'NOTA IMPORTANTE:';
     RAISE NOTICE 'Para que la sincronización incremental funcione correctamente,';
     RAISE NOTICE 'debes usar las funciones upsert_*_con_fecha en lugar de upsert()';
-    RAISE NOTICE 'directo desde el cliente. Estas funciones SIEMPRE actualizan';
-    RAISE NOTICE 'fecha_actualizacion, incluso si los datos son idénticos.';
+    RAISE NOTICE 'directo desde el cliente. Estas funciones actualizan fecha_actualizacion';
+    RAISE NOTICE 'solo cuando los datos (descripcion, pvp, codigo_principal) cambian.';
     RAISE NOTICE '';
     RAISE NOTICE 'Prueba con:';
     RAISE NOTICE 'SELECT * FROM obtener_estadisticas_cambios(''tu_hash_local'');';
