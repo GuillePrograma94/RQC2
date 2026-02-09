@@ -6,6 +6,26 @@
 
 const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
 
+/**
+ * Adapta el payload del cliente al formato que espera el ERP en POST /pedidos/crear.
+ * El ERP exige lineas[] (minimo 1). El formulario de test envia articulos[].
+ */
+function buildCreateOrderPayload(body) {
+    const payload = Object.assign({}, body);
+    if (Array.isArray(payload.lineas) && payload.lineas.length > 0) {
+        return payload;
+    }
+    if (Array.isArray(payload.articulos) && payload.articulos.length > 0) {
+        payload.lineas = payload.articulos.map((a) => ({
+            codigo_articulo: a.codigo_articulo || a.codigo,
+            unidades: a.unidades != null ? a.unidades : a.cantidad
+        }));
+    } else {
+        payload.lineas = [];
+    }
+    return payload;
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -69,6 +89,12 @@ module.exports = async (req, res) => {
 
         const url = buildUrl(baseUrl, pathToCall);
         const method = req.method;
+        let bodyToSend = req.body;
+
+        if (method === 'POST' && bodyToSend && isPostWithPayload) {
+            bodyToSend = buildCreateOrderPayload(bodyToSend);
+        }
+
         const requestOptions = {
             method: method,
             headers: {
@@ -77,8 +103,8 @@ module.exports = async (req, res) => {
             }
         };
 
-        if (method === 'POST' && req.body) {
-            requestOptions.body = JSON.stringify(req.body);
+        if (method === 'POST' && bodyToSend) {
+            requestOptions.body = JSON.stringify(bodyToSend);
         }
 
         const response = await fetchWithTimeout(url, requestOptions, timeoutMs);

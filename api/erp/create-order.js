@@ -7,6 +7,26 @@
 
 const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
 
+/**
+ * Adapta el payload al formato del ERP: exige lineas[] (minimo 1).
+ * Si el cliente envia articulos[], se mapean a lineas[].
+ */
+function buildCreateOrderPayload(body) {
+    const payload = Object.assign({}, body);
+    if (Array.isArray(payload.lineas) && payload.lineas.length > 0) {
+        return payload;
+    }
+    if (Array.isArray(payload.articulos) && payload.articulos.length > 0) {
+        payload.lineas = payload.articulos.map((a) => ({
+            codigo_articulo: a.codigo_articulo || a.codigo,
+            unidades: a.unidades != null ? a.unidades : a.cantidad
+        }));
+    } else {
+        payload.lineas = [];
+    }
+    return payload;
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -57,7 +77,7 @@ module.exports = async (req, res) => {
             baseUrl,
             createOrderPath,
             token,
-            payload: req.body || {},
+            payload: buildCreateOrderPayload(req.body || {}),
             timeoutMs
         });
 
