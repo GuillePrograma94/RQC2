@@ -54,6 +54,11 @@ function fetchWithTimeout(url, options, timeoutMs) {
         requestOptions.agent = agent;
     }
 
+    if (options && options.body) {
+        const bodyBuffer = typeof options.body === 'string' ? Buffer.from(options.body, 'utf8') : options.body;
+        requestOptions.headers['Content-Length'] = bodyBuffer.length;
+    }
+
     return new Promise((resolve, reject) => {
         const protocol = isHttps ? https : require('http');
         const req = protocol.request(requestOptions, (res) => {
