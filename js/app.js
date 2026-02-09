@@ -595,10 +595,7 @@ class ScanAsYouShopApp {
             // Configurar pantallas
             this.setupScreens();
 
-            // Actualizar vista del carrito
-            this.updateCartView();
-
-            // Empezar en pantalla principal (carrito)
+            // Empezar en pantalla principal (carrito); showScreen('cart') ya llama a updateCartView()
             this.showScreen('cart');
             this.updateActiveNav('cart');
 
@@ -1597,6 +1594,18 @@ class ScanAsYouShopApp {
      * Actualiza la vista del carrito
      */
     async updateCartView() {
+        if (this._updatingCartView) {
+            return;
+        }
+        this._updatingCartView = true;
+        try {
+            await this._updateCartViewCore();
+        } finally {
+            this._updatingCartView = false;
+        }
+    }
+
+    async _updateCartViewCore() {
         const cart = window.cartManager.getCart();
         const container = document.getElementById('cartItems');
         const emptyState = document.getElementById('emptyCart');
