@@ -41,8 +41,9 @@ class ScanAsYouShopApp {
             window.ui.initialize();
             window.ui.showLoading('Iniciando aplicacion...');
 
-            // Configurar pantalla de acceso (gate) para visitantes sin sesion
+            // Configurar pantalla de acceso (gate) y modal de login (debe estar antes del gate para que el submit no recargue la pagina)
             this.setupGateScreen();
+            this.setupLoginModal();
 
             // Inicializar Supabase
             const supabaseOK = await window.supabaseClient.initialize();
@@ -96,12 +97,38 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Configura la pantalla de acceso (gate): boton que abre el login
+     * Configura la pantalla de acceso (gate) y el modal de login
+     * Se ejecuta temprano para que funcione desde la landing
      */
     setupGateScreen() {
+        // Boton de la gate que abre el modal de login
         const gateLoginBtn = document.getElementById('gateLoginBtn');
         if (gateLoginBtn) {
             gateLoginBtn.addEventListener('click', () => this.showLoginModal());
+        }
+
+        // Configurar formulario de login (CRITICO: prevenir submit nativo que recarga la pagina)
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.onsubmit = (e) => this.handleLogin(e);
+        }
+
+        // Cerrar modal de login con boton X
+        const closeLoginModal = document.getElementById('closeLoginModal');
+        if (closeLoginModal) {
+            closeLoginModal.addEventListener('click', () => {
+                this.hideLoginModal();
+            });
+        }
+
+        // Cerrar modal de login al hacer click en overlay
+        const loginModal = document.getElementById('loginModal');
+        if (loginModal) {
+            loginModal.addEventListener('click', (e) => {
+                if (e.target.classList.contains('login-modal-overlay') || e.target.id === 'loginModal') {
+                    this.hideLoginModal();
+                }
+            });
         }
     }
 
@@ -962,29 +989,8 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Close login modal
-        const closeLoginModal = document.getElementById('closeLoginModal');
-        if (closeLoginModal) {
-            closeLoginModal.addEventListener('click', () => {
-                this.hideLoginModal();
-            });
-        }
-
-        // Close login modal on overlay click
-        const loginModal = document.getElementById('loginModal');
-        if (loginModal) {
-            loginModal.addEventListener('click', (e) => {
-                if (e.target.classList.contains('login-modal-overlay') || e.target.id === 'loginModal') {
-                    this.hideLoginModal();
-                }
-            });
-        }
-
-        // Login form submit
-        const loginForm = document.getElementById('loginForm');
-        if (loginForm) {
-            loginForm.onsubmit = (e) => this.handleLogin(e);
-        }
+        // Nota: Los handlers del formulario de login (submit, cerrar modal, overlay)
+        // ya se configuran en setupGateScreen() para que funcionen desde la landing
 
         // My Orders button (menu hamburguesa)
         const myOrdersBtn = document.getElementById('myOrdersBtn');
