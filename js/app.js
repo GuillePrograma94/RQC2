@@ -3098,6 +3098,7 @@ class ScanAsYouShopApp {
                     <div class="order-card-info">
                         <span class="order-date">📅 ${fechaFormateada}</span>
                         <span class="order-code">Código: ${pedido.codigo_qr}</span>
+                        ${pedido.pedido_erp ? `<span class="order-erp">Ref. ERP: ${this.escapeForHtmlAttribute(pedido.pedido_erp)}</span>` : ''}
                     </div>
                     <div class="order-card-totals">
                         <span class="order-items">${pedido.total_productos} producto${pedido.total_productos !== 1 ? 's' : ''}</span>

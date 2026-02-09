@@ -2521,9 +2521,14 @@ body {
 }
 
 .order-date,
-.order-code {
+.order-code,
+.order-erp {
     font-size: 0.9rem;
     color: var(--gray-600);
+}
+
+.order-erp {
+    font-weight: 600;
 }
 
 .order-card-totals {
