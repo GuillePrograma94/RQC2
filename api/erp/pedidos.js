@@ -1,10 +1,7 @@
 /**
  * Serverless function para Vercel
- * Endpoint de pedidos: GET o POST al ERP /api/tienda/v1/pedidos/prueba
- * Requiere token Bearer (hace login automaticamente)
- *
- * GET: Prueba simple sin payload
- * POST: Prueba con payload completo del pedido
+ * Pedidos: GET al ERP /pedidos/prueba (prueba), POST al ERP /pedidos/crear (crear pedido).
+ * Requiere token Bearer (hace login automaticamente).
  */
 
 const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
@@ -27,10 +24,14 @@ module.exports = async (req, res) => {
 
     const baseUrl = process.env.ERP_BASE_URL || '';
     const loginPath = process.env.ERP_LOGIN_PATH || '/login';
-    const pedidosPath = '/pedidos/prueba';
+    const pedidosPruebaPath = '/pedidos/prueba';
+    const createOrderPath = process.env.ERP_CREATE_ORDER_PATH || '/pedidos/crear';
     const username = process.env.ERP_USER || '';
     const password = process.env.ERP_PASSWORD || '';
     const timeoutMs = parseInt(process.env.ERP_REQUEST_TIMEOUT_MS || '15000', 10);
+
+    const isPostWithPayload = req.method === 'POST' && req.body && Object.keys(req.body).length > 0;
+    const pathToCall = isPostWithPayload ? createOrderPath : pedidosPruebaPath;
 
     if (!baseUrl || !username || !password) {
         const missing = [];
@@ -66,7 +67,7 @@ module.exports = async (req, res) => {
             });
         }
 
-        const url = buildUrl(baseUrl, pedidosPath);
+        const url = buildUrl(baseUrl, pathToCall);
         const method = req.method;
         const requestOptions = {
             method: method,

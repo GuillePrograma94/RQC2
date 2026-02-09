@@ -550,9 +550,8 @@
                     let errorMsg = JSON.stringify(data, null, 2);
                     if (data.message && data.message.includes('404')) {
                         errorMsg += '\n\n=== INFORMACION IMPORTANTE ===\n';
-                        errorMsg += 'El endpoint POST /pedidos/prueba aun no esta disponible en el ERP.\n';
-                        errorMsg += 'El formulario que has completado esta correcto y listo.\n';
-                        errorMsg += 'Cuando el endpoint este disponible, este mismo payload se enviara correctamente.\n\n';
+                        errorMsg += 'El endpoint POST /pedidos/crear no responde o no esta disponible en el ERP.\n';
+                        errorMsg += 'Verifica ERP_CREATE_ORDER_PATH en Vercel (debe ser /pedidos/crear) y que el ERP tenga el endpoint activo.\n\n';
                         errorMsg += 'Payload que se intento enviar:\n';
                         errorMsg += JSON.stringify(payload, null, 2);
                     }
