@@ -74,6 +74,11 @@ self.addEventListener('fetch', event => {
         return;
     }
 
+    // La Cache API solo admite GET; no interceptar POST ni otros metodos
+    if (event.request.method !== 'GET') {
+        return;
+    }
+
     event.respondWith(
         caches.match(event.request)
             .then(response => {

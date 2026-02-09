@@ -392,13 +392,13 @@ class SupabaseClient {
 
             const subtotal = producto.pvp * cantidad;
 
-            // Verificar si el producto ya existe en el carrito
+            // Verificar si el producto ya existe en el carrito (.maybeSingle() evita 406 cuando hay 0 filas)
             const { data: existing, error: errorCheck } = await this.client
                 .from('productos_carrito')
                 .select('*')
                 .eq('carrito_id', carritoId)
                 .eq('codigo_producto', producto.codigo)
-                .single();
+                .maybeSingle();
 
             if (existing) {
                 // Actualizar cantidad
