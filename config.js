@@ -41,7 +41,7 @@ let CONFIG = {
         BASE_URL: '',
         LOGIN_PATH: '/login',
         CREATE_ORDER_PATH: '',
-        PROXY_PATH: '/api/erp/create-order',
+        PROXY_PATH: '/api/erp/pedidos',
         USER: '',
         PASSWORD: '',
         TOKEN_LIFETIME_HOURS: 8,

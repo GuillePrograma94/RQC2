@@ -20,7 +20,7 @@ module.exports = (req, res) => {
     const config = {
         SUPABASE_URL: process.env.SUPABASE_URL || '',
         SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || '',
-        ERP_PROXY_PATH: process.env.ERP_PROXY_PATH || '/api/erp/create-order'
+        ERP_PROXY_PATH: process.env.ERP_PROXY_PATH || '/api/erp/pedidos'
     };
 
     // Log para debugging (solo en desarrollo)
