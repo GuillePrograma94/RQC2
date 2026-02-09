@@ -2719,7 +2719,7 @@ class ScanAsYouShopApp {
         }));
 
         return {
-            codigo_cliente: this.currentUser ? this.currentUser.codigo_cliente : null,
+            codigo_cliente: this.currentUser ? this.currentUser.codigo_usuario : null,
             serie: serie,
             centro_venta: centro_venta,
             referencia: referencia,
