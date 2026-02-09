@@ -73,7 +73,7 @@
         </div>
     </div>
 
-    <!-- Almacén Selection Modal -->
+    <!-- Almacén Selection Modal (Recoger en Almacén) -->
     <div id="almacenModal" class="login-modal" style="display: none;">
         <div class="login-modal-overlay"></div>
         <div class="login-modal-content">
@@ -101,7 +101,29 @@
                         <span class="almacen-name">REQUENA</span>
                     </button>
                 </div>
+                <div id="almacenObservacionesBlock" class="almacen-observaciones-block" style="display: none;">
+                    <label class="observaciones-label">Observaciones (opcional):</label>
+                    <p class="observaciones-prefix" id="almacenObservacionesPrefix"></p>
+                    <textarea id="almacenObservacionesInput" class="observaciones-textarea" placeholder="Añade observaciones..." rows="3"></textarea>
+                    <button id="confirmarRecogerAlmacenBtn" class="btn btn-success btn-lg">Enviar pedido</button>
+                </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal Enviar en Ruta -->
+    <div id="enviarEnRutaModal" class="login-modal" style="display: none;">
+        <div class="login-modal-overlay"></div>
+        <div class="login-modal-content">
+            <div class="login-modal-header">
+                <h2>Enviar en Ruta</h2>
+                <button id="closeEnviarEnRutaModal" class="close-login-btn">✕</button>
+            </div>
+            <p class="enviar-ruta-aviso">Por favor, consulta antes con tu comercial la fecha estimada de entrega.</p>
+            <label class="observaciones-label">Observaciones (opcional):</label>
+            <p class="observaciones-prefix">ENVIAR EN RUTA</p>
+            <textarea id="enviarEnRutaObservacionesInput" class="observaciones-textarea" placeholder="Añade observaciones..." rows="3"></textarea>
+            <button id="confirmarEnviarEnRutaBtn" class="btn btn-success btn-lg">Enviar pedido</button>
         </div>
     </div>
 
@@ -282,11 +304,12 @@
             <main class="screen-content checkout-content">
                 <!-- Sección de Pedido Remoto (solo usuarios registrados) -->
                 <div id="remoteOrderSection" class="remote-order-section" style="display: none;">
-                    <h2 class="section-title">📤 Enviar Pedido a Almacén</h2>
-                    <p class="section-description">Tu pedido estará listo para recoger</p>
-                    <button id="sendRemoteOrderBtn" class="btn btn-success btn-lg">
-                        Enviar Pedido a Almacén
-                    </button>
+                    <h2 class="section-title">Enviar Pedido a Almacén</h2>
+                    <p class="section-description">Tu pedido estará listo para recoger o en ruta</p>
+                    <div class="remote-order-buttons">
+                        <button id="recogerEnAlmacenBtn" class="btn btn-success btn-lg">Recoger en Almacén</button>
+                        <button id="enviarEnRutaBtn" class="btn btn-success btn-lg">Enviar en Ruta</button>
+                    </div>
                     <div class="divider">
                         <span>O paga en caja ahora</span>
                     </div>

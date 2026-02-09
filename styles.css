@@ -2257,6 +2257,13 @@ body {
     margin-bottom: 1.5rem;
 }
 
+.remote-order-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+}
+
 .remote-order-section .btn-success {
     background: var(--white);
     color: var(--success);
@@ -2345,6 +2352,53 @@ body {
     background: var(--primary);
     color: var(--white);
     box-shadow: 0 4px 15px rgba(120, 81, 169, 0.4);
+}
+
+.almacen-observaciones-block {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.observaciones-label {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 0.35rem;
+}
+
+.observaciones-prefix {
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.observaciones-textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid var(--gray-200);
+    border-radius: 10px;
+    font-size: 1rem;
+    resize: vertical;
+    margin-bottom: 1rem;
+    min-height: 80px;
+}
+
+.almacen-observaciones-block .btn-success,
+#enviarEnRutaModal .btn-success {
+    width: 100%;
+}
+
+.enviar-ruta-aviso {
+    background: #fef3c7;
+    color: var(--gray-800);
+    padding: 1rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    line-height: 1.5;
 }
 
 /* Responsive para almacén selection */

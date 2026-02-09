@@ -953,11 +953,19 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Botón para enviar pedido remoto
-        const sendRemoteOrderBtn = document.getElementById('sendRemoteOrderBtn');
-        if (sendRemoteOrderBtn) {
-            sendRemoteOrderBtn.addEventListener('click', () => {
+        // Recoger en Almacén: abre modal para elegir almacén y luego observaciones
+        const recogerEnAlmacenBtn = document.getElementById('recogerEnAlmacenBtn');
+        if (recogerEnAlmacenBtn) {
+            recogerEnAlmacenBtn.addEventListener('click', () => {
                 this.showAlmacenSelectionModal();
+            });
+        }
+
+        // Enviar en Ruta: abre modal de aviso y envía al almacén habitual
+        const enviarEnRutaBtn = document.getElementById('enviarEnRutaBtn');
+        if (enviarEnRutaBtn) {
+            enviarEnRutaBtn.addEventListener('click', () => {
+                this.showEnviarEnRutaModal();
             });
         }
 
@@ -979,14 +987,78 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Botones de selección de almacén
+        // Botones de selección de almacén: al elegir, mostrar bloque de observaciones
         const almacenButtons = document.querySelectorAll('.almacen-btn');
         almacenButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 const almacen = btn.dataset.almacen;
-                this.sendRemoteOrder(almacen);
+                document.querySelectorAll('.almacen-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                const prefixEl = document.getElementById('almacenObservacionesPrefix');
+                if (prefixEl) {
+                    prefixEl.textContent = 'RECOGER EN ALMACEN ' + almacen + ' - ';
+                }
+                const block = document.getElementById('almacenObservacionesBlock');
+                if (block) {
+                    block.style.display = 'block';
+                }
+                const input = document.getElementById('almacenObservacionesInput');
+                if (input) {
+                    input.value = '';
+                    input.focus();
+                }
             });
         });
+
+        // Confirmar Recoger en Almacén: enviar con observaciones "RECOGER EN ALMACEN [ALMACEN] - [texto]"
+        const confirmarRecogerAlmacenBtn = document.getElementById('confirmarRecogerAlmacenBtn');
+        if (confirmarRecogerAlmacenBtn) {
+            confirmarRecogerAlmacenBtn.addEventListener('click', () => {
+                const selectedBtn = document.querySelector('.almacen-btn.selected');
+                if (!selectedBtn) {
+                    window.ui.showToast('Selecciona un almacen', 'warning');
+                    return;
+                }
+                const almacen = selectedBtn.dataset.almacen;
+                const input = document.getElementById('almacenObservacionesInput');
+                const userText = input ? input.value.trim() : '';
+                const observaciones = 'RECOGER EN ALMACEN ' + almacen + ' - ' + (userText || '');
+                this.sendRemoteOrder(almacen, observaciones);
+            });
+        }
+
+        // Cerrar modal Enviar en Ruta
+        const closeEnviarEnRutaModal = document.getElementById('closeEnviarEnRutaModal');
+        if (closeEnviarEnRutaModal) {
+            closeEnviarEnRutaModal.addEventListener('click', () => {
+                this.hideEnviarEnRutaModal();
+            });
+        }
+
+        // Cerrar modal Enviar en Ruta al hacer clic en overlay
+        const enviarEnRutaModal = document.getElementById('enviarEnRutaModal');
+        if (enviarEnRutaModal) {
+            enviarEnRutaModal.addEventListener('click', (e) => {
+                if (e.target.id === 'enviarEnRutaModal' || e.target.classList.contains('login-modal-overlay')) {
+                    this.hideEnviarEnRutaModal();
+                }
+            });
+        }
+
+        // Confirmar Enviar en Ruta: envía al almacén habitual con observaciones "ENVIAR EN RUTA [texto]"
+        const confirmarEnviarEnRutaBtn = document.getElementById('confirmarEnviarEnRutaBtn');
+        if (confirmarEnviarEnRutaBtn) {
+            confirmarEnviarEnRutaBtn.addEventListener('click', () => {
+                if (!this.currentUser || !this.currentUser.almacen_habitual) {
+                    window.ui.showToast('No tienes almacen habitual asignado.', 'warning');
+                    return;
+                }
+                const input = document.getElementById('enviarEnRutaObservacionesInput');
+                const userText = input ? input.value.trim() : '';
+                const observaciones = 'ENVIAR EN RUTA' + (userText ? ' ' + userText : '');
+                this.sendRemoteOrder(this.currentUser.almacen_habitual, observaciones);
+            });
+        }
     }
 
     /**
@@ -2675,7 +2747,6 @@ class ScanAsYouShopApp {
             return;
         }
 
-        // Pre-seleccionar el almacén habitual del usuario si existe
         const almacenButtons = document.querySelectorAll('.almacen-btn');
         almacenButtons.forEach(btn => {
             btn.classList.remove('selected');
@@ -2684,7 +2755,15 @@ class ScanAsYouShopApp {
             }
         });
 
-        // Mostrar modal
+        const observacionesBlock = document.getElementById('almacenObservacionesBlock');
+        if (observacionesBlock) {
+            observacionesBlock.style.display = 'none';
+        }
+        const observacionesInput = document.getElementById('almacenObservacionesInput');
+        if (observacionesInput) {
+            observacionesInput.value = '';
+        }
+
         const almacenModal = document.getElementById('almacenModal');
         if (almacenModal) {
             almacenModal.style.display = 'flex';
@@ -2692,12 +2771,62 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Oculta el modal de selección de almacén
+     * Oculta el modal de selección de almacén y el bloque de observaciones
      */
     hideAlmacenModal() {
         const almacenModal = document.getElementById('almacenModal');
         if (almacenModal) {
             almacenModal.style.display = 'none';
+        }
+        const observacionesBlock = document.getElementById('almacenObservacionesBlock');
+        if (observacionesBlock) {
+            observacionesBlock.style.display = 'none';
+        }
+        const observacionesInput = document.getElementById('almacenObservacionesInput');
+        if (observacionesInput) {
+            observacionesInput.value = '';
+        }
+        document.querySelectorAll('.almacen-btn').forEach(btn => btn.classList.remove('selected'));
+    }
+
+    /**
+     * Muestra el modal Enviar en Ruta (almacén predeterminado del cliente)
+     */
+    showEnviarEnRutaModal() {
+        if (!this.currentUser) {
+            window.ui.showToast('Debes iniciar sesion para enviar pedidos', 'warning');
+            return;
+        }
+        const cart = window.cartManager.getCart();
+        if (!cart || cart.productos.length === 0) {
+            window.ui.showToast('El carrito esta vacio', 'warning');
+            return;
+        }
+        if (!this.currentUser.almacen_habitual) {
+            window.ui.showToast('No tienes almacen habitual asignado. Contacta con tu comercial.', 'warning');
+            return;
+        }
+        const input = document.getElementById('enviarEnRutaObservacionesInput');
+        if (input) {
+            input.value = '';
+        }
+        const modal = document.getElementById('enviarEnRutaModal');
+        if (modal) {
+            modal.style.display = 'flex';
+        }
+    }
+
+    /**
+     * Oculta el modal Enviar en Ruta
+     */
+    hideEnviarEnRutaModal() {
+        const modal = document.getElementById('enviarEnRutaModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        const input = document.getElementById('enviarEnRutaObservacionesInput');
+        if (input) {
+            input.value = '';
         }
     }
 
@@ -2705,8 +2834,9 @@ class ScanAsYouShopApp {
      * Construye el payload del pedido para el ERP.
      * serie = almacen destino (donde recoge). centro_venta = almacen habitual del cliente.
      * referencia: si se pasa, se usa (ej: RQC/id-codigo_qr); si no, fallback con timestamp.
+     * observaciones: texto opcional para el pedido.
      */
-    buildErpOrderPayload(cart, almacen, referencia) {
+    buildErpOrderPayload(cart, almacen, referencia, observaciones) {
         const almacenHabitual = this.currentUser ? this.currentUser.almacen_habitual : null;
         const { serie, centro_venta } = typeof ERP_PEDIDO_OPCIONES !== 'undefined'
             ? ERP_PEDIDO_OPCIONES.getSerieYCentroVenta(almacen, almacenHabitual)
@@ -2723,15 +2853,17 @@ class ScanAsYouShopApp {
             serie: serie,
             centro_venta: centro_venta,
             referencia: ref,
-            observaciones: '',
+            observaciones: observaciones != null ? String(observaciones) : '',
             lineas: lineas
         };
     }
 
     /**
-     * Envía un pedido remoto al almacén seleccionado
+     * Envía un pedido remoto al almacén seleccionado.
+     * @param {string} almacen - Código del almacén (ONTINYENT, GANDIA, ALZIRA, REQUENA).
+     * @param {string} [observaciones] - Observaciones para el pedido (opcional).
      */
-    async sendRemoteOrder(almacen) {
+    async sendRemoteOrder(almacen, observaciones) {
         try {
             if (!this.currentUser) {
                 window.ui.showToast('Debes iniciar sesion', 'error');
@@ -2744,11 +2876,8 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            // Ocultar modal
             this.hideAlmacenModal();
-
-            // Mostrar loading
-            window.ui.showLoading(`Enviando pedido a ${almacen}...`);
+            this.hideEnviarEnRutaModal();
 
             window.ui.showLoading(`Enviando pedido a ${almacen}...`);
 
@@ -2767,7 +2896,7 @@ class ScanAsYouShopApp {
             if (window.erpClient && (window.erpClient.proxyPath || window.erpClient.createOrderPath)) {
                 try {
                     window.ui.showLoading(`Conectando con ERP para ${almacen}...`);
-                    const erpPayload = this.buildErpOrderPayload(cart, almacen, referencia);
+                    const erpPayload = this.buildErpOrderPayload(cart, almacen, referencia, observaciones);
                     console.log('ERP create-order POST payload (detalles enviados):', JSON.stringify(erpPayload, null, 2));
                     erpResponse = await window.erpClient.createRemoteOrder(erpPayload);
                     console.log('Pedido enviado al ERP correctamente');
