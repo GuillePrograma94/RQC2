@@ -2750,26 +2750,23 @@ class ScanAsYouShopApp {
             // Mostrar loading
             window.ui.showLoading(`Enviando pedido a ${almacen}...`);
 
-            // Enviar pedido al ERP si el proxy esta configurado (serie y centro_venta segun erp-pedido-opciones.js)
+            let erpResponse = null;
             if (window.erpClient && (window.erpClient.proxyPath || window.erpClient.createOrderPath)) {
                 try {
                     window.ui.showLoading(`Conectando con ERP para ${almacen}...`);
                     const erpPayload = this.buildErpOrderPayload(cart, almacen);
                     console.log('ERP create-order POST payload (detalles enviados):', JSON.stringify(erpPayload, null, 2));
-                    await window.erpClient.createRemoteOrder(erpPayload);
+                    erpResponse = await window.erpClient.createRemoteOrder(erpPayload);
                     console.log('Pedido enviado al ERP correctamente');
                 } catch (erpError) {
                     console.warn('Error al enviar al ERP (continuando con Supabase):', erpError);
-                    // Continuar con el flujo de Supabase aunque falle el ERP
                 }
             } else {
-                console.log('ERP no configurado o endpoint de pedidos no disponible aún');
+                console.log('ERP no configurado o endpoint de pedidos no disponible aun');
             }
 
-            // Continuar con el flujo actual (Supabase)
             window.ui.showLoading(`Enviando pedido a ${almacen}...`);
 
-            // Crear pedido remoto en Supabase
             const result = await window.supabaseClient.crearPedidoRemoto(
                 this.currentUser.user_id,
                 almacen
@@ -2777,6 +2774,15 @@ class ScanAsYouShopApp {
 
             if (!result.success) {
                 throw new Error(result.message || 'Error al crear pedido remoto');
+            }
+
+            const pedidoErp = erpResponse && erpResponse.data && erpResponse.data.pedido != null ? erpResponse.data.pedido : null;
+            if (pedidoErp && result.carrito_id) {
+                try {
+                    await window.supabaseClient.updatePedidoErp(result.carrito_id, pedidoErp);
+                } catch (e) {
+                    console.warn('No se pudo guardar pedido_erp en Supabase:', e);
+                }
             }
 
             // Añadir productos al pedido remoto

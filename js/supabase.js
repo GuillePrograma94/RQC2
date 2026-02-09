@@ -886,6 +886,27 @@ class SupabaseClient {
     }
 
     /**
+     * Actualiza el identificador de pedido ERP en un carrito/pedido remoto
+     */
+    async updatePedidoErp(carritoId, pedidoErp) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+            const valor = pedidoErp != null ? String(pedidoErp) : null;
+            const { error } = await this.client
+                .from('carritos_clientes')
+                .update({ pedido_erp: valor })
+                .eq('id', carritoId);
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Error al actualizar pedido_erp:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Añade un producto a un pedido remoto
      */
     async addProductToRemoteOrder(carritoId, producto, cantidad) {
