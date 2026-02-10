@@ -43,7 +43,6 @@ class ScanAsYouShopApp {
 
             // Configurar pantalla de acceso (gate) y modal de login (debe estar antes del gate para que el submit no recargue la pagina)
             this.setupGateScreen();
-            this.setupLoginModal();
 
             // Inicializar Supabase
             const supabaseOK = await window.supabaseClient.initialize();
