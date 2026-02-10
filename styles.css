@@ -213,30 +213,92 @@ body.gate-visible .app-container {
     color: rgba(255,255,255,0.85);
     font-size: 0.9rem;
     line-height: 1.5;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
 }
 
-.gate-cta {
-    display: inline-block;
+/* Formulario de login en la página (móvil: touch 44px, font 16px evita zoom iOS) */
+.gate-form {
+    width: 100%;
+    text-align: left;
+    margin-top: 0.5rem;
+}
+
+.gate-form-group {
+    margin-bottom: 1rem;
+}
+
+.gate-label {
+    display: block;
+    color: rgba(255,255,255,0.95);
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 0.35rem;
+}
+
+.gate-input {
+    width: 100%;
+    min-height: 48px;
+    padding: 0.75rem 1rem;
+    font-size: 16px;
+    line-height: 1.4;
+    color: var(--gray-900);
     background: var(--white);
-    color: var(--primary);
+    border: 2px solid rgba(255,255,255,0.4);
+    border-radius: 12px;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.gate-input::placeholder {
+    color: var(--gray-500);
+}
+
+.gate-input:focus {
+    outline: none;
+    border-color: var(--white);
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.3);
+}
+
+.gate-error {
+    color: #fecaca;
+    background: rgba(185, 28, 28, 0.25);
+    font-size: 0.875rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.gate-btn {
+    width: 100%;
+    min-height: 48px;
+    margin-top: 0.25rem;
+    padding: 0.85rem 1.5rem;
     font-size: 1rem;
     font-weight: 600;
-    padding: 0.9rem 2rem;
+    color: var(--primary);
+    background: var(--white);
     border: none;
     border-radius: 12px;
     cursor: pointer;
     box-shadow: 0 4px 14px rgba(0,0,0,0.2);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.gate-cta:hover {
-    transform: translateY(-2px);
+.gate-btn:hover {
+    transform: translateY(-1px);
     box-shadow: 0 6px 20px rgba(0,0,0,0.25);
 }
 
-.gate-cta:active {
+.gate-btn:active {
     transform: translateY(0);
+}
+
+.gate-btn:disabled {
+    opacity: 0.8;
+    cursor: not-allowed;
+    transform: none;
 }
 
 /* ========================================

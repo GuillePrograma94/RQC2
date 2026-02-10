@@ -97,38 +97,12 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Configura la pantalla de acceso (gate) y el modal de login
-     * Se ejecuta temprano para que funcione desde la landing
+     * Configura la página de login (gate): formulario en la propia página
      */
     setupGateScreen() {
-        // Boton de la gate que abre el modal de login
-        const gateLoginBtn = document.getElementById('gateLoginBtn');
-        if (gateLoginBtn) {
-            gateLoginBtn.addEventListener('click', () => this.showLoginModal());
-        }
-
-        // Configurar formulario de login (CRITICO: prevenir submit nativo que recarga la pagina)
-        const loginForm = document.getElementById('loginForm');
-        if (loginForm) {
-            loginForm.onsubmit = (e) => this.handleLogin(e);
-        }
-
-        // Cerrar modal de login con boton X
-        const closeLoginModal = document.getElementById('closeLoginModal');
-        if (closeLoginModal) {
-            closeLoginModal.addEventListener('click', () => {
-                this.hideLoginModal();
-            });
-        }
-
-        // Cerrar modal de login al hacer click en overlay
-        const loginModal = document.getElementById('loginModal');
-        if (loginModal) {
-            loginModal.addEventListener('click', (e) => {
-                if (e.target.classList.contains('login-modal-overlay') || e.target.id === 'loginModal') {
-                    this.hideLoginModal();
-                }
-            });
+        const gateLoginForm = document.getElementById('gateLoginForm');
+        if (gateLoginForm) {
+            gateLoginForm.onsubmit = (e) => this.handleLogin(e);
         }
     }
 
@@ -151,43 +125,35 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Muestra el modal de login
+     * Muestra la página de login (gate). Usado desde el menú si se necesita.
      */
     showLoginModal() {
-        const loginModal = document.getElementById('loginModal');
-        if (loginModal) {
-            loginModal.style.display = 'flex';
-        }
+        this.showLanding();
+        this.closeMenu();
     }
 
     /**
-     * Oculta el modal de login
+     * Limpia el formulario de login de la página (gate)
      */
     hideLoginModal() {
-        const loginModal = document.getElementById('loginModal');
-        if (loginModal) {
-            loginModal.style.display = 'none';
-        }
-        
-        // Limpiar formulario
-        const loginForm = document.getElementById('loginForm');
-        if (loginForm) loginForm.reset();
-        
-        // Ocultar error
-        const errorDiv = document.getElementById('loginError');
+        const gateLoginForm = document.getElementById('gateLoginForm');
+        if (gateLoginForm) gateLoginForm.reset();
+        const errorDiv = document.getElementById('gateLoginError');
         if (errorDiv) errorDiv.style.display = 'none';
     }
 
     /**
-     * Maneja el proceso de login
+     * Maneja el proceso de login (formulario en la página de login / gate)
      */
     async handleLogin(e) {
         e.preventDefault();
 
-        const codigoInput = document.getElementById('loginCodigo');
-        const passwordInput = document.getElementById('loginPassword');
-        const errorDiv = document.getElementById('loginError');
-        const loginBtn = e.target.querySelector('button[type="submit"]');
+        const codigoInput = document.getElementById('gateCodigo');
+        const passwordInput = document.getElementById('gatePassword');
+        const errorDiv = document.getElementById('gateLoginError');
+        const submitBtn = document.getElementById('gateSubmitBtn');
+
+        if (!codigoInput || !passwordInput) return;
 
         const codigo = codigoInput.value.trim();
         const password = passwordInput.value;
@@ -197,10 +163,9 @@ class ScanAsYouShopApp {
             return;
         }
 
-        // Deshabilitar botón mientras se procesa
-        if (loginBtn) {
-            loginBtn.disabled = true;
-            loginBtn.textContent = 'Iniciando sesión...';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Entrando...';
         }
 
         try {
@@ -229,9 +194,9 @@ class ScanAsYouShopApp {
                 // Actualizar UI con nombre del usuario
                 this.updateUserUI();
 
-                // Ocultar modal de login y pantalla de acceso (gate)
-                this.hideLoginModal();
+                // Ocultar página de login y mostrar la app
                 this.hideLanding();
+                this.hideLoginModal();
 
                 // Cerrar menú
                 this.closeMenu();
@@ -258,27 +223,27 @@ class ScanAsYouShopApp {
 
             } else {
                 this.showLoginError(loginResult.message || 'Usuario o contraseña incorrectos');
-                if (loginBtn) {
-                    loginBtn.disabled = false;
-                    loginBtn.textContent = 'Iniciar Sesión';
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Entrar';
                 }
             }
 
         } catch (error) {
             console.error('Error al iniciar sesión:', error);
             this.showLoginError('Error de conexión. Intenta de nuevo.');
-            if (loginBtn) {
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'Iniciar Sesión';
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Entrar';
             }
         }
     }
 
     /**
-     * Muestra un error en el formulario de login
+     * Muestra un error en el formulario de login (página gate)
      */
     showLoginError(message) {
-        const errorDiv = document.getElementById('loginError');
+        const errorDiv = document.getElementById('gateLoginError');
         if (errorDiv) {
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
@@ -988,9 +953,6 @@ class ScanAsYouShopApp {
                 this.closeMenu();
             });
         }
-
-        // Nota: Los handlers del formulario de login (submit, cerrar modal, overlay)
-        // ya se configuran en setupGateScreen() para que funcionen desde la landing
 
         // My Orders button (menu hamburguesa)
         const myOrdersBtn = document.getElementById('myOrdersBtn');

@@ -35,7 +35,7 @@
         <p class="loading-text">Cargando...</p>
     </div>
 
-    <!-- Gate / Landing: solo visitantes sin sesion -->
+    <!-- Página de login: única entrada a la app (optimizada para móvil) -->
     <div id="gateScreen" class="gate-screen" aria-hidden="true">
         <div class="gate-background"></div>
         <div class="gate-content">
@@ -44,45 +44,37 @@
             </div>
             <h1 class="gate-title">Servicio RQC de BATMAR</h1>
             <p class="gate-subtitle">Escanea productos mientras compras</p>
-            <p class="gate-description">Esta aplicación es de uso exclusivo para usuarios autorizados. Inicia sesión con tu código y contraseña para acceder al escáner y a tu carrito.</p>
-            <button type="button" id="gateLoginBtn" class="gate-cta">Iniciar sesión</button>
-        </div>
-    </div>
-
-    <!-- Login Modal -->
-    <div id="loginModal" class="login-modal" style="display: none;">
-        <div class="login-modal-overlay"></div>
-        <div class="login-modal-content">
-            <div class="login-modal-header">
-                <h2>Iniciar Sesión</h2>
-                <button id="closeLoginModal" class="close-login-btn">✕</button>
-            </div>
-            <form id="loginForm" class="login-form">
-                <div class="login-form-group">
-                    <label for="loginCodigo">Código de Usuario</label>
-                    <input 
-                        type="text" 
-                        id="loginCodigo" 
+            <p class="gate-description">Accede con tu código y contraseña para usar el escáner y tu carrito.</p>
+            <form id="gateLoginForm" class="gate-form" novalidate>
+                <div class="gate-form-group">
+                    <label for="gateCodigo" class="gate-label">Código de usuario</label>
+                    <input
+                        type="text"
+                        id="gateCodigo"
+                        name="codigo"
+                        class="gate-input"
                         placeholder="Ej: 1001"
                         pattern="[0-9]*"
                         inputmode="numeric"
-                        autocomplete="off"
+                        autocomplete="username"
                         required
                     >
                 </div>
-                <div class="login-form-group">
-                    <label for="loginPassword">Contraseña</label>
-                    <input 
-                        type="password" 
-                        id="loginPassword" 
-                        placeholder="••••••••"
+                <div class="gate-form-group">
+                    <label for="gatePassword" class="gate-label">Contraseña</label>
+                    <input
+                        type="password"
+                        id="gatePassword"
+                        name="password"
+                        class="gate-input"
+                        placeholder="Introduce tu contraseña"
                         minlength="4"
-                        autocomplete="off"
+                        autocomplete="current-password"
                         required
                     >
                 </div>
-                <button type="submit" class="login-btn">Iniciar Sesión</button>
-                <div id="loginError" class="login-error" style="display: none;"></div>
+                <div id="gateLoginError" class="gate-error" role="alert" aria-live="polite" style="display: none;"></div>
+                <button type="submit" id="gateSubmitBtn" class="gate-btn">Entrar</button>
             </form>
         </div>
     </div>
