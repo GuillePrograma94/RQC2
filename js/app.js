@@ -1076,15 +1076,6 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Pantalla comercial: volver
-        const commercialBackBtn = document.getElementById('commercialBackBtn');
-        if (commercialBackBtn) {
-            commercialBackBtn.addEventListener('click', () => {
-                this.showScreen('cart');
-                this.updateActiveNav('cart');
-            });
-        }
-
         // Comercial: Llamar
         const commercialBtnCall = document.getElementById('commercialBtnCall');
         if (commercialBtnCall) {
