@@ -555,13 +555,115 @@ class ScanAsYouShopApp {
             }
             // Mostrar filtro de historial en búsqueda
             if (historyFilterGroup) historyFilterGroup.style.display = 'block';
+            // Cargar comercial si aun no está (p. ej. sesión restaurada)
+            if (!this.currentUser.comercial) {
+                this.loadComercialAsignado();
+            } else {
+                this.updateComercialCard();
+            }
         } else {
             // Usuario NO logueado
             if (menuGuest) menuGuest.style.display = 'block';
             if (menuUser) menuUser.style.display = 'none';
             // Ocultar filtro de historial en búsqueda
             if (historyFilterGroup) historyFilterGroup.style.display = 'none';
+            const menuCommercialCard = document.getElementById('menuCommercialCard');
+            if (menuCommercialCard) menuCommercialCard.style.display = 'none';
         }
+    }
+
+    /**
+     * Carga los datos del comercial asignado y actualiza la tarjeta del menú
+     */
+    async loadComercialAsignado() {
+        if (!this.currentUser || !this.currentUser.user_id) return;
+        try {
+            const comercial = await window.supabaseClient.getComercialAsignado(this.currentUser.user_id);
+            this.currentUser.comercial = comercial || null;
+            this.updateComercialCard();
+        } catch (e) {
+            console.error('Error cargando comercial:', e);
+            this.currentUser.comercial = null;
+            this.updateComercialCard();
+        }
+    }
+
+    /**
+     * Actualiza la tarjeta del comercial en el menú lateral
+     */
+    updateComercialCard() {
+        const card = document.getElementById('menuCommercialCard');
+        const nameEl = document.getElementById('menuCommercialName');
+        if (!card || !nameEl) return;
+        if (this.currentUser && this.currentUser.comercial) {
+            card.style.display = 'flex';
+            nameEl.textContent = this.currentUser.comercial.nombre;
+        } else {
+            card.style.display = 'none';
+        }
+    }
+
+    /**
+     * Rellena y muestra la pantalla de detalle del comercial (Llamar, WhatsApp, Email)
+     */
+    renderCommercialScreen() {
+        const detail = document.getElementById('commercialDetail');
+        const empty = document.getElementById('commercialEmpty');
+        const nameEl = document.getElementById('commercialDetailName');
+        const phoneEl = document.getElementById('commercialDetailPhone');
+        const emailEl = document.getElementById('commercialDetailEmail');
+        const btnCall = document.getElementById('commercialBtnCall');
+        const btnWhatsApp = document.getElementById('commercialBtnWhatsApp');
+        const btnEmail = document.getElementById('commercialBtnEmail');
+        if (!detail || !empty) return;
+
+        if (!this.currentUser || !this.currentUser.comercial) {
+            detail.style.display = 'none';
+            empty.style.display = 'flex';
+            return;
+        }
+
+        const c = this.currentUser.comercial;
+        detail.style.display = 'block';
+        empty.style.display = 'none';
+        if (nameEl) nameEl.textContent = c.nombre || '--';
+
+        const hasPhone = !!(c.telefono && c.telefono.trim());
+        const hasEmail = !!(c.email && c.email.trim());
+
+        if (phoneEl) {
+            phoneEl.style.display = hasPhone ? 'block' : 'none';
+            phoneEl.textContent = hasPhone ? c.telefono : '';
+        }
+        if (emailEl) {
+            emailEl.style.display = hasEmail ? 'block' : 'none';
+            emailEl.textContent = hasEmail ? c.email : '';
+        }
+
+        if (btnCall) {
+            btnCall.style.display = hasPhone ? 'flex' : 'none';
+            btnCall.dataset.telefono = (c.telefono || '').trim();
+        }
+        if (btnWhatsApp) {
+            btnWhatsApp.style.display = hasPhone ? 'flex' : 'none';
+            btnWhatsApp.dataset.telefono = (c.telefono || '').trim();
+        }
+        if (btnEmail) {
+            btnEmail.style.display = hasEmail ? 'flex' : 'none';
+            btnEmail.dataset.email = (c.email || '').trim();
+        }
+    }
+
+    /**
+     * Normaliza teléfono para WhatsApp: solo dígitos, con prefijo de país si no lo lleva
+     */
+    normalizePhoneForWhatsApp(telefono) {
+        if (!telefono) return '';
+        const digits = telefono.replace(/\D/g, '');
+        if (digits.length <= 9) {
+            return '34' + digits;
+        }
+        return digits;
     }
 
     /**
@@ -964,6 +1066,53 @@ class ScanAsYouShopApp {
             });
         }
 
+        // Tarjeta comercial en menú: abre pantalla de comercial
+        const menuCommercialCard = document.getElementById('menuCommercialCard');
+        if (menuCommercialCard) {
+            menuCommercialCard.addEventListener('click', () => {
+                this.closeMenu();
+                this.showScreen('commercial');
+                this.renderCommercialScreen();
+            });
+        }
+
+        // Pantalla comercial: volver
+        const commercialBackBtn = document.getElementById('commercialBackBtn');
+        if (commercialBackBtn) {
+            commercialBackBtn.addEventListener('click', () => {
+                this.showScreen('cart');
+                this.updateActiveNav('cart');
+            });
+        }
+
+        // Comercial: Llamar
+        const commercialBtnCall = document.getElementById('commercialBtnCall');
+        if (commercialBtnCall) {
+            commercialBtnCall.addEventListener('click', () => {
+                const tel = (commercialBtnCall.dataset.telefono || '').trim().replace(/\s/g, '');
+                if (tel) window.location.href = 'tel:' + tel;
+            });
+        }
+
+        // Comercial: WhatsApp
+        const commercialBtnWhatsApp = document.getElementById('commercialBtnWhatsApp');
+        if (commercialBtnWhatsApp) {
+            commercialBtnWhatsApp.addEventListener('click', () => {
+                const tel = (commercialBtnWhatsApp.dataset.telefono || '').trim();
+                const wa = this.normalizePhoneForWhatsApp(tel);
+                if (wa) window.open('https://wa.me/' + wa, '_blank');
+            });
+        }
+
+        // Comercial: Email
+        const commercialBtnEmail = document.getElementById('commercialBtnEmail');
+        if (commercialBtnEmail) {
+            commercialBtnEmail.addEventListener('click', () => {
+                const email = (commercialBtnEmail.dataset.email || '').trim();
+                if (email) window.location.href = 'mailto:' + email;
+            });
+        }
+
         // Recoger en Almacén: abre modal para elegir almacén y luego observaciones
         const recogerEnAlmacenBtn = document.getElementById('recogerEnAlmacenBtn');
         if (recogerEnAlmacenBtn) {
@@ -1097,7 +1246,9 @@ class ScanAsYouShopApp {
     openMenu() {
         const menuSidebar = document.getElementById('menuSidebar');
         const menuOverlay = document.getElementById('menuOverlay');
-        
+        if (this.currentUser && !this.currentUser.comercial) {
+            this.loadComercialAsignado();
+        }
         if (menuSidebar) {
             menuSidebar.classList.add('open');
         }
@@ -1188,6 +1339,10 @@ class ScanAsYouShopApp {
             if (screenName === 'cart') {
                 this.updateCartView();
                 console.log('Vista del carrito actualizada');
+            }
+
+            if (screenName === 'commercial') {
+                this.renderCommercialScreen();
             }
 
         }
@@ -2125,6 +2280,7 @@ class ScanAsYouShopApp {
         let precioConDescuento = priceWithIVA;
         let subtotalConDescuento = subtotalWithIVA;
         let descuentoAplicado = 0;
+        let precioNetoOfertaAplicado = false;
         let ofertaActiva = null;
         let resultadoOferta = null;
         
@@ -2137,18 +2293,24 @@ class ScanAsYouShopApp {
                 resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito, ofertasByCodigo, intervalosCache, loteCache);
                 
                 if (resultadoOferta && resultadoOferta.cumplida) {
-                    const { descuento, factor } = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito, ofertasByCodigo, intervalosCache, loteCache);
-                    if (descuento > 0 && factor > 0) {
-                        descuentoAplicado = descuento;
-                        
-                        if (ofertaActiva.tipo_oferta === 3 || ofertaActiva.tipo_oferta === 4) {
-                            const precioSinDescuento = priceWithIVA;
-                            const precioConDescuentoTotal = priceWithIVA * (1 - descuento / 100);
-                            precioConDescuento = (precioConDescuentoTotal * factor) + (precioSinDescuento * (1 - factor));
-                            subtotalConDescuento = precioConDescuento * producto.cantidad;
-                        } else {
-                            precioConDescuento = priceWithIVA * (1 - descuento / 100);
-                            subtotalConDescuento = subtotalWithIVA * (1 - descuento / 100);
+                    const precioNetoOferta = ofertaActiva.precio != null && ofertaActiva.precio !== '' && parseFloat(ofertaActiva.precio) > 0 ? parseFloat(ofertaActiva.precio) : 0;
+                    if (precioNetoOferta > 0) {
+                        precioConDescuento = precioNetoOferta * 1.21;
+                        subtotalConDescuento = precioConDescuento * producto.cantidad;
+                        precioNetoOfertaAplicado = true;
+                    } else {
+                        const { descuento, factor } = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito, ofertasByCodigo, intervalosCache, loteCache);
+                        if (descuento > 0 && factor > 0) {
+                            descuentoAplicado = descuento;
+                            if (ofertaActiva.tipo_oferta === 3 || ofertaActiva.tipo_oferta === 4) {
+                                const precioSinDescuento = priceWithIVA;
+                                const precioConDescuentoTotal = priceWithIVA * (1 - descuento / 100);
+                                precioConDescuento = (precioConDescuentoTotal * factor) + (precioSinDescuento * (1 - factor));
+                                subtotalConDescuento = precioConDescuento * producto.cantidad;
+                            } else {
+                                precioConDescuento = priceWithIVA * (1 - descuento / 100);
+                                subtotalConDescuento = subtotalWithIVA * (1 - descuento / 100);
+                            }
                         }
                     }
                 }
@@ -2164,13 +2326,15 @@ class ScanAsYouShopApp {
             }
         }
         
-        // Actualizar precios
-        if (descuentoAplicado > 0) {
+        // Actualizar precios (descuento % o precio neto de oferta)
+        const mostrarPrecioOferta = descuentoAplicado > 0 || precioNetoOfertaAplicado;
+        const badgeTexto = precioNetoOfertaAplicado ? 'Precio oferta' : (descuentoAplicado > 0 ? `-${descuentoAplicado}%` : '');
+        if (mostrarPrecioOferta) {
             const priceContainer = card.querySelector('.cart-product-price-container, .cart-product-price');
             if (priceContainer) {
                 priceContainer.innerHTML = `
                     <div class="cart-product-price-original">${priceWithIVA.toFixed(2)} €</div>
-                    <div class="cart-product-price-discount">${precioConDescuento.toFixed(2)} € <span class="discount-badge">-${descuentoAplicado}%</span></div>
+                    <div class="cart-product-price-discount">${precioConDescuento.toFixed(2)} €${badgeTexto ? ` <span class="discount-badge">${badgeTexto}</span>` : ''}</div>
                 `;
                 priceContainer.className = 'cart-product-price-container';
             }
@@ -2220,6 +2384,7 @@ class ScanAsYouShopApp {
         let precioConDescuento = priceWithIVA;
         let subtotalConDescuento = subtotalWithIVA;
         let descuentoAplicado = 0;
+        let precioNetoOfertaAplicado = false;
         
         if (codigoCliente) {
             const ofertas = (ofertasByCodigo && ofertasByCodigo.get(producto.codigo_producto)) ||
@@ -2229,17 +2394,24 @@ class ScanAsYouShopApp {
                 const carrito = window.cartManager.getCart();
                 resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito, ofertasByCodigo, intervalosCache, loteCache);
                 if (resultadoOferta && resultadoOferta.cumplida) {
-                    const { descuento, factor } = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito, ofertasByCodigo, intervalosCache, loteCache);
-                    if (descuento > 0 && factor > 0) {
-                        descuentoAplicado = descuento;
-                        if (ofertaActiva.tipo_oferta === 3 || ofertaActiva.tipo_oferta === 4) {
-                            const precioSinDescuento = priceWithIVA;
-                            const precioConDescuentoTotal = priceWithIVA * (1 - descuento / 100);
-                            precioConDescuento = (precioConDescuentoTotal * factor) + (precioSinDescuento * (1 - factor));
-                            subtotalConDescuento = precioConDescuento * producto.cantidad;
-                        } else {
-                            precioConDescuento = priceWithIVA * (1 - descuento / 100);
-                            subtotalConDescuento = subtotalWithIVA * (1 - descuento / 100);
+                    const precioNetoOferta = ofertaActiva.precio != null && ofertaActiva.precio !== '' && parseFloat(ofertaActiva.precio) > 0 ? parseFloat(ofertaActiva.precio) : 0;
+                    if (precioNetoOferta > 0) {
+                        precioConDescuento = precioNetoOferta * 1.21;
+                        subtotalConDescuento = precioConDescuento * producto.cantidad;
+                        precioNetoOfertaAplicado = true;
+                    } else {
+                        const { descuento, factor } = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito, ofertasByCodigo, intervalosCache, loteCache);
+                        if (descuento > 0 && factor > 0) {
+                            descuentoAplicado = descuento;
+                            if (ofertaActiva.tipo_oferta === 3 || ofertaActiva.tipo_oferta === 4) {
+                                const precioSinDescuento = priceWithIVA;
+                                const precioConDescuentoTotal = priceWithIVA * (1 - descuento / 100);
+                                precioConDescuento = (precioConDescuentoTotal * factor) + (precioSinDescuento * (1 - factor));
+                                subtotalConDescuento = precioConDescuento * producto.cantidad;
+                            } else {
+                                precioConDescuento = priceWithIVA * (1 - descuento / 100);
+                                subtotalConDescuento = subtotalWithIVA * (1 - descuento / 100);
+                            }
                         }
                     }
                 }
@@ -2253,16 +2425,16 @@ class ScanAsYouShopApp {
             ofertaHTML = `<div class="oferta-badge ${claseOferta}" onclick="event.stopPropagation(); window.app.verProductosOfertaDesdeCarrito('${ofertaActiva.numero_oferta}')">${this.escapeForHtmlAttribute(resultadoOferta.mensaje)}</div>`;
         }
         
-        // Generar HTML del precio (con descuento si aplica)
+        // Generar HTML del precio (descuento % o precio neto de oferta)
+        const mostrarPrecioOferta = descuentoAplicado > 0 || precioNetoOfertaAplicado;
+        const badgeTexto = precioNetoOfertaAplicado ? 'Precio oferta' : (descuentoAplicado > 0 ? `-${descuentoAplicado}%` : '');
         let precioHTML = '';
         let subtotalHTML = '';
-        
-        if (descuentoAplicado > 0) {
-            // Mostrar precio original tachado y precio con descuento
+        if (mostrarPrecioOferta) {
             precioHTML = `
                 <div class="cart-product-price-container">
                     <div class="cart-product-price-original">${priceWithIVA.toFixed(2)} €</div>
-                    <div class="cart-product-price-discount">${precioConDescuento.toFixed(2)} € <span class="discount-badge">-${descuentoAplicado}%</span></div>
+                    <div class="cart-product-price-discount">${precioConDescuento.toFixed(2)} €${badgeTexto ? ` <span class="discount-badge">${badgeTexto}</span>` : ''}</div>
                 </div>
             `;
             subtotalHTML = `
@@ -2272,7 +2444,6 @@ class ScanAsYouShopApp {
                 </div>
             `;
         } else {
-            // Mostrar precio normal
             precioHTML = `<div class="cart-product-price">${priceWithIVA.toFixed(2)} €</div>`;
             subtotalHTML = `<div class="cart-product-subtotal">${subtotalWithIVA.toFixed(2)} €</div>`;
         }

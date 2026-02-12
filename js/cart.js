@@ -1526,6 +1526,7 @@ class CartManager {
                                                 ofertasEncontradas.push({
                                                     numero_oferta: productoOferta.numero_oferta,
                                                     codigo_articulo: productoOferta.codigo_articulo,
+                                                    precio: productoOferta.precio,
                                                     descuento_oferta: productoOferta.descuento_oferta,
                                                     unidades_minimas: productoOferta.unidades_minimas,
                                                     unidades_multiplo: productoOferta.unidades_multiplo,
@@ -1543,6 +1544,7 @@ class CartManager {
                                         // Sin código de cliente, mostrar todas las ofertas activas
                                         ofertasEncontradas.push({
                                             numero_oferta: productoOferta.numero_oferta,
+                                            precio: productoOferta.precio,
                                             descuento_oferta: productoOferta.descuento_oferta,
                                             unidades_minimas: productoOferta.unidades_minimas,
                                             unidades_multiplo: productoOferta.unidades_multiplo,

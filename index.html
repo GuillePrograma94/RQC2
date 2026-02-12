@@ -170,6 +170,15 @@
                         <div class="user-code" id="menuUserCode">Código: ----</div>
                     </div>
                 </div>
+                <!-- Tarjeta comercial asignado (solo si tiene comercial) -->
+                <div id="menuCommercialCard" class="commercial-card menu-commercial-card" style="display: none;">
+                    <div class="commercial-card-avatar">👔</div>
+                    <div class="commercial-card-details">
+                        <div class="commercial-card-label">Tu comercial</div>
+                        <div class="commercial-card-name" id="menuCommercialName">--</div>
+                    </div>
+                    <span class="commercial-card-arrow">›</span>
+                </div>
                 <div class="menu-actions">
                     <button id="myOrdersBtn" class="menu-action-btn">
                         <span class="menu-action-icon">📦</span>
@@ -376,6 +385,45 @@
 
                 <!-- Orders List -->
                 <div id="ordersList" class="orders-list" style="display: none;"></div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA COMERCIAL ASIGNADO
+             ================================ -->
+        <div id="commercialScreen" class="screen">
+            <header class="screen-header commercial-header">
+                <button type="button" id="commercialBackBtn" class="screen-back-btn" aria-label="Volver">‹</button>
+                <h2 class="screen-title">Comercial</h2>
+            </header>
+            <main class="screen-content commercial-content">
+                <div id="commercialDetail" class="commercial-detail" style="display: none;">
+                    <div class="commercial-detail-avatar">👔</div>
+                    <h3 class="commercial-detail-name" id="commercialDetailName">--</h3>
+                    <div class="commercial-detail-info">
+                        <p id="commercialDetailPhone" class="commercial-detail-row" style="display: none;"></p>
+                        <p id="commercialDetailEmail" class="commercial-detail-row" style="display: none;"></p>
+                    </div>
+                    <div class="commercial-actions">
+                        <button type="button" id="commercialBtnCall" class="commercial-action-btn" style="display: none;">
+                            <span class="commercial-action-icon">📞</span>
+                            <span>Llamar</span>
+                        </button>
+                        <button type="button" id="commercialBtnWhatsApp" class="commercial-action-btn" style="display: none;">
+                            <span class="commercial-action-icon">💬</span>
+                            <span>Enviar mensaje (WhatsApp)</span>
+                        </button>
+                        <button type="button" id="commercialBtnEmail" class="commercial-action-btn" style="display: none;">
+                            <span class="commercial-action-icon">✉</span>
+                            <span>Enviar email</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="commercialEmpty" class="empty-state" style="display: none;">
+                    <div class="empty-icon">👔</div>
+                    <h2>Sin comercial asignado</h2>
+                    <p>No tienes un comercial asignado. Contacta con tu empresa para más información.</p>
+                </div>
             </main>
         </div>
 

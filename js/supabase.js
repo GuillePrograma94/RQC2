@@ -649,6 +649,35 @@ class SupabaseClient {
     }
 
     /**
+     * Obtiene los datos del comercial asignado al usuario (nombre, telefono, email)
+     * @param {number} userId - ID del usuario (usuarios.id)
+     * @returns {Promise<{nombre: string, telefono: string, email: string}|null>}
+     */
+    async getComercialAsignado(userId) {
+        try {
+            if (!this.client || !userId) return null;
+            const { data, error } = await this.client.rpc('get_comercial_por_usuario', {
+                p_user_id: userId
+            });
+            if (error) {
+                console.error('Error getComercialAsignado:', error);
+                return null;
+            }
+            if (data && data.length > 0 && data[0].nombre) {
+                return {
+                    nombre: data[0].nombre || '',
+                    telefono: data[0].telefono || '',
+                    email: data[0].email || ''
+                };
+            }
+            return null;
+        } catch (err) {
+            console.error('getComercialAsignado:', err);
+            return null;
+        }
+    }
+
+    /**
      * Crea una sesión de usuario en Supabase
      */
     async createUserSession(codigoUsuario) {
@@ -1057,11 +1086,12 @@ class SupabaseClient {
                 throw new Error('Cliente de Supabase no inicializado');
             }
 
-            // Buscar ofertas que contengan este producto
+            // Buscar ofertas que contengan este producto (precio = precio neto de oferta si existe)
             let query = this.client
                 .from('ofertas_productos')
                 .select(`
                     numero_oferta,
+                    precio,
                     descuento_oferta,
                     unidades_minimas,
                     unidades_multiplo,
@@ -1105,6 +1135,7 @@ class SupabaseClient {
                     console.log(`✅ ${ofertasFiltradas.length} ofertas visibles para el cliente ${codigoCliente}`);
                     return ofertasFiltradas.map(op => ({
                         numero_oferta: op.numero_oferta,
+                        precio: op.precio,
                         descuento_oferta: op.descuento_oferta,
                         unidades_minimas: op.unidades_minimas,
                         unidades_multiplo: op.unidades_multiplo,
