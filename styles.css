@@ -60,7 +60,7 @@ body {
    ======================================== */
 .app-container {
     position: fixed;
-    top: calc(60px + env(safe-area-inset-top) + 1rem); /* Altura mínima del header + padding + safe area iOS */
+    top: calc(48px + env(safe-area-inset-top) + 0.5rem);
     bottom: var(--footer-height);
     left: 0;
     right: 0;
@@ -314,8 +314,7 @@ body.gate-visible .app-container {
     left: 0;
     right: 0;
     z-index: 1000;
-    min-height: 60px;
-    /* Asegurar que no haya espacio arriba */
+    min-height: 48px;
     margin: 0;
 }
 
@@ -339,9 +338,9 @@ body.gate-visible .app-container {
     position: relative;
     z-index: 1;
     gap: 0.75rem;
-    padding: 1rem;
-    padding-top: calc(1rem + env(safe-area-inset-top));
-    padding-bottom: 1rem;
+    padding: 0.5rem 1rem;
+    padding-top: calc(0.5rem + env(safe-area-inset-top));
+    padding-bottom: 0.5rem;
 }
 
 .header-title {
@@ -364,8 +363,8 @@ body.gate-visible .app-container {
 .menu-btn {
     background: rgba(255, 255, 255, 0.2);
     border: none;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 8px;
     display: flex;
     align-items: center;
@@ -2189,26 +2188,13 @@ body.gate-visible .app-container {
 }
 
 .user-info {
-    padding: 1.5rem;
+    padding: 1rem 1.25rem;
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
     border-radius: 15px;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     display: flex;
     align-items: center;
-    gap: 1rem;
     box-shadow: var(--shadow-purple);
-}
-
-.user-avatar {
-    width: 60px;
-    height: 60px;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-    backdrop-filter: blur(10px);
 }
 
 .user-details {
@@ -2293,29 +2279,19 @@ body.gate-visible .app-container {
     align-items: center;
     gap: 0.75rem;
     padding: 1rem 1.25rem;
-    background: linear-gradient(135deg, var(--gray-700) 0%, var(--gray-800) 100%);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
     border-radius: 12px;
     margin-bottom: 1rem;
     cursor: pointer;
     transition: all 0.25s;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: var(--shadow-purple);
 }
 
 .menu-commercial-card.commercial-card:hover {
-    background: linear-gradient(135deg, var(--gray-600) 0%, var(--gray-700) 100%);
+    filter: brightness(1.08);
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
-}
-
-.commercial-card-avatar {
-    width: 48px;
-    height: 48px;
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
 }
 
 .commercial-card-details {
@@ -2327,7 +2303,7 @@ body.gate-visible .app-container {
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.9);
     margin-bottom: 0.2rem;
 }
 
@@ -2357,6 +2333,12 @@ body.gate-visible .app-container {
     background: var(--primary);
     color: var(--white);
     box-shadow: var(--shadow-md);
+}
+
+.screen-header.commercial-header-minimal {
+    padding: 0.5rem 1rem;
+    min-height: 48px;
+    box-shadow: none;
 }
 
 .screen-back-btn {
@@ -2396,18 +2378,6 @@ body.gate-visible .app-container {
     text-align: center;
     max-width: 400px;
     margin: 0 auto;
-}
-
-.commercial-detail-avatar {
-    width: 80px;
-    height: 80px;
-    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
 }
 
 .commercial-detail-name {
