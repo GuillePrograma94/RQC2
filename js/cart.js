@@ -1480,12 +1480,7 @@ class CartManager {
      */
     async getOfertasProductoFromCache(codigoArticulo, codigoCliente = null) {
         try {
-            if (!this.db) {
-                console.log(`⚠️ DB no disponible para ${codigoArticulo}`);
-                return [];
-            }
-
-            console.log(`🔍 Buscando ofertas en cache para ${codigoArticulo} (cliente: ${codigoCliente})...`);
+            if (!this.db) return [];
 
             const transaction = this.db.transaction(['ofertas_productos', 'ofertas', 'ofertas_grupos_asignaciones'], 'readonly');
             const productosStore = transaction.objectStore('ofertas_productos');
@@ -1494,35 +1489,17 @@ class CartManager {
 
             // Buscar productos en ofertas con este código
             const codigoUpper = codigoArticulo.toUpperCase();
-            console.log(`   🔎 Buscando en IndexedDB por código: "${codigoUpper}"`);
-            
             const index = productosStore.index('codigo_articulo');
             const productosRequest = index.getAll(codigoUpper);
 
             return new Promise((resolve, reject) => {
                 productosRequest.onsuccess = async () => {
                     const productosOferta = productosRequest.result || [];
-                    console.log(`   📦 Productos en ofertas encontrados: ${productosOferta.length}`);
-                    
                     if (productosOferta.length === 0) {
-                        console.log(`   ⚠️ No hay productos en ofertas para ${codigoUpper}`);
-                        
-                        // DEBUG: Ver qué hay en la DB alrededor de este código
-                        const allProductosRequest = productosStore.getAll();
-                        allProductosRequest.onsuccess = () => {
-                            const allProds = allProductosRequest.result || [];
-                            console.log(`   🔍 DEBUG: Total productos en ofertas_productos: ${allProds.length}`);
-                            // Buscar códigos que empiecen con las primeras letras
-                            const similares = allProds.filter(p => p.codigo_articulo && p.codigo_articulo.startsWith(codigoUpper.substring(0, 4)));
-                            console.log(`   🔍 DEBUG: Códigos similares a ${codigoUpper}:`, similares.slice(0, 10).map(p => p.codigo_articulo));
-                        };
-                        
                         resolve([]);
                         return;
                     }
 
-                    // Obtener información de las ofertas
-                    console.log(`   🔎 Procesando ${productosOferta.length} productos en ofertas...`);
                     const ofertasEncontradas = [];
                     for (const productoOferta of productosOferta) {
                         const ofertaRequest = ofertasStore.get(productoOferta.numero_oferta);
@@ -1544,8 +1521,6 @@ class CartManager {
                                                 const codigoGrupoNum = parseInt(g.codigo_grupo);
                                                 return codigoGrupoNum === codigoClienteNum;
                                             });
-                                            
-                                            console.log(`   🔐 Producto ${codigoUpper} en oferta ${productoOferta.numero_oferta} - Grupos:`, grupos.map(g => g.codigo_grupo), `- Acceso: ${tieneGrupo}`);
                                             
                                             if (tieneGrupo) {
                                                 ofertasEncontradas.push({
@@ -1586,11 +1561,10 @@ class CartManager {
                         });
                     }
 
-                    console.log(`   ✅ Total ofertas encontradas para ${codigoUpper}: ${ofertasEncontradas.length}`);
                     resolve(ofertasEncontradas);
                 };
                 productosRequest.onerror = () => {
-                    console.error('   ❌ Error al buscar productos en ofertas:', productosRequest.error);
+                    console.error('Error al buscar productos en ofertas:', productosRequest.error);
                     reject(productosRequest.error);
                 };
             });
@@ -1606,12 +1580,7 @@ class CartManager {
      */
     async getIntervalosOfertaFromCache(numeroOferta) {
         try {
-            if (!this.db) {
-                console.log(`⚠️ DB no disponible para obtener intervalos de oferta ${numeroOferta}`);
-                return [];
-            }
-
-            console.log(`🔍 Buscando intervalos de oferta ${numeroOferta} en cache...`);
+            if (!this.db) return [];
 
             const transaction = this.db.transaction(['ofertas_intervalos'], 'readonly');
             const store = transaction.objectStore('ofertas_intervalos');
@@ -1621,19 +1590,17 @@ class CartManager {
             return new Promise((resolve, reject) => {
                 request.onsuccess = () => {
                     const intervalos = request.result || [];
-                    // Ordenar por desde_unidades
                     intervalos.sort((a, b) => a.desde_unidades - b.desde_unidades);
-                    console.log(`   ✅ ${intervalos.length} intervalos encontrados:`, intervalos.map(i => `${i.desde_unidades}-${i.hasta_unidades}: ${i.descuento_porcentaje}%`));
                     resolve(intervalos);
                 };
                 request.onerror = () => {
-                    console.error(`   ❌ Error al buscar intervalos:`, request.error);
+                    console.error('Error al buscar intervalos de oferta:', request.error);
                     reject(request.error);
                 };
             });
 
         } catch (error) {
-            console.error('❌ Error al obtener intervalos desde caché:', error);
+            console.error('Error al obtener intervalos desde cache:', error);
             return [];
         }
     }
@@ -1680,5 +1647,4 @@ class CartManager {
 
 // Crear instancia global
 window.cartManager = new CartManager();
-console.log('🛒 Cart Manager creado');
 

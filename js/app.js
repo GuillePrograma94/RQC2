@@ -1714,6 +1714,21 @@ class ScanAsYouShopApp {
         emptyState.style.display = 'none';
         container.style.display = 'block';
 
+        // Precalcular mapa de ofertas por codigo (una sola pasada) para evitar O(N^2) llamadas
+        const codigoCliente = this.currentUser?.codigo_cliente || null;
+        const ofertasByCodigo = new Map();
+        const intervalosCache = {};
+        const loteCache = {};
+        if (codigoCliente && window.supabaseClient) {
+            const codigosUnicos = [...new Set(cart.productos.map(p => p.codigo_producto))];
+            for (const codigo of codigosUnicos) {
+                const ofertas = await window.supabaseClient.getOfertasProducto(codigo, codigoCliente, true);
+                if (ofertas && ofertas.length > 0) {
+                    ofertasByCodigo.set(codigo, ofertas);
+                }
+            }
+        }
+
         // Verificar si necesitamos regenerar todo o solo actualizar
         const existingCards = container.querySelectorAll('.cart-product-card');
         const needsFullRefresh = existingCards.length !== cart.productos.length;
@@ -1722,7 +1737,7 @@ class ScanAsYouShopApp {
             // Solo regenerar todo si cambió el número de productos
             container.innerHTML = '';
             for (const producto of cart.productos) {
-                const card = await this.createCartProductCard(producto);
+                const card = await this.createCartProductCard(producto, ofertasByCodigo, intervalosCache, loteCache);
                 container.appendChild(card);
             }
         } else {
@@ -1732,7 +1747,7 @@ class ScanAsYouShopApp {
                 const card = existingCards[i];
                 
                 // Actualizar solo los elementos que pueden cambiar
-                await this.updateCartProductCard(card, producto);
+                await this.updateCartProductCard(card, producto, ofertasByCodigo, intervalosCache, loteCache);
             }
         }
 
@@ -1759,12 +1774,19 @@ class ScanAsYouShopApp {
 
     /**
      * Verifica si una oferta se cumple y genera mensaje contextual inteligente
+     * @param {Map} [ofertasByCodigo] - Mapa codigo -> ofertas[] (precalculado para no repetir lecturas)
+     * @param {Object} [intervalosCache] - Cache numero_oferta -> intervalos
+     * @param {Object} [loteCache] - Cache numero_oferta -> unidadesLote
      * @returns {Object} { cumplida: boolean, mensaje: string }
      */
-    async verificarOfertaCumplida(oferta, codigoArticulo, cantidad, carrito) {
+    async verificarOfertaCumplida(oferta, codigoArticulo, cantidad, carrito, ofertasByCodigo, intervalosCache, loteCache) {
         try {
             const tipoOferta = oferta.tipo_oferta;
-            
+            const getOfertasProd = async (codigo) => {
+                if (ofertasByCodigo && ofertasByCodigo.has(codigo)) return ofertasByCodigo.get(codigo);
+                return await window.supabaseClient.getOfertasProducto(codigo, this.currentUser?.codigo_cliente || null, true);
+            };
+
             if (tipoOferta === 1) {
                 // ESTANDAR: Se cumple si la cantidad del producto >= unidades_minimas
                 const unidadesMinimas = oferta.unidades_minimas || 0;
@@ -1788,7 +1810,11 @@ class ScanAsYouShopApp {
             
             if (tipoOferta === 2) {
                 // INTERVALO: Descuentos escalonados según el total de unidades de todos los productos de la oferta
-                const intervalos = await window.supabaseClient.getIntervalosOferta(oferta.numero_oferta, true);
+                let intervalos = intervalosCache && intervalosCache[oferta.numero_oferta];
+                if (!intervalos) {
+                    intervalos = await window.supabaseClient.getIntervalosOferta(oferta.numero_oferta, true);
+                    if (intervalosCache) intervalosCache[oferta.numero_oferta] = intervalos;
+                }
                 if (!intervalos || intervalos.length === 0) {
                     return { cumplida: false, mensaje: oferta.titulo_descripcion || 'Oferta por intervalo (sin intervalos definidos)' };
                 }
@@ -1799,7 +1825,7 @@ class ScanAsYouShopApp {
                 // Sumar unidades de todos los productos de esta oferta en el carrito
                 let totalUnidades = 0;
                 for (const prod of carrito.productos) {
-                    const ofertasProd = await window.supabaseClient.getOfertasProducto(prod.codigo_producto, this.currentUser?.codigo_cliente || null, true);
+                    const ofertasProd = await getOfertasProd(prod.codigo_producto);
                     const tieneEstaOferta = ofertasProd.some(o => o.numero_oferta === oferta.numero_oferta);
                     if (tieneEstaOferta) {
                         totalUnidades += prod.cantidad;
@@ -1851,7 +1877,11 @@ class ScanAsYouShopApp {
             
             if (tipoOferta === 3) {
                 // LOTE: Se aplica por cada X unidades (pueden ser lotes múltiples)
-                const unidadesLote = await window.supabaseClient.getLoteOferta(oferta.numero_oferta, true);
+                let unidadesLote = loteCache && loteCache[oferta.numero_oferta];
+                if (unidadesLote === undefined) {
+                    unidadesLote = await window.supabaseClient.getLoteOferta(oferta.numero_oferta, true);
+                    if (loteCache) loteCache[oferta.numero_oferta] = unidadesLote;
+                }
                 if (!unidadesLote) {
                     return { cumplida: false, mensaje: oferta.titulo_descripcion || 'Oferta por lote' };
                 }
@@ -1859,7 +1889,7 @@ class ScanAsYouShopApp {
                 // Sumar unidades de todos los productos de esta oferta en el carrito
                 let totalUnidades = 0;
                 for (const prod of carrito.productos) {
-                    const ofertasProd = await window.supabaseClient.getOfertasProducto(prod.codigo_producto, this.currentUser?.codigo_cliente || null, true);
+                    const ofertasProd = await getOfertasProd(prod.codigo_producto);
                     const tieneEstaOferta = ofertasProd.some(o => o.numero_oferta === oferta.numero_oferta);
                     if (tieneEstaOferta) {
                         totalUnidades += prod.cantidad;
@@ -1937,12 +1967,20 @@ class ScanAsYouShopApp {
      * @param {Object} oferta - Datos de la oferta
      * @param {Object} producto - Producto del carrito
      * @param {Object} carrito - Carrito completo
+     * @param {Map} [ofertasByCodigo] - Mapa codigo -> ofertas[] (precalculado)
+     * @param {Object} [intervalosCache] - Cache numero_oferta -> intervalos
+     * @param {Object} [loteCache] - Cache numero_oferta -> unidadesLote
      * @returns {Promise<{descuento: number, factor: number}>} - Porcentaje y factor de aplicación
      */
-    async calcularDescuentoOferta(oferta, producto, carrito) {
+    async calcularDescuentoOferta(oferta, producto, carrito, ofertasByCodigo, intervalosCache, loteCache) {
         try {
             const tipoOferta = oferta.tipo_oferta;
-            
+            const codigoCliente = this.currentUser?.codigo_cliente || null;
+            const getOfertasProd = async (codigo) => {
+                if (ofertasByCodigo && ofertasByCodigo.has(codigo)) return ofertasByCodigo.get(codigo);
+                return await window.supabaseClient.getOfertasProducto(codigo, codigoCliente, true);
+            };
+
             // ESTANDAR: Aplica a todas las unidades si se cumple el mínimo
             if (tipoOferta === 1) {
                 return {
@@ -1953,9 +1991,12 @@ class ScanAsYouShopApp {
             
             // INTERVALO: buscar el descuento del intervalo correspondiente
             if (tipoOferta === 2) {
-                const intervalos = await window.supabaseClient.getIntervalosOferta(oferta.numero_oferta, true);
+                let intervalos = intervalosCache && intervalosCache[oferta.numero_oferta];
+                if (!intervalos) {
+                    intervalos = await window.supabaseClient.getIntervalosOferta(oferta.numero_oferta, true);
+                    if (intervalosCache) intervalosCache[oferta.numero_oferta] = intervalos;
+                }
                 if (!intervalos || intervalos.length === 0) {
-                    console.log(`⚠️ Oferta ${oferta.numero_oferta} tipo INTERVALO sin intervalos definidos`);
                     return { descuento: 0, factor: 0 };
                 }
                 
@@ -1964,10 +2005,9 @@ class ScanAsYouShopApp {
                 
                 // Calcular total de unidades de la oferta en el carrito
                 let totalUnidades = 0;
-                const codigoCliente = this.currentUser?.codigo_cliente || null;
                 
                 for (const prod of carrito.productos) {
-                    const ofertasProd = await window.supabaseClient.getOfertasProducto(prod.codigo_producto, codigoCliente, true);
+                    const ofertasProd = await getOfertasProd(prod.codigo_producto);
                     const tieneEstaOferta = ofertasProd.some(o => o.numero_oferta === oferta.numero_oferta);
                     if (tieneEstaOferta) {
                         totalUnidades += prod.cantidad;
@@ -1980,7 +2020,6 @@ class ScanAsYouShopApp {
                 );
                 
                 if (intervaloActual) {
-                    console.log(`✅ Oferta ${oferta.numero_oferta} - ${totalUnidades} uds en intervalo ${intervaloActual.desde_unidades}-${intervaloActual.hasta_unidades}: ${intervaloActual.descuento_porcentaje}%`);
                     return {
                         descuento: intervaloActual.descuento_porcentaje || 0,
                         factor: 1.0 // Aplica a todas las unidades del intervalo
@@ -1989,27 +2028,28 @@ class ScanAsYouShopApp {
                     // Si está por encima del último intervalo, aplicar el descuento máximo
                     const ultimoIntervalo = intervalosOrdenados[intervalosOrdenados.length - 1];
                     if (totalUnidades > ultimoIntervalo.hasta_unidades) {
-                        console.log(`✅ Oferta ${oferta.numero_oferta} - ${totalUnidades} uds (por encima del último intervalo): ${ultimoIntervalo.descuento_porcentaje}%`);
                         return {
                             descuento: ultimoIntervalo.descuento_porcentaje || 0,
                             factor: 1.0
                         };
                     }
-                    console.log(`⚠️ Oferta ${oferta.numero_oferta} - ${totalUnidades} uds no alcanza ningún intervalo`);
                 }
             }
             
             // LOTE: Aplica solo a lotes completos
             if (tipoOferta === 3) {
-                const unidadesLote = await window.supabaseClient.getLoteOferta(oferta.numero_oferta, true);
+                let unidadesLote = loteCache && loteCache[oferta.numero_oferta];
+                if (unidadesLote === undefined) {
+                    unidadesLote = await window.supabaseClient.getLoteOferta(oferta.numero_oferta, true);
+                    if (loteCache) loteCache[oferta.numero_oferta] = unidadesLote;
+                }
                 if (!unidadesLote) return { descuento: 0, factor: 0 };
                 
                 // Calcular total de unidades de la oferta en el carrito
                 let totalUnidades = 0;
-                const codigoCliente = this.currentUser?.codigo_cliente || null;
                 
                 for (const prod of carrito.productos) {
-                    const ofertasProd = await window.supabaseClient.getOfertasProducto(prod.codigo_producto, codigoCliente, true);
+                    const ofertasProd = await getOfertasProd(prod.codigo_producto);
                     const tieneEstaOferta = ofertasProd.some(o => o.numero_oferta === oferta.numero_oferta);
                     if (tieneEstaOferta) {
                         totalUnidades += prod.cantidad;
@@ -2060,8 +2100,11 @@ class ScanAsYouShopApp {
     /**
      * Actualiza una tarjeta de producto existente sin regenerar el DOM
      * Evita glitches y mantiene la posición de scroll
+     * @param {Map} [ofertasByCodigo] - Mapa precalculado codigo -> ofertas[]
+     * @param {Object} [intervalosCache] - Cache numero_oferta -> intervalos
+     * @param {Object} [loteCache] - Cache numero_oferta -> unidadesLote
      */
-    async updateCartProductCard(card, producto) {
+    async updateCartProductCard(card, producto, ofertasByCodigo, intervalosCache, loteCache) {
         const priceWithIVA = producto.precio_unitario * 1.21;
         const subtotalWithIVA = producto.subtotal * 1.21;
         
@@ -2086,14 +2129,15 @@ class ScanAsYouShopApp {
         let resultadoOferta = null;
         
         if (codigoCliente) {
-            const ofertas = await window.supabaseClient.getOfertasProducto(producto.codigo_producto, codigoCliente, true);
+            const ofertas = (ofertasByCodigo && ofertasByCodigo.get(producto.codigo_producto)) ||
+                await window.supabaseClient.getOfertasProducto(producto.codigo_producto, codigoCliente, true);
             if (ofertas && ofertas.length > 0) {
                 ofertaActiva = ofertas[0];
                 const carrito = window.cartManager.getCart();
-                resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito);
+                resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito, ofertasByCodigo, intervalosCache, loteCache);
                 
                 if (resultadoOferta && resultadoOferta.cumplida) {
-                    const { descuento, factor } = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito);
+                    const { descuento, factor } = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito, ofertasByCodigo, intervalosCache, loteCache);
                     if (descuento > 0 && factor > 0) {
                         descuentoAplicado = descuento;
                         
@@ -2156,8 +2200,11 @@ class ScanAsYouShopApp {
 
     /**
      * Crea una tarjeta de producto para el carrito (estilo Tesco)
+     * @param {Map} [ofertasByCodigo] - Mapa precalculado codigo -> ofertas[]
+     * @param {Object} [intervalosCache] - Cache numero_oferta -> intervalos
+     * @param {Object} [loteCache] - Cache numero_oferta -> unidadesLote
      */
-    async createCartProductCard(producto) {
+    async createCartProductCard(producto, ofertasByCodigo, intervalosCache, loteCache) {
         const card = document.createElement('div');
         card.className = 'cart-product-card';
 
@@ -2166,7 +2213,7 @@ class ScanAsYouShopApp {
 
         const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo_producto}_1.JPG`;
         
-        // Obtener ofertas del producto desde cache (solo para usuarios con codigo_cliente)
+        // Obtener ofertas del producto (mapa precalculado o cache)
         const codigoCliente = this.currentUser?.codigo_cliente || null;
         let resultadoOferta = null;
         let ofertaActiva = null;
@@ -2174,32 +2221,23 @@ class ScanAsYouShopApp {
         let subtotalConDescuento = subtotalWithIVA;
         let descuentoAplicado = 0;
         
-        // Solo verificar ofertas si el usuario tiene codigo_cliente
         if (codigoCliente) {
-            const ofertas = await window.supabaseClient.getOfertasProducto(producto.codigo_producto, codigoCliente, true);
-            
-            // Verificar si alguna oferta se cumple y calcular descuentos
+            const ofertas = (ofertasByCodigo && ofertasByCodigo.get(producto.codigo_producto)) ||
+                await window.supabaseClient.getOfertasProducto(producto.codigo_producto, codigoCliente, true);
             if (ofertas && ofertas.length > 0) {
-                // Tomar la primera oferta (puedes ajustar la lógica si hay múltiples)
                 ofertaActiva = ofertas[0];
                 const carrito = window.cartManager.getCart();
-                resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito);
-                
-                // Si la oferta está cumplida, calcular el precio con descuento
+                resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito, ofertasByCodigo, intervalosCache, loteCache);
                 if (resultadoOferta && resultadoOferta.cumplida) {
-                    const { descuento, factor } = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito);
+                    const { descuento, factor } = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito, ofertasByCodigo, intervalosCache, loteCache);
                     if (descuento > 0 && factor > 0) {
                         descuentoAplicado = descuento;
-                        
-                        // Para LOTE y MULTIPLO, aplicar descuento solo a la proporción correspondiente
                         if (ofertaActiva.tipo_oferta === 3 || ofertaActiva.tipo_oferta === 4) {
-                            // Precio promedio: mezcla de unidades con y sin descuento
                             const precioSinDescuento = priceWithIVA;
                             const precioConDescuentoTotal = priceWithIVA * (1 - descuento / 100);
                             precioConDescuento = (precioConDescuentoTotal * factor) + (precioSinDescuento * (1 - factor));
                             subtotalConDescuento = precioConDescuento * producto.cantidad;
                         } else {
-                            // Para ESTANDAR e INTERVALO, aplica a todas las unidades
                             precioConDescuento = priceWithIVA * (1 - descuento / 100);
                             subtotalConDescuento = subtotalWithIVA * (1 - descuento / 100);
                         }
