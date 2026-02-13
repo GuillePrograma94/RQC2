@@ -1090,18 +1090,24 @@ body.gate-visible .app-container {
     gap: 1.5rem;
 }
 
-.checkout-mostrador-section {
+/* Integrado en recuadro verde (remote-order-section) */
+.checkout-mostrador-inline {
+    margin-top: 1.5rem;
     text-align: center;
-    padding: 1rem 0;
 }
 
-.checkout-mostrador-section .section-description {
-    margin-bottom: 1.5rem;
+.checkout-mostrador-inline .checkout-mostrador-title {
+    margin-bottom: 0.5rem;
 }
 
-.btn-escanear-mostrador {
+.checkout-mostrador-inline .section-description {
+    margin-bottom: 1.25rem;
+}
+
+.remote-order-section .btn-escanear-mostrador {
     width: 100%;
     max-width: 320px;
+    margin: 0 auto;
 }
 
 .mostrador-header {
@@ -2605,7 +2611,7 @@ body.gate-visible .app-container {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
-.remote-order-section .divider {
+.remote-order-options .divider {
     margin-top: 2rem;
     margin-bottom: 0;
 }
