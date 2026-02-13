@@ -2567,15 +2567,32 @@ body.gate-visible .app-container {
 }
 
 /* ========================================
-   PEDIDOS REMOTOS
+   PEDIDOS REMOTOS - Temática morada + fondo animado
    ======================================== */
 .remote-order-section {
-    background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+    position: relative;
     padding: 2rem 1.5rem;
     border-radius: 20px;
     margin-bottom: 2rem;
     text-align: center;
-    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+    box-shadow: var(--shadow-purple);
+    overflow: hidden;
+    background: linear-gradient(
+        110deg,
+        var(--primary-darker) 0%,
+        var(--primary-dark) 20%,
+        var(--primary) 40%,
+        var(--primary-light) 60%,
+        var(--primary) 80%,
+        var(--primary-darker) 100%
+    );
+    background-size: 200% 100%;
+    animation: checkoutBgMove 12s ease-in-out infinite;
+}
+
+@keyframes checkoutBgMove {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
 }
 
 .remote-order-section .section-title {
@@ -2600,15 +2617,21 @@ body.gate-visible .app-container {
 
 .remote-order-section .btn-success {
     background: var(--white);
-    color: var(--success);
+    color: var(--primary);
     font-weight: 700;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .remote-order-section .btn-success:hover {
-    background: #f0fdf4;
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--primary-dark);
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 6px 20px rgba(120, 81, 169, 0.4);
+}
+
+.remote-order-section .btn-escanear-mostrador {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .remote-order-options .divider {
@@ -2617,8 +2640,8 @@ body.gate-visible .app-container {
 }
 
 .remote-order-section .divider span {
-    background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
-    color: rgba(255, 255, 255, 0.7);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.8);
     font-size: 0.9rem;
 }
 
