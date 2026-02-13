@@ -342,12 +342,33 @@
                     </div>
                 </div>
 
+                <!-- Paga en caja: botón para abrir escaneo en mostrador -->
+                <div id="checkoutMostradorSection" class="checkout-mostrador-section">
+                    <h2 class="section-title">Pagar en caja</h2>
+                    <p class="section-description">Escanea el código de la caja o introduce el código en mostrador</p>
+                    <button id="escanearEnMostradorBtn" class="btn btn-primary btn-lg btn-escanear-mostrador">
+                        Escanear en Mostrador
+                    </button>
+                </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA ESCANEAR EN MOSTRADOR (QR + código manual)
+             ================================ -->
+        <div id="mostradorScreen" class="screen">
+            <main class="screen-content checkout-content">
+                <div class="mostrador-header">
+                    <button type="button" id="mostradorBackBtn" class="btn-back-mostrador" aria-label="Volver a Caja">← Volver</button>
+                    <h2 class="section-title">Escanear en Mostrador</h2>
+                </div>
+
                 <!-- Camera Scanner integrado -->
                 <div class="checkout-camera-section">
-                    <h2 class="section-title">Escanea el QR de la Caja</h2>
+                    <h3 class="section-subtitle">Escanea el QR de la caja</h3>
                     <div id="checkoutReader" class="camera-scanner"></div>
                     <div class="scanner-instructions">
-                        <p>📷 Enfoca el código QR de la caja</p>
+                        <p>Enfoca el código QR de la caja o introduce el código manualmente</p>
                     </div>
                 </div>
 

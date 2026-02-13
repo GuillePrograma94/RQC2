@@ -1120,6 +1120,22 @@ class ScanAsYouShopApp {
             });
         }
 
+        // Escanear en Mostrador: abre pantalla con QR y código manual
+        const escanearEnMostradorBtn = document.getElementById('escanearEnMostradorBtn');
+        if (escanearEnMostradorBtn) {
+            escanearEnMostradorBtn.addEventListener('click', () => {
+                this.showScreen('mostrador');
+            });
+        }
+
+        // Volver desde Mostrador a Caja
+        const mostradorBackBtn = document.getElementById('mostradorBackBtn');
+        if (mostradorBackBtn) {
+            mostradorBackBtn.addEventListener('click', () => {
+                this.showScreen('checkout');
+            });
+        }
+
         // Cerrar modal de almacén
         const closeAlmacenModal = document.getElementById('closeAlmacenModal');
         if (closeAlmacenModal) {
@@ -1300,12 +1316,12 @@ class ScanAsYouShopApp {
             }
         }
         
-        // Detener cámara de checkout si estábamos en checkout
-        if (previousScreen === 'checkout') {
-            console.log('🔍 Verificando si hay que cerrar cámara de checkout...');
+        // Detener cámara de checkout si estábamos en checkout o en mostrador
+        if (previousScreen === 'checkout' || previousScreen === 'mostrador') {
+            console.log('Verificando si hay que cerrar camara de checkout...');
             console.log('   isScanningCheckout:', window.scannerManager.isScanningCheckout);
             if (window.scannerManager.isScanningCheckout) {
-                console.log('🔴 Cerrando cámara de checkout...');
+                console.log('Cerrando camara de checkout...');
                 await window.scannerManager.stopCheckoutCamera();
             }
         }
@@ -1330,20 +1346,20 @@ class ScanAsYouShopApp {
                 }, 100);
             }
 
-            // Iniciar cámara de checkout si entramos en pantalla de checkout
+            // Pantalla Caja: solo mostrar/ocultar sección de pedido remoto (sin cámara)
             if (screenName === 'checkout') {
-                console.log('🟢 Entrando a pantalla CHECKOUT - Iniciando cámara de checkout...');
-                // Pequeño delay para que el DOM se actualice
-                setTimeout(() => {
-                    console.log('⏰ Timeout completado - llamando a startCheckoutCameraIntegrated()');
-                    window.scannerManager.startCheckoutCameraIntegrated();
-                }, 100);
-                
-                // Mostrar/ocultar sección de pedido remoto según si hay usuario logueado
                 const remoteOrderSection = document.getElementById('remoteOrderSection');
                 if (remoteOrderSection) {
                     remoteOrderSection.style.display = this.currentUser ? 'block' : 'none';
                 }
+            }
+
+            // Iniciar cámara de checkout si entramos en pantalla Escanear en Mostrador
+            if (screenName === 'mostrador') {
+                console.log('Entrando a pantalla MOSTRADOR - Iniciando camara de checkout...');
+                setTimeout(() => {
+                    window.scannerManager.startCheckoutCameraIntegrated();
+                }, 100);
             }
 
             // Actualizar vista del carrito cuando se accede a esa pantalla

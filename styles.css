@@ -1090,6 +1090,50 @@ body.gate-visible .app-container {
     gap: 1.5rem;
 }
 
+.checkout-mostrador-section {
+    text-align: center;
+    padding: 1rem 0;
+}
+
+.checkout-mostrador-section .section-description {
+    margin-bottom: 1.5rem;
+}
+
+.btn-escanear-mostrador {
+    width: 100%;
+    max-width: 320px;
+}
+
+.mostrador-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.btn-back-mostrador {
+    align-self: flex-start;
+    background: transparent;
+    border: none;
+    color: var(--primary);
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0.5rem 0;
+    cursor: pointer;
+}
+
+.btn-back-mostrador:hover {
+    text-decoration: underline;
+}
+
+.checkout-camera-section .section-subtitle {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0 0 0.5rem;
+    text-align: center;
+}
+
 .checkout-camera-section {
     display: flex;
     flex-direction: column;
