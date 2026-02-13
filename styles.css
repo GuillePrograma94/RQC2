@@ -2579,12 +2579,11 @@ body.gate-visible .app-container {
     overflow: hidden;
     background: linear-gradient(
         110deg,
-        var(--primary-darker) 0%,
-        var(--primary-dark) 20%,
-        var(--primary) 40%,
-        var(--primary-light) 60%,
-        var(--primary) 80%,
-        var(--primary-darker) 100%
+        var(--primary-dark) 0%,
+        var(--primary) 25%,
+        var(--primary-light) 50%,
+        var(--primary) 75%,
+        var(--primary-dark) 100%
     );
     background-size: 200% 100%;
     animation: checkoutBgMove 24s cubic-bezier(0.45, 0, 0.55, 1) infinite;
@@ -2620,14 +2619,14 @@ body.gate-visible .app-container {
     background: var(--white);
     color: var(--primary);
     font-weight: 700;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 15px rgba(120, 81, 169, 0.35);
 }
 
 .remote-order-section .btn-success:hover {
     background: rgba(255, 255, 255, 0.95);
     color: var(--primary-dark);
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(120, 81, 169, 0.4);
+    box-shadow: 0 6px 20px rgba(120, 81, 169, 0.45);
 }
 
 .remote-order-section .btn-escanear-mostrador {
