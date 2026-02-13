@@ -1138,26 +1138,14 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Botones de selección de almacén: al elegir, mostrar bloque de observaciones
+        // Botones de selección de almacén: al elegir, abrir modal centrado de observaciones
         const almacenButtons = document.querySelectorAll('.almacen-btn');
         almacenButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 const almacen = btn.dataset.almacen;
                 document.querySelectorAll('.almacen-btn').forEach(b => b.classList.remove('selected'));
                 btn.classList.add('selected');
-                const prefixEl = document.getElementById('almacenObservacionesPrefix');
-                if (prefixEl) {
-                    prefixEl.textContent = 'RECOGER EN ALMACEN ' + almacen + ' - ';
-                }
-                const block = document.getElementById('almacenObservacionesBlock');
-                if (block) {
-                    block.style.display = 'block';
-                }
-                const input = document.getElementById('almacenObservacionesInput');
-                if (input) {
-                    input.value = '';
-                    input.focus();
-                }
+                this.showAlmacenObservacionesModal(almacen);
             });
         });
 
@@ -1165,16 +1153,48 @@ class ScanAsYouShopApp {
         const confirmarRecogerAlmacenBtn = document.getElementById('confirmarRecogerAlmacenBtn');
         if (confirmarRecogerAlmacenBtn) {
             confirmarRecogerAlmacenBtn.addEventListener('click', () => {
-                const selectedBtn = document.querySelector('.almacen-btn.selected');
-                if (!selectedBtn) {
+                const observacionesModal = document.getElementById('almacenObservacionesModal');
+                const almacen = observacionesModal ? observacionesModal.getAttribute('data-selected-almacen') : null;
+                if (!almacen) {
                     window.ui.showToast('Selecciona un almacen', 'warning');
                     return;
                 }
-                const almacen = selectedBtn.dataset.almacen;
                 const input = document.getElementById('almacenObservacionesInput');
                 const userText = input ? input.value.trim() : '';
                 const observaciones = 'RECOGER EN ALMACEN ' + almacen + ' - ' + (userText || '');
                 this.sendRemoteOrder(almacen, observaciones);
+            });
+        }
+
+        // Cerrar modal de observaciones (cierra todo el flujo)
+        const closeAlmacenObservacionesModal = document.getElementById('closeAlmacenObservacionesModal');
+        if (closeAlmacenObservacionesModal) {
+            closeAlmacenObservacionesModal.addEventListener('click', () => {
+                this.hideAlmacenObservacionesModal();
+                this.hideAlmacenModal();
+            });
+        }
+
+        // Volver del modal observaciones al modal de selección de almacén
+        const volverAlmacenSelectionBtn = document.getElementById('volverAlmacenSelectionBtn');
+        if (volverAlmacenSelectionBtn) {
+            volverAlmacenSelectionBtn.addEventListener('click', () => {
+                this.hideAlmacenObservacionesModal();
+                const almacenModal = document.getElementById('almacenModal');
+                if (almacenModal) {
+                    almacenModal.style.display = 'flex';
+                }
+            });
+        }
+
+        // Cerrar modal observaciones al hacer clic en overlay
+        const almacenObservacionesModal = document.getElementById('almacenObservacionesModal');
+        if (almacenObservacionesModal) {
+            almacenObservacionesModal.addEventListener('click', (e) => {
+                if (e.target.id === 'almacenObservacionesModal' || e.target.classList.contains('login-modal-overlay')) {
+                    this.hideAlmacenObservacionesModal();
+                    this.hideAlmacenModal();
+                }
             });
         }
 
@@ -2966,14 +2986,7 @@ class ScanAsYouShopApp {
             }
         });
 
-        const observacionesBlock = document.getElementById('almacenObservacionesBlock');
-        if (observacionesBlock) {
-            observacionesBlock.style.display = 'none';
-        }
-        const observacionesInput = document.getElementById('almacenObservacionesInput');
-        if (observacionesInput) {
-            observacionesInput.value = '';
-        }
+        this.hideAlmacenObservacionesModal();
 
         const almacenModal = document.getElementById('almacenModal');
         if (almacenModal) {
@@ -2982,21 +2995,71 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Oculta el modal de selección de almacén y el bloque de observaciones
+     * Muestra el modal centrado de observaciones para Recoger en Almacén.
+     * Si el almacén elegido no es el habitual del cliente, muestra advertencia en rojo.
+     * @param {string} almacen - Código del almacén seleccionado (ONTINYENT, GANDIA, etc.)
+     */
+    showAlmacenObservacionesModal(almacen) {
+        const modal = document.getElementById('almacenObservacionesModal');
+        if (!modal) return;
+        modal.setAttribute('data-selected-almacen', almacen);
+
+        const titleEl = document.getElementById('almacenObservacionesModalTitle');
+        if (titleEl) {
+            titleEl.textContent = 'Observaciones - Recoger en ' + almacen;
+        }
+
+        const advertenciaEl = document.getElementById('almacenObservacionesAdvertencia');
+        const esAlmacenHabitual = this.currentUser && this.currentUser.almacen_habitual && this.currentUser.almacen_habitual === almacen;
+        if (advertenciaEl) {
+            if (esAlmacenHabitual) {
+                advertenciaEl.style.display = 'none';
+                advertenciaEl.textContent = '';
+            } else {
+                advertenciaEl.textContent = '¿Estás seguro de que quieres recoger tu pedido en ' + almacen + '?';
+                advertenciaEl.style.display = 'block';
+            }
+        }
+
+        const input = document.getElementById('almacenObservacionesInput');
+        if (input) {
+            input.value = '';
+        }
+
+        const almacenModal = document.getElementById('almacenModal');
+        if (almacenModal) {
+            almacenModal.style.display = 'none';
+        }
+        modal.style.display = 'flex';
+        if (input) {
+            setTimeout(function () { input.focus(); }, 100);
+        }
+    }
+
+    /**
+     * Oculta el modal de observaciones de Recoger en Almacén y limpia su estado
+     */
+    hideAlmacenObservacionesModal() {
+        const modal = document.getElementById('almacenObservacionesModal');
+        if (modal) {
+            modal.style.display = 'none';
+            modal.removeAttribute('data-selected-almacen');
+        }
+        const input = document.getElementById('almacenObservacionesInput');
+        if (input) {
+            input.value = '';
+        }
+    }
+
+    /**
+     * Oculta el modal de selección de almacén y el modal de observaciones
      */
     hideAlmacenModal() {
         const almacenModal = document.getElementById('almacenModal');
         if (almacenModal) {
             almacenModal.style.display = 'none';
         }
-        const observacionesBlock = document.getElementById('almacenObservacionesBlock');
-        if (observacionesBlock) {
-            observacionesBlock.style.display = 'none';
-        }
-        const observacionesInput = document.getElementById('almacenObservacionesInput');
-        if (observacionesInput) {
-            observacionesInput.value = '';
-        }
+        this.hideAlmacenObservacionesModal();
         document.querySelectorAll('.almacen-btn').forEach(btn => btn.classList.remove('selected'));
     }
 

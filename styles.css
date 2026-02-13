@@ -2638,6 +2638,50 @@ body.gate-visible .app-container {
     box-shadow: 0 4px 15px rgba(120, 81, 169, 0.4);
 }
 
+/* Modal centrado solo para observaciones (Recoger en Almacén) */
+.almacen-observaciones-modal .almacen-observaciones-modal-content {
+    max-width: 420px;
+    width: 92%;
+}
+
+.almacen-observaciones-modal-body {
+    padding: 0 0 1rem;
+}
+
+.almacen-observaciones-advertencia {
+    color: #dc2626;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    background: rgba(220, 38, 38, 0.08);
+    border-radius: 10px;
+    border-left: 4px solid #dc2626;
+    line-height: 1.4;
+    display: block;
+}
+
+.almacen-observaciones-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.almacen-observaciones-actions .btn {
+    flex: 1;
+}
+
+.almacen-observaciones-actions .btn-outline-secondary {
+    background: var(--white);
+    border: 2px solid var(--gray-300);
+    color: var(--gray-700);
+}
+
+.almacen-observaciones-actions .btn-outline-secondary:hover {
+    background: var(--gray-100);
+    border-color: var(--gray-400);
+}
+
 .almacen-observaciones-block {
     margin-top: 1.5rem;
     padding-top: 1.5rem;

@@ -107,10 +107,24 @@
                         <span class="almacen-name">REQUENA</span>
                     </button>
                 </div>
-                <div id="almacenObservacionesBlock" class="almacen-observaciones-block" style="display: none;">
-                    <label class="observaciones-label">Observaciones (opcional):</label>
-                    <p class="observaciones-prefix" id="almacenObservacionesPrefix"></p>
-                    <textarea id="almacenObservacionesInput" class="observaciones-textarea" placeholder="Añade observaciones..." rows="3"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Observaciones Recoger en Almacén (ventana centrada) -->
+    <div id="almacenObservacionesModal" class="login-modal almacen-observaciones-modal" style="display: none;">
+        <div class="login-modal-overlay"></div>
+        <div class="login-modal-content almacen-observaciones-modal-content">
+            <div class="login-modal-header">
+                <h2 id="almacenObservacionesModalTitle">Observaciones</h2>
+                <button id="closeAlmacenObservacionesModal" class="close-login-btn">✕</button>
+            </div>
+            <div class="almacen-observaciones-modal-body">
+                <p id="almacenObservacionesAdvertencia" class="almacen-observaciones-advertencia" style="display: none;"></p>
+                <label class="observaciones-label" for="almacenObservacionesInput">Observaciones (opcional):</label>
+                <textarea id="almacenObservacionesInput" class="observaciones-textarea" placeholder="Añade observaciones..." rows="4"></textarea>
+                <div class="almacen-observaciones-actions">
+                    <button id="volverAlmacenSelectionBtn" class="btn btn-outline-secondary">Volver</button>
                     <button id="confirmarRecogerAlmacenBtn" class="btn btn-success btn-lg">Enviar pedido</button>
                 </div>
             </div>
