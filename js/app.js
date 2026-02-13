@@ -3006,7 +3006,7 @@ class ScanAsYouShopApp {
 
         const titleEl = document.getElementById('almacenObservacionesModalTitle');
         if (titleEl) {
-            titleEl.textContent = 'Observaciones - Recoger en ' + almacen;
+            titleEl.textContent = 'RECOGER EN GANDIA' + almacen;
         }
 
         const advertenciaEl = document.getElementById('almacenObservacionesAdvertencia');
