@@ -61,7 +61,7 @@ body {
 /* Justo debajo del header */
 .app-container {
     position: fixed;
-    top: calc(48px + 0.5rem + min(env(safe-area-inset-top, 0px), 24px));
+    top: calc(52px + 0.5rem + min(env(safe-area-inset-top, 0px), 32px));
     bottom: var(--footer-height);
     left: 0;
     right: 0;
@@ -330,7 +330,7 @@ body.gate-visible .app-container {
     pointer-events: none;
 }
 
-/* Sin padding extra arriba. En webapp instalada se ajusta en @media (display-mode: standalone) */
+/* Navegador: padding original. En webapp instalada se ajusta en @media (display-mode: standalone) */
 .header-content {
     display: flex;
     align-items: center;
@@ -340,8 +340,8 @@ body.gate-visible .app-container {
     position: relative;
     z-index: 1;
     gap: 0.75rem;
-    padding: 0 1rem;
-    padding-top: min(env(safe-area-inset-top, 0px), 24px);
+    padding: 0.5rem 1rem;
+    padding-top: calc(0.5rem + min(env(safe-area-inset-top, 0px), 32px));
     padding-bottom: 0.5rem;
 }
 
@@ -384,7 +384,8 @@ body.gate-visible .app-container {
     color: var(--white);
 }
 
-/* Solo cuando la webapp esta instalada (Guardar en inicio / PWA standalone): subir header para quitar padding del sistema */
+/* Solo cuando la webapp esta instalada (Guardar en inicio / PWA standalone): subir header para quitar hueco del sistema.
+   Si sigue viendo padding en el movil, aumentar el valor (ej. -32px o -40px) y la misma cantidad en padding-top y en el calc de .app-container. */
 @media (display-mode: standalone) {
     .app-header-fixed {
         top: -24px;
@@ -393,7 +394,7 @@ body.gate-visible .app-container {
         padding-top: calc(24px + min(env(safe-area-inset-top, 0px), 24px));
     }
     .app-container {
-        top: calc(48px + 0.5rem + min(env(safe-area-inset-top, 0px), 24px) - 24px);
+        top: calc(52px + 0.5rem + min(env(safe-area-inset-top, 0px), 32px) - 24px);
     }
 }
 
