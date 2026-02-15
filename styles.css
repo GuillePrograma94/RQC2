@@ -58,10 +58,10 @@ body {
 /* ========================================
    LAYOUT PRINCIPAL
    ======================================== */
-/* Justo debajo del header (top negativo del header = -24px, compensado aqui) */
+/* Justo debajo del header */
 .app-container {
     position: fixed;
-    top: calc(48px + 0.5rem + min(env(safe-area-inset-top, 0px), 24px) - 24px);
+    top: calc(48px + 0.5rem + min(env(safe-area-inset-top, 0px), 24px));
     bottom: var(--footer-height);
     left: 0;
     right: 0;
@@ -305,14 +305,13 @@ body.gate-visible .app-container {
 /* ========================================
    HEADER FIJO
    ======================================== */
-/* top negativo para comer el hueco que deja el navegador/PWA arriba */
 .app-header-fixed {
     background: linear-gradient(135deg, var(--primary), var(--primary-light));
     color: var(--white);
     padding: 0;
     box-shadow: var(--shadow-purple);
     position: fixed;
-    top: -24px;
+    top: 0;
     left: 0;
     right: 0;
     z-index: 1000;
@@ -331,7 +330,7 @@ body.gate-visible .app-container {
     pointer-events: none;
 }
 
-/* Compensa el top -24px del header: empuja el contenido hacia abajo para que no se oculte */
+/* Sin padding extra arriba. En webapp instalada se ajusta en @media (display-mode: standalone) */
 .header-content {
     display: flex;
     align-items: center;
@@ -342,7 +341,7 @@ body.gate-visible .app-container {
     z-index: 1;
     gap: 0.75rem;
     padding: 0 1rem;
-    padding-top: calc(24px + min(env(safe-area-inset-top, 0px), 24px));
+    padding-top: min(env(safe-area-inset-top, 0px), 24px);
     padding-bottom: 0.5rem;
 }
 
@@ -383,6 +382,19 @@ body.gate-visible .app-container {
 
 .menu-btn svg {
     color: var(--white);
+}
+
+/* Solo cuando la webapp esta instalada (Guardar en inicio / PWA standalone): subir header para quitar padding del sistema */
+@media (display-mode: standalone) {
+    .app-header-fixed {
+        top: -24px;
+    }
+    .header-content {
+        padding-top: calc(24px + min(env(safe-area-inset-top, 0px), 24px));
+    }
+    .app-container {
+        top: calc(48px + 0.5rem + min(env(safe-area-inset-top, 0px), 24px) - 24px);
+    }
 }
 
 /* Cart Info Bar (solo para pantalla carrito) */
