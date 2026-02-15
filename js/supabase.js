@@ -954,6 +954,28 @@ class SupabaseClient {
     }
 
     /**
+     * Registra los productos del carrito en el historial de compras del usuario.
+     * Usado tras crear un pedido remoto para que "Solo articulos que he comprado" los incluya.
+     * @param {number} carritoId - ID del carrito/pedido remoto
+     * @returns {Promise<boolean>}
+     */
+    async registrarHistorialDesdeCarrito(carritoId) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+            const { data, error } = await this.client.rpc('registrar_historial_desde_carrito', {
+                p_carrito_id: carritoId
+            });
+            if (error) throw error;
+            return data === true || (Array.isArray(data) && data[0] === true);
+        } catch (error) {
+            console.error('Error al registrar historial desde carrito:', error);
+            return false;
+        }
+    }
+
+    /**
      * Marca un pedido remoto como enviado (después de añadir todos los productos)
      * IMPORTANTE: Esto actualiza ambos estados según el estándar definido
      */

@@ -3219,6 +3219,13 @@ class ScanAsYouShopApp {
                 );
             }
 
+            // Registrar productos en historial del usuario para "Solo articulos que he comprado"
+            try {
+                await window.supabaseClient.registrarHistorialDesdeCarrito(result.carrito_id);
+            } catch (e) {
+                console.warn('No se pudo registrar historial (pedido enviado correctamente):', e);
+            }
+
             // ✅ Ya no es necesario actualizar estados manualmente
             // La función SQL crear_pedido_remoto ya crea el pedido con estado 'enviado'
 

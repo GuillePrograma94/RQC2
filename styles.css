@@ -58,10 +58,10 @@ body {
 /* ========================================
    LAYOUT PRINCIPAL
    ======================================== */
-/* Mismo limite de safe-area que la cabecera para que no quede hueco en PWA Android */
+/* Justo debajo del header (sin padding extra arriba) */
 .app-container {
     position: fixed;
-    top: calc(52px + 0.5rem + min(env(safe-area-inset-top, 0px), 32px));
+    top: calc(48px + 0.5rem + min(env(safe-area-inset-top, 0px), 24px));
     bottom: var(--footer-height);
     left: 0;
     right: 0;
@@ -330,8 +330,7 @@ body.gate-visible .app-container {
     pointer-events: none;
 }
 
-/* Limitar safe-area-inset-top evita cabecera demasiado alta en PWA Android
-   (algunos WebView reportan un valor muy alto y se duplica el espacio morado) */
+/* Sin padding arriba: el header pegado al borde superior. Safe-area solo para notch. */
 .header-content {
     display: flex;
     align-items: center;
@@ -341,8 +340,8 @@ body.gate-visible .app-container {
     position: relative;
     z-index: 1;
     gap: 0.75rem;
-    padding: 0.5rem 1rem;
-    padding-top: calc(0.5rem + min(env(safe-area-inset-top, 0px), 32px));
+    padding: 0 1rem;
+    padding-top: min(env(safe-area-inset-top, 0px), 24px);
     padding-bottom: 0.5rem;
 }
 
