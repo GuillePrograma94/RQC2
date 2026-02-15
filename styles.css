@@ -58,10 +58,10 @@ body {
 /* ========================================
    LAYOUT PRINCIPAL
    ======================================== */
-/* Justo debajo del header (sin padding extra arriba) */
+/* Justo debajo del header (top negativo del header = -24px, compensado aqui) */
 .app-container {
     position: fixed;
-    top: calc(48px + 0.5rem + min(env(safe-area-inset-top, 0px), 24px));
+    top: calc(48px + 0.5rem + min(env(safe-area-inset-top, 0px), 24px) - 24px);
     bottom: var(--footer-height);
     left: 0;
     right: 0;
@@ -305,13 +305,14 @@ body.gate-visible .app-container {
 /* ========================================
    HEADER FIJO
    ======================================== */
+/* top negativo para comer el hueco que deja el navegador/PWA arriba */
 .app-header-fixed {
     background: linear-gradient(135deg, var(--primary), var(--primary-light));
     color: var(--white);
     padding: 0;
     box-shadow: var(--shadow-purple);
     position: fixed;
-    top: 0;
+    top: -24px;
     left: 0;
     right: 0;
     z-index: 1000;
@@ -330,7 +331,7 @@ body.gate-visible .app-container {
     pointer-events: none;
 }
 
-/* Sin padding arriba: el header pegado al borde superior. Safe-area solo para notch. */
+/* Compensa el top -24px del header: empuja el contenido hacia abajo para que no se oculte */
 .header-content {
     display: flex;
     align-items: center;
@@ -341,7 +342,7 @@ body.gate-visible .app-container {
     z-index: 1;
     gap: 0.75rem;
     padding: 0 1rem;
-    padding-top: min(env(safe-area-inset-top, 0px), 24px);
+    padding-top: calc(24px + min(env(safe-area-inset-top, 0px), 24px));
     padding-bottom: 0.5rem;
 }
 
