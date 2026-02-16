@@ -3322,7 +3322,7 @@ class ScanAsYouShopApp {
 
         const titleEl = document.getElementById('almacenObservacionesModalTitle');
         if (titleEl) {
-            titleEl.textContent = 'Recoger en ' + almacen;
+            titleEl.textContent = 'RECOGER EN ' + (almacen || '').toUpperCase();
         }
 
         const advertenciaEl = document.getElementById('almacenObservacionesAdvertencia');

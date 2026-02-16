@@ -3109,13 +3109,20 @@ body.gate-visible .app-container {
     box-shadow: 0 4px 15px rgba(120, 81, 169, 0.4);
 }
 
-/* Modal centrado solo para observaciones (Recoger en Almacén) */
+/* Modal observaciones: posicionado hacia arriba para que el teclado no tape el textarea */
+.almacen-observaciones-modal {
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+}
+
 .almacen-observaciones-modal .almacen-observaciones-modal-content {
     max-width: 420px;
     width: 92%;
 }
 
-/* Cabecera sin X: solo título centrado (cierre con botón Volver abajo) */
+/* Título: una línea, mayúsculas, tamaño reducido */
 .almacen-observaciones-modal .almacen-observaciones-modal-header {
     justify-content: center;
     text-align: center;
@@ -3123,6 +3130,11 @@ body.gate-visible .app-container {
 
 .almacen-observaciones-modal .almacen-observaciones-modal-header h2 {
     width: 100%;
+    font-size: 1.05rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
 }
 
 .almacen-observaciones-modal-body {
@@ -3144,12 +3156,47 @@ body.gate-visible .app-container {
 
 .almacen-observaciones-actions {
     display: flex;
+    align-items: stretch;
     gap: 0.75rem;
     margin-top: 1rem;
 }
 
-.almacen-observaciones-actions .btn {
+.almacen-observaciones-actions .almacen-volver-btn {
+    flex: 0 0 auto;
+    min-width: 0;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.almacen-observaciones-actions .almacen-enviar-btn {
     flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    font-size: 1rem;
+    border: none;
+    border-radius: 12px;
+    padding: 0.75rem 1.25rem;
+    color: #fff;
+    background: linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%);
+    background-size: 200% 200%;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+    cursor: pointer;
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+    animation: almacen-enviar-glide 4s ease-in-out infinite;
+}
+
+.almacen-observaciones-actions .almacen-enviar-btn:hover {
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+    transform: translateY(-1px);
+}
+
+.almacen-observaciones-actions .almacen-enviar-btn:active {
+    transform: translateY(0);
+}
+
+@keyframes almacen-enviar-glide {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
 }
 
 .almacen-observaciones-actions .btn-outline-secondary {
