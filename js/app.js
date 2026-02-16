@@ -702,8 +702,9 @@ class ScanAsYouShopApp {
         if (!listEl || !emptyEl) return;
 
         listEl.innerHTML = '';
-        const operarios = await window.supabaseClient.getOperarios(this.currentUser.user_id);
+        let operarios = await window.supabaseClient.getOperarios(this.currentUser.user_id);
         if (operarios && operarios.length > 0) {
+            operarios = operarios.filter((op, idx, arr) => arr.findIndex(o => o.id === op.id) === idx);
             emptyEl.style.display = 'none';
             listEl.style.display = 'flex';
             operarios.forEach(function(op) {
@@ -1411,7 +1412,7 @@ class ScanAsYouShopApp {
             profileOperariosList.addEventListener('click', (e) => {
                 const btn = e.target.closest('.profile-operario-remove');
                 if (!btn || !this.currentUser) return;
-                const operarioId = parseInt(btn.dataset.operarioid, 10);
+                const operarioId = parseInt(btn.dataset.operarioId, 10);
                 if (!operarioId) return;
                 window.ui.showConfirm('Eliminar operario', '¿Eliminar este operario? Perdera el acceso a tu cuenta.', 'Eliminar', 'Cancelar')
                     .then((ok) => { if (ok) this.doRemoveOperario(operarioId); });
