@@ -32,11 +32,11 @@ RETURNS TABLE (
 DECLARE
     v_fecha_version TIMESTAMP WITH TIME ZONE;
 BEGIN
-    -- Obtener fecha de la versión local (ordenar por id en lugar de fecha para evitar problemas con zonas horarias)
+    -- Obtener fecha de la versión local
     SELECT version_control.fecha_actualizacion INTO v_fecha_version
     FROM version_control
     WHERE version_control.version_hash = p_version_hash_local
-    ORDER BY version_control.id DESC
+    ORDER BY version_control.fecha_actualizacion DESC
     LIMIT 1;
     
     -- Si no se encuentra la versión, devolver todos los productos (primera sincronización)
@@ -92,11 +92,11 @@ RETURNS TABLE (
 DECLARE
     v_fecha_version TIMESTAMP WITH TIME ZONE;
 BEGIN
-    -- Obtener fecha de la versión local (ordenar por id en lugar de fecha para evitar problemas con zonas horarias)
+    -- Obtener fecha de la versión local
     SELECT version_control.fecha_actualizacion INTO v_fecha_version
     FROM version_control
     WHERE version_control.version_hash = p_version_hash_local
-    ORDER BY version_control.id DESC
+    ORDER BY version_control.fecha_actualizacion DESC
     LIMIT 1;
     
     -- Si no se encuentra la versión, devolver todos los códigos (primera sincronización)
