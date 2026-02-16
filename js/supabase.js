@@ -48,11 +48,11 @@ class SupabaseClient {
                 throw new Error('Cliente de Supabase no inicializado');
             }
 
-            // Obtener versión remota de Supabase
+            // Obtener versión remota de Supabase (ordenar por ID en lugar de fecha para evitar problemas con zonas horarias)
             const { data: versionRemota, error } = await this.client
                 .from('version_control')
                 .select('*')
-                .order('fecha_actualizacion', { ascending: false })
+                .order('id', { ascending: false })
                 .limit(1);
 
             if (error) throw error;

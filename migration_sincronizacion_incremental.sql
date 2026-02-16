@@ -5,6 +5,11 @@
 -- que han cambiado desde una versión específica, en lugar de
 -- descargar toda la tabla.
 --
+-- IMPORTANTE: Ejecuta este script COMPLETO en Supabase > SQL Editor
+-- cada vez que lo actualices. Si no, seguirás viendo "180k cambios"
+-- porque la base seguirá usando la versión antigua que actualizaba
+-- fecha_actualizacion en todas las filas.
+--
 -- Beneficios:
 -- - Reduce tiempo de descarga de minutos a segundos
 -- - Reduce uso de ancho de banda en 95-99%
@@ -27,11 +32,11 @@ RETURNS TABLE (
 DECLARE
     v_fecha_version TIMESTAMP WITH TIME ZONE;
 BEGIN
-    -- Obtener fecha de la versión local
-    SELECT fecha_actualizacion INTO v_fecha_version
+    -- Obtener fecha de la versión local (ordenar por id en lugar de fecha para evitar problemas con zonas horarias)
+    SELECT version_control.fecha_actualizacion INTO v_fecha_version
     FROM version_control
-    WHERE version_hash = p_version_hash_local
-    ORDER BY fecha_actualizacion DESC
+    WHERE version_control.version_hash = p_version_hash_local
+    ORDER BY version_control.id DESC
     LIMIT 1;
     
     -- Si no se encuentra la versión, devolver todos los productos (primera sincronización)
@@ -87,11 +92,11 @@ RETURNS TABLE (
 DECLARE
     v_fecha_version TIMESTAMP WITH TIME ZONE;
 BEGIN
-    -- Obtener fecha de la versión local
-    SELECT fecha_actualizacion INTO v_fecha_version
+    -- Obtener fecha de la versión local (ordenar por id en lugar de fecha para evitar problemas con zonas horarias)
+    SELECT version_control.fecha_actualizacion INTO v_fecha_version
     FROM version_control
-    WHERE version_hash = p_version_hash_local
-    ORDER BY fecha_actualizacion DESC
+    WHERE version_control.version_hash = p_version_hash_local
+    ORDER BY version_control.id DESC
     LIMIT 1;
     
     -- Si no se encuentra la versión, devolver todos los códigos (primera sincronización)
@@ -151,11 +156,11 @@ DECLARE
     v_codigos_mod INTEGER;
     v_codigos_nuevos INTEGER;
 BEGIN
-    -- Obtener fecha de la versión local
-    SELECT fecha_actualizacion INTO v_fecha_version
+    -- Obtener fecha de la versión local (ordenar por id en lugar de fecha para evitar problemas con zonas horarias)
+    SELECT version_control.fecha_actualizacion INTO v_fecha_version
     FROM version_control
-    WHERE version_hash = p_version_hash_local
-    ORDER BY fecha_actualizacion DESC
+    WHERE version_control.version_hash = p_version_hash_local
+    ORDER BY version_control.id DESC
     LIMIT 1;
     
     -- Si no se encuentra la versión, devolver 0 (primera sincronización completa)
@@ -234,12 +239,16 @@ CREATE OR REPLACE FUNCTION actualizar_fecha_productos()
 RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'UPDATE' THEN
-        -- Solo actualizar fecha_actualizacion cuando hay cambio real en descripcion o pvp
-        IF OLD.descripcion IS DISTINCT FROM NEW.descripcion OR OLD.pvp IS DISTINCT FROM NEW.pvp THEN
+        -- Solo actualizar fecha cuando hay cambio real
+        -- TRIM en texto; redondeo a 2 decimales en pvp para evitar problemas de precisión flotante
+        IF TRIM(COALESCE(OLD.descripcion, '')) IS DISTINCT FROM TRIM(COALESCE(NEW.descripcion, ''))
+           OR ROUND(OLD.pvp::numeric, 2) IS DISTINCT FROM ROUND(NEW.pvp::numeric, 2) THEN
             NEW.fecha_actualizacion = NOW();
         ELSE
             NEW.fecha_actualizacion = OLD.fecha_actualizacion;
         END IF;
+        -- Normalizar pvp a 2 decimales al guardar
+        NEW.pvp = ROUND(NEW.pvp::numeric, 2)::real;
         NEW.fecha_creacion = OLD.fecha_creacion;
     ELSIF TG_OP = 'INSERT' THEN
         IF NEW.fecha_creacion IS NULL THEN
@@ -248,6 +257,8 @@ BEGIN
         IF NEW.fecha_actualizacion IS NULL THEN
             NEW.fecha_actualizacion = NOW();
         END IF;
+        -- Normalizar pvp a 2 decimales al insertar
+        NEW.pvp = ROUND(NEW.pvp::numeric, 2)::real;
     END IF;
     RETURN NEW;
 END;
@@ -266,7 +277,9 @@ CREATE OR REPLACE FUNCTION actualizar_fecha_codigos_secundarios()
 RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'UPDATE' THEN
-        IF OLD.descripcion IS DISTINCT FROM NEW.descripcion OR OLD.codigo_principal IS DISTINCT FROM NEW.codigo_principal THEN
+        -- TRIM para evitar falsos positivos por espacios
+        IF TRIM(COALESCE(OLD.descripcion, '')) IS DISTINCT FROM TRIM(COALESCE(NEW.descripcion, ''))
+           OR TRIM(COALESCE(OLD.codigo_principal, '')) IS DISTINCT FROM TRIM(COALESCE(NEW.codigo_principal, '')) THEN
             NEW.fecha_actualizacion = NOW();
         ELSE
             NEW.fecha_actualizacion = OLD.fecha_actualizacion;
@@ -333,24 +346,17 @@ BEGIN
         FROM productos
         WHERE productos.codigo = p_codigo;
         
-        -- Solo actualizar fecha_actualizacion cuando descripcion o pvp cambian
+        -- El trigger se encarga de fecha_actualizacion
         UPDATE productos
         SET 
-            descripcion = p_descripcion,
-            pvp = p_pvp,
-            fecha_actualizacion = CASE
-                WHEN productos.descripcion IS DISTINCT FROM p_descripcion
-                  OR productos.pvp IS DISTINCT FROM p_pvp
-                THEN NOW()
-                ELSE productos.fecha_actualizacion
-            END
+            descripcion = TRIM(COALESCE(p_descripcion, '')),
+            pvp = ROUND(p_pvp::numeric, 2)::real
         WHERE productos.codigo = p_codigo;
         
         v_accion := 'UPDATE';
     ELSE
-        -- INSERT: Crear nuevo producto
         INSERT INTO productos (codigo, descripcion, pvp, fecha_creacion, fecha_actualizacion)
-        VALUES (p_codigo, p_descripcion, p_pvp, NOW(), NOW());
+        VALUES (p_codigo, TRIM(COALESCE(p_descripcion, '')), ROUND(p_pvp::numeric, 2)::real, NOW(), NOW());
         
         v_fecha_creacion_original := NOW();
         v_accion := 'INSERT';
@@ -392,6 +398,7 @@ DECLARE
     v_existe BOOLEAN;
     v_accion TEXT;
     v_fecha_actual TIMESTAMP WITH TIME ZONE;
+    v_fecha_antes TIMESTAMP WITH TIME ZONE;  -- Para detectar cambios reales
 BEGIN
     -- Procesar cada producto del JSON
     FOR producto_item IN SELECT * FROM jsonb_array_elements(productos_json)
@@ -409,45 +416,54 @@ BEGIN
         ) INTO v_existe;
         
         IF v_existe THEN
-            -- UPDATE: Solo actualizar fecha_actualizacion cuando los datos (descripcion, pvp) cambian.
-            -- Si son idénticos, no tocar fecha_actualizacion para no marcar todo como "modificado"
-            -- en cada ejecución de generate_supabase_file.
+            -- Guardar fecha ANTES del update para detectar si realmente cambió
+            SELECT productos.fecha_actualizacion INTO v_fecha_antes
+            FROM productos WHERE productos.codigo = v_codigo_prod;
+            
+            -- UPDATE: El trigger se encarga de actualizar fecha_actualizacion
             UPDATE productos
             SET 
-                descripcion = v_descripcion,
-                pvp = v_pvp,
-                fecha_actualizacion = CASE
-                    WHEN productos.descripcion IS DISTINCT FROM v_descripcion
-                      OR productos.pvp IS DISTINCT FROM v_pvp
-                    THEN NOW()
-                    ELSE productos.fecha_actualizacion
-                END
+                descripcion = TRIM(COALESCE(v_descripcion, '')),
+                pvp = ROUND(v_pvp::numeric, 2)::real  -- Redondear a 2 decimales
             WHERE productos.codigo = v_codigo_prod;
-            -- Obtener la fecha resultante para el retorno
+            
+            -- Obtener fecha DESPUÉS del update
             SELECT productos.fecha_actualizacion INTO v_fecha_actual
             FROM productos WHERE productos.codigo = v_codigo_prod;
-            v_accion := 'UPDATE';
+            
+            -- Solo retornar si la fecha cambió (hubo cambio real de datos)
+            IF v_fecha_actual != v_fecha_antes THEN
+                v_accion := 'UPDATE';
+                RETURN QUERY
+                SELECT 
+                    v_codigo_prod::TEXT,
+                    v_accion::TEXT,
+                    v_fecha_actual;
+            END IF;
+            -- Si la fecha no cambió, no retornamos nada (datos idénticos)
         ELSE
             v_fecha_actual := NOW();
             -- INSERT: Crear nuevo
             INSERT INTO productos (codigo, descripcion, pvp, fecha_creacion, fecha_actualizacion)
-            VALUES (v_codigo_prod, v_descripcion, v_pvp, v_fecha_actual, v_fecha_actual);
+            VALUES (v_codigo_prod, TRIM(COALESCE(v_descripcion, '')), ROUND(v_pvp::numeric, 2)::real, v_fecha_actual, v_fecha_actual);
             v_accion := 'INSERT';
+            
+            -- Retornar resultado para INSERT
+            RETURN QUERY
+            SELECT 
+                v_codigo_prod::TEXT,
+                v_accion::TEXT,
+                v_fecha_actual;
         END IF;
-        
-        -- Retornar resultado (usar v_codigo_prod para evitar ambigüedad)
-        RETURN QUERY
-        SELECT 
-            v_codigo_prod::TEXT,
-            v_accion::TEXT,
-            v_fecha_actual;
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION upsert_productos_masivo_con_fecha IS 
 'UPSERT masivo de productos. Solo actualiza fecha_actualizacion cuando descripcion o pvp cambian.
-Recibe un JSONB con array de productos.';
+Recibe un JSONB con array de productos.
+IMPORTANTE: Solo retorna filas para productos que cambiaron (INSERT o UPDATE con cambio real).
+Productos con datos idénticos no retornan filas (optimización).';
 
 -- Función similar para códigos secundarios (solo actualiza fecha cuando cambian los datos)
 CREATE OR REPLACE FUNCTION upsert_codigo_secundario_con_fecha(
@@ -468,17 +484,11 @@ BEGIN
     SELECT EXISTS(SELECT 1 FROM codigos_secundarios WHERE codigos_secundarios.codigo_secundario = p_codigo_secundario) INTO v_existe;
     
     IF v_existe THEN
-        -- Solo actualizar fecha_actualizacion cuando descripcion o codigo_principal cambian
+        -- El trigger se encarga de fecha_actualizacion
         UPDATE codigos_secundarios
         SET 
-            descripcion = p_descripcion,
-            codigo_principal = p_codigo_principal,
-            fecha_actualizacion = CASE
-                WHEN codigos_secundarios.descripcion IS DISTINCT FROM p_descripcion
-                  OR codigos_secundarios.codigo_principal IS DISTINCT FROM p_codigo_principal
-                THEN NOW()
-                ELSE codigos_secundarios.fecha_actualizacion
-            END
+            descripcion = TRIM(COALESCE(p_descripcion, '')),
+            codigo_principal = TRIM(COALESCE(p_codigo_principal, ''))
         WHERE codigos_secundarios.codigo_secundario = p_codigo_secundario;
         
         v_accion := 'UPDATE';
