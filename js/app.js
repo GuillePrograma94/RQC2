@@ -721,8 +721,8 @@ class ScanAsYouShopApp {
         const emptyEl = document.getElementById('profileOperariosEmpty');
         if (!listEl || !emptyEl) return;
 
-        listEl.innerHTML = '';
         let operarios = await window.supabaseClient.getOperarios(this.currentUser.user_id);
+        listEl.innerHTML = '';
         if (operarios && operarios.length > 0) {
             var seen = {};
             operarios = operarios.filter(function(op) {
