@@ -3308,7 +3308,7 @@ class ScanAsYouShopApp {
 
         const titleEl = document.getElementById('almacenObservacionesModalTitle');
         if (titleEl) {
-            titleEl.textContent = 'RECOGER EN GANDIA' + almacen;
+            titleEl.textContent = 'Recoger en ' + almacen;
         }
 
         const advertenciaEl = document.getElementById('almacenObservacionesAdvertencia');
@@ -3424,8 +3424,18 @@ class ScanAsYouShopApp {
             unidades: p.cantidad != null ? p.cantidad : 0
         }));
 
+        // ERP siempre recibe el codigo del titular (ej: 79280). Si es operario (79280-23), enviamos solo 79280.
+        let codigoClienteErp = null;
+        if (this.currentUser) {
+            if (this.currentUser.is_operario && this.currentUser.codigo_usuario && this.currentUser.codigo_usuario.indexOf('-') !== -1) {
+                codigoClienteErp = this.currentUser.codigo_usuario.split('-')[0].trim() || this.currentUser.codigo_cliente;
+            } else {
+                codigoClienteErp = this.currentUser.codigo_cliente != null ? this.currentUser.codigo_cliente : this.currentUser.codigo_usuario;
+            }
+        }
+
         return {
-            codigo_cliente: this.currentUser ? this.currentUser.codigo_usuario : null,
+            codigo_cliente: codigoClienteErp,
             serie: serie,
             centro_venta: centro_venta,
             referencia: ref,
