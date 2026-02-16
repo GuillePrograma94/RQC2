@@ -81,6 +81,7 @@ CREATE POLICY "Permitir eliminacion operarios propio usuario"
 -- ============================================
 -- 3. RPC LISTAR OPERARIOS
 -- ============================================
+-- Devuelve un unico registro por codigo_operario (el mas reciente) del usuario_id dado
 CREATE OR REPLACE FUNCTION listar_operarios(p_usuario_id INTEGER)
 RETURNS TABLE (
     id INTEGER,
@@ -92,10 +93,10 @@ RETURNS TABLE (
 LANGUAGE sql
 STABLE
 AS $$
-    SELECT o.id, o.codigo_operario, o.nombre_operario, o.activo, o.fecha_creacion
+    SELECT DISTINCT ON (o.codigo_operario) o.id, o.codigo_operario, o.nombre_operario, o.activo, o.fecha_creacion
     FROM usuarios_operarios o
     WHERE o.usuario_id = p_usuario_id
-    ORDER BY o.fecha_creacion DESC;
+    ORDER BY o.codigo_operario, o.fecha_creacion DESC;
 $$;
 
 -- ============================================

@@ -724,7 +724,13 @@ class ScanAsYouShopApp {
         listEl.innerHTML = '';
         let operarios = await window.supabaseClient.getOperarios(this.currentUser.user_id);
         if (operarios && operarios.length > 0) {
-            operarios = operarios.filter((op, idx, arr) => arr.findIndex(o => o.id === op.id) === idx);
+            var seen = {};
+            operarios = operarios.filter(function(op) {
+                var key = (op.codigo_operario || '').trim();
+                if (seen[key]) return false;
+                seen[key] = true;
+                return true;
+            });
             emptyEl.style.display = 'none';
             listEl.style.display = 'flex';
             operarios.forEach(function(op) {
