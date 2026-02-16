@@ -3277,6 +3277,23 @@ class ScanAsYouShopApp {
             return;
         }
 
+        const container = document.querySelector('.almacen-options');
+        if (container) {
+            const allAlmacenes = ['ALZIRA', 'GANDIA', 'ONTINYENT', 'REQUENA'];
+            const habitual = this.currentUser && this.currentUser.almacen_habitual ? this.currentUser.almacen_habitual.toUpperCase().trim() : null;
+            const orden = habitual && allAlmacenes.includes(habitual)
+                ? [habitual].concat(allAlmacenes.filter(a => a !== habitual).sort())
+                : allAlmacenes.slice().sort();
+            const buttonsByAlmacen = {};
+            container.querySelectorAll('.almacen-btn').forEach(btn => {
+                const a = btn.dataset.almacen;
+                if (a) buttonsByAlmacen[a] = btn;
+            });
+            orden.forEach(almacen => {
+                if (buttonsByAlmacen[almacen]) container.appendChild(buttonsByAlmacen[almacen]);
+            });
+        }
+
         const almacenButtons = document.querySelectorAll('.almacen-btn');
         almacenButtons.forEach(btn => {
             btn.classList.remove('selected');
