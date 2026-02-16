@@ -114,6 +114,27 @@ self.addEventListener('fetch', event => {
     );
 });
 
+// Background Sync: cuando vuelve la conexion, el navegador dispara este evento
+// (Chrome/Edge Android; no soportado en Safari/iOS)
+const OFFLINE_ORDERS_SYNC_TAG = 'offline-orders';
+
+self.addEventListener('sync', event => {
+    if (event.tag !== OFFLINE_ORDERS_SYNC_TAG) return;
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+            .then(clientList => {
+                return Promise.all(
+                    clientList.map(client => {
+                        if (client.url.startsWith(self.registration.scope)) {
+                            return client.postMessage({ type: 'PROCESS_OFFLINE_ORDERS' });
+                        }
+                        return Promise.resolve();
+                    })
+                );
+            })
+    );
+});
+
 // Mensajes desde la app
 self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {

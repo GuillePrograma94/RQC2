@@ -15,6 +15,7 @@ class ERPRetryQueue {
     constructor() {
         this.db = null;
         this.timerId = null;
+        this._onlineBound = null;
     }
 
     async init() {
@@ -24,6 +25,10 @@ class ERPRetryQueue {
             req.onsuccess = () => {
                 this.db = req.result;
                 this.scheduleNextRun();
+                if (typeof window !== 'undefined' && !this._onlineBound) {
+                    this._onlineBound = () => this.onConnectionRestored();
+                    window.addEventListener('online', this._onlineBound);
+                }
                 resolve();
             };
             req.onupgradeneeded = (e) => {
@@ -70,6 +75,17 @@ class ERPRetryQueue {
             tx.objectStore(ERP_QUEUE_STORE).delete(carritoId);
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
+        });
+    }
+
+    onConnectionRestored() {
+        if (!this.db) return;
+        this.getAll().then((items) => {
+            if (items.length > 0) {
+                this.runRetries(items);
+            }
+        }).catch((err) => {
+            console.warn('ERPRetryQueue onConnectionRestored:', err);
         });
     }
 

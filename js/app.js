@@ -84,6 +84,26 @@ class ScanAsYouShopApp {
                     console.warn('Cola de reintentos ERP no inicializada:', err);
                 });
             }
+            if (window.offlineOrderQueue && typeof window.offlineOrderQueue.init === 'function') {
+                window.offlineOrderQueue.init().then(function () {
+                    return window.offlineOrderQueue.processAll();
+                }).catch(function (err) {
+                    console.warn('Cola de pedidos offline no inicializada:', err);
+                });
+            }
+
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.addEventListener('message', function (event) {
+                    if (event.data && event.data.type === 'PROCESS_OFFLINE_ORDERS') {
+                        if (window.offlineOrderQueue && typeof window.offlineOrderQueue.processAll === 'function') {
+                            window.offlineOrderQueue.processAll();
+                        }
+                        if (window.erpRetryQueue && typeof window.erpRetryQueue.runRetries === 'function') {
+                            window.erpRetryQueue.runRetries([]);
+                        }
+                    }
+                });
+            }
 
             // Solicitar permisos de notificaciones en segundo plano (no bloquear la entrada a la app)
             this.requestNotificationPermission().catch(() => {});
@@ -3460,6 +3480,42 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Construye el payload ERP a partir de un item de la cola offline (sin Supabase).
+     * Usado por offline-order-queue al procesar pedidos guardados sin conexion.
+     */
+    buildErpPayloadFromOfflineItem(item, carritoId, codigoQr) {
+        const almacen = item.almacen;
+        const observaciones = item.observaciones != null ? String(item.observaciones) : '';
+        const referencia = 'RQC/' + carritoId + '-' + (codigoQr || '');
+        const almacenHabitual = (item.user_snapshot && item.user_snapshot.almacen_habitual) ? item.user_snapshot.almacen_habitual : null;
+        const { serie, centro_venta } = typeof ERP_PEDIDO_OPCIONES !== 'undefined'
+            ? ERP_PEDIDO_OPCIONES.getSerieYCentroVenta(almacen, almacenHabitual)
+            : { serie: 'BT7', centro_venta: '1' };
+        const productos = (item.cart && item.cart.productos) ? item.cart.productos : [];
+        const lineas = productos.map((p) => ({
+            codigo_articulo: p.codigo_producto || p.codigo,
+            unidades: p.cantidad != null ? p.cantidad : 0
+        }));
+        let codigoClienteErp = null;
+        if (item.user_snapshot) {
+            const u = item.user_snapshot;
+            if (u.is_operario && u.codigo_usuario && String(u.codigo_usuario).indexOf('-') !== -1) {
+                codigoClienteErp = String(u.codigo_usuario).split('-')[0].trim() || u.codigo_cliente;
+            } else {
+                codigoClienteErp = u.codigo_cliente != null ? u.codigo_cliente : u.codigo_usuario;
+            }
+        }
+        return {
+            codigo_cliente: codigoClienteErp,
+            serie: serie,
+            centro_venta: centro_venta,
+            referencia: referencia,
+            observaciones: observaciones,
+            lineas: lineas
+        };
+    }
+
+    /**
      * Envía un pedido remoto al almacén seleccionado.
      * @param {string} almacen - Código del almacén (ONTINYENT, GANDIA, ALZIRA, REQUENA).
      * @param {string} [observaciones] - Observaciones para el pedido (opcional).
@@ -3488,6 +3544,39 @@ class ScanAsYouShopApp {
             );
 
             if (!result.success) {
+                if (this.isConnectionError(result.message) && window.offlineOrderQueue) {
+                    const cart = window.cartManager.getCart();
+                    const offlineItem = {
+                        usuario_id: this.currentUser.user_id,
+                        almacen: almacen,
+                        observaciones: observaciones != null ? String(observaciones) : '',
+                        cart: {
+                            productos: (cart.productos || []).map((p) => ({
+                                codigo_producto: p.codigo_producto || p.codigo,
+                                descripcion_producto: p.descripcion_producto,
+                                precio_unitario: p.precio_unitario,
+                                cantidad: p.cantidad
+                            })),
+                            total_importe: cart.total_importe
+                        },
+                        user_snapshot: {
+                            codigo_cliente: this.currentUser.codigo_cliente,
+                            codigo_usuario: this.currentUser.codigo_usuario,
+                            almacen_habitual: this.currentUser.almacen_habitual,
+                            is_operario: this.currentUser.is_operario,
+                            nombre_operario: this.currentUser.nombre_operario
+                        }
+                    };
+                    await window.offlineOrderQueue.enqueue(offlineItem);
+                    window.ui.hideLoading();
+                    window.ui.showToast('Pedido guardado. Se enviara cuando haya conexion.', 'success');
+                    await window.cartManager.clearCart();
+                    window.ui.updateCartBadge();
+                    this.showScreen('cart');
+                    this.updateActiveNav('cart');
+                    this.updateCartView();
+                    return;
+                }
                 throw new Error(result.message || 'Error al crear pedido remoto');
             }
 
@@ -3548,6 +3637,9 @@ class ScanAsYouShopApp {
                     almacen: almacen,
                     usuario_id: this.currentUser.user_id
                 });
+                if (window.offlineOrderQueue && typeof window.offlineOrderQueue.registerBackgroundSync === 'function') {
+                    window.offlineOrderQueue.registerBackgroundSync();
+                }
                 window.ui.hideLoading();
                 window.ui.showToast('Pedido guardado. Se enviara al ERP cuando haya conexion.', 'success');
                 if (window.purchaseCache) {
@@ -3607,6 +3699,46 @@ class ScanAsYouShopApp {
 
         } catch (error) {
             console.error('Error al enviar pedido remoto:', error);
+            const errMsg = error && (error.message || String(error));
+            if (this.isConnectionError(errMsg) && this.currentUser && window.offlineOrderQueue) {
+                const cart = window.cartManager.getCart();
+                if (cart && cart.productos && cart.productos.length > 0) {
+                    const offlineItem = {
+                        usuario_id: this.currentUser.user_id,
+                        almacen: almacen,
+                        observaciones: observaciones != null ? String(observaciones) : '',
+                        cart: {
+                            productos: (cart.productos || []).map((p) => ({
+                                codigo_producto: p.codigo_producto || p.codigo,
+                                descripcion_producto: p.descripcion_producto,
+                                precio_unitario: p.precio_unitario,
+                                cantidad: p.cantidad
+                            })),
+                            total_importe: cart.total_importe
+                        },
+                        user_snapshot: {
+                            codigo_cliente: this.currentUser.codigo_cliente,
+                            codigo_usuario: this.currentUser.codigo_usuario,
+                            almacen_habitual: this.currentUser.almacen_habitual,
+                            is_operario: this.currentUser.is_operario,
+                            nombre_operario: this.currentUser.nombre_operario
+                        }
+                    };
+                    try {
+                        await window.offlineOrderQueue.enqueue(offlineItem);
+                        window.ui.hideLoading();
+                        window.ui.showToast('Pedido guardado. Se enviara cuando haya conexion.', 'success');
+                        await window.cartManager.clearCart();
+                        window.ui.updateCartBadge();
+                        this.showScreen('cart');
+                        this.updateActiveNav('cart');
+                        this.updateCartView();
+                        return;
+                    } catch (e) {
+                        console.warn('No se pudo guardar pedido offline:', e);
+                    }
+                }
+            }
             window.ui.hideLoading();
             window.ui.showToast('Error al enviar pedido. Intenta de nuevo.', 'error');
         }
@@ -3619,6 +3751,16 @@ class ScanAsYouShopApp {
     isErpValidationError(error) {
         const msg = (error && (error.message || error.toString || String(error))) ? String(error.message || error) : '';
         return /400|Bad Request|obligatorio|ERP error 4\d\d/i.test(msg);
+    }
+
+    /**
+     * Detecta si el mensaje indica fallo de conexion (offline / red).
+     * Usado para encolar el pedido en la cola offline cuando Supabase no responde.
+     */
+    isConnectionError(message) {
+        if (message == null) return false;
+        const msg = String(message);
+        return /conexion|conexión|intenta de nuevo|network|failed to fetch|load failed|err_connection/i.test(msg);
     }
 
     /**
