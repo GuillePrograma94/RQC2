@@ -2699,6 +2699,16 @@ body.gate-visible .app-container {
     color: var(--gray-700);
 }
 
+.profile-operario-hint {
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    margin: 0 0 1rem 0;
+    padding: 0.75rem;
+    background: var(--gray-50);
+    border-radius: 8px;
+    border: 1px solid var(--gray-200);
+}
+
 /* ========================================
    PANTALLA COMERCIAL ASIGNADO
    ======================================== */

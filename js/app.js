@@ -172,13 +172,15 @@ class ScanAsYouShopApp {
             const loginResult = await window.supabaseClient.loginUser(codigo, password);
 
             if (loginResult.success) {
-                // Guardar información del usuario
+                // Guardar información del usuario (titular u operario; operario usa user_id del titular)
                 this.currentUser = {
                     user_id: loginResult.user_id,
                     user_name: loginResult.user_name,
                     codigo_usuario: loginResult.codigo_usuario,
                     codigo_cliente: loginResult.codigo_cliente,
-                    almacen_habitual: loginResult.almacen_habitual
+                    almacen_habitual: loginResult.almacen_habitual,
+                    is_operario: !!loginResult.es_operario,
+                    nombre_operario: loginResult.nombre_operario || null
                 };
 
                 // Crear sesión
@@ -664,6 +666,22 @@ class ScanAsYouShopApp {
         if (nameEl) nameEl.textContent = this.currentUser.user_name || '--';
         if (codeEl) codeEl.textContent = this.currentUser.codigo_usuario || '--';
 
+        const passwordSection = document.getElementById('profilePasswordSection');
+        if (passwordSection) {
+            passwordSection.style.display = this.currentUser.is_operario ? 'none' : 'block';
+        }
+        const operariosSection = document.getElementById('profileOperariosSection');
+        if (operariosSection) {
+            operariosSection.style.display = this.currentUser.is_operario ? 'none' : 'block';
+        }
+        const codigoEjemplo = document.getElementById('profileOperarioCodigoEjemplo');
+        if (codigoEjemplo && !this.currentUser.is_operario) {
+            const codigoTitular = this.currentUser.codigo_usuario && this.currentUser.codigo_usuario.indexOf('-') === -1
+                ? this.currentUser.codigo_usuario
+                : (this.currentUser.codigo_usuario || '').split('-')[0] || '[tu codigo]';
+            codigoEjemplo.textContent = codigoTitular + '-01';
+        }
+
         const msgEl = document.getElementById('profilePasswordMessage');
         if (msgEl) {
             msgEl.style.display = 'none';
@@ -719,9 +737,18 @@ class ScanAsYouShopApp {
         const modal = document.getElementById('profileOperarioModal');
         const msgEl = document.getElementById('profileOperarioMessage');
         const form = document.getElementById('profileOperarioForm');
+        const codigoTitularEl = document.getElementById('profileOperarioCodigoTitular');
+        const codigoSufijoEl = document.getElementById('profileOperarioCodigoSufijo');
         if (modal) modal.style.display = 'flex';
         if (msgEl) { msgEl.style.display = 'none'; msgEl.textContent = ''; msgEl.className = 'profile-message'; }
         if (form) form.reset();
+        if (codigoTitularEl && this.currentUser) {
+            const codigoTitular = this.currentUser.codigo_usuario && this.currentUser.codigo_usuario.indexOf('-') === -1
+                ? this.currentUser.codigo_usuario
+                : (this.currentUser.codigo_usuario || '').split('-')[0] || '';
+            codigoTitularEl.textContent = codigoTitular || '[tu codigo]';
+        }
+        if (codigoSufijoEl) codigoSufijoEl.textContent = '[codigo abajo]';
     }
 
     /**
@@ -1426,7 +1453,10 @@ class ScanAsYouShopApp {
                 }
                 const input = document.getElementById('almacenObservacionesInput');
                 const userText = input ? input.value.trim() : '';
-                const observaciones = 'RECOGER EN ALMACEN ' + almacen + ' - ' + (userText || '');
+                let observaciones = 'RECOGER EN ALMACEN ' + almacen + ' - ' + (userText || '');
+                if (this.currentUser && this.currentUser.nombre_operario) {
+                    observaciones += ' Pedido por ' + this.currentUser.nombre_operario;
+                }
                 this.sendRemoteOrder(almacen, observaciones);
             });
         }
@@ -1491,7 +1521,10 @@ class ScanAsYouShopApp {
                 }
                 const input = document.getElementById('enviarEnRutaObservacionesInput');
                 const userText = input ? input.value.trim() : '';
-                const observaciones = 'ENVIAR EN RUTA' + (userText ? ' ' + userText : '');
+                let observaciones = 'ENVIAR EN RUTA' + (userText ? ' ' + userText : '');
+                if (this.currentUser && this.currentUser.nombre_operario) {
+                    observaciones += ' Pedido por ' + this.currentUser.nombre_operario;
+                }
                 this.sendRemoteOrder(this.currentUser.almacen_habitual, observaciones);
             });
         }

@@ -53,9 +53,7 @@
                         id="gateCodigo"
                         name="codigo"
                         class="gate-input"
-                        placeholder="Ej: 1001"
-                        pattern="[0-9]*"
-                        inputmode="numeric"
+                        placeholder="Ej: 1001 o 1001-01 (operario)"
                         autocomplete="username"
                         required
                     >
@@ -475,7 +473,7 @@
                     </div>
                 </section>
 
-                <section class="profile-section">
+                <section id="profilePasswordSection" class="profile-section">
                     <h3 class="profile-section-title">Cambiar contraseña</h3>
                     <div class="profile-card">
                         <form id="profilePasswordForm" class="profile-form">
@@ -497,12 +495,12 @@
                     </div>
                 </section>
 
-                <section class="profile-section">
+                <section id="profileOperariosSection" class="profile-section">
                     <div class="profile-section-head">
                         <h3 class="profile-section-title">Operarios</h3>
                         <button type="button" id="profileAddOperarioBtn" class="btn btn-outline-primary btn-sm">Añadir</button>
                     </div>
-                    <p class="profile-section-desc">Personas que pueden acceder a tu cuenta con su propio código y contraseña.</p>
+                    <p class="profile-section-desc">Personas que pueden acceder a tu cuenta con su propio código y contraseña. Entrarán con código: <strong id="profileOperarioCodigoEjemplo">[tu código]-[código operario]</strong> (ej: 1001-01).</p>
                     <div id="profileOperariosList" class="profile-operarios-list"></div>
                     <div id="profileOperariosEmpty" class="profile-operarios-empty">
                         <span class="profile-operarios-empty-text">No hay operarios. Pulsa Añadir para dar acceso.</span>
@@ -519,6 +517,7 @@
                     <h3>Añadir operario</h3>
                     <button type="button" id="profileOperarioModalClose" class="profile-modal-close">✕</button>
                 </div>
+                <p class="profile-operario-hint">El operario entrará con código: <span id="profileOperarioCodigoTitular"></span>-<span id="profileOperarioCodigoSufijo">[código abajo]</span></p>
                 <form id="profileOperarioForm" class="profile-form">
                     <div class="profile-form-group">
                         <label for="profileOperarioCodigo" class="profile-label">Código del operario</label>
