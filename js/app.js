@@ -655,6 +655,98 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Rellena y muestra la pantalla Mi perfil (datos personales, cambiar contraseña, operarios)
+     */
+    async renderProfileScreen() {
+        if (!this.currentUser) return;
+        const nameEl = document.getElementById('profileUserName');
+        const codeEl = document.getElementById('profileUserCode');
+        if (nameEl) nameEl.textContent = this.currentUser.user_name || '--';
+        if (codeEl) codeEl.textContent = this.currentUser.codigo_usuario || '--';
+
+        const msgEl = document.getElementById('profilePasswordMessage');
+        if (msgEl) {
+            msgEl.style.display = 'none';
+            msgEl.textContent = '';
+            msgEl.className = 'profile-message';
+        }
+        const form = document.getElementById('profilePasswordForm');
+        if (form) form.reset();
+
+        const listEl = document.getElementById('profileOperariosList');
+        const emptyEl = document.getElementById('profileOperariosEmpty');
+        if (!listEl || !emptyEl) return;
+
+        listEl.innerHTML = '';
+        const operarios = await window.supabaseClient.getOperarios(this.currentUser.user_id);
+        if (operarios && operarios.length > 0) {
+            emptyEl.style.display = 'none';
+            listEl.style.display = 'flex';
+            operarios.forEach(function(op) {
+                const item = document.createElement('div');
+                item.className = 'profile-operario-item';
+                item.dataset.operarioId = op.id;
+                const info = document.createElement('div');
+                info.className = 'profile-operario-info';
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'profile-operario-name';
+                nameDiv.textContent = op.nombre_operario || '--';
+                const codeDiv = document.createElement('div');
+                codeDiv.className = 'profile-operario-codigo';
+                codeDiv.textContent = 'Codigo: ' + (op.codigo_operario || '');
+                info.appendChild(nameDiv);
+                info.appendChild(codeDiv);
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'profile-operario-remove';
+                btn.dataset.operarioId = op.id;
+                btn.setAttribute('aria-label', 'Eliminar operario');
+                btn.textContent = 'Eliminar';
+                item.appendChild(info);
+                item.appendChild(btn);
+                listEl.appendChild(item);
+            });
+        } else {
+            listEl.style.display = 'none';
+            emptyEl.style.display = 'block';
+        }
+    }
+
+    /**
+     * Abre el modal de añadir operario
+     */
+    openProfileOperarioModal() {
+        const modal = document.getElementById('profileOperarioModal');
+        const msgEl = document.getElementById('profileOperarioMessage');
+        const form = document.getElementById('profileOperarioForm');
+        if (modal) modal.style.display = 'flex';
+        if (msgEl) { msgEl.style.display = 'none'; msgEl.textContent = ''; msgEl.className = 'profile-message'; }
+        if (form) form.reset();
+    }
+
+    /**
+     * Cierra el modal de añadir operario
+     */
+    closeProfileOperarioModal() {
+        const modal = document.getElementById('profileOperarioModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    /**
+     * Elimina un operario y actualiza la lista en pantalla perfil
+     */
+    async doRemoveOperario(operarioId) {
+        if (!this.currentUser || !this.currentUser.user_id) return;
+        const result = await window.supabaseClient.removeOperario(this.currentUser.user_id, operarioId);
+        if (result.success) {
+            window.ui.showToast('Operario eliminado', 'success');
+            this.renderProfileScreen();
+        } else {
+            window.ui.showToast(result.message || 'Error al eliminar', 'error');
+        }
+    }
+
+    /**
      * Normaliza teléfono para WhatsApp: solo dígitos, con prefijo de país si no lo lleva
      */
     normalizePhoneForWhatsApp(telefono) {
@@ -1055,6 +1147,16 @@ class ScanAsYouShopApp {
             });
         }
 
+        // Clic en datos de usuario (nombre/código): abre Mi perfil
+        const menuUserInfo = document.getElementById('menuUserInfo');
+        if (menuUserInfo) {
+            menuUserInfo.addEventListener('click', () => {
+                this.closeMenu();
+                this.showScreen('profile');
+                this.renderProfileScreen();
+            });
+        }
+
         // My Orders button (menu hamburguesa)
         const myOrdersBtn = document.getElementById('myOrdersBtn');
         if (myOrdersBtn) {
@@ -1133,6 +1235,153 @@ class ScanAsYouShopApp {
         if (mostradorBackBtn) {
             mostradorBackBtn.addEventListener('click', () => {
                 this.showScreen('checkout');
+            });
+        }
+
+        // Perfil: Volver
+        const profileBackBtn = document.getElementById('profileBackBtn');
+        if (profileBackBtn) {
+            profileBackBtn.addEventListener('click', () => {
+                this.showScreen('cart');
+            });
+        }
+
+        // Perfil: Cambiar contraseña
+        const profilePasswordForm = document.getElementById('profilePasswordForm');
+        if (profilePasswordForm) {
+            profilePasswordForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (!this.currentUser || !this.currentUser.user_id) return;
+                const current = document.getElementById('profileCurrentPassword');
+                const newP = document.getElementById('profileNewPassword');
+                const confirmP = document.getElementById('profileConfirmPassword');
+                const msgEl = document.getElementById('profilePasswordMessage');
+                const submitBtn = document.getElementById('profilePasswordSubmit');
+                if (!current || !newP || !confirmP || !msgEl) return;
+                const newVal = newP.value;
+                const confirmVal = confirmP.value;
+                if (newVal.length < 4) {
+                    msgEl.textContent = 'La nueva contrasena debe tener al menos 4 caracteres';
+                    msgEl.className = 'profile-message error';
+                    msgEl.style.display = 'block';
+                    return;
+                }
+                if (newVal !== confirmVal) {
+                    msgEl.textContent = 'La nueva contrasena y la repeticion no coinciden';
+                    msgEl.className = 'profile-message error';
+                    msgEl.style.display = 'block';
+                    return;
+                }
+                if (submitBtn) submitBtn.disabled = true;
+                window.supabaseClient.cambiarPassword(this.currentUser.user_id, current.value, newVal)
+                    .then((result) => {
+                        if (result.success) {
+                            msgEl.textContent = 'Contrasena actualizada correctamente';
+                            msgEl.className = 'profile-message success';
+                            msgEl.style.display = 'block';
+                            profilePasswordForm.reset();
+                            window.ui.showToast('Contrasena actualizada', 'success');
+                        } else {
+                            msgEl.textContent = result.message || 'Error al cambiar contrasena';
+                            msgEl.className = 'profile-message error';
+                            msgEl.style.display = 'block';
+                        }
+                    })
+                    .catch(() => {
+                        msgEl.textContent = 'Error de conexion';
+                        msgEl.className = 'profile-message error';
+                        msgEl.style.display = 'block';
+                    })
+                    .finally(() => {
+                        if (submitBtn) submitBtn.disabled = false;
+                    });
+            });
+        }
+
+        // Perfil: Añadir operario (abre modal)
+        const profileAddOperarioBtn = document.getElementById('profileAddOperarioBtn');
+        if (profileAddOperarioBtn) {
+            profileAddOperarioBtn.addEventListener('click', () => {
+                this.openProfileOperarioModal();
+            });
+        }
+
+        // Perfil: Cerrar modal operario
+        const profileOperarioModalClose = document.getElementById('profileOperarioModalClose');
+        if (profileOperarioModalClose) {
+            profileOperarioModalClose.addEventListener('click', () => {
+                this.closeProfileOperarioModal();
+            });
+        }
+        const profileOperarioModal = document.getElementById('profileOperarioModal');
+        if (profileOperarioModal) {
+            const overlay = profileOperarioModal.querySelector('.profile-modal-overlay');
+            if (overlay) {
+                overlay.addEventListener('click', () => this.closeProfileOperarioModal());
+            }
+        }
+
+        // Perfil: Enviar formulario nuevo operario
+        const profileOperarioForm = document.getElementById('profileOperarioForm');
+        if (profileOperarioForm) {
+            profileOperarioForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (!this.currentUser || !this.currentUser.user_id) return;
+                const codigoInput = document.getElementById('profileOperarioCodigo');
+                const nombreInput = document.getElementById('profileOperarioNombre');
+                const passwordInput = document.getElementById('profileOperarioPassword');
+                const msgEl = document.getElementById('profileOperarioMessage');
+                const submitBtn = document.getElementById('profileOperarioSubmit');
+                if (!codigoInput || !nombreInput || !passwordInput || !msgEl) return;
+                const codigo = codigoInput.value.trim();
+                const nombre = nombreInput.value.trim();
+                const password = passwordInput.value;
+                if (!codigo || !nombre) {
+                    msgEl.textContent = 'Completa codigo y nombre';
+                    msgEl.className = 'profile-message error';
+                    msgEl.style.display = 'block';
+                    return;
+                }
+                if (password.length < 4) {
+                    msgEl.textContent = 'La contrasena debe tener al menos 4 caracteres';
+                    msgEl.className = 'profile-message error';
+                    msgEl.style.display = 'block';
+                    return;
+                }
+                if (submitBtn) submitBtn.disabled = true;
+                window.supabaseClient.addOperario(this.currentUser.user_id, codigo, nombre, password)
+                    .then((result) => {
+                        if (result.success) {
+                            this.closeProfileOperarioModal();
+                            this.renderProfileScreen();
+                            window.ui.showToast('Operario anadido', 'success');
+                        } else {
+                            msgEl.textContent = result.message || 'Error al crear operario';
+                            msgEl.className = 'profile-message error';
+                            msgEl.style.display = 'block';
+                        }
+                    })
+                    .catch(() => {
+                        msgEl.textContent = 'Error de conexion';
+                        msgEl.className = 'profile-message error';
+                        msgEl.style.display = 'block';
+                    })
+                    .finally(() => {
+                        if (submitBtn) submitBtn.disabled = false;
+                    });
+            });
+        }
+
+        // Perfil: Eliminar operario (delegación)
+        const profileOperariosList = document.getElementById('profileOperariosList');
+        if (profileOperariosList) {
+            profileOperariosList.addEventListener('click', (e) => {
+                const btn = e.target.closest('.profile-operario-remove');
+                if (!btn || !this.currentUser) return;
+                const operarioId = parseInt(btn.dataset.operarioid, 10);
+                if (!operarioId) return;
+                window.ui.showConfirm('Eliminar operario', '¿Eliminar este operario? Perdera el acceso a tu cuenta.', 'Eliminar', 'Cancelar')
+                    .then((ok) => { if (ok) this.doRemoveOperario(operarioId); });
             });
         }
 
@@ -1370,6 +1619,10 @@ class ScanAsYouShopApp {
 
             if (screenName === 'commercial') {
                 this.renderCommercialScreen();
+            }
+
+            if (screenName === 'profile') {
+                this.renderProfileScreen();
             }
 
         }

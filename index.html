@@ -177,12 +177,13 @@
 
             <!-- Usuario logueado -->
             <div id="menuUser" class="menu-user" style="display: none;">
-                <div class="user-info">
+                <button type="button" id="menuUserInfo" class="user-info user-info-clickable" aria-label="Ver mi perfil">
                     <div class="user-details">
                         <div class="user-name" id="menuUserName">Usuario</div>
                         <div class="user-code" id="menuUserCode">Código: ----</div>
                     </div>
-                </div>
+                    <span class="user-info-arrow">›</span>
+                </button>
                 <!-- Tarjeta comercial asignado (solo si tiene comercial) -->
                 <div id="menuCommercialCard" class="commercial-card menu-commercial-card" style="display: none;">
                     <div class="commercial-card-details">
@@ -448,6 +449,93 @@
                     <p>No tienes un comercial asignado. Contacta con tu empresa para más información.</p>
                 </div>
             </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA MI PERFIL (usuario)
+             ================================ -->
+        <div id="profileScreen" class="screen">
+            <main class="screen-content profile-content">
+                <div class="profile-header">
+                    <button type="button" id="profileBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title">Mi perfil</h2>
+                </div>
+
+                <section class="profile-section">
+                    <h3 class="profile-section-title">Datos personales</h3>
+                    <div class="profile-card">
+                        <div class="profile-field">
+                            <span class="profile-field-label">Nombre</span>
+                            <span class="profile-field-value" id="profileUserName">--</span>
+                        </div>
+                        <div class="profile-field">
+                            <span class="profile-field-label">Código</span>
+                            <span class="profile-field-value" id="profileUserCode">--</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="profile-section">
+                    <h3 class="profile-section-title">Cambiar contraseña</h3>
+                    <div class="profile-card">
+                        <form id="profilePasswordForm" class="profile-form">
+                            <div class="profile-form-group">
+                                <label for="profileCurrentPassword" class="profile-label">Contraseña actual</label>
+                                <input type="password" id="profileCurrentPassword" class="profile-input" placeholder="Contraseña actual" minlength="4" autocomplete="current-password">
+                            </div>
+                            <div class="profile-form-group">
+                                <label for="profileNewPassword" class="profile-label">Nueva contraseña</label>
+                                <input type="password" id="profileNewPassword" class="profile-input" placeholder="Mínimo 4 caracteres" minlength="4" autocomplete="new-password">
+                            </div>
+                            <div class="profile-form-group">
+                                <label for="profileConfirmPassword" class="profile-label">Repetir nueva contraseña</label>
+                                <input type="password" id="profileConfirmPassword" class="profile-input" placeholder="Repetir contraseña" minlength="4" autocomplete="new-password">
+                            </div>
+                            <p id="profilePasswordMessage" class="profile-message" style="display: none;"></p>
+                            <button type="submit" id="profilePasswordSubmit" class="btn btn-primary">Guardar contraseña</button>
+                        </form>
+                    </div>
+                </section>
+
+                <section class="profile-section">
+                    <div class="profile-section-head">
+                        <h3 class="profile-section-title">Operarios</h3>
+                        <button type="button" id="profileAddOperarioBtn" class="btn btn-outline-primary btn-sm">Añadir</button>
+                    </div>
+                    <p class="profile-section-desc">Personas que pueden acceder a tu cuenta con su propio código y contraseña.</p>
+                    <div id="profileOperariosList" class="profile-operarios-list"></div>
+                    <div id="profileOperariosEmpty" class="profile-operarios-empty">
+                        <span class="profile-operarios-empty-text">No hay operarios. Pulsa Añadir para dar acceso.</span>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- Modal Añadir operario -->
+        <div id="profileOperarioModal" class="profile-modal" style="display: none;">
+            <div class="profile-modal-overlay"></div>
+            <div class="profile-modal-content">
+                <div class="profile-modal-header">
+                    <h3>Añadir operario</h3>
+                    <button type="button" id="profileOperarioModalClose" class="profile-modal-close">✕</button>
+                </div>
+                <form id="profileOperarioForm" class="profile-form">
+                    <div class="profile-form-group">
+                        <label for="profileOperarioCodigo" class="profile-label">Código del operario</label>
+                        <input type="text" id="profileOperarioCodigo" class="profile-input" placeholder="Ej: 01" maxlength="20" autocomplete="off">
+                    </div>
+                    <div class="profile-form-group">
+                        <label for="profileOperarioNombre" class="profile-label">Nombre</label>
+                        <input type="text" id="profileOperarioNombre" class="profile-input" placeholder="Nombre del operario" autocomplete="off">
+                    </div>
+                    <div class="profile-form-group">
+                        <label for="profileOperarioPassword" class="profile-label">Contraseña</label>
+                        <input type="password" id="profileOperarioPassword" class="profile-input" placeholder="Mínimo 4 caracteres" minlength="4" autocomplete="new-password">
+                    </div>
+                    <p id="profileOperarioMessage" class="profile-message" style="display: none;"></p>
+                    <button type="submit" id="profileOperarioSubmit" class="btn btn-primary">Crear operario</button>
+                </form>
+            </div>
         </div>
 
         <!-- ================================

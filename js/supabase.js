@@ -678,6 +678,117 @@ class SupabaseClient {
     }
 
     /**
+     * Cambia la contraseña del usuario (verifica la actual con hash)
+     * @param {number} userId - ID del usuario
+     * @param {string} passwordActual - Contraseña actual en texto
+     * @param {string} passwordNueva - Contraseña nueva en texto
+     * @returns {Promise<{success: boolean, message?: string}>}
+     */
+    async cambiarPassword(userId, passwordActual, passwordNueva) {
+        try {
+            if (!this.client || !userId) {
+                throw new Error('Cliente no inicializado o usuario no indicado');
+            }
+            const hashActual = await this._hashPassword(passwordActual);
+            const hashNueva = await this._hashPassword(passwordNueva);
+            const { data, error } = await this.client.rpc('cambiar_password_usuario', {
+                p_user_id: userId,
+                p_password_actual_hash: hashActual,
+                p_password_nueva_hash: hashNueva
+            });
+            if (error) throw error;
+            if (data && data.length > 0) {
+                const r = data[0];
+                return { success: !!r.success, message: r.message || null };
+            }
+            return { success: false, message: 'Error desconocido' };
+        } catch (err) {
+            console.error('cambiarPassword:', err);
+            return { success: false, message: (err && err.message) || 'Error al cambiar contrasena' };
+        }
+    }
+
+    /**
+     * Lista los operarios del usuario titular
+     * @param {number} usuarioId - ID del usuario (titular)
+     * @returns {Promise<Array<{id: number, codigo_operario: string, nombre_operario: string, activo: boolean}>>}
+     */
+    async getOperarios(usuarioId) {
+        try {
+            if (!this.client || !usuarioId) return [];
+            const { data, error } = await this.client.rpc('listar_operarios', { p_usuario_id: usuarioId });
+            if (error) throw error;
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getOperarios:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Crea un operario para el usuario
+     * @param {number} usuarioId - ID del titular
+     * @param {string} codigoOperario - Código del operario (ej: 01)
+     * @param {string} nombreOperario - Nombre a mostrar
+     * @param {string} password - Contraseña en texto (se hasheará)
+     * @returns {Promise<{success: boolean, operarioId?: number, message?: string}>}
+     */
+    async addOperario(usuarioId, codigoOperario, nombreOperario, password) {
+        try {
+            if (!this.client || !usuarioId) {
+                throw new Error('Cliente no inicializado o usuario no indicado');
+            }
+            const passwordHash = await this._hashPassword(password);
+            const { data, error } = await this.client.rpc('crear_operario', {
+                p_usuario_id: usuarioId,
+                p_codigo_operario: String(codigoOperario).trim(),
+                p_nombre_operario: String(nombreOperario).trim(),
+                p_password_hash: passwordHash
+            });
+            if (error) throw error;
+            if (data && data.length > 0) {
+                const r = data[0];
+                return {
+                    success: !!r.success,
+                    operarioId: r.operario_id || null,
+                    message: r.message || null
+                };
+            }
+            return { success: false, message: 'Error desconocido' };
+        } catch (err) {
+            console.error('addOperario:', err);
+            return { success: false, message: (err && err.message) || 'Error al crear operario' };
+        }
+    }
+
+    /**
+     * Elimina un operario del usuario
+     * @param {number} usuarioId - ID del titular
+     * @param {number} operarioId - ID del operario
+     * @returns {Promise<{success: boolean, message?: string}>}
+     */
+    async removeOperario(usuarioId, operarioId) {
+        try {
+            if (!this.client || !usuarioId || !operarioId) {
+                throw new Error('Datos incompletos');
+            }
+            const { data, error } = await this.client.rpc('eliminar_operario', {
+                p_usuario_id: usuarioId,
+                p_operario_id: operarioId
+            });
+            if (error) throw error;
+            if (data && data.length > 0) {
+                const r = data[0];
+                return { success: !!r.success, message: r.message || null };
+            }
+            return { success: false, message: 'Error desconocido' };
+        } catch (err) {
+            console.error('removeOperario:', err);
+            return { success: false, message: (err && err.message) || 'Error al eliminar operario' };
+        }
+    }
+
+    /**
      * Crea una sesión de usuario en Supabase
      */
     async createUserSession(codigoUsuario) {
