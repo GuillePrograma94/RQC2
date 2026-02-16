@@ -1123,6 +1123,32 @@ class SupabaseClient {
     }
 
     /**
+     * Actualiza el estado de procesamiento de un pedido remoto (error_erp o pendiente_erp).
+     * @param {number} carritoId - ID del carrito
+     * @param {string} estadoProcesamiento - 'error_erp' | 'pendiente_erp'
+     */
+    async updateCarritoEstadoProcesamiento(carritoId, estadoProcesamiento) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+            const { error } = await this.client
+                .from('carritos_clientes')
+                .update({
+                    estado_procesamiento: estadoProcesamiento,
+                    estado: estadoProcesamiento === 'error_erp' ? 'error' : 'pendiente'
+                })
+                .eq('id', carritoId)
+                .eq('tipo_pedido', 'remoto');
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Error al actualizar estado procesamiento:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Obtiene los pedidos remotos del usuario
      */
     async getUserRemoteOrders(usuarioId) {
@@ -1139,7 +1165,7 @@ class SupabaseClient {
                 .from('carritos_clientes')
                 .select('*')
                 .eq('usuario_id', usuarioId)
-                .in('estado_procesamiento', ['enviado', 'procesando', 'impreso', 'completado']) // Solo pedidos que ya fueron enviados o procesados
+                .in('estado_procesamiento', ['enviado', 'procesando', 'impreso', 'completado', 'pendiente_erp']) // Incluye pendientes de enviar a ERP
                 .order('fecha_creacion', { ascending: false })
                 .limit(50); // Limitar a los últimos 50 pedidos
 

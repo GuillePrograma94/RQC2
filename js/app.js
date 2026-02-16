@@ -79,6 +79,12 @@ class ScanAsYouShopApp {
             // Inicializar app primero para ocultar loading; no bloquear en permisos de notificaciones
             await this.initializeApp();
 
+            if (window.erpRetryQueue && typeof window.erpRetryQueue.init === 'function') {
+                window.erpRetryQueue.init().catch(function (err) {
+                    console.warn('Cola de reintentos ERP no inicializada:', err);
+                });
+            }
+
             // Solicitar permisos de notificaciones en segundo plano (no bloquear la entrada a la app)
             this.requestNotificationPermission().catch(() => {});
 
@@ -3477,20 +3483,73 @@ class ScanAsYouShopApp {
             }
 
             const referencia = 'RQC/' + result.carrito_id + '-' + result.codigo_qr;
+            const erpPayload = this.buildErpOrderPayload(cart, almacen, referencia, observaciones);
 
             let erpResponse = null;
+            let erpError = null;
             if (window.erpClient && (window.erpClient.proxyPath || window.erpClient.createOrderPath)) {
+                window.ui.showLoading(`Conectando con ERP para ${almacen}...`);
                 try {
-                    window.ui.showLoading(`Conectando con ERP para ${almacen}...`);
-                    const erpPayload = this.buildErpOrderPayload(cart, almacen, referencia, observaciones);
                     console.log('ERP create-order POST payload (detalles enviados):', JSON.stringify(erpPayload, null, 2));
                     erpResponse = await window.erpClient.createRemoteOrder(erpPayload);
-                    console.log('Pedido enviado al ERP correctamente');
-                } catch (erpError) {
-                    console.warn('Error al enviar al ERP (continuando con Supabase):', erpError);
+                    if (erpResponse && erpResponse.success === false) {
+                        erpError = new Error(erpResponse.message || erpResponse.error || 'El ERP rechazo el pedido');
+                    } else {
+                        console.log('Pedido enviado al ERP correctamente');
+                    }
+                } catch (e) {
+                    erpError = e;
                 }
             } else {
                 console.log('ERP no configurado o endpoint de pedidos no disponible aun');
+            }
+
+            if (erpError) {
+                const isValidationError = this.isErpValidationError(erpError);
+                try {
+                    await window.supabaseClient.updateCarritoEstadoProcesamiento(result.carrito_id, 'error_erp');
+                } catch (e) {
+                    console.warn('No se pudo marcar pedido como error_erp:', e);
+                }
+                window.ui.hideLoading();
+                if (isValidationError) {
+                    window.ui.showErpErrorModal(erpError.message || String(erpError));
+                    return;
+                }
+                if (!window.erpRetryQueue) {
+                    window.ui.showToast('Error de conexion con el ERP. El pedido no se ha guardado.', 'error');
+                    return;
+                }
+                for (const producto of cart.productos) {
+                    await window.supabaseClient.addProductToRemoteOrder(
+                        result.carrito_id,
+                        {
+                            codigo: producto.codigo_producto,
+                            descripcion: producto.descripcion_producto,
+                            pvp: producto.precio_unitario
+                        },
+                        producto.cantidad
+                    );
+                }
+                await window.supabaseClient.updateCarritoEstadoProcesamiento(result.carrito_id, 'pendiente_erp');
+                window.erpRetryQueue.enqueue({
+                    carrito_id: result.carrito_id,
+                    payload: erpPayload,
+                    referencia: referencia,
+                    almacen: almacen,
+                    usuario_id: this.currentUser.user_id
+                });
+                window.ui.hideLoading();
+                window.ui.showToast('Pedido guardado. Se enviara al ERP cuando haya conexion.', 'success');
+                if (window.purchaseCache) {
+                    window.purchaseCache.invalidateUser(this.currentUser.user_id);
+                }
+                await window.cartManager.clearCart();
+                window.ui.updateCartBadge();
+                this.showScreen('cart');
+                this.updateActiveNav('cart');
+                this.updateCartView();
+                return;
             }
 
             const pedidoErp = erpResponse && erpResponse.data && erpResponse.data.pedido != null ? erpResponse.data.pedido : null;
@@ -3502,7 +3561,6 @@ class ScanAsYouShopApp {
                 }
             }
 
-            // Añadir productos al pedido remoto
             for (const producto of cart.productos) {
                 await window.supabaseClient.addProductToRemoteOrder(
                     result.carrito_id,
@@ -3515,48 +3573,43 @@ class ScanAsYouShopApp {
                 );
             }
 
-            // Registrar productos en historial del usuario para "Solo articulos que he comprado"
             try {
                 await window.supabaseClient.registrarHistorialDesdeCarrito(result.carrito_id);
             } catch (e) {
                 console.warn('No se pudo registrar historial (pedido enviado correctamente):', e);
             }
 
-            // ✅ Ya no es necesario actualizar estados manualmente
-            // La función SQL crear_pedido_remoto ya crea el pedido con estado 'enviado'
-
             window.ui.hideLoading();
-
-            // Mostrar mensaje de éxito
             const totalWithIVA = cart.total_importe * 1.21;
             window.ui.showToast(
                 `Pedido enviado a ${almacen} - ${totalWithIVA.toFixed(2)}€`,
                 'success'
             );
 
-            // Invalidar cache de historial (Phase 2 - Cache)
-            // Los pedidos remotos también actualizan el historial cuando se procesan
             if (window.purchaseCache) {
-                console.log('🔄 Invalidando cache de historial tras pedido remoto...');
                 window.purchaseCache.invalidateUser(this.currentUser.user_id);
             }
-
-            // Limpiar carrito
             await window.cartManager.clearCart();
             window.ui.updateCartBadge();
-
-            // Volver a pantalla de carrito
             this.showScreen('cart');
             this.updateActiveNav('cart');
             this.updateCartView();
-
-            console.log(`Pedido remoto enviado exitosamente a ${almacen}`);
+            console.log('Pedido remoto enviado exitosamente a ' + almacen);
 
         } catch (error) {
             console.error('Error al enviar pedido remoto:', error);
             window.ui.hideLoading();
             window.ui.showToast('Error al enviar pedido. Intenta de nuevo.', 'error');
         }
+    }
+
+    /**
+     * Detecta si el error del ERP es de validacion/datos (400, obligatorio, etc.).
+     * En ese caso el pedido NO debe darse por creado y se muestra modal de error.
+     */
+    isErpValidationError(error) {
+        const msg = (error && (error.message || error.toString || String(error))) ? String(error.message || error) : '';
+        return /400|Bad Request|obligatorio|ERP error 4\d\d/i.test(msg);
     }
 
     /**
@@ -3721,6 +3774,8 @@ class ScanAsYouShopApp {
     getEstadoBadge(estado) {
         const estados = {
             'pendiente': { class: 'pending', icon: '⏳', text: 'Pendiente' },
+            'pendiente_erp': { class: 'pending', icon: '📤', text: 'Pend. enviar a ERP' },
+            'enviado': { class: 'processing', icon: '📤', text: 'Enviado' },
             'procesando': { class: 'processing', icon: '🔄', text: 'Preparando' },
             'impreso': { class: 'completed', icon: '✅', text: 'Listo' },
             'completado': { class: 'completed', icon: '✅', text: 'Completado' },

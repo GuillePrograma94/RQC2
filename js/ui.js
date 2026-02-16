@@ -202,6 +202,25 @@ class UIManager {
     }
 
     /**
+     * Muestra el modal de error ERP (pedido rechazado por validacion, 400, etc.)
+     * El pedido NO se ha generado. Se pide al usuario captura y envio a soporte.
+     * @param {string} errorMessage - Mensaje de error (p. ej. el que devuelve el ERP/proxy)
+     */
+    showErpErrorModal(errorMessage) {
+        const dialog = document.getElementById('erpErrorModal');
+        const messageEl = document.getElementById('erpErrorModalMessage');
+        const okBtn = document.getElementById('erpErrorModalOkBtn');
+        if (!dialog || !messageEl) return;
+        messageEl.textContent = errorMessage || 'Error desconocido al enviar el pedido al ERP.';
+        dialog.style.display = 'flex';
+        const close = () => {
+            dialog.style.display = 'none';
+            if (okBtn) okBtn.removeEventListener('click', close);
+        };
+        if (okBtn) okBtn.addEventListener('click', close);
+    }
+
+    /**
      * Muestra un diálogo de confirmación (legacy - usa window.confirm)
      */
     confirm(message) {

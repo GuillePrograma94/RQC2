@@ -604,6 +604,22 @@
         </div>
     </div>
 
+    <!-- Modal Error ERP (pedido rechazado por el ERP: 400, validacion, etc.) -->
+    <div id="erpErrorModal" class="confirm-dialog erp-error-modal" style="display: none;">
+        <div class="confirm-overlay"></div>
+        <div class="confirm-content erp-error-content">
+            <h3 class="confirm-title" id="erpErrorModalTitle">ERROR</h3>
+            <p class="confirm-message" id="erpErrorModalMessage"></p>
+            <p class="erp-error-instructions" id="erpErrorModalInstructions">
+                Este error indica que el pedido no ha podido registrarse en el sistema. El pedido NO se ha generado.
+                Haz una captura de pantalla de este mensaje y enviala a <a href="mailto:guillermo@batmar.net">guillermo@batmar.net</a> para que lo revise.
+            </p>
+            <div class="confirm-buttons">
+                <button id="erpErrorModalOkBtn" class="confirm-btn confirm-btn-ok">Entendido</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Product Preview Modal (para cuando se escanea) -->
     <div id="productPreviewModal" class="product-preview-modal" style="display: none;">
         <div class="product-preview-content">
@@ -675,6 +691,7 @@
     <script src="config.js"></script>
     <script src="js/supabase.js"></script>
     <script src="js/erp.js"></script>
+    <script src="js/erp-retry-queue.js"></script>
     <script src="js/erp-pedido-opciones.js"></script>
     <script src="js/purchase-cache.js"></script>
     <script src="js/cart.js"></script>

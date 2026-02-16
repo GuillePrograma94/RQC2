@@ -1719,6 +1719,35 @@ body.gate-visible .app-container {
     line-height: 1.5;
 }
 
+.erp-error-modal .confirm-content {
+    max-width: 95%;
+    width: 360px;
+}
+
+.erp-error-modal .confirm-title {
+    color: var(--danger);
+}
+
+.erp-error-modal #erpErrorModalMessage {
+    text-align: left;
+    max-height: 180px;
+    overflow-y: auto;
+    word-break: break-word;
+    font-size: 0.85rem;
+}
+
+.erp-error-instructions {
+    font-size: 0.9rem;
+    color: var(--gray-700);
+    margin: 0 0 1rem 0;
+    line-height: 1.5;
+}
+
+.erp-error-instructions a {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
 .confirm-buttons {
     display: flex;
     gap: 0.75rem;
