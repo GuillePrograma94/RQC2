@@ -1419,9 +1419,9 @@ class ScanAsYouShopApp {
         }
 
         // Cerrar modal de almacén
-        const closeAlmacenModal = document.getElementById('closeAlmacenModal');
-        if (closeAlmacenModal) {
-            closeAlmacenModal.addEventListener('click', () => {
+        const cancelAlmacenModalBtn = document.getElementById('cancelAlmacenModalBtn');
+        if (cancelAlmacenModalBtn) {
+            cancelAlmacenModalBtn.addEventListener('click', () => {
                 this.hideAlmacenModal();
             });
         }
@@ -1467,16 +1467,7 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Cerrar modal de observaciones (cierra todo el flujo)
-        const closeAlmacenObservacionesModal = document.getElementById('closeAlmacenObservacionesModal');
-        if (closeAlmacenObservacionesModal) {
-            closeAlmacenObservacionesModal.addEventListener('click', () => {
-                this.hideAlmacenObservacionesModal();
-                this.hideAlmacenModal();
-            });
-        }
-
-        // Volver del modal observaciones al modal de selección de almacén
+        // Volver del modal observaciones al modal de selección de almacén (cierre con Volver; sin X en cabecera)
         const volverAlmacenSelectionBtn = document.getElementById('volverAlmacenSelectionBtn');
         if (volverAlmacenSelectionBtn) {
             volverAlmacenSelectionBtn.addEventListener('click', () => {

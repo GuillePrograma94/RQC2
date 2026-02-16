@@ -3014,16 +3014,40 @@ body.gate-visible .app-container {
 /* ========================================
    MODAL DE SELECCIÓN DE ALMACÉN
    ======================================== */
+.almacen-modal .almacen-modal-content {
+    padding: 1.5rem 1.5rem 1.25rem;
+}
+
 .almacen-selection {
-    padding: 1rem 0;
+    padding: 0;
 }
 
 .almacen-description {
     text-align: center;
-    font-size: 1.1rem;
-    color: var(--gray-700);
-    margin-bottom: 1.5rem;
+    font-size: 1.25rem;
+    color: var(--gray-800);
+    margin: 0 0 1.5rem;
+    font-weight: 600;
+}
+
+.almacen-cancel-btn {
+    display: block;
+    width: 100%;
+    margin-top: 1.25rem;
+    padding: 0.6rem 1rem;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--gray-200);
+    font-size: 0.95rem;
     font-weight: 500;
+    color: var(--gray-600);
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s;
+}
+
+.almacen-cancel-btn:hover {
+    color: var(--gray-800);
+    background: var(--gray-100);
 }
 
 .almacen-options {
@@ -3081,6 +3105,16 @@ body.gate-visible .app-container {
 .almacen-observaciones-modal .almacen-observaciones-modal-content {
     max-width: 420px;
     width: 92%;
+}
+
+/* Cabecera sin X: solo título centrado (cierre con botón Volver abajo) */
+.almacen-observaciones-modal .almacen-observaciones-modal-header {
+    justify-content: center;
+    text-align: center;
+}
+
+.almacen-observaciones-modal .almacen-observaciones-modal-header h2 {
+    width: 100%;
 }
 
 .almacen-observaciones-modal-body {
