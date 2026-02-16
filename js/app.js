@@ -419,12 +419,12 @@ class ScanAsYouShopApp {
             console.log('   - ID del pedido:', newRecord?.id);
             console.log('   - Código QR:', newRecord?.codigo_qr);
 
-            // Verificar si el estado cambió a 'impreso' (Listo)
+            // Verificar si el estado cambió a 'en_preparacion' (listo para recoger)
             if (
-                newRecord?.estado_procesamiento === 'impreso' &&
-                oldRecord?.estado_procesamiento !== 'impreso'
+                newRecord?.estado === 'en_preparacion' &&
+                oldRecord?.estado !== 'en_preparacion'
             ) {
-                console.log('✅ Pedido marcado como LISTO (impreso) - ID:', newRecord.id);
+                console.log('Pedido marcado como listo para recoger - ID:', newRecord.id);
                 
                 // Verificar permisos de notificación
                 if (Notification.permission !== 'granted') {
@@ -3775,11 +3775,9 @@ class ScanAsYouShopApp {
         const estados = {
             'pendiente': { class: 'pending', icon: '⏳', text: 'Pendiente' },
             'pendiente_erp': { class: 'pending', icon: '📤', text: 'Pend. enviar a ERP' },
-            'enviado': { class: 'processing', icon: '📤', text: 'Enviado' },
-            'procesando': { class: 'processing', icon: '🔄', text: 'Preparando' },
-            'impreso': { class: 'completed', icon: '✅', text: 'Listo' },
-            'completado': { class: 'completed', icon: '✅', text: 'Completado' },
-            'cancelado': { class: 'cancelled', icon: '❌', text: 'Cancelado' }
+            'error_erp': { class: 'cancelled', icon: '❌', text: 'Error ERP' },
+            'procesando': { class: 'processing', icon: '📤', text: 'Enviado' },
+            'completado': { class: 'completed', icon: '✅', text: 'Completado' }
         };
 
         return estados[estado] || { class: 'pending', icon: '⏳', text: estado };

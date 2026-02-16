@@ -1100,12 +1100,12 @@ class SupabaseClient {
 
             console.log(`⚡ Marcando pedido ${carritoId} como ENVIADO`);
 
-            // Actualizar ambos estados según estándar
+            // A1/A4: pedido enviado al ERP -> estado enviado, estado_procesamiento procesando
             const { data, error } = await this.client
                 .from('carritos_clientes')
                 .update({
                     estado: 'enviado',
-                    estado_procesamiento: 'enviado'
+                    estado_procesamiento: 'procesando'
                 })
                 .eq('id', carritoId)
                 .eq('tipo_pedido', 'remoto')
@@ -1132,11 +1132,12 @@ class SupabaseClient {
             if (!this.client) {
                 throw new Error('Cliente de Supabase no inicializado');
             }
+            // A2: error_erp -> estado cancelado; A3: pendiente_erp -> estado enviado
             const { error } = await this.client
                 .from('carritos_clientes')
                 .update({
                     estado_procesamiento: estadoProcesamiento,
-                    estado: estadoProcesamiento === 'error_erp' ? 'error' : 'pendiente'
+                    estado: estadoProcesamiento === 'error_erp' ? 'cancelado' : 'enviado'
                 })
                 .eq('id', carritoId)
                 .eq('tipo_pedido', 'remoto');
@@ -1165,7 +1166,7 @@ class SupabaseClient {
                 .from('carritos_clientes')
                 .select('*')
                 .eq('usuario_id', usuarioId)
-                .in('estado_procesamiento', ['enviado', 'procesando', 'impreso', 'completado', 'pendiente_erp']) // Incluye pendientes de enviar a ERP
+                .in('estado_procesamiento', ['procesando', 'completado', 'pendiente_erp'])
                 .order('fecha_creacion', { ascending: false })
                 .limit(50); // Limitar a los últimos 50 pedidos
 
