@@ -3770,19 +3770,46 @@ class ScanAsYouShopApp {
         }
 
         try {
+            this._offlinePendingByOrderId = {};
+            const userId = this.currentUser.user_id;
+            let offlineSynthetics = [];
+            if (window.offlineOrderQueue && typeof window.offlineOrderQueue.getAll === 'function') {
+                try {
+                    const allQueued = await window.offlineOrderQueue.getAll();
+                    const forUser = (allQueued || []).filter(function (x) { return x.usuario_id === userId; });
+                    for (const item of forUser) {
+                        const sid = 'offline_' + item.id;
+                        this._offlinePendingByOrderId[sid] = item;
+                        offlineSynthetics.push({
+                            id: sid,
+                            almacen_destino: item.almacen || '-',
+                            fecha_creacion: item.createdAt || Date.now(),
+                            estado_procesamiento: 'pendiente_envio',
+                            codigo_qr: '-',
+                            total_productos: (item.cart && item.cart.productos) ? item.cart.productos.length : 0,
+                            total_importe: (item.cart && item.cart.total_importe) != null ? item.cart.total_importe : 0,
+                            tipo_pedido: 'remoto'
+                        });
+                    }
+                } catch (e) {
+                    console.warn('No se pudo cargar cola offline para Mis pedidos:', e);
+                }
+            }
+
             // PASO 1: Cargar desde caché local (INMEDIATO)
-            console.log('🔍 Cargando pedidos para user_id:', this.currentUser.user_id);
-            const pedidosCache = await window.cartManager.loadRemoteOrdersFromCache(this.currentUser.user_id);
-            
-            if (pedidosCache && pedidosCache.length > 0) {
-                // Mostrar pedidos del caché inmediatamente
+            console.log('Cargando pedidos para user_id:', userId);
+            const pedidosCache = await window.cartManager.loadRemoteOrdersFromCache(userId);
+            const pedidosFromCache = (pedidosCache && pedidosCache.length > 0) ? pedidosCache : [];
+
+            if (offlineSynthetics.length > 0 || pedidosFromCache.length > 0) {
                 ordersLoading.style.display = 'none';
                 ordersList.style.display = 'block';
                 ordersEmpty.style.display = 'none';
                 ordersList.innerHTML = '';
 
-                console.log('📱 Mostrando', pedidosCache.length, 'pedidos desde caché');
-                for (const pedido of pedidosCache) {
+                const allPedidos = offlineSynthetics.concat(pedidosFromCache);
+                console.log('Mostrando ' + allPedidos.length + ' pedidos (' + offlineSynthetics.length + ' pend. envio)');
+                for (const pedido of allPedidos) {
                     const orderCard = await this.createOrderCard(pedido);
                     ordersList.appendChild(orderCard);
                 }
@@ -3796,40 +3823,36 @@ class ScanAsYouShopApp {
 
             // PASO 2: Actualizar desde Supabase EN SEGUNDO PLANO
             try {
-                console.log('🌐 Consultando Supabase...');
+                console.log('Consultando Supabase...');
                 const pedidosOnline = await window.supabaseClient.getUserRemoteOrders(this.currentUser.user_id);
 
-                // Guardar en caché para futuras visualizaciones offline
-                await window.cartManager.saveRemoteOrdersToCache(pedidosOnline, this.currentUser.user_id);
+                await window.cartManager.saveRemoteOrdersToCache(pedidosOnline || [], this.currentUser.user_id);
 
-                // Ocultar loading
                 ordersLoading.style.display = 'none';
 
-                if (!pedidosOnline || pedidosOnline.length === 0) {
-                    // No hay pedidos ni online
+                const onlineList = pedidosOnline && pedidosOnline.length > 0 ? pedidosOnline : [];
+                const allPedidosOnline = offlineSynthetics.concat(onlineList);
+
+                if (allPedidosOnline.length === 0) {
                     ordersEmpty.style.display = 'flex';
                     ordersList.style.display = 'none';
                     return;
                 }
 
-                // Actualizar vista con datos frescos de Supabase
                 ordersList.style.display = 'block';
                 ordersEmpty.style.display = 'none';
                 ordersList.innerHTML = '';
 
-                for (const pedido of pedidosOnline) {
+                for (const pedido of allPedidosOnline) {
                     const orderCard = await this.createOrderCard(pedido);
                     ordersList.appendChild(orderCard);
                 }
 
-                console.log('🌐 Pedidos actualizados desde Supabase');
+                console.log('Pedidos actualizados desde Supabase');
 
             } catch (onlineError) {
-                // Si falla la conexión pero ya mostramos el caché, no hacer nada
-                console.log('📱 Modo offline - mostrando datos en caché');
-                
-                // Si no había caché y falló la conexión
-                if (!pedidosCache || pedidosCache.length === 0) {
+                console.log('Modo offline - mostrando datos en cache');
+                if (offlineSynthetics.length === 0 && pedidosFromCache.length === 0) {
                     ordersLoading.style.display = 'none';
                     ordersEmpty.style.display = 'flex';
                     window.ui.showToast('Sin conexión. No hay pedidos guardados.', 'warning');
@@ -3850,7 +3873,8 @@ class ScanAsYouShopApp {
     async createOrderCard(pedido) {
         const card = document.createElement('div');
         card.className = 'order-card';
-        card.setAttribute('data-order-id', pedido.id);
+        const orderIdAttr = typeof pedido.id === 'string' ? pedido.id : String(pedido.id);
+        card.setAttribute('data-order-id', orderIdAttr);
 
         // Formatear fecha
         const fecha = new Date(pedido.fecha_creacion);
@@ -3872,8 +3896,9 @@ class ScanAsYouShopApp {
         // Calcular total con IVA
         const totalConIVA = pedido.total_importe * 1.21;
 
+        const orderIdForClick = typeof pedido.id === 'string' ? JSON.stringify(pedido.id) : String(pedido.id);
         card.innerHTML = `
-            <div class="order-card-header" onclick="window.app.toggleOrderDetails(${pedido.id})">
+            <div class="order-card-header" onclick="window.app.toggleOrderDetails(${orderIdForClick})">
                 <div class="order-card-main">
                     <div class="order-card-title">
                         <span class="order-almacen">🏪 ${pedido.almacen_destino}</span>
@@ -3896,7 +3921,7 @@ class ScanAsYouShopApp {
                     </svg>
                 </div>
             </div>
-            <div class="order-card-details" id="orderDetails-${pedido.id}" style="display: none;">
+            <div class="order-card-details" id="orderDetails-${orderIdAttr}" style="display: none;">
                 <div class="order-details-loading">
                     <div class="spinner-small"></div>
                     <span>Cargando productos...</span>
@@ -3914,6 +3939,7 @@ class ScanAsYouShopApp {
         const estados = {
             'pendiente': { class: 'pending', icon: '⏳', text: 'Pendiente' },
             'pendiente_erp': { class: 'pending', icon: '📤', text: 'Pend. enviar a ERP' },
+            'pendiente_envio': { class: 'pending', icon: '📴', text: 'Pend. de envio' },
             'error_erp': { class: 'cancelled', icon: '❌', text: 'Error ERP' },
             'procesando': { class: 'processing', icon: '📤', text: 'Enviado' },
             'completado': { class: 'completed', icon: '✅', text: 'Completado' }
@@ -3951,11 +3977,28 @@ class ScanAsYouShopApp {
      * Carga los productos de un pedido (ESTRATEGIA OFFLINE-FIRST)
      */
     async loadOrderProducts(orderId) {
-        const detailsDiv = document.getElementById(`orderDetails-${orderId}`);
+        const detailsDiv = document.getElementById('orderDetails-' + orderId);
         if (!detailsDiv) return;
 
+        if (typeof orderId === 'string' && orderId.indexOf('offline_') === 0 && this._offlinePendingByOrderId && this._offlinePendingByOrderId[orderId]) {
+            const item = this._offlinePendingByOrderId[orderId];
+            const raw = (item.cart && item.cart.productos) ? item.cart.productos : [];
+            const productos = raw.map(function (p) {
+                const precio = p.precio_unitario != null ? p.precio_unitario : 0;
+                const qty = p.cantidad != null ? p.cantidad : 0;
+                return {
+                    codigo_producto: p.codigo_producto || p.codigo,
+                    descripcion_producto: p.descripcion_producto || p.descripcion || '-',
+                    precio_unitario: precio,
+                    cantidad: qty,
+                    subtotal: precio * qty
+                };
+            });
+            this.renderOrderProducts(detailsDiv, productos);
+            return;
+        }
+
         try {
-            // PASO 1: Intentar cargar desde caché local
             let productos = await window.cartManager.loadOrderProductsFromCache(orderId);
             
             if (productos && productos.length > 0) {

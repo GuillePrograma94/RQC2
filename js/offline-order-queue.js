@@ -60,9 +60,27 @@ class OfflineOrderQueue {
         }).catch(function () {});
     }
 
-    enqueue(item) {
+    /**
+     * Anade un pedido a la cola. Evita duplicados: si ya existe un item del mismo usuario
+     * y almacen creado en los ultimos 90 segundos, no anade otro (evita doble clic).
+     */
+    async enqueue(item) {
         if (!this.db) return Promise.reject(new Error('OfflineOrderQueue no inicializado'));
-        const record = Object.assign({}, item, { id: item.id || generateId(), createdAt: item.createdAt || Date.now() });
+        const now = Date.now();
+        const record = Object.assign({}, item, { id: item.id || generateId(), createdAt: item.createdAt || now });
+
+        const existing = await this.getAll();
+        const windowMs = 90000;
+        const duplicate = existing.find(function (x) {
+            return x.usuario_id === record.usuario_id &&
+                x.almacen === record.almacen &&
+                (now - (x.createdAt || 0)) < windowMs;
+        });
+        if (duplicate) {
+            this.registerBackgroundSync();
+            return duplicate.id;
+        }
+
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(OFFLINE_QUEUE_STORE, 'readwrite');
             tx.objectStore(OFFLINE_QUEUE_STORE).put(record);
@@ -102,12 +120,36 @@ class OfflineOrderQueue {
 
     async processAll() {
         if (!this.db || !window.supabaseClient) return;
-        const items = await this.getAll();
-        if (items.length === 0) return;
-        for (const item of items) {
-            try {
-                const result = await window.supabaseClient.crearPedidoRemoto(item.usuario_id, item.almacen);
+        if (this._processing) return;
+        this._processing = true;
+        try {
+            const items = await this.getAll();
+            if (items.length === 0) return;
+            for (const item of items) {
+                try {
+                    try {
+                        await this.remove(item.id);
+                    } catch (e) {
+                        console.warn('OfflineOrderQueue remove before process:', e);
+                        continue;
+                    }
+                    let result;
+                try {
+                    result = await window.supabaseClient.crearPedidoRemoto(item.usuario_id, item.almacen);
+                } catch (e) {
+                    try {
+                        await this.enqueue(item);
+                    } catch (e2) {
+                        console.warn('OfflineOrderQueue re-enqueue after crearPedidoRemoto fail:', e2);
+                    }
+                    continue;
+                }
                 if (!result || !result.success) {
+                    try {
+                        await this.enqueue(item);
+                    } catch (e2) {
+                        console.warn('OfflineOrderQueue re-enqueue after no success:', e2);
+                    }
                     continue;
                 }
                 const carritoId = result.carrito_id;
@@ -131,7 +173,6 @@ class OfflineOrderQueue {
                     ? window.app.buildErpPayloadFromOfflineItem(item, carritoId, codigoQr, codigoClienteUsuario)
                     : null;
                 if (!erpPayload || !window.erpClient) {
-                    await this.remove(item.id);
                     if (window.purchaseCache && item.usuario_id) window.purchaseCache.invalidateUser(item.usuario_id);
                     continue;
                 }
@@ -139,7 +180,6 @@ class OfflineOrderQueue {
                     const response = await window.erpClient.createRemoteOrder(erpPayload);
                     if (response && response.success === false) {
                         await window.supabaseClient.updateCarritoEstadoProcesamiento(carritoId, 'error_erp');
-                        await this.remove(item.id);
                         continue;
                     }
                     const pedidoErp = response && response.data && response.data.pedido != null ? response.data.pedido : null;
@@ -151,13 +191,11 @@ class OfflineOrderQueue {
                     } catch (e) {
                         console.warn('registrarHistorialDesdeCarrito en offline queue:', e);
                     }
-                    await this.remove(item.id);
                     if (window.purchaseCache && item.usuario_id) window.purchaseCache.invalidateUser(item.usuario_id);
                 } catch (erpErr) {
                     const isValidation = /400|Bad Request|obligatorio|ERP error 4\d\d/i.test(String(erpErr && erpErr.message));
                     if (isValidation) {
                         await window.supabaseClient.updateCarritoEstadoProcesamiento(carritoId, 'error_erp');
-                        await this.remove(item.id);
                         continue;
                     }
                     await window.supabaseClient.updateCarritoEstadoProcesamiento(carritoId, 'pendiente_erp');
@@ -170,12 +208,14 @@ class OfflineOrderQueue {
                             usuario_id: item.usuario_id
                         });
                     }
-                    await this.remove(item.id);
                     if (window.purchaseCache && item.usuario_id) window.purchaseCache.invalidateUser(item.usuario_id);
                 }
-            } catch (err) {
-                console.warn('OfflineOrderQueue processAll item:', item.id, err);
+                } catch (err) {
+                    console.warn('OfflineOrderQueue processAll item:', item.id, err);
+                }
             }
+        } finally {
+            this._processing = false;
         }
     }
 }
