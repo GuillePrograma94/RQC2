@@ -2334,6 +2334,24 @@ body.gate-visible .app-container {
     color: var(--white);
 }
 
+.user-subtitle {
+    font-size: 0.85rem;
+    opacity: 0.85;
+    color: var(--white);
+    margin-top: 0.15rem;
+}
+
+.user-info-view-only {
+    cursor: default;
+    pointer-events: none;
+}
+
+.user-info-view-only:hover,
+.user-info-view-only:active {
+    filter: none;
+    transform: none;
+}
+
 .menu-logout-btn {
     width: 100%;
     padding: 1rem;

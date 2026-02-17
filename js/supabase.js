@@ -631,7 +631,8 @@ class SupabaseClient {
                         codigo_usuario_titular: loginResult.codigo_usuario_titular || null,
                         almacen_habitual: loginResult.almacen_habitual || null,
                         es_operario: !!loginResult.es_operario,
-                        nombre_operario: loginResult.nombre_operario || null
+                        nombre_operario: loginResult.nombre_operario || null,
+                        nombre_titular: loginResult.nombre_titular || null
                     };
                 }
             }

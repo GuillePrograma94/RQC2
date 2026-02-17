@@ -207,7 +207,8 @@ class ScanAsYouShopApp {
                     codigo_usuario_titular: loginResult.codigo_usuario_titular || null,
                     almacen_habitual: loginResult.almacen_habitual,
                     is_operario: !!loginResult.es_operario,
-                    nombre_operario: loginResult.nombre_operario || null
+                    nombre_operario: loginResult.nombre_operario || null,
+                    nombre_titular: loginResult.nombre_titular || null
                 };
 
                 // Crear sesión
@@ -570,17 +571,50 @@ class ScanAsYouShopApp {
         const menuUser = document.getElementById('menuUser');
         const menuUserName = document.getElementById('menuUserName');
         const menuUserCode = document.getElementById('menuUserCode');
+        const menuUserSubtitle = document.getElementById('menuUserSubtitle');
+        const menuUserInfo = document.getElementById('menuUserInfo');
+        const menuUserArrow = menuUserInfo ? menuUserInfo.querySelector('.user-info-arrow') : null;
         const historyFilterGroup = document.querySelector('.history-filter-group');
 
         if (this.currentUser) {
             // Usuario logueado
             if (menuGuest) menuGuest.style.display = 'none';
             if (menuUser) menuUser.style.display = 'block';
-            if (menuUserName) {
-                menuUserName.textContent = this.currentUser.user_name;
-            }
-            if (menuUserCode) {
-                menuUserCode.textContent = `Código: ${this.currentUser.codigo_usuario}`;
+            if (this.currentUser.is_operario) {
+                // Operario: nombre empresa (grande) + nombre operario (pequeño); bloque solo informativo, no botón
+                if (menuUserName) {
+                    menuUserName.textContent = this.currentUser.nombre_titular || this.currentUser.user_name || '--';
+                }
+                if (menuUserCode) {
+                    menuUserCode.textContent = '';
+                    menuUserCode.style.display = 'none';
+                }
+                if (menuUserSubtitle) {
+                    menuUserSubtitle.textContent = this.currentUser.nombre_operario || '--';
+                    menuUserSubtitle.style.display = 'block';
+                }
+                if (menuUserInfo) {
+                    menuUserInfo.classList.add('user-info-view-only');
+                    menuUserInfo.setAttribute('aria-label', 'Sesion de operario');
+                }
+                if (menuUserArrow) menuUserArrow.style.display = 'none';
+            } else {
+                // Titular: nombre y código; bloque clicable para ir a Mi perfil
+                if (menuUserName) {
+                    menuUserName.textContent = this.currentUser.user_name;
+                }
+                if (menuUserCode) {
+                    menuUserCode.textContent = 'Código: ' + this.currentUser.codigo_usuario;
+                    menuUserCode.style.display = 'block';
+                }
+                if (menuUserSubtitle) {
+                    menuUserSubtitle.style.display = 'none';
+                }
+                if (menuUserInfo) {
+                    menuUserInfo.classList.remove('user-info-view-only');
+                    menuUserInfo.setAttribute('aria-label', 'Ver mi perfil');
+                }
+                if (menuUserArrow) menuUserArrow.style.display = '';
             }
             // Mostrar filtro de historial en búsqueda
             if (historyFilterGroup) historyFilterGroup.style.display = 'block';
@@ -1204,10 +1238,11 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Clic en datos de usuario (nombre/código): abre Mi perfil
+        // Clic en datos de usuario (nombre/código): abre Mi perfil solo si es titular; operario es solo vista
         const menuUserInfo = document.getElementById('menuUserInfo');
         if (menuUserInfo) {
             menuUserInfo.addEventListener('click', () => {
+                if (this.currentUser && this.currentUser.is_operario) return;
                 this.closeMenu();
                 this.showScreen('profile');
                 this.renderProfileScreen();

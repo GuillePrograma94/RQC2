@@ -19,7 +19,8 @@ RETURNS TABLE (
     message TEXT,
     es_operario BOOLEAN,
     nombre_operario TEXT,
-    codigo_usuario_titular TEXT
+    codigo_usuario_titular TEXT,
+    nombre_titular TEXT
 )
 LANGUAGE plpgsql
 AS $$
@@ -47,6 +48,7 @@ BEGIN
                 'Usuario o contrasena incorrectos'::TEXT,
                 FALSE,
                 NULL::TEXT,
+                NULL::TEXT,
                 NULL::TEXT;
             RETURN;
         END IF;
@@ -62,7 +64,8 @@ BEGIN
             'Login exitoso'::TEXT,
             FALSE,
             NULL::TEXT,
-            v_user.codigo_usuario;
+            v_user.codigo_usuario,
+            v_user.nombre;
         RETURN;
     END IF;
 
@@ -79,6 +82,7 @@ BEGIN
             NULL::TEXT,
             'Usuario o contrasena incorrectos'::TEXT,
             FALSE,
+            NULL::TEXT,
             NULL::TEXT,
             NULL::TEXT;
         RETURN;
@@ -98,6 +102,7 @@ BEGIN
             NULL::TEXT,
             'Usuario o contrasena incorrectos'::TEXT,
             FALSE,
+            NULL::TEXT,
             NULL::TEXT,
             NULL::TEXT;
         RETURN;
@@ -121,6 +126,7 @@ BEGIN
             'Usuario o contrasena incorrectos'::TEXT,
             FALSE,
             NULL::TEXT,
+            NULL::TEXT,
             NULL::TEXT;
         RETURN;
     END IF;
@@ -135,7 +141,8 @@ BEGIN
         'Login exitoso'::TEXT,
         TRUE,
         v_operario.nombre_operario,
-        v_user.codigo_usuario;
+        v_user.codigo_usuario,
+        v_user.nombre;
 END;
 $$;
 

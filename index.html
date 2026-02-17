@@ -171,13 +171,14 @@
 
             <!-- Usuario logueado -->
             <div id="menuUser" class="menu-user" style="display: none;">
-                <button type="button" id="menuUserInfo" class="user-info user-info-clickable" aria-label="Ver mi perfil">
+                <div id="menuUserInfo" class="user-info user-info-clickable" role="button" tabindex="0" aria-label="Ver mi perfil">
                     <div class="user-details">
                         <div class="user-name" id="menuUserName">Usuario</div>
                         <div class="user-code" id="menuUserCode">Código: ----</div>
+                        <div class="user-subtitle" id="menuUserSubtitle" style="display: none;"></div>
                     </div>
                     <span class="user-info-arrow">›</span>
-                </button>
+                </div>
                 <!-- Tarjeta comercial asignado (solo si tiene comercial) -->
                 <div id="menuCommercialCard" class="commercial-card menu-commercial-card" style="display: none;">
                     <div class="commercial-card-details">
