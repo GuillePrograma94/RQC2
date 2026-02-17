@@ -3825,7 +3825,9 @@ class ScanAsYouShopApp {
                             codigo_qr: '-',
                             total_productos: (item.cart && item.cart.productos) ? item.cart.productos.length : 0,
                             total_importe: (item.cart && item.cart.total_importe) != null ? item.cart.total_importe : 0,
-                            tipo_pedido: 'remoto'
+                            tipo_pedido: 'remoto',
+                            observaciones: item.observaciones != null ? String(item.observaciones) : null,
+                            nombre_operario: (item.user_snapshot && item.user_snapshot.is_operario && item.user_snapshot.nombre_operario) ? item.user_snapshot.nombre_operario : null
                         });
                     }
                 } catch (e) {
@@ -3905,6 +3907,22 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Formatea una fecha para mostrar en hora de España (Europe/Madrid).
+     * La base de datos puede guardar en UTC u otro horario; aqui se muestra siempre hora española.
+     */
+    formatDateSpain(dateOrString) {
+        const d = dateOrString instanceof Date ? dateOrString : new Date(dateOrString);
+        return d.toLocaleDateString('es-ES', {
+            timeZone: 'Europe/Madrid',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    /**
      * Crea una tarjeta de pedido
      */
     async createOrderCard(pedido) {
@@ -3913,40 +3931,41 @@ class ScanAsYouShopApp {
         const orderIdAttr = typeof pedido.id === 'string' ? pedido.id : String(pedido.id);
         card.setAttribute('data-order-id', orderIdAttr);
 
-        // Formatear fecha
-        const fecha = new Date(pedido.fecha_creacion);
-        const fechaFormateada = fecha.toLocaleDateString('es-ES', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        // Fecha en hora España
+        const fechaFormateada = this.formatDateSpain(pedido.fecha_creacion);
 
         // Determinar estado y badge
         const estadoInfo = this.getEstadoBadge(pedido.estado_procesamiento);
 
         // Determinar tipo de pedido
-        const tipoPedido = pedido.tipo_pedido === 'remoto' ? '📱 Remoto' : '🛒 Presencial';
+        const tipoPedido = pedido.tipo_pedido === 'remoto' ? 'Remoto' : 'Presencial';
         const tipoClass = pedido.tipo_pedido === 'remoto' ? 'remote' : 'presencial';
 
         // Calcular total con IVA
-        const totalConIVA = pedido.total_importe * 1.21;
+        const totalConIVA = (pedido.total_importe || 0) * 1.21;
+
+        // Observaciones y operario (escapados para HTML)
+        const hasObservaciones = pedido.observaciones && String(pedido.observaciones).trim() !== '';
+        const observacionesText = hasObservaciones ? this.escapeForHtmlAttribute(String(pedido.observaciones).trim()) : '';
+        const hasOperario = pedido.nombre_operario && String(pedido.nombre_operario).trim() !== '';
+        const operarioText = hasOperario ? this.escapeForHtmlAttribute(String(pedido.nombre_operario).trim()) : '';
 
         const orderIdForClick = typeof pedido.id === 'string' ? JSON.stringify(pedido.id) : String(pedido.id);
         card.innerHTML = `
             <div class="order-card-header" onclick="window.app.toggleOrderDetails(${orderIdForClick})">
                 <div class="order-card-main">
-                    <div class="order-card-title">
-                        <span class="order-almacen">🏪 ${pedido.almacen_destino}</span>
+                    <div class="order-card-top">
+                        <span class="order-almacen">${this.escapeForHtmlAttribute(pedido.almacen_destino || '')}</span>
                         <span class="order-type order-type-${tipoClass}">${tipoPedido}</span>
                         <span class="order-badge order-badge-${estadoInfo.class}">${estadoInfo.icon} ${estadoInfo.text}</span>
                     </div>
-                    <div class="order-card-info">
-                        <span class="order-date">📅 ${fechaFormateada}</span>
-                        <span class="order-code">Código: ${pedido.codigo_qr}</span>
-                        ${pedido.pedido_erp ? `<span class="order-erp">Pedido: ${this.escapeForHtmlAttribute(pedido.pedido_erp)}</span>` : ''}
+                    <div class="order-card-meta">
+                        <span class="order-date">${fechaFormateada}</span>
+                        <span class="order-code">Código: ${this.escapeForHtmlAttribute(pedido.codigo_qr || '-')}</span>
+                        ${pedido.pedido_erp ? `<span class="order-erp">Ped. ${this.escapeForHtmlAttribute(pedido.pedido_erp)}</span>` : ''}
                     </div>
+                    ${hasObservaciones ? `<div class="order-observaciones" title="${observacionesText}">${observacionesText}</div>` : ''}
+                    ${hasOperario ? `<div class="order-operario">Pedido por ${operarioText}</div>` : ''}
                     <div class="order-card-totals">
                         <span class="order-items">${pedido.total_productos} producto${pedido.total_productos !== 1 ? 's' : ''}</span>
                         <span class="order-total">${totalConIVA.toFixed(2)} €</span>

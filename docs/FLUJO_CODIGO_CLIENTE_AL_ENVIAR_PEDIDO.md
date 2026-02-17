@@ -247,3 +247,10 @@ return await this._requestProxy(this.proxyPath, {
 - **Operario:** `this.currentUser.user_id` es el **id del titular** (la app siempre usa el titular para pedidos). `p_usuario_id` es el id del titular; el SELECT devuelve el `usuarios.codigo_usuario` del titular. Ese mismo valor se guarda en el carrito y llega al JSON.
 
 En ambos casos el codigo que ve el ERP es **siempre** `usuarios.codigo_usuario` del titular, guardado en el carrito al crearlo y enviado en `payload.codigo_cliente`.
+
+---
+
+## Mis Pedidos: observaciones, operario y hora
+
+- **Observaciones y operario:** En la pantalla "Mis Pedidos" cada tarjeta muestra las observaciones guardadas en `carritos_clientes.observaciones` y, si aplica, "Pedido por [nombre_operario]" desde `carritos_clientes.nombre_operario`.
+- **Hora:** Las fechas de los pedidos se muestran siempre en **hora de España (Europe/Madrid)**. La base de datos puede guardar en UTC u otro horario; la conversion se hace en la app al formatear (`formatDateSpain` en app.js).
