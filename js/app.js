@@ -3446,11 +3446,10 @@ class ScanAsYouShopApp {
 
     /**
      * Construye el payload del pedido para el ERP.
+     * codigoClienteUsuario: valor de carritos_clientes.codigo_cliente_usuario (usuarios.codigo_usuario al crear el pedido).
      * serie = almacen destino (donde recoge). centro_venta = almacen habitual del cliente.
-     * referencia: si se pasa, se usa (ej: RQC/id-codigo_qr); si no, fallback con timestamp.
-     * observaciones: texto opcional para el pedido.
      */
-    buildErpOrderPayload(cart, almacen, referencia, observaciones) {
+    buildErpOrderPayload(cart, almacen, referencia, observaciones, codigoClienteUsuario) {
         const almacenHabitual = this.currentUser ? this.currentUser.almacen_habitual : null;
         const { serie, centro_venta } = typeof ERP_PEDIDO_OPCIONES !== 'undefined'
             ? ERP_PEDIDO_OPCIONES.getSerieYCentroVenta(almacen, almacenHabitual)
@@ -3462,15 +3461,7 @@ class ScanAsYouShopApp {
             unidades: p.cantidad != null ? p.cantidad : 0
         }));
 
-        // ERP recibe siempre usuarios.codigo_usuario del titular (viene en codigo_usuario_titular desde el login).
-        let codigoClienteErp = null;
-        if (this.currentUser) {
-            if (this.currentUser.codigo_usuario_titular != null && this.currentUser.codigo_usuario_titular !== '') {
-                codigoClienteErp = this.currentUser.codigo_usuario_titular;
-            } else {
-                codigoClienteErp = this.currentUser.grupo_cliente != null ? this.currentUser.grupo_cliente : this.currentUser.codigo_usuario;
-            }
-        }
+        const codigoClienteErp = (codigoClienteUsuario != null && codigoClienteUsuario !== '') ? codigoClienteUsuario : null;
 
         return {
             codigo_cliente: codigoClienteErp,
@@ -3483,10 +3474,10 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Construye el payload ERP a partir de un item de la cola offline (sin Supabase).
-     * Usado por offline-order-queue al procesar pedidos guardados sin conexion.
+     * Construye el payload ERP a partir de un item de la cola offline.
+     * codigoClienteUsuario: carritos_clientes.codigo_cliente_usuario (viene de result al crear el pedido).
      */
-    buildErpPayloadFromOfflineItem(item, carritoId, codigoQr) {
+    buildErpPayloadFromOfflineItem(item, carritoId, codigoQr, codigoClienteUsuario) {
         const almacen = item.almacen;
         const observaciones = item.observaciones != null ? String(item.observaciones) : '';
         const referencia = 'RQC/' + carritoId + '-' + (codigoQr || '');
@@ -3499,15 +3490,7 @@ class ScanAsYouShopApp {
             codigo_articulo: p.codigo_producto || p.codigo,
             unidades: p.cantidad != null ? p.cantidad : 0
         }));
-        let codigoClienteErp = null;
-        if (item.user_snapshot) {
-            const u = item.user_snapshot;
-            if (u.codigo_usuario_titular != null && u.codigo_usuario_titular !== '') {
-                codigoClienteErp = u.codigo_usuario_titular;
-            } else {
-                codigoClienteErp = u.grupo_cliente != null ? u.grupo_cliente : u.codigo_usuario;
-            }
-        }
+        const codigoClienteErp = (codigoClienteUsuario != null && codigoClienteUsuario !== '') ? codigoClienteUsuario : null;
         return {
             codigo_cliente: codigoClienteErp,
             serie: serie,
@@ -3585,7 +3568,7 @@ class ScanAsYouShopApp {
             }
 
             const referencia = 'RQC/' + result.carrito_id + '-' + result.codigo_qr;
-            const erpPayload = this.buildErpOrderPayload(cart, almacen, referencia, observaciones);
+            const erpPayload = this.buildErpOrderPayload(cart, almacen, referencia, observaciones, result.codigo_cliente_usuario);
 
             let erpResponse = null;
             let erpError = null;

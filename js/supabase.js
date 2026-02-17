@@ -1003,7 +1003,8 @@ class SupabaseClient {
                     return {
                         success: true,
                         carrito_id: result.carrito_id,
-                        codigo_qr: result.codigo_qr
+                        codigo_qr: result.codigo_qr,
+                        codigo_cliente_usuario: result.codigo_cliente_usuario || null
                     };
                 } else {
                     console.error('Error al crear pedido remoto:', result.message);

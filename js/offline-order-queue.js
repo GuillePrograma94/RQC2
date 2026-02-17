@@ -126,8 +126,9 @@ class OfflineOrderQueue {
                     );
                 }
                 const referencia = 'RQC/' + carritoId + '-' + codigoQr;
+                const codigoClienteUsuario = result.codigo_cliente_usuario || null;
                 const erpPayload = typeof window.app !== 'undefined' && typeof window.app.buildErpPayloadFromOfflineItem === 'function'
-                    ? window.app.buildErpPayloadFromOfflineItem(item, carritoId, codigoQr)
+                    ? window.app.buildErpPayloadFromOfflineItem(item, carritoId, codigoQr, codigoClienteUsuario)
                     : null;
                 if (!erpPayload || !window.erpClient) {
                     await this.remove(item.id);

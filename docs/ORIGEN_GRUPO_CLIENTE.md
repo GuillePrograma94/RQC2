@@ -37,10 +37,21 @@ Es decir: **`grupo_cliente` es un codigo numerico (INTEGER) en la tabla `usuario
 |---------|-----|
 | **migration_login_operarios.sql** | La RPC devuelve `grupo_cliente` (viene de `usuarios.grupo_cliente`). |
 | **js/supabase.js** | Incluye `grupo_cliente` en la respuesta de login; `getOfertasProducto(codigoArticulo, grupoCliente, ...)` usa ese valor (si no hay grupo_cliente no se buscan ofertas). |
-| **js/app.js** | `currentUser.grupo_cliente` se usa en: (1) ofertas – `getOfertasProducto(..., grupoCliente, ...)` y filtros "solo articulos que he comprado"; (2) payload ERP – fallback cuando no hay `codigo_usuario_titular` en `buildErpOrderPayload` y `buildErpPayloadFromOfflineItem`; (3) `user_snapshot` al guardar pedidos offline. |
+| **js/app.js** | `currentUser.grupo_cliente` se usa en ofertas y en `user_snapshot`. Para el ERP solo se usa `codigo_usuario_titular` (sin fallbacks). |
 | **migration_perfil_operarios.sql** | Comentario: operarios comparten "mismo grupo_cliente" que el titular. |
 
-El payload al ERP sigue enviando la clave `codigo_cliente` (contrato de la API); el valor puede venir de `codigo_usuario_titular` o de `grupo_cliente` como respaldo.
+---
+
+## Codigo de cliente en el JSON al ERP
+
+El payload al ERP lleva la clave `codigo_cliente` (contrato de la API). El valor viene **solo** de `usuarios.codigo_usuario` del titular, que la app recibe en el login como `codigo_usuario_titular`. No se usan fallbacks (grupo_cliente no es codigo de cliente; lo que el usuario escribio al login tampoco se usa como respaldo).
+
+| Caso | Quien hace login | Valor enviado en `codigo_cliente` |
+|------|------------------|-----------------------------------|
+| **1 – Cliente (titular)** | El propio cliente (codigo sin guion) | `usuarios.codigo_usuario` de ese usuario |
+| **2 – Operario** | Un operario (codigo con guion, ej. 79280-23) | `usuarios.codigo_usuario` del **titular** (no del operario) |
+
+En ambos casos el origen en BD es la misma columna: **tabla `usuarios`, columna `codigo_usuario`** (la fila es siempre la del titular).
 
 ---
 
@@ -48,4 +59,4 @@ El payload al ERP sigue enviando la clave `codigo_cliente` (contrato de la API);
 
 - **Origen:** columna `usuarios.grupo_cliente` (INTEGER), rellenada al dar de alta/editar usuarios.
 - **Entrada en la app:** RPC de login → `loginResult.grupo_cliente` → `currentUser.grupo_cliente`.
-- **Uso principal:** ofertas (match con grupos) y, como respaldo, codigo en el payload al ERP cuando no existe `codigo_usuario_titular`.
+- **Uso:** ofertas (match con grupos). No se usa para el codigo de cliente del ERP; para el ERP solo se usa `codigo_usuario_titular` = `usuarios.codigo_usuario` del titular.
