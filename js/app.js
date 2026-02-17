@@ -3561,7 +3561,9 @@ class ScanAsYouShopApp {
 
             const result = await window.supabaseClient.crearPedidoRemoto(
                 this.currentUser.user_id,
-                almacen
+                almacen,
+                observaciones != null ? String(observaciones) : null,
+                this.currentUser.is_operario ? (this.currentUser.nombre_operario || null) : null
             );
 
             if (!result.success) {

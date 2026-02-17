@@ -22,21 +22,23 @@ this.sendRemoteOrder(this.currentUser.almacen_habitual, observaciones);
 
 ---
 
-## Paso 1: sendRemoteOrder llama a crearPedidoRemoto con el user_id del titular
+## Paso 1: sendRemoteOrder llama a crearPedidoRemoto con user_id, almacen, observaciones y operario
 
 **Fichero:** `scan_client_mobile/js/app.js`
 
 **Codigo:**
 
 ```javascript
-// app.js 3527-3530
+// app.js: crearPedidoRemoto(user_id, almacen, observaciones, nombreOperario)
 const result = await window.supabaseClient.crearPedidoRemoto(
-    this.currentUser.user_id,   // <-- identificador del TITULAR (integer id de usuarios)
-    almacen
+    this.currentUser.user_id,   // identificador del TITULAR (integer id de usuarios)
+    almacen,
+    observaciones != null ? String(observaciones) : null,
+    this.currentUser.is_operario ? (this.currentUser.nombre_operario || null) : null
 );
 ```
 
-**Tabla/columna:** No se lee aun el codigo de cliente. Se envia `usuarios.id` (como `currentUser.user_id`) para que la RPC cree el carrito asociado a ese usuario.
+**Tabla/columna:** Se envia `user_id` (titular), `almacen`, `observaciones` y, si es operario, `nombre_operario`. La RPC guarda todo en `carritos_clientes` (codigo_cliente_usuario, observaciones, nombre_operario).
 
 **Valor simulado:** `this.currentUser.user_id` = `42` (ejemplo; es el `usuarios.id` del titular, tanto si quien envia es titular como operario).
 
@@ -49,17 +51,19 @@ const result = await window.supabaseClient.crearPedidoRemoto(
 **Codigo:**
 
 ```javascript
-// supabase.js 987-993
+// supabase.js: RPC con p_usuario_id, p_almacen_destino, p_observaciones, p_nombre_operario
 const { data, error } = await this.client.rpc(
     'crear_pedido_remoto',
     {
-        p_usuario_id: usuarioId,      // 42
-        p_almacen_destino: almacenDestino  // ej. 'GANDIA'
+        p_usuario_id: usuarioId,
+        p_almacen_destino: almacenDestino,
+        p_observaciones: observaciones != null ? String(observaciones).trim() || null : null,
+        p_nombre_operario: nombreOperario != null ? String(nombreOperario).trim() || null : null
     }
 );
 ```
 
-**Tabla/columna:** Aun no. Solo se envia `p_usuario_id` (integer) a la RPC.
+**Tabla/columna:** Se envia `p_usuario_id`, `p_almacen_destino`, `p_observaciones` y `p_nombre_operario` a la RPC; esta guarda en `carritos_clientes`.
 
 ---
 
@@ -114,6 +118,8 @@ RETURN QUERY SELECT
 | RETURN         | —                 | —                      | Se devuelve `v_codigo_cliente_usuario` |
 
 **Valor simulado:** Si el titular tiene `usuarios.codigo_usuario = '79280'`, entonces `v_codigo_cliente_usuario = '79280'`, se guarda en `carritos_clientes.codigo_cliente_usuario` y se devuelve en el resultado de la RPC.
+
+**Observaciones y operario (migration_carrito_observaciones_operario.sql):** La RPC `crear_pedido_remoto` acepta ademas `p_observaciones` y `p_nombre_operario` (opcionales). Se guardan en `carritos_clientes.observaciones` y `carritos_clientes.nombre_operario` respectivamente, para dejar constancia en BD de las observaciones del pedido y del operario que lo realizo (si aplica).
 
 ---
 

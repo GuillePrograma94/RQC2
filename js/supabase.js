@@ -975,9 +975,13 @@ class SupabaseClient {
     }
 
     /**
-     * Crea un pedido remoto para un usuario y almacén específico
+     * Crea un pedido remoto para un usuario y almacén específico.
+     * @param {number} usuarioId - ID del usuario titular
+     * @param {string} almacenDestino - Código del almacén destino
+     * @param {string} [observaciones] - Observaciones del pedido (opcional)
+     * @param {string} [nombreOperario] - Nombre del operario si el pedido lo hace un operario (opcional)
      */
-    async crearPedidoRemoto(usuarioId, almacenDestino) {
+    async crearPedidoRemoto(usuarioId, almacenDestino, observaciones, nombreOperario) {
         try {
             if (!this.client) {
                 throw new Error('Cliente de Supabase no inicializado');
@@ -990,7 +994,9 @@ class SupabaseClient {
                 'crear_pedido_remoto',
                 {
                     p_usuario_id: usuarioId,
-                    p_almacen_destino: almacenDestino
+                    p_almacen_destino: almacenDestino,
+                    p_observaciones: observaciones != null ? String(observaciones).trim() || null : null,
+                    p_nombre_operario: nombreOperario != null ? String(nombreOperario).trim() || null : null
                 }
             );
 

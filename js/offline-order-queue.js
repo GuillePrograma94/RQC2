@@ -135,7 +135,12 @@ class OfflineOrderQueue {
                     }
                     let result;
                 try {
-                    result = await window.supabaseClient.crearPedidoRemoto(item.usuario_id, item.almacen);
+                    result = await window.supabaseClient.crearPedidoRemoto(
+                        item.usuario_id,
+                        item.almacen,
+                        item.observaciones != null ? String(item.observaciones) : null,
+                        item.user_snapshot && item.user_snapshot.is_operario ? (item.user_snapshot.nombre_operario || null) : null
+                    );
                 } catch (e) {
                     try {
                         await this.enqueue(item);
