@@ -1518,9 +1518,9 @@ class ScanAsYouShopApp {
                 }
                 const input = document.getElementById('almacenObservacionesInput');
                 const userText = input ? input.value.trim() : '';
-                let observaciones = 'RECOGER EN ALMACEN ' + almacen + ' - ' + (userText || '');
+                let observaciones = 'RECOGER EN ALMACEN ' + almacen + '\n\n' + (userText || '');
                 if (this.currentUser && this.currentUser.nombre_operario) {
-                    observaciones += ' Pedido por ' + this.currentUser.nombre_operario;
+                    observaciones += '\n\nPedido realizado por: ' + this.currentUser.nombre_operario;
                 }
                 this.sendRemoteOrder(almacen, observaciones);
             });
@@ -1577,9 +1577,9 @@ class ScanAsYouShopApp {
                 }
                 const input = document.getElementById('enviarEnRutaObservacionesInput');
                 const userText = input ? input.value.trim() : '';
-                let observaciones = 'ENVIAR EN RUTA' + (userText ? ' ' + userText : '');
+                let observaciones = 'ENVIAR EN RUTA' + (userText ? '\n\n' + userText : '');
                 if (this.currentUser && this.currentUser.nombre_operario) {
-                    observaciones += ' Pedido por ' + this.currentUser.nombre_operario;
+                    observaciones += '\n\nPedido realizado por: ' + this.currentUser.nombre_operario;
                 }
                 this.sendRemoteOrder(this.currentUser.almacen_habitual, observaciones);
             });
