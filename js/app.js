@@ -31,6 +31,25 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Escapa para contenido HTML preservando saltos de línea (para observaciones en tarjetas de pedido).
+     * Normaliza múltiples saltos y espacios alrededor a un solo \n.
+     */
+    escapeForHtmlContentPreservingNewlines(str) {
+        if (!str) return '';
+        const trimmed = String(str).trim();
+        const normalized = trimmed
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
+            .replace(/\s*\n\s*/g, '\n');
+        return normalized
+            .replace(/&/g, '&amp;')
+            .replace(/'/g, '&#39;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    /**
      * Inicializa la aplicación
      */
     async initialize() {
@@ -3946,7 +3965,8 @@ class ScanAsYouShopApp {
 
         // Observaciones y operario (escapados para HTML)
         const hasObservaciones = pedido.observaciones && String(pedido.observaciones).trim() !== '';
-        const observacionesText = hasObservaciones ? this.escapeForHtmlAttribute(String(pedido.observaciones).trim()) : '';
+        const observacionesTitle = hasObservaciones ? this.escapeForHtmlAttribute(String(pedido.observaciones).trim()) : '';
+        const observacionesContent = hasObservaciones ? this.escapeForHtmlContentPreservingNewlines(String(pedido.observaciones)) : '';
         const hasOperario = pedido.nombre_operario && String(pedido.nombre_operario).trim() !== '';
         const operarioText = hasOperario ? this.escapeForHtmlAttribute(String(pedido.nombre_operario).trim()) : '';
 
@@ -3964,7 +3984,7 @@ class ScanAsYouShopApp {
                         <span class="order-code">Código: ${this.escapeForHtmlAttribute(pedido.codigo_qr || '-')}</span>
                         ${pedido.pedido_erp ? `<span class="order-erp">Ped. ${this.escapeForHtmlAttribute(pedido.pedido_erp)}</span>` : ''}
                     </div>
-                    ${hasObservaciones ? `<div class="order-observaciones" title="${observacionesText}">${observacionesText}</div>` : ''}
+                    ${hasObservaciones ? `<div class="order-observaciones" title="${observacionesTitle}">${observacionesContent}</div>` : ''}
                     ${hasOperario ? `<div class="order-operario">Pedido por ${operarioText}</div>` : ''}
                     <div class="order-card-totals">
                         <span class="order-items">${pedido.total_productos} producto${pedido.total_productos !== 1 ? 's' : ''}</span>
