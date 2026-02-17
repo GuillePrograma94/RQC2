@@ -3971,10 +3971,13 @@ class ScanAsYouShopApp {
                         <span class="order-total">${totalConIVA.toFixed(2)} €</span>
                     </div>
                 </div>
-                <div class="order-card-arrow">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
+                <div class="order-card-trigger" data-order-id="${orderIdAttr}">
+                    <span class="order-card-trigger-label">Ver detalles</span>
+                    <span class="order-card-arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </span>
                 </div>
             </div>
             <div class="order-card-details" id="orderDetails-${orderIdAttr}" style="display: none;">
@@ -4009,23 +4012,24 @@ class ScanAsYouShopApp {
      */
     async toggleOrderDetails(orderId) {
         const detailsDiv = document.getElementById(`orderDetails-${orderId}`);
-        const arrow = document.querySelector(`[data-order-id="${orderId}"] .order-card-arrow svg`);
+        const cardEl = document.querySelector(`[data-order-id="${orderId}"]`);
+        const arrow = cardEl ? cardEl.querySelector('.order-card-arrow svg') : null;
+        const triggerLabel = cardEl ? cardEl.querySelector('.order-card-trigger-label') : null;
 
         if (!detailsDiv) return;
 
         if (detailsDiv.style.display === 'none') {
-            // Mostrar detalles
             detailsDiv.style.display = 'block';
-            arrow.style.transform = 'rotate(180deg)';
+            if (arrow) arrow.style.transform = 'rotate(180deg)';
+            if (triggerLabel) triggerLabel.textContent = 'Ocultar';
 
-            // Cargar productos si no están cargados
             if (detailsDiv.querySelector('.order-details-loading')) {
                 await this.loadOrderProducts(orderId);
             }
         } else {
-            // Ocultar detalles
             detailsDiv.style.display = 'none';
-            arrow.style.transform = 'rotate(0deg)';
+            if (arrow) arrow.style.transform = 'rotate(0deg)';
+            if (triggerLabel) triggerLabel.textContent = 'Ver detalles';
         }
     }
 

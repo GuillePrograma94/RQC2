@@ -3312,10 +3312,7 @@ body.gate-visible .app-container {
 
 .order-card-header {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 1.125rem 1.25rem;
+    flex-direction: column;
     cursor: pointer;
     user-select: none;
     -webkit-user-select: none;
@@ -3324,6 +3321,7 @@ body.gate-visible .app-container {
 .order-card-main {
     flex: 1;
     min-width: 0;
+    padding: 1.125rem 1.25rem 0.75rem;
 }
 
 .order-card-top {
@@ -3460,13 +3458,34 @@ body.gate-visible .app-container {
     color: var(--primary);
 }
 
+/* Barra fina inferior (cuña): expandir/ver detalles */
+.order-card-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+    color: var(--white);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.order-card-trigger-label {
+    opacity: 0.95;
+}
+
 .order-card-arrow {
-    flex-shrink: 0;
-    margin-top: 0.15rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .order-card-arrow svg {
-    color: var(--gray-400);
+    color: rgba(255, 255, 255, 0.9);
     transition: transform 0.3s ease;
 }
 
