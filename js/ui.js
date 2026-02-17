@@ -28,7 +28,7 @@ class UIManager {
         indicator.style.cssText = `
             position: fixed;
             top: 10px;
-            right: 10px;
+            left: 10px;
             background: linear-gradient(135deg, #7851A9, #9370DB);
             color: white;
             padding: 8px 12px;

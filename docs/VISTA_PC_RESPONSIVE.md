@@ -4,10 +4,11 @@ La web app esta pensada para movil pero es util tambien en PC. A partir de **102
 
 ## Comportamiento en PC (min-width: 1024px)
 
-- **Cabecera y cuerpo a ancho completo**: El header y el area de contenido ocupan todo el ancho de la pantalla (de lado a lado), sin columnas centradas.
+- **Cabecera y fondo a ancho completo**: El header y el fondo de la app ocupan todo el ancho de la pantalla.
+- **Contenido limitado y centrado**: El cuerpo (listas, formularios, carrito, etc.) tiene un ancho maximo de 900px y esta centrado, para que no llegue a los bordes de la pantalla y se lea bien.
 - **Barra de navegacion inferior mas grande**: La barra de botones (Caja, Buscar, Carrito, Escanear) es mas alta (100px), con iconos y etiquetas mas grandes para uso con raton en escritorio.
+- **Menu lateral**: El sidebar tiene 360px de ancho y, cuando esta cerrado, queda completamente fuera de vista (no se ve ningun borde a la derecha).
 - **Login (gate)**: El formulario de entrada puede ser un poco mas ancho (420px) y el titulo algo mas grande.
-- **Menu lateral**: El sidebar del menu tiene 360px de ancho en desktop.
 
 ## Breakpoints en `styles.css`
 

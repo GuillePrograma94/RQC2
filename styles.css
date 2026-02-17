@@ -1378,7 +1378,7 @@ body.gate-visible .app-container {
     }
 }
 
-/* Desktop (PC): cabecera y cuerpo a ancho completo; botones de navegacion mas grandes */
+/* Desktop (PC): cabecera y cuerpo a ancho completo; contenido limitado; botones de nav mas grandes */
 @media (min-width: 1024px) {
     .app-header-fixed {
         left: 0;
@@ -1428,8 +1428,21 @@ body.gate-visible .app-container {
         font-size: 0.95rem;
     }
 
+    /* Cuerpo limitado y centrado: no llega a los bordes de la pantalla */
     .screen-content {
         padding: 1.5rem 2rem;
+        max-width: 900px;
+        margin-left: auto;
+        margin-right: auto;
+        width: 100%;
+    }
+
+    .cart-info-bar {
+        padding: 1rem 2rem;
+        font-size: 1rem;
+        max-width: 900px;
+        margin-left: auto;
+        margin-right: auto;
     }
 
     .gate-content {
@@ -1444,13 +1457,14 @@ body.gate-visible .app-container {
         font-size: 1.15rem;
     }
 
+    /* Menu cerrado: totalmente fuera de vista (ancho 360px => right -360px) */
     .menu-sidebar {
         width: 360px;
+        right: -360px;
     }
 
-    .cart-info-bar {
-        padding: 1rem 2rem;
-        font-size: 1rem;
+    .menu-sidebar.open {
+        right: 0;
     }
 }
 
