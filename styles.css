@@ -1378,6 +1378,81 @@ body.gate-visible .app-container {
     }
 }
 
+/* Desktop (PC): ancho util, centrado y legible */
+@media (min-width: 1024px) {
+    .app-header-fixed {
+        left: 50%;
+        right: auto;
+        width: 100%;
+        max-width: 960px;
+        transform: translateX(-50%);
+        border-radius: 0 0 16px 16px;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .app-container {
+        max-width: 960px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        border-radius: 0 0 16px 16px;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .bottom-nav {
+        max-width: 960px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-radius: 16px 16px 0 0;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .screen-content {
+        padding: 1.5rem 2rem;
+    }
+
+    .gate-content {
+        max-width: 420px;
+    }
+
+    .gate-title {
+        font-size: 1.75rem;
+    }
+
+    .header-title {
+        font-size: 1.15rem;
+    }
+
+    .menu-sidebar {
+        width: 360px;
+    }
+
+    .cart-info-bar {
+        padding: 1rem 2rem;
+        font-size: 1rem;
+    }
+
+    .orders-list {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 1.5rem 0;
+    }
+
+    .search-section,
+    .checkout-content,
+    .remote-order-section {
+        max-width: 560px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .login-modal-content,
+    .almacen-modal-content,
+    .almacen-observaciones-modal-content {
+        max-width: 480px;
+    }
+}
+
 /* Safe Area (iOS) */
 @supports (padding: env(safe-area-inset-bottom)) {
     .bottom-nav {
