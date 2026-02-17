@@ -204,6 +204,7 @@ class ScanAsYouShopApp {
                     user_name: loginResult.user_name,
                     codigo_usuario: loginResult.codigo_usuario,
                     codigo_cliente: loginResult.codigo_cliente,
+                    codigo_usuario_titular: loginResult.codigo_usuario_titular || null,
                     almacen_habitual: loginResult.almacen_habitual,
                     is_operario: !!loginResult.es_operario,
                     nombre_operario: loginResult.nombre_operario || null
@@ -702,9 +703,7 @@ class ScanAsYouShopApp {
         }
         const codigoEjemplo = document.getElementById('profileOperarioCodigoEjemplo');
         if (codigoEjemplo && !this.currentUser.is_operario) {
-            const codigoTitular = this.currentUser.codigo_usuario && this.currentUser.codigo_usuario.indexOf('-') === -1
-                ? this.currentUser.codigo_usuario
-                : (this.currentUser.codigo_usuario || '').split('-')[0] || '[tu codigo]';
+            const codigoTitular = this.currentUser.codigo_usuario_titular || this.currentUser.codigo_usuario || '[tu codigo]';
             codigoEjemplo.textContent = codigoTitular + '-01';
         }
 
@@ -776,9 +775,7 @@ class ScanAsYouShopApp {
         if (msgEl) { msgEl.style.display = 'none'; msgEl.textContent = ''; msgEl.className = 'profile-message'; }
         if (form) form.reset();
         if (codigoTitularEl && this.currentUser) {
-            const codigoTitular = this.currentUser.codigo_usuario && this.currentUser.codigo_usuario.indexOf('-') === -1
-                ? this.currentUser.codigo_usuario
-                : (this.currentUser.codigo_usuario || '').split('-')[0] || '';
+            const codigoTitular = this.currentUser.codigo_usuario_titular || this.currentUser.codigo_usuario || '';
             codigoTitularEl.textContent = codigoTitular || '[tu codigo]';
         }
         if (codigoSufijoEl) codigoSufijoEl.textContent = '[codigo abajo]';
@@ -3465,11 +3462,11 @@ class ScanAsYouShopApp {
             unidades: p.cantidad != null ? p.cantidad : 0
         }));
 
-        // ERP siempre recibe el codigo del titular (ej: 79280). Si es operario (79280-23), enviamos solo 79280.
+        // ERP recibe siempre usuarios.codigo_usuario del titular (viene en codigo_usuario_titular desde el login).
         let codigoClienteErp = null;
         if (this.currentUser) {
-            if (this.currentUser.is_operario && this.currentUser.codigo_usuario && this.currentUser.codigo_usuario.indexOf('-') !== -1) {
-                codigoClienteErp = this.currentUser.codigo_usuario.split('-')[0].trim() || this.currentUser.codigo_cliente;
+            if (this.currentUser.codigo_usuario_titular != null && this.currentUser.codigo_usuario_titular !== '') {
+                codigoClienteErp = this.currentUser.codigo_usuario_titular;
             } else {
                 codigoClienteErp = this.currentUser.codigo_cliente != null ? this.currentUser.codigo_cliente : this.currentUser.codigo_usuario;
             }
@@ -3505,8 +3502,8 @@ class ScanAsYouShopApp {
         let codigoClienteErp = null;
         if (item.user_snapshot) {
             const u = item.user_snapshot;
-            if (u.is_operario && u.codigo_usuario && String(u.codigo_usuario).indexOf('-') !== -1) {
-                codigoClienteErp = String(u.codigo_usuario).split('-')[0].trim() || u.codigo_cliente;
+            if (u.codigo_usuario_titular != null && u.codigo_usuario_titular !== '') {
+                codigoClienteErp = u.codigo_usuario_titular;
             } else {
                 codigoClienteErp = u.codigo_cliente != null ? u.codigo_cliente : u.codigo_usuario;
             }
@@ -3568,6 +3565,7 @@ class ScanAsYouShopApp {
                         user_snapshot: {
                             codigo_cliente: this.currentUser.codigo_cliente,
                             codigo_usuario: this.currentUser.codigo_usuario,
+                            codigo_usuario_titular: this.currentUser.codigo_usuario_titular,
                             almacen_habitual: this.currentUser.almacen_habitual,
                             is_operario: this.currentUser.is_operario,
                             nombre_operario: this.currentUser.nombre_operario
@@ -3725,6 +3723,7 @@ class ScanAsYouShopApp {
                         user_snapshot: {
                             codigo_cliente: this.currentUser.codigo_cliente,
                             codigo_usuario: this.currentUser.codigo_usuario,
+                            codigo_usuario_titular: this.currentUser.codigo_usuario_titular,
                             almacen_habitual: this.currentUser.almacen_habitual,
                             is_operario: this.currentUser.is_operario,
                             nombre_operario: this.currentUser.nombre_operario
