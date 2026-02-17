@@ -3321,44 +3321,51 @@ body.gate-visible .app-container {
 .order-card-main {
     flex: 1;
     min-width: 0;
-    padding: 1.125rem 1.25rem 0.75rem;
+    padding: 0.65rem 0.9rem 0.5rem;
 }
 
 .order-card-top {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem 0.75rem;
-    margin-bottom: 0.5rem;
+    flex-wrap: nowrap;
+    gap: 0.4rem 0.5rem;
+    margin-bottom: 0.4rem;
+    min-width: 0;
 }
 
 .order-almacen {
-    font-size: 1.05rem;
+    font-size: 0.9rem;
     font-weight: 700;
     color: var(--gray-900);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 /* Order Badges - Estados */
 .order-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.2rem;
-    padding: 0.3rem 0.6rem;
-    border-radius: 10px;
-    font-size: 0.75rem;
+    gap: 0.15rem;
+    padding: 0.2rem 0.45rem;
+    border-radius: 8px;
+    font-size: 0.68rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.25px;
+    flex-shrink: 0;
 }
 
 .order-type {
     display: inline-flex;
     align-items: center;
-    padding: 0.3rem 0.6rem;
-    border-radius: 10px;
-    font-size: 0.72rem;
+    padding: 0.2rem 0.45rem;
+    border-radius: 8px;
+    font-size: 0.65rem;
     font-weight: 600;
     letter-spacing: 0.2px;
+    flex-shrink: 0;
 }
 
 .order-type-remote {
@@ -3395,9 +3402,9 @@ body.gate-visible .app-container {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem 1rem;
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
+    gap: 0.4rem 0.75rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.8rem;
     color: var(--gray-600);
 }
 
@@ -3407,7 +3414,7 @@ body.gate-visible .app-container {
 
 .order-code,
 .order-erp {
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     color: var(--gray-600);
 }
 
@@ -3416,14 +3423,14 @@ body.gate-visible .app-container {
 }
 
 .order-observaciones {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--gray-700);
     background: var(--gray-50);
-    padding: 0.5rem 0.75rem;
-    border-radius: 10px;
-    margin-bottom: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    margin-bottom: 0.4rem;
     line-height: 1.35;
-    max-height: 2.7em;
+    max-height: 2.6em;
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
@@ -3432,50 +3439,50 @@ body.gate-visible .app-container {
 }
 
 .order-operario {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--gray-500);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
 }
 
 .order-card-totals {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-top: 0.65rem;
-    margin-top: 0.25rem;
+    padding-top: 0.5rem;
+    margin-top: 0.2rem;
     border-top: 1px solid var(--gray-200);
 }
 
 .order-items {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: var(--gray-700);
     font-weight: 500;
 }
 
 .order-total {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: var(--primary);
 }
 
-/* Barra fina inferior (cuña): expandir/ver detalles */
+/* Pie minimalista: ver detalles (no boton, estetica moderna) */
 .order-card-trigger {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0.35rem;
     width: 100%;
-    padding: 0.5rem 1rem;
-    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
-    color: var(--white);
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.06);
+    padding: 0.4rem 0.9rem;
+    border-top: 1px solid var(--gray-200);
+    background: transparent;
+    color: var(--gray-500);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
 }
 
 .order-card-trigger-label {
-    opacity: 0.95;
+    color: var(--gray-500);
 }
 
 .order-card-arrow {
@@ -3485,8 +3492,8 @@ body.gate-visible .app-container {
 }
 
 .order-card-arrow svg {
-    color: rgba(255, 255, 255, 0.9);
-    transition: transform 0.3s ease;
+    color: var(--gray-400);
+    transition: transform 0.25s ease;
 }
 
 /* Order Details (expandible) */
