@@ -42,7 +42,7 @@ COMMENT ON FUNCTION cambiar_password_usuario IS 'Permite al usuario cambiar su c
 -- ============================================
 -- 2. TABLA USUARIOS_OPERARIOS
 -- ============================================
--- Operarios son usuarios secundarios que pueden acceder a la cuenta del titular (mismo codigo_cliente, pedidos, etc.)
+-- Operarios son usuarios secundarios que pueden acceder a la cuenta del titular (mismo grupo_cliente, pedidos, etc.)
 CREATE TABLE IF NOT EXISTS usuarios_operarios (
     id SERIAL PRIMARY KEY,
     usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,

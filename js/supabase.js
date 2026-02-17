@@ -627,7 +627,7 @@ class SupabaseClient {
                         user_id: loginResult.user_id,
                         user_name: loginResult.user_name,
                         codigo_usuario: codigoUsuario,
-                        codigo_cliente: loginResult.codigo_cliente || null,
+                        grupo_cliente: loginResult.grupo_cliente || null,
                         codigo_usuario_titular: loginResult.codigo_usuario_titular || null,
                         almacen_habitual: loginResult.almacen_habitual || null,
                         es_operario: !!loginResult.es_operario,
@@ -1218,25 +1218,25 @@ class SupabaseClient {
     }
 
     /**
-     * Obtiene las ofertas disponibles para un producto según el código de cliente
+     * Obtiene las ofertas disponibles para un producto según el grupo de cliente
      * Usa cache local primero para mejor rendimiento
      * @param {string} codigoArticulo - Código del artículo
-     * @param {number} codigoCliente - Código del cliente (opcional, si es null se muestran todas las ofertas)
+     * @param {number} grupoCliente - Grupo de ofertas del cliente (usuarios.grupo_cliente; null = invitado, no ve ofertas)
      * @param {boolean} useCache - Si usar cache local (default: true)
      * @returns {Promise<Array>} - Lista de ofertas disponibles
      */
-    async getOfertasProducto(codigoArticulo, codigoCliente = null, useCache = true) {
+    async getOfertasProducto(codigoArticulo, grupoCliente = null, useCache = true) {
         try {
-            // Si no hay codigo_cliente, el usuario es invitado y NO ve ofertas
-            if (!codigoCliente) {
-                console.log('🚫 Usuario invitado - no se buscan ofertas');
+            // Si no hay grupo_cliente, el usuario es invitado y NO ve ofertas
+            if (!grupoCliente) {
+                console.log('Usuario invitado - no se buscan ofertas');
                 return [];
             }
 
             // Intentar obtener desde cache primero
             if (useCache && window.cartManager && window.cartManager.db) {
-                console.log(`🔍 Buscando ofertas de ${codigoArticulo} en cache (cliente: ${codigoCliente})...`);
-                const ofertasCache = await window.cartManager.getOfertasProductoFromCache(codigoArticulo, codigoCliente);
+                console.log('Buscando ofertas de ' + codigoArticulo + ' en cache (grupo: ' + grupoCliente + ')...');
+                const ofertasCache = await window.cartManager.getOfertasProductoFromCache(codigoArticulo, grupoCliente);
                 if (ofertasCache && ofertasCache.length > 0) {
                     console.log(`✅ ${ofertasCache.length} ofertas encontradas en cache para ${codigoArticulo}`);
                     return ofertasCache;
@@ -1281,21 +1281,21 @@ class SupabaseClient {
                 return [];
             }
 
-            // Si hay código de cliente, filtrar por grupos
-            if (codigoCliente !== null && codigoCliente !== undefined) {
-                console.log(`🔍 Filtrando ofertas para cliente con código: ${codigoCliente}`);
-                
+            // Si hay grupo de cliente, filtrar por grupos
+            if (grupoCliente !== null && grupoCliente !== undefined) {
+                console.log('Filtrando ofertas para grupo: ' + grupoCliente);
+
                 // Obtener ofertas asignadas a grupos del cliente
                 const { data: ofertasGrupos, error: errorGrupos } = await this.client
                     .from('ofertas_grupos_asignaciones')
                     .select('numero_oferta, codigo_grupo, ofertas_grupos!inner(codigo_grupo)')
-                    .eq('ofertas_grupos.codigo_grupo', codigoCliente.toString());
+                    .eq('ofertas_grupos.codigo_grupo', grupoCliente.toString());
 
                 if (!errorGrupos && ofertasGrupos && ofertasGrupos.length > 0) {
                     // Filtrar ofertas: solo las que están asignadas al grupo del cliente
                     const numerosOfertasGrupo = new Set(ofertasGrupos.map(og => og.numero_oferta));
                     const ofertasFiltradas = ofertasProducto.filter(op => numerosOfertasGrupo.has(op.numero_oferta));
-                    console.log(`✅ ${ofertasFiltradas.length} ofertas visibles para el cliente ${codigoCliente}`);
+                    console.log(ofertasFiltradas.length + ' ofertas visibles para el grupo ' + grupoCliente);
                     return ofertasFiltradas.map(op => ({
                         numero_oferta: op.numero_oferta,
                         precio: op.precio,
@@ -1309,13 +1309,13 @@ class SupabaseClient {
                     }));
                 } else {
                     // Si el cliente tiene grupo pero no hay ofertas asignadas, no mostrar ninguna
-                    console.log(`⚠️ Cliente ${codigoCliente} no tiene ofertas asignadas`);
+                    console.log('Grupo ' + grupoCliente + ' no tiene ofertas asignadas');
                     return [];
                 }
             }
 
-            // Si no hay código de cliente (INVITADO), NO mostrar ofertas
-            console.log('🚫 Usuario invitado - no se muestran ofertas');
+            // Si no hay grupo de cliente (INVITADO), NO mostrar ofertas
+            console.log('Usuario invitado - no se muestran ofertas');
             return [];
 
             /* CÓDIGO COMENTADO - Ya no devolvemos ofertas a invitados

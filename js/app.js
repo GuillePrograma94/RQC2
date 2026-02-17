@@ -203,7 +203,7 @@ class ScanAsYouShopApp {
                     user_id: loginResult.user_id,
                     user_name: loginResult.user_name,
                     codigo_usuario: loginResult.codigo_usuario,
-                    codigo_cliente: loginResult.codigo_cliente,
+                    grupo_cliente: loginResult.grupo_cliente,
                     codigo_usuario_titular: loginResult.codigo_usuario_titular || null,
                     almacen_habitual: loginResult.almacen_habitual,
                     is_operario: !!loginResult.es_operario,
@@ -1798,7 +1798,7 @@ class ScanAsYouShopApp {
 
         // Pre-cargar índice de productos con ofertas desde cache LOCAL (RÁPIDO)
         const productosConOfertas = new Set();
-        const codigoCliente = this.currentUser?.codigo_cliente || null;
+        const codigoCliente = this.currentUser?.grupo_cliente || null;
         
         if (codigoCliente && window.cartManager && window.cartManager.db) {
             console.log('🔍 Cargando índice de ofertas desde cache local...');
@@ -1922,9 +1922,9 @@ class ScanAsYouShopApp {
             const priceWithIVA = producto.pvp * 1.21;
             priceEl.textContent = `${priceWithIVA.toFixed(2)} €`;
 
-            // Verificar si el producto tiene ofertas (solo para usuarios con codigo_cliente)
+            // Verificar si el producto tiene ofertas (solo para usuarios con grupo_cliente)
             let ofertaData = null;
-            const codigoCliente = this.currentUser?.codigo_cliente || null;
+            const codigoCliente = this.currentUser?.grupo_cliente || null;
             
             if (!codigoCliente) {
                 // Usuario invitado: no mostrar ofertas
@@ -2204,7 +2204,7 @@ class ScanAsYouShopApp {
         container.style.display = 'block';
 
         // Precalcular mapa de ofertas por codigo (una sola pasada) para evitar O(N^2) llamadas
-        const codigoCliente = this.currentUser?.codigo_cliente || null;
+        const codigoCliente = this.currentUser?.grupo_cliente || null;
         const ofertasByCodigo = new Map();
         const intervalosCache = {};
         const loteCache = {};
@@ -2273,7 +2273,7 @@ class ScanAsYouShopApp {
             const tipoOferta = oferta.tipo_oferta;
             const getOfertasProd = async (codigo) => {
                 if (ofertasByCodigo && ofertasByCodigo.has(codigo)) return ofertasByCodigo.get(codigo);
-                return await window.supabaseClient.getOfertasProducto(codigo, this.currentUser?.codigo_cliente || null, true);
+                return await window.supabaseClient.getOfertasProducto(codigo, this.currentUser?.grupo_cliente || null, true);
             };
 
             if (tipoOferta === 1) {
@@ -2464,7 +2464,7 @@ class ScanAsYouShopApp {
     async calcularDescuentoOferta(oferta, producto, carrito, ofertasByCodigo, intervalosCache, loteCache) {
         try {
             const tipoOferta = oferta.tipo_oferta;
-            const codigoCliente = this.currentUser?.codigo_cliente || null;
+            const codigoCliente = this.currentUser?.grupo_cliente || null;
             const getOfertasProd = async (codigo) => {
                 if (ofertasByCodigo && ofertasByCodigo.has(codigo)) return ofertasByCodigo.get(codigo);
                 return await window.supabaseClient.getOfertasProducto(codigo, codigoCliente, true);
@@ -2610,7 +2610,7 @@ class ScanAsYouShopApp {
         }
         
         // Recalcular ofertas y precios
-        const codigoCliente = this.currentUser?.codigo_cliente || null;
+        const codigoCliente = this.currentUser?.grupo_cliente || null;
         let precioConDescuento = priceWithIVA;
         let subtotalConDescuento = subtotalWithIVA;
         let descuentoAplicado = 0;
@@ -2712,7 +2712,7 @@ class ScanAsYouShopApp {
         const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo_producto}_1.JPG`;
         
         // Obtener ofertas del producto (mapa precalculado o cache)
-        const codigoCliente = this.currentUser?.codigo_cliente || null;
+        const codigoCliente = this.currentUser?.grupo_cliente || null;
         let resultadoOferta = null;
         let ofertaActiva = null;
         let precioConDescuento = priceWithIVA;
@@ -3468,7 +3468,7 @@ class ScanAsYouShopApp {
             if (this.currentUser.codigo_usuario_titular != null && this.currentUser.codigo_usuario_titular !== '') {
                 codigoClienteErp = this.currentUser.codigo_usuario_titular;
             } else {
-                codigoClienteErp = this.currentUser.codigo_cliente != null ? this.currentUser.codigo_cliente : this.currentUser.codigo_usuario;
+                codigoClienteErp = this.currentUser.grupo_cliente != null ? this.currentUser.grupo_cliente : this.currentUser.codigo_usuario;
             }
         }
 
@@ -3505,7 +3505,7 @@ class ScanAsYouShopApp {
             if (u.codigo_usuario_titular != null && u.codigo_usuario_titular !== '') {
                 codigoClienteErp = u.codigo_usuario_titular;
             } else {
-                codigoClienteErp = u.codigo_cliente != null ? u.codigo_cliente : u.codigo_usuario;
+                codigoClienteErp = u.grupo_cliente != null ? u.grupo_cliente : u.codigo_usuario;
             }
         }
         return {
@@ -3563,7 +3563,7 @@ class ScanAsYouShopApp {
                             total_importe: cart.total_importe
                         },
                         user_snapshot: {
-                            codigo_cliente: this.currentUser.codigo_cliente,
+                            grupo_cliente: this.currentUser.grupo_cliente,
                             codigo_usuario: this.currentUser.codigo_usuario,
                             codigo_usuario_titular: this.currentUser.codigo_usuario_titular,
                             almacen_habitual: this.currentUser.almacen_habitual,
@@ -3721,7 +3721,7 @@ class ScanAsYouShopApp {
                             total_importe: cart.total_importe
                         },
                         user_snapshot: {
-                            codigo_cliente: this.currentUser.codigo_cliente,
+                            grupo_cliente: this.currentUser.grupo_cliente,
                             codigo_usuario: this.currentUser.codigo_usuario,
                             codigo_usuario_titular: this.currentUser.codigo_usuario_titular,
                             almacen_habitual: this.currentUser.almacen_habitual,

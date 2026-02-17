@@ -14,7 +14,7 @@ RETURNS TABLE (
     success BOOLEAN,
     user_id INTEGER,
     user_name TEXT,
-    codigo_cliente INTEGER,
+    grupo_cliente INTEGER,
     almacen_habitual TEXT,
     message TEXT,
     es_operario BOOLEAN,
@@ -57,7 +57,7 @@ BEGIN
             TRUE,
             v_user.id,
             v_user.nombre,
-            v_user.codigo_cliente,
+            v_user.grupo_cliente,
             v_user.almacen_habitual,
             'Login exitoso'::TEXT,
             FALSE,
@@ -125,12 +125,12 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Exito: devolver datos del TITULAR (user_id, codigo_cliente, codigo_usuario_titular = usuarios.codigo_usuario para ERP)
+    -- Exito: devolver datos del TITULAR (user_id, grupo_cliente, codigo_usuario_titular = usuarios.codigo_usuario para ERP)
     RETURN QUERY SELECT
         TRUE,
         v_user.id,
         (v_operario.nombre_operario || ' (operario)')::TEXT,
-        v_user.codigo_cliente,
+        v_user.grupo_cliente,
         v_user.almacen_habitual,
         'Login exitoso'::TEXT,
         TRUE,
