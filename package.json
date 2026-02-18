@@ -1,0 +1,9 @@
+{
+  "name": "scan-client-mobile",
+  "version": "1.0.0",
+  "description": "Frontend y API serverless (Vercel) para Scan as You Shop",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

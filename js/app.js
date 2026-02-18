@@ -876,10 +876,11 @@ class ScanAsYouShopApp {
             // Cancelar suscripción de cambios de pedidos
             this.unsubscribeFromOrderStatus();
 
-            // Cerrar sesión en Supabase
+            // Cerrar sesion en Supabase (RPC de sesiones y Auth JWT)
             if (this.currentSession) {
                 await window.supabaseClient.closeUserSession(this.currentSession);
             }
+            await window.supabaseClient.signOutAuth();
 
             // Limpiar datos locales
             localStorage.removeItem('current_user');

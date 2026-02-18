@@ -590,7 +590,8 @@ class SupabaseClient {
     }
 
     /**
-     * Verifica las credenciales de login de un usuario
+     * Verifica credenciales y establece sesion Supabase Auth (JWT con app_metadata.usuario_id).
+     * Llama a la API de login (Vercel) que crea/actualiza el usuario en Auth y devuelve el perfil.
      */
     async loginUser(codigoUsuario, password) {
         try {
@@ -600,49 +601,65 @@ class SupabaseClient {
 
             console.log('Intentando login para usuario:', codigoUsuario);
 
-            // Hash de la contraseña
-            const passwordHash = await this._hashPassword(password);
+            const apiBase = typeof window !== 'undefined' && window.location && window.location.origin
+                ? window.location.origin
+                : '';
+            const loginUrl = apiBase ? `${apiBase}/api/auth/login` : '/api/auth/login';
 
-            // Llamar a la función SQL de verificación
-            const { data, error } = await this.client.rpc(
-                'verificar_login_usuario',
-                {
-                    p_codigo_usuario: codigoUsuario,
-                    p_password_hash: passwordHash
+            const response = await fetch(loginUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    codigo_usuario: codigoUsuario,
+                    password: password
+                })
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    return { success: false, message: data.message || 'Usuario o contrasena incorrectos' };
                 }
-            );
-
-            if (error) {
-                console.error('Error en RPC:', error);
-                throw error;
+                return {
+                    success: false,
+                    message: data.message || 'Error de conexion. Intenta de nuevo.'
+                };
             }
 
-            if (data && data.length > 0) {
-                const loginResult = data[0];
-                
-                if (loginResult.success) {
-                    console.log('Login exitoso:', loginResult.user_name);
-                    return {
-                        success: true,
-                        user_id: loginResult.user_id,
-                        user_name: loginResult.user_name,
-                        codigo_usuario: codigoUsuario,
-                        grupo_cliente: loginResult.grupo_cliente || null,
-                        codigo_usuario_titular: loginResult.codigo_usuario_titular || null,
-                        almacen_habitual: loginResult.almacen_habitual || null,
-                        es_operario: !!loginResult.es_operario,
-                        nombre_operario: loginResult.nombre_operario || null,
-                        nombre_titular: loginResult.nombre_titular || null
-                    };
-                }
+            if (!data.success || !data.email) {
+                return {
+                    success: false,
+                    message: data.message || 'Usuario o contrasena incorrectos'
+                };
             }
 
-            console.log('Login fallido: credenciales incorrectas');
+            const { error: signInError } = await this.client.auth.signInWithPassword({
+                email: data.email,
+                password: password
+            });
+
+            if (signInError) {
+                console.error('Error signInWithPassword:', signInError);
+                return {
+                    success: false,
+                    message: 'Error al iniciar sesion. Intenta de nuevo.'
+                };
+            }
+
+            console.log('Login exitoso (Supabase Auth):', data.user_name);
             return {
-                success: false,
-                message: 'Usuario o contrasena incorrectos'
+                success: true,
+                user_id: data.user_id,
+                user_name: data.user_name,
+                codigo_usuario: data.codigo_usuario || codigoUsuario,
+                grupo_cliente: data.grupo_cliente ?? null,
+                codigo_usuario_titular: data.codigo_usuario_titular ?? null,
+                almacen_habitual: data.almacen_habitual ?? null,
+                es_operario: !!data.es_operario,
+                nombre_operario: data.nombre_operario || null,
+                nombre_titular: data.nombre_titular || null
             };
-
         } catch (error) {
             console.error('Error al verificar login:', error);
             return {
@@ -839,6 +856,19 @@ class SupabaseClient {
         } catch (error) {
             console.error('Error al cerrar sesion:', error);
             return false;
+        }
+    }
+
+    /**
+     * Cierra la sesion de Supabase Auth (JWT). Llamar al cerrar sesion en la app.
+     */
+    async signOutAuth() {
+        try {
+            if (this.client && this.client.auth) {
+                await this.client.auth.signOut();
+            }
+        } catch (e) {
+            console.warn('signOutAuth:', e);
         }
     }
 
