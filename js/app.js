@@ -792,26 +792,86 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Pantalla comercial: listar clientes asignados y permitir elegir a quien representar
+     * Pantalla comercial: listar clientes asignados y permitir elegir a quien representar.
+     * Guarda la lista en _clientesAsignadosComercial y aplica filtro por numero/nombre.
      */
     async renderSelectorClienteScreen() {
         const listEl = document.getElementById('selectorClienteList');
         const emptyEl = document.getElementById('selectorClienteEmpty');
+        const noMatchEl = document.getElementById('selectorClienteNoMatch');
+        const filterNum = document.getElementById('selectorClienteFilterNumero');
+        const filterNombre = document.getElementById('selectorClienteFilterNombre');
         if (!listEl || !emptyEl) return;
         if (!this.currentUser || !this.currentUser.is_comercial) return;
 
+        if (filterNum) filterNum.value = '';
+        if (filterNombre) filterNombre.value = '';
+
         const numero = this.currentUser.comercial_numero != null ? this.currentUser.comercial_numero : parseInt(this.currentUser.codigo_usuario, 10);
         const clientes = await window.supabaseClient.getClientesAsignadosComercial(numero);
+        this._clientesAsignadosComercial = Array.isArray(clientes) ? clientes : [];
 
-        listEl.innerHTML = '';
-        if (!clientes || clientes.length === 0) {
-            emptyEl.style.display = 'block';
+        if (!this._clientesAsignadosComercial.length) {
+            if (emptyEl) emptyEl.style.display = 'block';
+            if (noMatchEl) noMatchEl.style.display = 'none';
+            listEl.innerHTML = '';
             return;
         }
-        emptyEl.style.display = 'none';
+        this._renderSelectorClienteList(this._clientesAsignadosComercial);
+    }
+
+    /**
+     * Filtra la lista de clientes asignados por numero y/o nombre y vuelve a renderizar.
+     */
+    _applySelectorClienteFilter() {
+        if (!this._clientesAsignadosComercial || !this._clientesAsignadosComercial.length) return;
+        const filterNum = document.getElementById('selectorClienteFilterNumero');
+        const filterNombre = document.getElementById('selectorClienteFilterNombre');
+        const num = (filterNum && filterNum.value) ? filterNum.value.trim().toLowerCase() : '';
+        const nom = (filterNombre && filterNombre.value) ? filterNombre.value.trim().toLowerCase() : '';
+        let filtered = this._clientesAsignadosComercial;
+        if (num) {
+            filtered = filtered.filter(function (c) {
+                const codigo = (c.codigo_usuario || '').toString().toLowerCase();
+                return codigo.indexOf(num) !== -1;
+            });
+        }
+        if (nom) {
+            filtered = filtered.filter(function (c) {
+                const nombre = (c.nombre || '').toString().toLowerCase();
+                return nombre.indexOf(nom) !== -1;
+            });
+        }
+        this._renderSelectorClienteList(filtered, !!num || !!nom);
+    }
+
+    /**
+     * Renderiza la lista de clientes en el selector (array ya filtrado).
+     * @param {Array} clientesToShow - Lista de clientes a mostrar
+     * @param {boolean} [showNoMatchWhenEmpty] - Si true y clientesToShow vacio, mostrar "Ningun cliente coincide con el filtro"
+     */
+    _renderSelectorClienteList(clientesToShow, showNoMatchWhenEmpty) {
+        const listEl = document.getElementById('selectorClienteList');
+        const emptyEl = document.getElementById('selectorClienteEmpty');
+        const noMatchEl = document.getElementById('selectorClienteNoMatch');
+        if (!listEl || !emptyEl) return;
+
+        listEl.innerHTML = '';
+        if (!clientesToShow || clientesToShow.length === 0) {
+            if (showNoMatchWhenEmpty && noMatchEl) {
+                noMatchEl.style.display = 'block';
+                emptyEl.style.display = 'none';
+            } else {
+                if (noMatchEl) noMatchEl.style.display = 'none';
+                emptyEl.style.display = 'block';
+            }
+            return;
+        }
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (noMatchEl) noMatchEl.style.display = 'none';
 
         const self = this;
-        clientes.forEach(function (c) {
+        clientesToShow.forEach(function (c) {
             const item = document.createElement('div');
             item.className = 'profile-operario-item selector-cliente-item';
             item.dataset.clienteId = c.id;
@@ -1528,6 +1588,16 @@ class ScanAsYouShopApp {
             selectorClienteBackBtn.addEventListener('click', () => {
                 this.showScreen('cart');
             });
+        }
+
+        // Selector cliente (comercial): filtrar por numero o nombre
+        const selectorClienteFilterNumero = document.getElementById('selectorClienteFilterNumero');
+        const selectorClienteFilterNombre = document.getElementById('selectorClienteFilterNombre');
+        if (selectorClienteFilterNumero) {
+            selectorClienteFilterNumero.addEventListener('input', () => this._applySelectorClienteFilter());
+        }
+        if (selectorClienteFilterNombre) {
+            selectorClienteFilterNombre.addEventListener('input', () => this._applySelectorClienteFilter());
         }
 
         // Perfil: Cambiar contraseña

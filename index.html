@@ -456,9 +456,22 @@
                     <h2 class="profile-title">Representar a un cliente</h2>
                 </div>
                 <p class="profile-section-desc" style="margin: 0 1rem 1rem;">Elige el cliente cuyos pedidos e historial quieres ver.</p>
+                <div class="selector-cliente-filters" style="margin: 0 1rem 1rem;">
+                    <div class="input-group" style="margin-bottom: 0.5rem;">
+                        <label for="selectorClienteFilterNumero" class="input-label">Numero / Codigo</label>
+                        <input type="text" id="selectorClienteFilterNumero" class="search-input" placeholder="Filtrar por numero..." autocomplete="off">
+                    </div>
+                    <div class="input-group" style="margin-bottom: 0;">
+                        <label for="selectorClienteFilterNombre" class="input-label">Nombre</label>
+                        <input type="text" id="selectorClienteFilterNombre" class="search-input" placeholder="Filtrar por nombre..." autocomplete="off">
+                    </div>
+                </div>
                 <div id="selectorClienteList" class="profile-operarios-list"></div>
                 <div id="selectorClienteEmpty" class="profile-operarios-empty" style="display: none;">
                     <span class="profile-operarios-empty-text">No tienes clientes asignados.</span>
+                </div>
+                <div id="selectorClienteNoMatch" class="profile-operarios-empty" style="display: none;">
+                    <span class="profile-operarios-empty-text">Ningun cliente coincide con el filtro.</span>
                 </div>
             </main>
         </div>
