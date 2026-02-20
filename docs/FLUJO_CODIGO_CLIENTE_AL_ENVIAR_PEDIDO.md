@@ -14,11 +14,11 @@ Desde el clic en "Enviar pedido" hasta el JSON que recibe el ERP. En cada paso: 
 // app.js ~1490 (recoger en almacen)
 this.sendRemoteOrder(almacen, observaciones);
 
-// app.js ~1549 (enviar en ruta)
-this.sendRemoteOrder(this.currentUser.almacen_habitual, observaciones);
+// app.js ~1549 (enviar en ruta): usa almacen habitual del cliente si es comercial representando
+this.sendRemoteOrder(this.getEffectiveAlmacenHabitual(), observaciones);
 ```
 
-**Codigo de cliente en este paso:** Aun no se usa. Solo se llama `sendRemoteOrder(almacen, observaciones)`.
+**Codigo de cliente en este paso:** Aun no se usa. Solo se llama `sendRemoteOrder(almacen, observaciones)`. Para comerciales, el almacen habitual es el del cliente representado (`getEffectiveAlmacenHabitual()`).
 
 ---
 
@@ -247,6 +247,8 @@ return await this._requestProxy(this.proxyPath, {
 - **Operario:** `this.currentUser.user_id` es el **id del titular** (la app siempre usa el titular para pedidos). `p_usuario_id` es el id del titular; el SELECT devuelve el `usuarios.codigo_usuario` del titular. Ese mismo valor se guarda en el carrito y llega al JSON.
 
 En ambos casos el codigo que ve el ERP es **siempre** `usuarios.codigo_usuario` del titular, guardado en el carrito al crearlo y enviado en `payload.codigo_cliente`.
+
+**Comercial representando a un cliente:** La app usa `getEffectiveUserId()` (id del cliente representado), `getEffectiveAlmacenHabitual()` (almacen habitual del cliente) y `getEffectiveGrupoCliente()` (grupo del cliente para ofertas). Al crear el pedido se envia el id del cliente; la RPC devuelve su `codigo_usuario` y ese es el que llega al ERP. El almacen habitual usado en "Enviar en ruta" y en el payload ERP (centro_venta/serie) es el del cliente representado.
 
 ---
 

@@ -627,7 +627,15 @@ class ScanAsYouShopApp {
                     menuUserInfo.setAttribute('aria-label', 'Seleccionar cliente a representar');
                 }
                 if (menuUserArrow) menuUserArrow.style.display = '';
-                if (historyFilterGroup) historyFilterGroup.style.display = 'none';
+                if (historyFilterGroup) {
+                    if (this.currentUser.cliente_representado_id) {
+                        historyFilterGroup.style.display = 'block';
+                        const historyLabel = historyFilterGroup.querySelector('.checkbox-label');
+                        if (historyLabel) historyLabel.textContent = 'Solo articulos que ha comprado el cliente';
+                    } else {
+                        historyFilterGroup.style.display = 'none';
+                    }
+                }
                 var menuCommercialCard = document.getElementById('menuCommercialCard');
                 if (menuCommercialCard) menuCommercialCard.style.display = 'none';
                 var myOrdersBtn = document.getElementById('myOrdersBtn');
@@ -650,7 +658,11 @@ class ScanAsYouShopApp {
                     menuUserInfo.setAttribute('aria-label', 'Sesion de operario');
                 }
                 if (menuUserArrow) menuUserArrow.style.display = 'none';
-                if (historyFilterGroup) historyFilterGroup.style.display = 'block';
+                if (historyFilterGroup) {
+                    historyFilterGroup.style.display = 'block';
+                    const historyLabel = historyFilterGroup.querySelector('.checkbox-label');
+                    if (historyLabel) historyLabel.textContent = 'Solo articulos que he comprado';
+                }
                 if (!this.currentUser.comercial) {
                     this.loadComercialAsignado();
                 } else {
@@ -673,7 +685,11 @@ class ScanAsYouShopApp {
                     menuUserInfo.setAttribute('aria-label', 'Ver mi perfil');
                 }
                 if (menuUserArrow) menuUserArrow.style.display = '';
-                if (historyFilterGroup) historyFilterGroup.style.display = 'block';
+                if (historyFilterGroup) {
+                    historyFilterGroup.style.display = 'block';
+                    const historyLabel = historyFilterGroup.querySelector('.checkbox-label');
+                    if (historyLabel) historyLabel.textContent = 'Solo articulos que he comprado';
+                }
                 var myOrdersBtn = document.getElementById('myOrdersBtn');
                 if (myOrdersBtn) myOrdersBtn.style.display = '';
                 if (!this.currentUser.comercial) {
@@ -814,8 +830,13 @@ class ScanAsYouShopApp {
             item.addEventListener('click', function () {
                 self.currentUser.cliente_representado_id = c.id;
                 self.currentUser.cliente_representado_nombre = (c.nombre || '').trim();
+                self.currentUser.cliente_representado_almacen_habitual = c.almacen_habitual != null ? c.almacen_habitual : null;
+                self.currentUser.cliente_representado_grupo_cliente = c.grupo_cliente != null ? c.grupo_cliente : null;
                 self.saveUserSession(self.currentUser, self.currentSession);
                 self.updateUserUI();
+                if (window.purchaseCache && c.id) {
+                    window.purchaseCache.preload(c.id);
+                }
                 self.showScreen('cart');
                 window.ui.showToast('Representando a ' + self.currentUser.cliente_representado_nombre, 'success');
             });
@@ -832,6 +853,28 @@ class ScanAsYouShopApp {
             return this.currentUser.cliente_representado_id;
         }
         return this.currentUser.user_id || null;
+    }
+
+    /**
+     * Devuelve el almacén habitual a usar: el del cliente representado (comercial) o el del usuario.
+     */
+    getEffectiveAlmacenHabitual() {
+        if (!this.currentUser) return null;
+        if (this.currentUser.is_comercial && this.currentUser.cliente_representado_id && this.currentUser.cliente_representado_almacen_habitual != null) {
+            return this.currentUser.cliente_representado_almacen_habitual;
+        }
+        return this.currentUser.almacen_habitual != null ? this.currentUser.almacen_habitual : null;
+    }
+
+    /**
+     * Devuelve el grupo_cliente a usar: el del cliente representado (comercial) o el del usuario (ofertas, precios).
+     */
+    getEffectiveGrupoCliente() {
+        if (!this.currentUser) return null;
+        if (this.currentUser.is_comercial && this.currentUser.cliente_representado_id && this.currentUser.cliente_representado_grupo_cliente != null) {
+            return this.currentUser.cliente_representado_grupo_cliente;
+        }
+        return this.currentUser.grupo_cliente != null ? this.currentUser.grupo_cliente : null;
     }
 
     /**
@@ -1720,7 +1763,8 @@ class ScanAsYouShopApp {
         const confirmarEnviarEnRutaBtn = document.getElementById('confirmarEnviarEnRutaBtn');
         if (confirmarEnviarEnRutaBtn) {
             confirmarEnviarEnRutaBtn.addEventListener('click', () => {
-                if (!this.currentUser || !this.currentUser.almacen_habitual) {
+                const almacenHabitual = this.getEffectiveAlmacenHabitual();
+                if (!this.currentUser || !almacenHabitual) {
                     window.ui.showToast('No tienes almacen habitual asignado.', 'warning');
                     return;
                 }
@@ -1730,7 +1774,7 @@ class ScanAsYouShopApp {
                 if (this.currentUser && this.currentUser.nombre_operario) {
                     observaciones += '\n\nPedido realizado por: ' + this.currentUser.nombre_operario;
                 }
-                this.sendRemoteOrder(this.currentUser.almacen_habitual, observaciones);
+                this.sendRemoteOrder(almacenHabitual, observaciones);
             });
         }
     }
@@ -1987,7 +2031,7 @@ class ScanAsYouShopApp {
 
         // Pre-cargar índice de productos con ofertas desde cache LOCAL (RÁPIDO)
         const productosConOfertas = new Set();
-        const codigoCliente = this.currentUser?.grupo_cliente || null;
+        const codigoCliente = this.getEffectiveGrupoCliente() || null;
         
         if (codigoCliente && window.cartManager && window.cartManager.db) {
             console.log('🔍 Cargando índice de ofertas desde cache local...');
@@ -2113,7 +2157,7 @@ class ScanAsYouShopApp {
 
             // Verificar si el producto tiene ofertas (solo para usuarios con grupo_cliente)
             let ofertaData = null;
-            const codigoCliente = this.currentUser?.grupo_cliente || null;
+            const codigoCliente = this.getEffectiveGrupoCliente() || null;
             
             if (!codigoCliente) {
                 // Usuario invitado: no mostrar ofertas
@@ -2393,7 +2437,7 @@ class ScanAsYouShopApp {
         container.style.display = 'block';
 
         // Precalcular mapa de ofertas por codigo (una sola pasada) para evitar O(N^2) llamadas
-        const codigoCliente = this.currentUser?.grupo_cliente || null;
+        const codigoCliente = this.getEffectiveGrupoCliente() || null;
         const ofertasByCodigo = new Map();
         const intervalosCache = {};
         const loteCache = {};
@@ -2462,7 +2506,7 @@ class ScanAsYouShopApp {
             const tipoOferta = oferta.tipo_oferta;
             const getOfertasProd = async (codigo) => {
                 if (ofertasByCodigo && ofertasByCodigo.has(codigo)) return ofertasByCodigo.get(codigo);
-                return await window.supabaseClient.getOfertasProducto(codigo, this.currentUser?.grupo_cliente || null, true);
+                return await window.supabaseClient.getOfertasProducto(codigo, this.getEffectiveGrupoCliente() || null, true);
             };
 
             if (tipoOferta === 1) {
@@ -2653,7 +2697,7 @@ class ScanAsYouShopApp {
     async calcularDescuentoOferta(oferta, producto, carrito, ofertasByCodigo, intervalosCache, loteCache) {
         try {
             const tipoOferta = oferta.tipo_oferta;
-            const codigoCliente = this.currentUser?.grupo_cliente || null;
+            const codigoCliente = this.getEffectiveGrupoCliente() || null;
             const getOfertasProd = async (codigo) => {
                 if (ofertasByCodigo && ofertasByCodigo.has(codigo)) return ofertasByCodigo.get(codigo);
                 return await window.supabaseClient.getOfertasProducto(codigo, codigoCliente, true);
@@ -2799,7 +2843,7 @@ class ScanAsYouShopApp {
         }
         
         // Recalcular ofertas y precios
-        const codigoCliente = this.currentUser?.grupo_cliente || null;
+        const codigoCliente = this.getEffectiveGrupoCliente() || null;
         let precioConDescuento = priceWithIVA;
         let subtotalConDescuento = subtotalWithIVA;
         let descuentoAplicado = 0;
@@ -2901,7 +2945,7 @@ class ScanAsYouShopApp {
         const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo_producto}_1.JPG`;
         
         // Obtener ofertas del producto (mapa precalculado o cache)
-        const codigoCliente = this.currentUser?.grupo_cliente || null;
+        const codigoCliente = this.getEffectiveGrupoCliente() || null;
         let resultadoOferta = null;
         let ofertaActiva = null;
         let precioConDescuento = priceWithIVA;
@@ -3503,7 +3547,7 @@ class ScanAsYouShopApp {
         const container = document.querySelector('.almacen-options');
         if (container) {
             const allAlmacenes = ['ALZIRA', 'GANDIA', 'ONTINYENT', 'REQUENA'];
-            const habitual = this.currentUser && this.currentUser.almacen_habitual ? this.currentUser.almacen_habitual.toUpperCase().trim() : null;
+            const habitual = this.getEffectiveAlmacenHabitual() ? this.getEffectiveAlmacenHabitual().toUpperCase().trim() : null;
             const orden = habitual && allAlmacenes.includes(habitual)
                 ? [habitual].concat(allAlmacenes.filter(a => a !== habitual).sort())
                 : allAlmacenes.slice().sort();
@@ -3518,9 +3562,10 @@ class ScanAsYouShopApp {
         }
 
         const almacenButtons = document.querySelectorAll('.almacen-btn');
+        const almacenHabitualForModal = this.getEffectiveAlmacenHabitual();
         almacenButtons.forEach(btn => {
             btn.classList.remove('selected');
-            if (this.currentUser.almacen_habitual && btn.dataset.almacen === this.currentUser.almacen_habitual) {
+            if (almacenHabitualForModal && btn.dataset.almacen === almacenHabitualForModal) {
                 btn.classList.add('selected');
             }
         });
@@ -3549,7 +3594,7 @@ class ScanAsYouShopApp {
         }
 
         const advertenciaEl = document.getElementById('almacenObservacionesAdvertencia');
-        const esAlmacenHabitual = this.currentUser && this.currentUser.almacen_habitual && this.currentUser.almacen_habitual === almacen;
+        const esAlmacenHabitual = this.getEffectiveAlmacenHabitual() && this.getEffectiveAlmacenHabitual() === almacen;
         if (advertenciaEl) {
             if (esAlmacenHabitual) {
                 advertenciaEl.style.display = 'none';
@@ -3615,7 +3660,7 @@ class ScanAsYouShopApp {
             window.ui.showToast('El carrito esta vacio', 'warning');
             return;
         }
-        if (!this.currentUser.almacen_habitual) {
+        if (!this.getEffectiveAlmacenHabitual()) {
             window.ui.showToast('No tienes almacen habitual asignado. Contacta con tu comercial.', 'warning');
             return;
         }
@@ -3649,7 +3694,7 @@ class ScanAsYouShopApp {
      * serie = almacen destino (donde recoge). centro_venta = almacen habitual del cliente.
      */
     buildErpOrderPayload(cart, almacen, referencia, observaciones, codigoClienteUsuario) {
-        const almacenHabitual = this.currentUser ? this.currentUser.almacen_habitual : null;
+        const almacenHabitual = this.getEffectiveAlmacenHabitual();
         const { serie, centro_venta } = typeof ERP_PEDIDO_OPCIONES !== 'undefined'
             ? ERP_PEDIDO_OPCIONES.getSerieYCentroVenta(almacen, almacenHabitual)
             : { serie: 'BT7', centro_venta: '1' };
@@ -3758,10 +3803,10 @@ class ScanAsYouShopApp {
                             total_importe: cart.total_importe
                         },
                         user_snapshot: {
-                            grupo_cliente: this.currentUser.grupo_cliente,
+                            grupo_cliente: this.getEffectiveGrupoCliente(),
                             codigo_usuario: this.currentUser.codigo_usuario,
                             codigo_usuario_titular: this.currentUser.codigo_usuario_titular,
-                            almacen_habitual: this.currentUser.almacen_habitual,
+                            almacen_habitual: this.getEffectiveAlmacenHabitual(),
                             is_operario: this.currentUser.is_operario,
                             nombre_operario: this.currentUser.nombre_operario
                         }
@@ -3921,10 +3966,10 @@ class ScanAsYouShopApp {
                             total_importe: cart.total_importe
                         },
                         user_snapshot: {
-                            grupo_cliente: this.currentUser.grupo_cliente,
+                            grupo_cliente: this.getEffectiveGrupoCliente(),
                             codigo_usuario: this.currentUser.codigo_usuario,
                             codigo_usuario_titular: this.currentUser.codigo_usuario_titular,
-                            almacen_habitual: this.currentUser.almacen_habitual,
+                            almacen_habitual: this.getEffectiveAlmacenHabitual(),
                             is_operario: this.currentUser.is_operario,
                             nombre_operario: this.currentUser.nombre_operario
                         }
