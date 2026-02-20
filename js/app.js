@@ -3712,6 +3712,12 @@ class ScanAsYouShopApp {
                 return;
             }
 
+            const effectiveUserId = this.getEffectiveUserId();
+            if (!effectiveUserId) {
+                window.ui.showToast('Selecciona un cliente a representar (menu)', 'warning');
+                return;
+            }
+
             const cart = window.cartManager.getCart();
             if (!cart || cart.productos.length === 0) {
                 window.ui.showToast('El carrito esta vacio', 'warning');
@@ -3721,12 +3727,17 @@ class ScanAsYouShopApp {
             this.hideAlmacenModal();
             this.hideEnviarEnRutaModal();
 
+            let observacionesFinal = observaciones != null ? String(observaciones) : '';
+            if (this.currentUser.is_comercial && this.currentUser.user_name) {
+                observacionesFinal += (observacionesFinal ? '\n\n' : '') + 'Pedido enviado por: ' + this.currentUser.user_name;
+            }
+
             window.ui.showLoading(`Enviando pedido a ${almacen}...`);
 
             const result = await window.supabaseClient.crearPedidoRemoto(
-                this.currentUser.user_id,
+                effectiveUserId,
                 almacen,
-                observaciones != null ? String(observaciones) : null,
+                observacionesFinal || null,
                 this.currentUser.is_operario ? (this.currentUser.nombre_operario || null) : null
             );
 
@@ -3734,9 +3745,9 @@ class ScanAsYouShopApp {
                 if (this.isConnectionError(result.message) && window.offlineOrderQueue) {
                     const cart = window.cartManager.getCart();
                     const offlineItem = {
-                        usuario_id: this.currentUser.user_id,
+                        usuario_id: effectiveUserId,
                         almacen: almacen,
-                        observaciones: observaciones != null ? String(observaciones) : '',
+                        observaciones: observacionesFinal,
                         cart: {
                             productos: (cart.productos || []).map((p) => ({
                                 codigo_producto: p.codigo_producto || p.codigo,
@@ -3769,7 +3780,7 @@ class ScanAsYouShopApp {
             }
 
             const referencia = 'RQC/' + result.carrito_id + '-' + result.codigo_qr;
-            const erpPayload = this.buildErpOrderPayload(cart, almacen, referencia, observaciones, result.codigo_cliente_usuario);
+            const erpPayload = this.buildErpOrderPayload(cart, almacen, referencia, observacionesFinal, result.codigo_cliente_usuario);
 
             let erpResponse = null;
             let erpError = null;
@@ -3891,10 +3902,15 @@ class ScanAsYouShopApp {
             if (this.isConnectionError(errMsg) && this.currentUser && window.offlineOrderQueue) {
                 const cart = window.cartManager.getCart();
                 if (cart && cart.productos && cart.productos.length > 0) {
+                    const effectiveUserIdCatch = this.getEffectiveUserId();
+                    let observacionesFinalCatch = observaciones != null ? String(observaciones) : '';
+                    if (this.currentUser.is_comercial && this.currentUser.user_name) {
+                        observacionesFinalCatch += (observacionesFinalCatch ? '\n\n' : '') + 'Pedido enviado por: ' + this.currentUser.user_name;
+                    }
                     const offlineItem = {
-                        usuario_id: this.currentUser.user_id,
+                        usuario_id: effectiveUserIdCatch || this.currentUser.user_id,
                         almacen: almacen,
-                        observaciones: observaciones != null ? String(observaciones) : '',
+                        observaciones: observacionesFinalCatch,
                         cart: {
                             productos: (cart.productos || []).map((p) => ({
                                 codigo_producto: p.codigo_producto || p.codigo,
