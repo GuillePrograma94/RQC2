@@ -648,9 +648,10 @@ class SupabaseClient {
             }
 
             console.log('Login exitoso (Supabase Auth):', data.user_name);
+            const tipo = (data.tipo && String(data.tipo).toUpperCase()) || 'CLIENTE';
             return {
                 success: true,
-                user_id: data.user_id,
+                user_id: data.user_id ?? null,
                 user_name: data.user_name,
                 codigo_usuario: data.codigo_usuario || codigoUsuario,
                 grupo_cliente: data.grupo_cliente ?? null,
@@ -658,7 +659,11 @@ class SupabaseClient {
                 almacen_habitual: data.almacen_habitual ?? null,
                 es_operario: !!data.es_operario,
                 nombre_operario: data.nombre_operario || null,
-                nombre_titular: data.nombre_titular || null
+                nombre_titular: data.nombre_titular || null,
+                tipo: tipo,
+                es_comercial: tipo === 'COMERCIAL' || !!data.es_comercial,
+                comercial_id: data.comercial_id ?? null,
+                comercial_numero: data.comercial_numero ?? null
             };
         } catch (error) {
             console.error('Error al verificar login:', error);

@@ -19,6 +19,11 @@ function authEmail(codigoUsuario) {
     return `${safe}@labels.auth`;
 }
 
+function authEmailComercial(numero) {
+    const safe = String(numero).trim().replace(/[^a-zA-Z0-9._-]/g, '_');
+    return `comercial_${safe}@labels.auth`;
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -70,10 +75,78 @@ module.exports = async (req, res) => {
         return;
     }
 
-    const row = Array.isArray(rpcData) && rpcData.length > 0 ? rpcData[0] : null;
+    let row = Array.isArray(rpcData) && rpcData.length > 0 ? rpcData[0] : null;
+
     if (!row || !row.success || row.user_id == null) {
-        res.status(401).json({ success: false, message: 'Usuario o contrasena incorrectos' });
-        return;
+        // Intentar login como comercial (numero + password)
+        const { data: comData, error: comError } = await supabase.rpc('verificar_login_comercial', {
+            p_numero: String(codigoUsuario).trim(),
+            p_password_hash: passwordHash
+        });
+        if (comError || !comData || !Array.isArray(comData) || comData.length === 0 || !comData[0].success) {
+            res.status(401).json({ success: false, message: 'Usuario o contrasena incorrectos' });
+            return;
+        }
+        const com = comData[0];
+        const emailComercial = authEmailComercial(com.numero);
+        const { data: comRow, error: comAuthError } = await supabase
+            .from('usuarios_comerciales')
+            .select('auth_user_id')
+            .eq('id', com.comercial_id)
+            .single();
+
+        if (comAuthError && comAuthError.code !== 'PGRST116') {
+            res.status(500).json({ success: false, message: 'Error al obtener comercial' });
+            return;
+        }
+        const authUserIdCom = comRow && comRow.auth_user_id ? comRow.auth_user_id : null;
+        if (!authUserIdCom) {
+            const { data: created, error: createError } = await supabase.auth.admin.createUser({
+                email: emailComercial,
+                password,
+                email_confirm: true,
+                app_metadata: { comercial_id: com.comercial_id, es_comercial: true }
+            });
+            if (createError) {
+                if (createError.message && createError.message.includes('already been registered')) {
+                    const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+                    const existing = listData?.users?.find(u => u.email === emailComercial);
+                    if (existing) {
+                        await supabase.from('usuarios_comerciales')
+                            .update({ auth_user_id: existing.id })
+                            .eq('id', com.comercial_id);
+                    }
+                } else {
+                    res.status(500).json({ success: false, message: 'Error al crear sesion de auth' });
+                    return;
+                }
+            } else if (created && (created.user ? created.user.id : created.id)) {
+                const uid = created.user ? created.user.id : created.id;
+                await supabase.from('usuarios_comerciales')
+                    .update({ auth_user_id: uid })
+                    .eq('id', com.comercial_id);
+            }
+        } else {
+            try {
+                await supabase.auth.admin.updateUserById(authUserIdCom, { password });
+            } catch (_) {}
+        }
+        return res.status(200).json({
+            success: true,
+            email: emailComercial,
+            user_id: null,
+            user_name: com.nombre || '',
+            codigo_usuario: String(com.numero),
+            grupo_cliente: null,
+            almacen_habitual: null,
+            es_operario: false,
+            nombre_operario: null,
+            codigo_usuario_titular: null,
+            nombre_titular: null,
+            es_comercial: true,
+            comercial_id: com.comercial_id,
+            comercial_numero: com.numero
+        });
     }
 
     const userId = row.user_id;
@@ -186,6 +259,8 @@ module.exports = async (req, res) => {
         }
     }
 
+    const tipo = (row.tipo && String(row.tipo).toUpperCase()) || 'CLIENTE';
+
     res.status(200).json({
         success: true,
         email,
@@ -197,6 +272,8 @@ module.exports = async (req, res) => {
         es_operario: !!row.es_operario,
         nombre_operario: row.nombre_operario || null,
         codigo_usuario_titular: row.codigo_usuario_titular || null,
-        nombre_titular: row.nombre_titular || null
+        nombre_titular: row.nombre_titular || null,
+        tipo: tipo,
+        es_comercial: tipo === 'COMERCIAL'
     });
 };

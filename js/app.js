@@ -86,14 +86,16 @@ class ScanAsYouShopApp {
             this.currentUser = savedUser;
             this.updateUserUI();
 
-            // Precargar historial de compras en segundo plano (Phase 2 - Cache)
-            if (window.purchaseCache && savedUser.user_id) {
+            // Precargar historial de compras en segundo plano (solo clientes, no comerciales)
+            if (window.purchaseCache && savedUser.user_id && !savedUser.is_comercial) {
                 console.log('Precargando historial para sesion guardada...');
                 window.purchaseCache.preload(savedUser.user_id);
             }
 
-            // Configurar listener de cambios de estado de pedidos (no bloquea)
-            this.setupOrderStatusListener();
+            // Configurar listener de cambios de estado de pedidos (solo clientes)
+            if (!savedUser.is_comercial) {
+                this.setupOrderStatusListener();
+            }
 
             // Inicializar app primero para ocultar loading; no bloquear en permisos de notificaciones
             await this.initializeApp();
@@ -217,23 +219,30 @@ class ScanAsYouShopApp {
             const loginResult = await window.supabaseClient.loginUser(codigo, password);
 
             if (loginResult.success) {
-                // Guardar información del usuario (titular u operario; operario usa user_id del titular)
+                const tipo = (loginResult.tipo && String(loginResult.tipo).toUpperCase()) || 'CLIENTE';
+                const isComercial = tipo === 'COMERCIAL' || !!loginResult.es_comercial;
+
                 this.currentUser = {
-                    user_id: loginResult.user_id,
+                    user_id: loginResult.user_id ?? null,
                     user_name: loginResult.user_name,
                     codigo_usuario: loginResult.codigo_usuario,
-                    grupo_cliente: loginResult.grupo_cliente,
+                    grupo_cliente: loginResult.grupo_cliente || null,
                     codigo_usuario_titular: loginResult.codigo_usuario_titular || null,
-                    almacen_habitual: loginResult.almacen_habitual,
+                    almacen_habitual: loginResult.almacen_habitual || null,
                     is_operario: !!loginResult.es_operario,
                     nombre_operario: loginResult.nombre_operario || null,
-                    nombre_titular: loginResult.nombre_titular || null
+                    nombre_titular: loginResult.nombre_titular || null,
+                    tipo: tipo,
+                    is_comercial: isComercial,
+                    comercial_id: loginResult.comercial_id ?? null,
+                    comercial_numero: loginResult.comercial_numero ?? null
                 };
 
-                // Crear sesión
-                const sessionId = await window.supabaseClient.createUserSession(codigo);
-                if (sessionId) {
-                    this.currentSession = sessionId;
+                // Crear sesion en sesiones_usuario solo para clientes (titular/operario); comerciales no usan sesiones_usuario
+                let sessionId = null;
+                if (!isComercial) {
+                    sessionId = await window.supabaseClient.createUserSession(codigo);
+                    if (sessionId) this.currentSession = sessionId;
                 }
 
                 // Guardar sesión en localStorage
@@ -257,14 +266,14 @@ class ScanAsYouShopApp {
                 // Mostrar mensaje de bienvenida
                 window.ui.showToast(`Bienvenido, ${this.currentUser.user_name}`, 'success');
 
-                // Precargar historial de compras en segundo plano (Phase 2 - Cache)
-                if (window.purchaseCache) {
+                // Precargar historial y listener de pedidos solo para clientes (no comerciales)
+                if (!this.currentUser.is_comercial && window.purchaseCache && this.currentUser.user_id) {
                     console.log('Precargando historial de compras...');
                     window.purchaseCache.preload(this.currentUser.user_id);
                 }
-
-                // Configurar listener de cambios de estado de pedidos
-                this.setupOrderStatusListener();
+                if (!this.currentUser.is_comercial) {
+                    this.setupOrderStatusListener();
+                }
 
                 // Solicitar permisos de notificaciones en segundo plano (no bloquear)
                 this.requestNotificationPermission().catch(() => {});
@@ -599,7 +608,29 @@ class ScanAsYouShopApp {
             // Usuario logueado
             if (menuGuest) menuGuest.style.display = 'none';
             if (menuUser) menuUser.style.display = 'block';
-            if (this.currentUser.is_operario) {
+            if (this.currentUser.is_comercial) {
+                // Comercial: nombre y número; bloque solo informativo
+                if (menuUserName) {
+                    menuUserName.textContent = this.currentUser.user_name || 'Comercial';
+                }
+                if (menuUserCode) {
+                    menuUserCode.textContent = 'Nº ' + (this.currentUser.comercial_numero || this.currentUser.codigo_usuario || '');
+                    menuUserCode.style.display = 'block';
+                }
+                if (menuUserSubtitle) {
+                    menuUserSubtitle.style.display = 'none';
+                }
+                if (menuUserInfo) {
+                    menuUserInfo.classList.add('user-info-view-only');
+                    menuUserInfo.setAttribute('aria-label', 'Sesion de comercial');
+                }
+                if (menuUserArrow) menuUserArrow.style.display = 'none';
+                if (historyFilterGroup) historyFilterGroup.style.display = 'none';
+                var menuCommercialCard = document.getElementById('menuCommercialCard');
+                if (menuCommercialCard) menuCommercialCard.style.display = 'none';
+                var myOrdersBtn = document.getElementById('myOrdersBtn');
+                if (myOrdersBtn) myOrdersBtn.style.display = 'none';
+            } else if (this.currentUser.is_operario) {
                 // Operario: nombre empresa (grande) + nombre operario (pequeño); bloque solo informativo, no botón
                 if (menuUserName) {
                     menuUserName.textContent = this.currentUser.nombre_titular || this.currentUser.user_name || '--';
@@ -617,6 +648,12 @@ class ScanAsYouShopApp {
                     menuUserInfo.setAttribute('aria-label', 'Sesion de operario');
                 }
                 if (menuUserArrow) menuUserArrow.style.display = 'none';
+                if (historyFilterGroup) historyFilterGroup.style.display = 'block';
+                if (!this.currentUser.comercial) {
+                    this.loadComercialAsignado();
+                } else {
+                    this.updateComercialCard();
+                }
             } else {
                 // Titular: nombre y código; bloque clicable para ir a Mi perfil
                 if (menuUserName) {
@@ -634,14 +671,14 @@ class ScanAsYouShopApp {
                     menuUserInfo.setAttribute('aria-label', 'Ver mi perfil');
                 }
                 if (menuUserArrow) menuUserArrow.style.display = '';
-            }
-            // Mostrar filtro de historial en búsqueda
-            if (historyFilterGroup) historyFilterGroup.style.display = 'block';
-            // Cargar comercial si aun no está (p. ej. sesión restaurada)
-            if (!this.currentUser.comercial) {
-                this.loadComercialAsignado();
-            } else {
-                this.updateComercialCard();
+                if (historyFilterGroup) historyFilterGroup.style.display = 'block';
+                var myOrdersBtn = document.getElementById('myOrdersBtn');
+                if (myOrdersBtn) myOrdersBtn.style.display = '';
+                if (!this.currentUser.comercial) {
+                    this.loadComercialAsignado();
+                } else {
+                    this.updateComercialCard();
+                }
             }
         } else {
             // Usuario NO logueado
@@ -741,6 +778,17 @@ class ScanAsYouShopApp {
      */
     async renderProfileScreen() {
         if (!this.currentUser) return;
+        if (this.currentUser.is_comercial) {
+            const nameEl = document.getElementById('profileUserName');
+            const codeEl = document.getElementById('profileUserCode');
+            if (nameEl) nameEl.textContent = this.currentUser.user_name || 'Comercial';
+            if (codeEl) codeEl.textContent = 'Nº ' + (this.currentUser.comercial_numero || this.currentUser.codigo_usuario || '--');
+            const passwordSection = document.getElementById('profilePasswordSection');
+            const operariosSection = document.getElementById('profileOperariosSection');
+            if (passwordSection) passwordSection.style.display = 'none';
+            if (operariosSection) operariosSection.style.display = 'none';
+            return;
+        }
         const nameEl = document.getElementById('profileUserName');
         const codeEl = document.getElementById('profileUserCode');
         if (nameEl) nameEl.textContent = this.currentUser.user_name || '--';
@@ -1258,21 +1306,25 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Clic en datos de usuario (nombre/código): abre Mi perfil solo si es titular; operario es solo vista
+        // Clic en datos de usuario (nombre/código): abre Mi perfil solo si es titular; operario/comercial es solo vista
         const menuUserInfo = document.getElementById('menuUserInfo');
         if (menuUserInfo) {
             menuUserInfo.addEventListener('click', () => {
-                if (this.currentUser && this.currentUser.is_operario) return;
+                if (this.currentUser && (this.currentUser.is_operario || this.currentUser.is_comercial)) return;
                 this.closeMenu();
                 this.showScreen('profile');
                 this.renderProfileScreen();
             });
         }
 
-        // My Orders button (menu hamburguesa)
+        // My Orders button (menu hamburguesa); comerciales no tienen pedidos de cliente
         const myOrdersBtn = document.getElementById('myOrdersBtn');
         if (myOrdersBtn) {
             myOrdersBtn.addEventListener('click', () => {
+                if (this.currentUser && this.currentUser.is_comercial) {
+                    window.ui.showToast('Vista solo para clientes', 'info');
+                    return;
+                }
                 this.closeMenu();
                 this.showScreen('myOrders');
                 this.updateActiveNav('myOrders');
@@ -3819,10 +3871,10 @@ class ScanAsYouShopApp {
         const ordersEmpty = document.getElementById('ordersEmpty');
         const ordersList = document.getElementById('ordersList');
 
-        if (!this.currentUser) {
-            ordersEmpty.style.display = 'flex';
-            ordersLoading.style.display = 'none';
-            ordersList.style.display = 'none';
+        if (!this.currentUser || this.currentUser.is_comercial || !this.currentUser.user_id) {
+            if (ordersEmpty) ordersEmpty.style.display = 'flex';
+            if (ordersLoading) ordersLoading.style.display = 'none';
+            if (ordersList) ordersList.style.display = 'none';
             return;
         }
 
