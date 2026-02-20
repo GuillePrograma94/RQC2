@@ -78,48 +78,111 @@ module.exports = async (req, res) => {
 
     const userId = row.user_id;
     const email = authEmail(codigoUsuario);
+    const esOperario = !!row.es_operario;
 
-    const { data: userRow, error: userError } = await supabase
-        .from('usuarios')
-        .select('auth_user_id')
-        .eq('id', userId)
-        .single();
+    if (esOperario) {
+        // Operario: crear/actualizar usuario de Auth propio (email 84845-01@labels.auth) y guardar en usuarios_operarios
+        const parts = codigoUsuario.trim().split('-');
+        const codigoOperario = parts.length > 1 ? String(parts[1]).trim() : null;
+        if (!codigoOperario) {
+            res.status(500).json({ success: false, message: 'Codigo de operario invalido' });
+            return;
+        }
 
-    if (userError && userError.code !== 'PGRST116') {
-        res.status(500).json({ success: false, message: 'Error al obtener usuario' });
-        return;
-    }
+        const { data: opRow, error: opError } = await supabase
+            .from('usuarios_operarios')
+            .select('auth_user_id')
+            .eq('usuario_id', userId)
+            .eq('codigo_operario', codigoOperario)
+            .maybeSingle();
 
-    const authUserId = userRow && userRow.auth_user_id ? userRow.auth_user_id : null;
+        if (opError) {
+            res.status(500).json({ success: false, message: 'Error al obtener operario' });
+            return;
+        }
 
-    if (!authUserId) {
-        const { data: created, error: createError } = await supabase.auth.admin.createUser({
-            email,
-            password,
-            email_confirm: true,
-            app_metadata: { usuario_id: userId }
-        });
+        const authUserId = opRow && opRow.auth_user_id ? opRow.auth_user_id : null;
 
-        if (createError) {
-            if (createError.message && createError.message.includes('already been registered')) {
-                const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-                const existing = listData?.users?.find(u => u.email === email);
-                if (existing) {
-                    await supabase.from('usuarios').update({ auth_user_id: existing.id }).eq('id', userId);
+        if (!authUserId) {
+            const { data: created, error: createError } = await supabase.auth.admin.createUser({
+                email,
+                password,
+                email_confirm: true,
+                app_metadata: { usuario_id: userId, es_operario: true }
+            });
+
+            if (createError) {
+                if (createError.message && createError.message.includes('already been registered')) {
+                    const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+                    const existing = listData?.users?.find(u => u.email === email);
+                    if (existing) {
+                        await supabase.from('usuarios_operarios')
+                            .update({ auth_user_id: existing.id })
+                            .eq('usuario_id', userId)
+                            .eq('codigo_operario', codigoOperario);
+                    }
+                } else {
+                    res.status(500).json({ success: false, message: 'Error al crear sesion de auth' });
+                    return;
                 }
-            } else {
-                res.status(500).json({ success: false, message: 'Error al crear sesion de auth' });
-                return;
+            } else if (created && (created.user ? created.user.id : created.id)) {
+                const uid = created.user ? created.user.id : created.id;
+                await supabase.from('usuarios_operarios')
+                    .update({ auth_user_id: uid })
+                    .eq('usuario_id', userId)
+                    .eq('codigo_operario', codigoOperario);
             }
-        } else if (created && (created.user ? created.user.id : created.id)) {
-            const uid = created.user ? created.user.id : created.id;
-            await supabase.from('usuarios').update({ auth_user_id: uid }).eq('id', userId);
+        } else {
+            try {
+                await supabase.auth.admin.updateUserById(authUserId, { password });
+            } catch (_) {
+                // Ignorar si falla actualizar password (ej. mismo valor)
+            }
         }
     } else {
-        try {
-            await supabase.auth.admin.updateUserById(authUserId, { password });
-        } catch (_) {
-            // Ignorar si falla actualizar password (ej. mismo valor)
+        // Titular: crear/actualizar usuario de Auth en usuarios.auth_user_id (comportamiento original)
+        const { data: userRow, error: userError } = await supabase
+            .from('usuarios')
+            .select('auth_user_id')
+            .eq('id', userId)
+            .single();
+
+        if (userError && userError.code !== 'PGRST116') {
+            res.status(500).json({ success: false, message: 'Error al obtener usuario' });
+            return;
+        }
+
+        const authUserId = userRow && userRow.auth_user_id ? userRow.auth_user_id : null;
+
+        if (!authUserId) {
+            const { data: created, error: createError } = await supabase.auth.admin.createUser({
+                email,
+                password,
+                email_confirm: true,
+                app_metadata: { usuario_id: userId }
+            });
+
+            if (createError) {
+                if (createError.message && createError.message.includes('already been registered')) {
+                    const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+                    const existing = listData?.users?.find(u => u.email === email);
+                    if (existing) {
+                        await supabase.from('usuarios').update({ auth_user_id: existing.id }).eq('id', userId);
+                    }
+                } else {
+                    res.status(500).json({ success: false, message: 'Error al crear sesion de auth' });
+                    return;
+                }
+            } else if (created && (created.user ? created.user.id : created.id)) {
+                const uid = created.user ? created.user.id : created.id;
+                await supabase.from('usuarios').update({ auth_user_id: uid }).eq('id', userId);
+            }
+        } else {
+            try {
+                await supabase.auth.admin.updateUserById(authUserId, { password });
+            } catch (_) {
+                // Ignorar si falla actualizar password (ej. mismo valor)
+            }
         }
     }
 
