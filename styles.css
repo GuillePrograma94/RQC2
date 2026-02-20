@@ -2713,6 +2713,15 @@ body.gate-visible .app-container {
     border: 1px solid var(--gray-200);
 }
 
+.selector-cliente-item {
+    cursor: pointer;
+}
+
+.selector-cliente-item:hover {
+    background: var(--gray-50);
+    border-color: var(--primary);
+}
+
 .profile-operario-info {
     flex: 1;
     min-width: 0;

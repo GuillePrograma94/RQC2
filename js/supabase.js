@@ -704,6 +704,31 @@ class SupabaseClient {
     }
 
     /**
+     * Lista los clientes asignados a un comercial (usuarios donde comercial_asignado = numero del comercial).
+     * Para que el comercial seleccione a quien representar en la app.
+     * @param {number} comercialNumero - Numero del comercial (usuarios_comerciales.numero)
+     * @returns {Promise<Array<{id: number, nombre: string, codigo_usuario: string}>>}
+     */
+    async getClientesAsignadosComercial(comercialNumero) {
+        try {
+            if (!this.client || comercialNumero == null) return [];
+            const num = typeof comercialNumero === 'string' ? parseInt(comercialNumero, 10) : comercialNumero;
+            if (isNaN(num)) return [];
+            const { data, error } = await this.client.rpc('get_clientes_asignados_comercial', {
+                p_comercial_numero: num
+            });
+            if (error) {
+                console.error('Error getClientesAsignadosComercial:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getClientesAsignadosComercial:', err);
+            return [];
+        }
+    }
+
+    /**
      * Cambia la contraseña del usuario (verifica la actual con hash)
      * @param {number} userId - ID del usuario
      * @param {string} passwordActual - Contraseña actual en texto

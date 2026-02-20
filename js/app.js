@@ -609,7 +609,6 @@ class ScanAsYouShopApp {
             if (menuGuest) menuGuest.style.display = 'none';
             if (menuUser) menuUser.style.display = 'block';
             if (this.currentUser.is_comercial) {
-                // Comercial: nombre y número; bloque solo informativo
                 if (menuUserName) {
                     menuUserName.textContent = this.currentUser.user_name || 'Comercial';
                 }
@@ -618,18 +617,21 @@ class ScanAsYouShopApp {
                     menuUserCode.style.display = 'block';
                 }
                 if (menuUserSubtitle) {
-                    menuUserSubtitle.style.display = 'none';
+                    menuUserSubtitle.style.display = 'block';
+                    menuUserSubtitle.textContent = this.currentUser.cliente_representado_nombre
+                        ? ('Representando a: ' + this.currentUser.cliente_representado_nombre)
+                        : 'Toca para seleccionar cliente';
                 }
                 if (menuUserInfo) {
-                    menuUserInfo.classList.add('user-info-view-only');
-                    menuUserInfo.setAttribute('aria-label', 'Sesion de comercial');
+                    menuUserInfo.classList.remove('user-info-view-only');
+                    menuUserInfo.setAttribute('aria-label', 'Seleccionar cliente a representar');
                 }
-                if (menuUserArrow) menuUserArrow.style.display = 'none';
+                if (menuUserArrow) menuUserArrow.style.display = '';
                 if (historyFilterGroup) historyFilterGroup.style.display = 'none';
                 var menuCommercialCard = document.getElementById('menuCommercialCard');
                 if (menuCommercialCard) menuCommercialCard.style.display = 'none';
                 var myOrdersBtn = document.getElementById('myOrdersBtn');
-                if (myOrdersBtn) myOrdersBtn.style.display = 'none';
+                if (myOrdersBtn) myOrdersBtn.style.display = '';
             } else if (this.currentUser.is_operario) {
                 // Operario: nombre empresa (grande) + nombre operario (pequeño); bloque solo informativo, no botón
                 if (menuUserName) {
@@ -771,6 +773,65 @@ class ScanAsYouShopApp {
             btnEmail.style.display = hasEmail ? 'flex' : 'none';
             btnEmail.dataset.email = (c.email || '').trim();
         }
+    }
+
+    /**
+     * Pantalla comercial: listar clientes asignados y permitir elegir a quien representar
+     */
+    async renderSelectorClienteScreen() {
+        const listEl = document.getElementById('selectorClienteList');
+        const emptyEl = document.getElementById('selectorClienteEmpty');
+        if (!listEl || !emptyEl) return;
+        if (!this.currentUser || !this.currentUser.is_comercial) return;
+
+        const numero = this.currentUser.comercial_numero != null ? this.currentUser.comercial_numero : parseInt(this.currentUser.codigo_usuario, 10);
+        const clientes = await window.supabaseClient.getClientesAsignadosComercial(numero);
+
+        listEl.innerHTML = '';
+        if (!clientes || clientes.length === 0) {
+            emptyEl.style.display = 'block';
+            return;
+        }
+        emptyEl.style.display = 'none';
+
+        const self = this;
+        clientes.forEach(function (c) {
+            const item = document.createElement('div');
+            item.className = 'profile-operario-item selector-cliente-item';
+            item.dataset.clienteId = c.id;
+            item.dataset.clienteNombre = (c.nombre || '').trim();
+            const info = document.createElement('div');
+            info.className = 'profile-operario-info';
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'profile-operario-name';
+            nameDiv.textContent = c.nombre || '--';
+            const codeDiv = document.createElement('div');
+            codeDiv.className = 'profile-operario-codigo';
+            codeDiv.textContent = 'Codigo: ' + (c.codigo_usuario || '');
+            info.appendChild(nameDiv);
+            info.appendChild(codeDiv);
+            item.appendChild(info);
+            item.addEventListener('click', function () {
+                self.currentUser.cliente_representado_id = c.id;
+                self.currentUser.cliente_representado_nombre = (c.nombre || '').trim();
+                self.saveUserSession(self.currentUser, self.currentSession);
+                self.updateUserUI();
+                self.showScreen('cart');
+                window.ui.showToast('Representando a ' + self.currentUser.cliente_representado_nombre, 'success');
+            });
+            listEl.appendChild(item);
+        });
+    }
+
+    /**
+     * Devuelve el user_id a usar para pedidos/historial: el del cliente o el cliente representado (comercial)
+     */
+    getEffectiveUserId() {
+        if (!this.currentUser) return null;
+        if (this.currentUser.is_comercial && this.currentUser.cliente_representado_id) {
+            return this.currentUser.cliente_representado_id;
+        }
+        return this.currentUser.user_id || null;
     }
 
     /**
@@ -1306,24 +1367,32 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Clic en datos de usuario (nombre/código): abre Mi perfil solo si es titular; operario/comercial es solo vista
+        // Clic en datos de usuario: titular -> Mi perfil; operario -> nada; comercial -> seleccionar cliente
         const menuUserInfo = document.getElementById('menuUserInfo');
         if (menuUserInfo) {
             menuUserInfo.addEventListener('click', () => {
-                if (this.currentUser && (this.currentUser.is_operario || this.currentUser.is_comercial)) return;
+                if (this.currentUser && this.currentUser.is_operario) return;
+                if (this.currentUser && this.currentUser.is_comercial) {
+                    this.closeMenu();
+                    this.showScreen('selectorCliente');
+                    this.renderSelectorClienteScreen();
+                    return;
+                }
                 this.closeMenu();
                 this.showScreen('profile');
                 this.renderProfileScreen();
             });
         }
 
-        // My Orders button (menu hamburguesa); comerciales no tienen pedidos de cliente
+        // My Orders: cliente carga sus pedidos; comercial carga pedidos del cliente representado (si hay uno seleccionado)
         const myOrdersBtn = document.getElementById('myOrdersBtn');
         if (myOrdersBtn) {
             myOrdersBtn.addEventListener('click', () => {
                 if (this.currentUser && this.currentUser.is_comercial) {
-                    window.ui.showToast('Vista solo para clientes', 'info');
-                    return;
+                    if (!this.currentUser.cliente_representado_id) {
+                        window.ui.showToast('Selecciona un cliente (pulsa en tu nombre)', 'info');
+                        return;
+                    }
                 }
                 this.closeMenu();
                 this.showScreen('myOrders');
@@ -1406,6 +1475,14 @@ class ScanAsYouShopApp {
         const profileBackBtn = document.getElementById('profileBackBtn');
         if (profileBackBtn) {
             profileBackBtn.addEventListener('click', () => {
+                this.showScreen('cart');
+            });
+        }
+
+        // Selector cliente (comercial): Volver
+        const selectorClienteBackBtn = document.getElementById('selectorClienteBackBtn');
+        if (selectorClienteBackBtn) {
+            selectorClienteBackBtn.addEventListener('click', () => {
                 this.showScreen('cart');
             });
         }
@@ -1812,15 +1889,20 @@ class ScanAsYouShopApp {
             onlyPurchasedCheckbox.checked = false;
             return;
         }
+        if (onlyPurchased && !this.getEffectiveUserId()) {
+            window.ui.showToast('Selecciona un cliente a representar (menú) para ver su historial', 'info');
+            onlyPurchasedCheckbox.checked = false;
+            return;
+        }
 
         try {
             let productos = [];
             
             if (onlyPurchased) {
-                // Búsqueda en el historial de compras del usuario (CON CACHE)
+                const effectiveUserId = this.getEffectiveUserId();
                 console.log('📦 Buscando en historial de compras (con cache)...');
                 const historial = await window.purchaseCache.getUserHistory(
-                    this.currentUser.user_id,
+                    effectiveUserId,
                     code || null,
                     description || null
                 );
@@ -3095,8 +3177,14 @@ class ScanAsYouShopApp {
             if (loadingState) loadingState.style.display = 'flex';
             if (resultsContainer) resultsContainer.style.display = 'none';
 
-            // Obtener historial del usuario
-            const historial = await window.supabaseClient.getUserPurchaseHistory(this.currentUser.user_id);
+            // Obtener historial del usuario (o del cliente representado si es comercial)
+            const userId = this.getEffectiveUserId();
+            if (!userId) {
+                if (loadingState) loadingState.style.display = 'none';
+                this.showHistoryEmptyState();
+                return;
+            }
+            const historial = await window.supabaseClient.getUserPurchaseHistory(userId);
 
             // Ocultar loading
             if (loadingState) loadingState.style.display = 'none';
@@ -3122,6 +3210,10 @@ class ScanAsYouShopApp {
             window.ui.showToast('Debes iniciar sesión primero', 'warning');
             return;
         }
+        if (!this.getEffectiveUserId()) {
+            window.ui.showToast('Selecciona un cliente a representar (menú)', 'info');
+            return;
+        }
 
         const codeInput = document.getElementById('historyCodeInput');
         const descInput = document.getElementById('historyDescriptionInput');
@@ -3141,7 +3233,7 @@ class ScanAsYouShopApp {
 
             // Buscar con filtros
             const historial = await window.supabaseClient.getUserPurchaseHistory(
-                this.currentUser.user_id,
+                this.getEffectiveUserId(),
                 codigo,
                 descripcion
             );
@@ -3871,7 +3963,8 @@ class ScanAsYouShopApp {
         const ordersEmpty = document.getElementById('ordersEmpty');
         const ordersList = document.getElementById('ordersList');
 
-        if (!this.currentUser || this.currentUser.is_comercial || !this.currentUser.user_id) {
+        const userId = this.getEffectiveUserId();
+        if (!this.currentUser || !userId) {
             if (ordersEmpty) ordersEmpty.style.display = 'flex';
             if (ordersLoading) ordersLoading.style.display = 'none';
             if (ordersList) ordersList.style.display = 'none';
@@ -3880,7 +3973,6 @@ class ScanAsYouShopApp {
 
         try {
             this._offlinePendingByOrderId = {};
-            const userId = this.currentUser.user_id;
             let offlineSynthetics = [];
             if (window.offlineOrderQueue && typeof window.offlineOrderQueue.getAll === 'function') {
                 try {
@@ -3935,9 +4027,9 @@ class ScanAsYouShopApp {
             // PASO 2: Actualizar desde Supabase EN SEGUNDO PLANO
             try {
                 console.log('Consultando Supabase...');
-                const pedidosOnline = await window.supabaseClient.getUserRemoteOrders(this.currentUser.user_id);
+                const pedidosOnline = await window.supabaseClient.getUserRemoteOrders(userId);
 
-                await window.cartManager.saveRemoteOrdersToCache(pedidosOnline || [], this.currentUser.user_id);
+                await window.cartManager.saveRemoteOrdersToCache(pedidosOnline || [], userId);
 
                 ordersLoading.style.display = 'none';
 
