@@ -704,7 +704,9 @@ class ScanAsYouShopApp {
                 }
             }
             var herramientasBtn = document.getElementById('herramientasBtn');
-            if (herramientasBtn) herramientasBtn.style.display = this.currentUser.is_administrador ? '' : 'none';
+            if (herramientasBtn) herramientasBtn.style.display = '';
+            var panelControlBtn = document.getElementById('panelControlBtn');
+            if (panelControlBtn) panelControlBtn.style.display = this.currentUser.is_administrador ? '' : 'none';
         } else {
             // Usuario NO logueado
             if (menuGuest) menuGuest.style.display = 'block';
@@ -715,6 +717,8 @@ class ScanAsYouShopApp {
             if (menuCommercialCard) menuCommercialCard.style.display = 'none';
             const herramientasBtnGuest = document.getElementById('herramientasBtn');
             if (herramientasBtnGuest) herramientasBtnGuest.style.display = 'none';
+            const panelControlBtnGuest = document.getElementById('panelControlBtn');
+            if (panelControlBtnGuest) panelControlBtnGuest.style.display = 'none';
         }
     }
 
@@ -1513,12 +1517,29 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Herramientas: abre pantalla de herramientas
+        // Herramientas: abre pantalla de herramientas (visible para todos los usuarios)
         const herramientasBtn = document.getElementById('herramientasBtn');
         if (herramientasBtn) {
             herramientasBtn.addEventListener('click', () => {
                 this.closeMenu();
                 this.showScreen('herramientas');
+            });
+        }
+
+        // Panel de Control: solo administrador
+        const panelControlBtn = document.getElementById('panelControlBtn');
+        if (panelControlBtn) {
+            panelControlBtn.addEventListener('click', () => {
+                this.closeMenu();
+                this.showScreen('panelControl');
+            });
+        }
+
+        // Panel de Control: Volver
+        const panelControlBackBtn = document.getElementById('panelControlBackBtn');
+        if (panelControlBackBtn) {
+            panelControlBackBtn.addEventListener('click', () => {
+                this.showScreen('cart');
             });
         }
 

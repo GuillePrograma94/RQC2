@@ -236,10 +236,9 @@ La columna `tipo` en `usuarios` admite los valores que ya existian (`'CLIENTE'`,
 
 ### 7.4 Frontend (scan_client_mobile)
 
-- **Menú**: mostrar la entrada **Herramientas** solo si el usuario está autenticado y `es_administrador === true` (o `tipo === 'ADMINISTRADOR'`). Para clientes y comerciales no administradores no se muestra. Implementado: el login guarda `is_administrador` en `currentUser` y en sesión; `updateUserUI()` muestra u oculta el botón Herramientas según `currentUser.is_administrador`. Los operarios heredan el permiso del titular (el API de login incluye `es_administrador` según el tipo del titular y lo pone en app_metadata del Auth del operario).
-- **Dentro de Herramientas**:
-  - **Configurar conjuntos WC**: pantalla o enlace solo para administrador (crear/editar conjuntos y sus tazas/tanques/asientos). Las llamadas a Supabase que hagan INSERT/UPDATE/DELETE en tablas WC fallarán por RLS si el usuario no es admin, así que la UI puede ocultarse por rol.
-  - **WC Completo** (configurador para el cliente): puede mostrarse a todos los usuarios autenticados (o según criterio de negocio); solo usa SELECT sobre las tablas WC.
+- **Menú**: **Herramientas** se muestra a todos los usuarios autenticados (clientes, comerciales, administradores). Dentro de Herramientas está **WC Completo**, accesible para todos. **Panel de Control** es un botón distinto en el menú, visible solo si `es_administrador === true`; ahí irán las acciones exclusivas del administrador (p. ej. configurar conjuntos WC).
+- **Dentro de Herramientas**: WC Completo (configurador: conjuntos, tazas, tanques, asientos; solo SELECT sobre tablas WC).
+- **Dentro de Panel de Control** (solo administrador): herramientas de configuracion como **Configurar conjuntos WC** (CRUD en `wc_conjuntos` y tablas de detalle). Las llamadas INSERT/UPDATE/DELETE en tablas WC estan protegidas por RLS (solo admin o service_role).
 
 ### 7.5 Resumen de implementación
 
@@ -248,4 +247,4 @@ La columna `tipo` en `usuarios` admite los valores que ya existian (`'CLIENTE'`,
 | **BD** | Columna `usuarios.tipo` ('CLIENTE' \| 'COMERCIAL' \| 'ADMINISTRADOR'); RLS en tablas `wc_*` (lectura amplia, escritura solo admin o service_role). |
 | **RPC** | `verificar_login_usuario` devuelve `tipo` o `es_administrador`. |
 | **API login** | Respuesta con `es_administrador`; app_metadata del Auth con `es_administrador` para el JWT. |
-| **Front** | Mostrar Herramientas solo si `es_administrador`; dentro, “Configurar conjuntos WC” solo admin; configurador WC (desplegables) para quien deba usarlo. |
+| **Front** | Herramientas (y WC Completo) visibles para todos; boton Panel de Control solo si es_administrador; dentro del Panel, Configurar conjuntos WC y demas herramientas de admin. | Mostrar Herramientas solo si `es_administrador`; dentro, “Configurar conjuntos WC” solo admin; configurador WC (desplegables) para quien deba usarlo. |
