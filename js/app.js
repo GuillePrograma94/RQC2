@@ -1508,6 +1508,31 @@ class ScanAsYouShopApp {
             });
         }
 
+        // Herramientas: abre pantalla de herramientas
+        const herramientasBtn = document.getElementById('herramientasBtn');
+        if (herramientasBtn) {
+            herramientasBtn.addEventListener('click', () => {
+                this.closeMenu();
+                this.showScreen('herramientas');
+            });
+        }
+
+        // Herramientas: Volver
+        const herramientasBackBtn = document.getElementById('herramientasBackBtn');
+        if (herramientasBackBtn) {
+            herramientasBackBtn.addEventListener('click', () => {
+                this.showScreen('cart');
+            });
+        }
+
+        // Herramientas: WC Completo (accion por definir)
+        const herramientaWcCompletoBtn = document.getElementById('herramientaWcCompletoBtn');
+        if (herramientaWcCompletoBtn) {
+            herramientaWcCompletoBtn.addEventListener('click', () => {
+                // TODO: implementar accion WC Completo
+            });
+        }
+
         // Tarjeta comercial en menú: abre pantalla de comercial
         const menuCommercialCard = document.getElementById('menuCommercialCard');
         if (menuCommercialCard) {
