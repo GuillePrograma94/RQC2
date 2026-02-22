@@ -2189,6 +2189,151 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Comprueba qué imágenes del producto existen (_1 a _4) y devuelve array de URLs
+     */
+    async getAvailableProductImageUrls(codigo) {
+        const baseUrl = 'https://www.saneamiento-martinez.com/imagenes/articulos/';
+        const urls = [];
+        const check = (i) => new Promise((resolve) => {
+            const url = baseUrl + codigo + '_' + i + '.JPG';
+            const img = new Image();
+            img.onload = () => { urls.push(url); resolve(); };
+            img.onerror = () => resolve();
+            img.src = url;
+        });
+        await Promise.all([check(1), check(2), check(3), check(4)]);
+        return urls;
+    }
+
+    /**
+     * Comprueba si existe la ficha técnica PDF del producto
+     */
+    async checkProductPdfExists(codigo) {
+        const url = 'https://www.saneamiento-martinez.com/pdf/fichas/' + codigo + '.PDF';
+        try {
+            const res = await fetch(url, { method: 'HEAD' });
+            return res.ok;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Abre el overlay de detalle de producto (carousel 1-4 imágenes + ficha técnica si existe)
+     */
+    async openProductDetail(producto) {
+        const overlayEl = document.getElementById('productDetailOverlay');
+        const carouselInner = document.getElementById('productDetailCarouselInner');
+        const prevBtn = document.getElementById('productDetailCarouselPrev');
+        const nextBtn = document.getElementById('productDetailCarouselNext');
+        const dotsContainer = document.getElementById('productDetailCarouselDots');
+        const fichaBlock = document.getElementById('productDetailFicha');
+        const fichaLink = document.getElementById('productDetailFichaLink');
+        const codeEl = document.getElementById('productDetailCode');
+        const descEl = document.getElementById('productDetailDescription');
+        const closeBtn = document.getElementById('closeProductDetailBtn');
+        const backdrop = overlayEl ? overlayEl.querySelector('.product-detail-backdrop') : null;
+
+        if (!overlayEl || !carouselInner) return;
+
+        codeEl.textContent = producto.codigo;
+        descEl.textContent = producto.descripcion || '';
+
+        const imageUrls = await this.getAvailableProductImageUrls(producto.codigo);
+        carouselInner.innerHTML = '';
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        dotsContainer.innerHTML = '';
+
+        if (imageUrls.length === 0) {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'product-detail-carousel-placeholder';
+            placeholder.style.cssText = 'font-size: 3rem; opacity: 0.4; padding: 2rem;';
+            placeholder.textContent = '\uD83D\uDCE6';
+            carouselInner.appendChild(placeholder);
+        } else {
+            imageUrls.forEach((url, idx) => {
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = producto.descripcion ? producto.descripcion + ' (imagen ' + (idx + 1) + ')' : 'Imagen ' + (idx + 1);
+                img.dataset.index = String(idx);
+                if (idx === 0) img.classList.add('active');
+                carouselInner.appendChild(img);
+            });
+            if (imageUrls.length > 1) {
+                prevBtn.style.display = 'flex';
+                nextBtn.style.display = 'flex';
+                imageUrls.forEach((_, idx) => {
+                    const dot = document.createElement('button');
+                    dot.type = 'button';
+                    dot.className = 'product-detail-carousel-dot' + (idx === 0 ? ' active' : '');
+                    dot.setAttribute('aria-label', 'Imagen ' + (idx + 1));
+                    dot.dataset.index = String(idx);
+                    dotsContainer.appendChild(dot);
+                });
+            }
+        }
+
+        const pdfExists = await this.checkProductPdfExists(producto.codigo);
+        if (pdfExists && fichaLink) {
+            fichaBlock.style.display = 'block';
+            fichaLink.href = 'https://www.saneamiento-martinez.com/pdf/fichas/' + producto.codigo + '.PDF';
+        } else {
+            fichaBlock.style.display = 'none';
+        }
+
+        overlayEl.style.display = 'flex';
+        overlayEl.setAttribute('aria-hidden', 'false');
+
+        let currentIndex = 0;
+        const total = imageUrls.length;
+
+        const showSlide = (index) => {
+            const imgs = carouselInner.querySelectorAll('img');
+            const dots = dotsContainer.querySelectorAll('.product-detail-carousel-dot');
+            imgs.forEach((img, i) => img.classList.toggle('active', i === index));
+            dots.forEach((dot, i) => dot.classList.toggle('active', i === index));
+            currentIndex = index;
+        };
+
+        const handlePrev = () => {
+            if (total <= 1) return;
+            currentIndex = currentIndex <= 0 ? total - 1 : currentIndex - 1;
+            showSlide(currentIndex);
+        };
+        const handleNext = () => {
+            if (total <= 1) return;
+            currentIndex = currentIndex >= total - 1 ? 0 : currentIndex + 1;
+            showSlide(currentIndex);
+        };
+
+        const handleDotClick = (e) => {
+            const idx = parseInt(e.target.dataset.index, 10);
+            if (!isNaN(idx)) showSlide(idx);
+        };
+
+        const handleClose = () => {
+            overlayEl.style.display = 'none';
+            overlayEl.setAttribute('aria-hidden', 'true');
+            closeBtn.removeEventListener('click', handleClose);
+            if (backdrop) backdrop.removeEventListener('click', handleClose);
+            prevBtn.removeEventListener('click', handlePrev);
+            nextBtn.removeEventListener('click', handleNext);
+            dotsContainer.querySelectorAll('.product-detail-carousel-dot').forEach(dot => {
+                dot.removeEventListener('click', handleDotClick);
+            });
+        };
+
+        closeBtn.addEventListener('click', handleClose);
+        if (backdrop) backdrop.addEventListener('click', handleClose);
+        prevBtn.addEventListener('click', handlePrev);
+        nextBtn.addEventListener('click', handleNext);
+        dotsContainer.querySelectorAll('.product-detail-carousel-dot').forEach(dot => {
+            dot.addEventListener('click', handleDotClick);
+        });
+    }
+
+    /**
      * Muestra el modal de añadir al carrito con selección de cantidad
      */
     async showAddToCartModal(producto) {
@@ -2196,6 +2341,7 @@ class ScanAsYouShopApp {
             const modal = document.getElementById('addToCartModal');
             const overlay = modal.querySelector('.add-to-cart-overlay');
             const closeBtn = document.getElementById('closeAddToCartModal');
+            const imageContainer = modal.querySelector('.add-to-cart-image-container');
             const img = document.getElementById('addToCartImg');
             const placeholder = modal.querySelector('.add-to-cart-placeholder');
             const codeEl = document.getElementById('addToCartCode');
@@ -2320,9 +2466,14 @@ class ScanAsYouShopApp {
                 }
             };
 
+            const handleImageClick = () => {
+                this.openProductDetail(producto);
+            };
+
             const cleanup = () => {
                 closeBtn.removeEventListener('click', handleClose);
                 overlay.removeEventListener('click', handleClose);
+                if (imageContainer) imageContainer.removeEventListener('click', handleImageClick);
                 confirmBtn.removeEventListener('click', handleConfirm);
                 decreaseBtn.removeEventListener('click', handleDecrease);
                 increaseBtn.removeEventListener('click', handleIncrease);
@@ -2337,6 +2488,7 @@ class ScanAsYouShopApp {
             // Añadir listeners - usar { once: false } explícitamente
             closeBtn.addEventListener('click', handleClose);
             overlay.addEventListener('click', handleClose);
+            if (imageContainer) imageContainer.addEventListener('click', handleImageClick);
             confirmBtn.addEventListener('click', handleConfirm);
             decreaseBtn.addEventListener('click', handleDecrease);
             increaseBtn.addEventListener('click', handleIncrease);

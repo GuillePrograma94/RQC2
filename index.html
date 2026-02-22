@@ -690,6 +690,29 @@
         </div>
     </div>
 
+    <!-- Overlay detalle de producto (imagen grande + carousel + ficha técnica) -->
+    <div id="productDetailOverlay" class="product-detail-overlay" style="display: none;" aria-hidden="true">
+        <div class="product-detail-backdrop"></div>
+        <div class="product-detail-content">
+            <button type="button" id="closeProductDetailBtn" class="product-detail-close" aria-label="Cerrar detalle de producto">&#10005;</button>
+            <div class="product-detail-header">
+                <div class="product-detail-code" id="productDetailCode"></div>
+                <div class="product-detail-description" id="productDetailDescription"></div>
+            </div>
+            <div class="product-detail-carousel" role="region" aria-label="Imagenes del producto" id="productDetailCarousel">
+                <div class="product-detail-carousel-inner" id="productDetailCarouselInner">
+                    <!-- Imágenes inyectadas por JS -->
+                </div>
+                <button type="button" class="product-detail-carousel-prev" id="productDetailCarouselPrev" aria-label="Imagen anterior" style="display: none;">&#9664;</button>
+                <button type="button" class="product-detail-carousel-next" id="productDetailCarouselNext" aria-label="Imagen siguiente" style="display: none;">&#9654;</button>
+                <div class="product-detail-carousel-dots" id="productDetailCarouselDots"></div>
+            </div>
+            <div class="product-detail-ficha" id="productDetailFicha" style="display: none;">
+                <a id="productDetailFichaLink" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary">Ver ficha t&eacute;cnica (PDF)</a>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal de Información de Oferta -->
     <div id="ofertaInfoModal" class="oferta-info-modal" style="display: none;">
         <div class="oferta-info-overlay"></div>
