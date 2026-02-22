@@ -125,16 +125,20 @@ class UIManager {
         toast.className = `toast ${type}`;
         toast.textContent = message;
 
-        document.body.appendChild(toast);
+        const container = document.getElementById('toastContainer');
+        (container || document.body).appendChild(toast);
         this.currentToast = toast;
 
-        // Remover automáticamente después de 3 segundos
+        // Remover automáticamente al cabo de unos segundos (no tapan el menú de forma permanente)
+        const duration = window.APP_CONFIG && window.APP_CONFIG.ui && window.APP_CONFIG.ui.toastDuration
+            ? window.APP_CONFIG.ui.toastDuration
+            : 3500;
         setTimeout(() => {
             if (this.currentToast === toast) {
                 toast.remove();
                 this.currentToast = null;
             }
-        }, window.APP_CONFIG.ui.toastDuration);
+        }, duration);
     }
 
     /**
