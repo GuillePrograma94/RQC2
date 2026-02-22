@@ -2371,6 +2371,9 @@ class ScanAsYouShopApp {
         carouselInner.addEventListener('touchend', handleTouchEnd, { passive: false });
 
         const handleClose = () => {
+            if (overlayEl.contains(document.activeElement)) {
+                document.activeElement.blur();
+            }
             overlayEl.style.display = 'none';
             overlayEl.setAttribute('aria-hidden', 'true');
             closeBtn.removeEventListener('click', handleClose);
