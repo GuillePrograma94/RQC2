@@ -20,6 +20,8 @@ this.sendRemoteOrder(this.getEffectiveAlmacenHabitual(), observaciones);
 
 **Codigo de cliente en este paso:** Aun no se usa. Solo se llama `sendRemoteOrder(almacen, observaciones)`. Para comerciales, el almacen habitual es el del cliente representado (`getEffectiveAlmacenHabitual()`).
 
+**Comercial sin cliente a representar:** Si el usuario es comercial y no tiene seleccionado un cliente (`cliente_representado_id`), al intentar "Recoger en almacen" o "Enviar en ruta" (o al confirmar en el modal) la app no envia el pedido: cierra los modales, muestra un aviso y redirige a la pantalla de seleccion de cliente a representar (`selectorCliente`). El carrito no se pierde; al volver de esa pantalla el comercial puede elegir cliente y volver a intentar enviar.
+
 ---
 
 ## Paso 1: sendRemoteOrder llama a crearPedidoRemoto con user_id, almacen, observaciones y operario

@@ -3614,6 +3614,12 @@ class ScanAsYouShopApp {
             return;
         }
 
+        if (this.currentUser.is_comercial && !this.currentUser.cliente_representado_id) {
+            window.ui.showToast('Selecciona el cliente al que representas para poder enviar el pedido', 'warning');
+            this.showScreen('selectorCliente');
+            return;
+        }
+
         const container = document.querySelector('.almacen-options');
         if (container) {
             const allAlmacenes = ['ALZIRA', 'GANDIA', 'ONTINYENT', 'REQUENA'];
@@ -3730,6 +3736,11 @@ class ScanAsYouShopApp {
             window.ui.showToast('El carrito esta vacio', 'warning');
             return;
         }
+        if (this.currentUser.is_comercial && !this.currentUser.cliente_representado_id) {
+            window.ui.showToast('Selecciona el cliente al que representas para poder enviar el pedido', 'warning');
+            this.showScreen('selectorCliente');
+            return;
+        }
         if (!this.getEffectiveAlmacenHabitual()) {
             window.ui.showToast('No tienes almacen habitual asignado. Contacta con tu comercial.', 'warning');
             return;
@@ -3824,6 +3835,14 @@ class ScanAsYouShopApp {
         try {
             if (!this.currentUser) {
                 window.ui.showToast('Debes iniciar sesion', 'error');
+                return;
+            }
+
+            if (this.currentUser.is_comercial && !this.currentUser.cliente_representado_id) {
+                this.hideAlmacenModal();
+                this.hideEnviarEnRutaModal();
+                window.ui.showToast('Selecciona el cliente al que representas para poder enviar el pedido', 'warning');
+                this.showScreen('selectorCliente');
                 return;
             }
 
