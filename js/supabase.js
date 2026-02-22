@@ -662,6 +662,7 @@ class SupabaseClient {
                 nombre_titular: data.nombre_titular || null,
                 tipo: tipo,
                 es_comercial: tipo === 'COMERCIAL' || !!data.es_comercial,
+                es_administrador: !!data.es_administrador,
                 comercial_id: data.comercial_id ?? null,
                 comercial_numero: data.comercial_numero ?? null
             };

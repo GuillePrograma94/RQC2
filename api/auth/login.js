@@ -155,6 +155,9 @@ module.exports = async (req, res) => {
 
     if (esOperario) {
         // Operario: crear/actualizar usuario de Auth propio (email 84845-01@labels.auth) y guardar en usuarios_operarios
+        const tipoTitular = (row.tipo && String(row.tipo).toUpperCase()) || 'CLIENTE';
+        const esAdministrador = tipoTitular === 'ADMINISTRADOR';
+
         const parts = codigoUsuario.trim().split('-');
         const codigoOperario = parts.length > 1 ? String(parts[1]).trim() : null;
         if (!codigoOperario) {
@@ -181,7 +184,7 @@ module.exports = async (req, res) => {
                 email,
                 password,
                 email_confirm: true,
-                app_metadata: { usuario_id: userId, es_operario: true }
+                app_metadata: { usuario_id: userId, es_operario: true, es_administrador: esAdministrador }
             });
 
             if (createError) {
@@ -207,13 +210,19 @@ module.exports = async (req, res) => {
             }
         } else {
             try {
-                await supabase.auth.admin.updateUserById(authUserId, { password });
+                await supabase.auth.admin.updateUserById(authUserId, {
+                    password,
+                    app_metadata: { usuario_id: userId, es_operario: true, es_administrador: esAdministrador }
+                });
             } catch (_) {
                 // Ignorar si falla actualizar password (ej. mismo valor)
             }
         }
     } else {
         // Titular: crear/actualizar usuario de Auth en usuarios.auth_user_id (comportamiento original)
+        const tipo = (row.tipo && String(row.tipo).toUpperCase()) || 'CLIENTE';
+        const esAdministrador = tipo === 'ADMINISTRADOR';
+
         const { data: userRow, error: userError } = await supabase
             .from('usuarios')
             .select('auth_user_id')
@@ -232,7 +241,7 @@ module.exports = async (req, res) => {
                 email,
                 password,
                 email_confirm: true,
-                app_metadata: { usuario_id: userId }
+                app_metadata: { usuario_id: userId, es_administrador: esAdministrador }
             });
 
             if (createError) {
@@ -252,7 +261,10 @@ module.exports = async (req, res) => {
             }
         } else {
             try {
-                await supabase.auth.admin.updateUserById(authUserId, { password });
+                await supabase.auth.admin.updateUserById(authUserId, {
+                    password,
+                    app_metadata: { usuario_id: userId, es_administrador: esAdministrador }
+                });
             } catch (_) {
                 // Ignorar si falla actualizar password (ej. mismo valor)
             }
@@ -274,6 +286,7 @@ module.exports = async (req, res) => {
         codigo_usuario_titular: row.codigo_usuario_titular || null,
         nombre_titular: row.nombre_titular || null,
         tipo: tipo,
-        es_comercial: tipo === 'COMERCIAL'
+        es_comercial: tipo === 'COMERCIAL',
+        es_administrador: tipo === 'ADMINISTRADOR'
     });
 };

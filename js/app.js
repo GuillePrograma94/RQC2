@@ -238,6 +238,7 @@ class ScanAsYouShopApp {
                     nombre_titular: loginResult.nombre_titular || null,
                     tipo: tipo,
                     is_comercial: isComercial,
+                    is_administrador: !!loginResult.es_administrador,
                     comercial_id: loginResult.comercial_id ?? null,
                     comercial_numero: loginResult.comercial_numero ?? null
                 };
@@ -702,6 +703,8 @@ class ScanAsYouShopApp {
                     this.updateComercialCard();
                 }
             }
+            var herramientasBtn = document.getElementById('herramientasBtn');
+            if (herramientasBtn) herramientasBtn.style.display = this.currentUser.is_administrador ? '' : 'none';
         } else {
             // Usuario NO logueado
             if (menuGuest) menuGuest.style.display = 'block';
@@ -710,6 +713,8 @@ class ScanAsYouShopApp {
             if (historyFilterGroup) historyFilterGroup.style.display = 'none';
             const menuCommercialCard = document.getElementById('menuCommercialCard');
             if (menuCommercialCard) menuCommercialCard.style.display = 'none';
+            const herramientasBtnGuest = document.getElementById('herramientasBtn');
+            if (herramientasBtnGuest) herramientasBtnGuest.style.display = 'none';
         }
     }
 
