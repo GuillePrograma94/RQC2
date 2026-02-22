@@ -1395,7 +1395,7 @@ class ScanAsYouShopApp {
         const codAttr = (c) => this.escapeForHtmlAttribute(c);
         return items.map(item => {
             const cod = codAttr(item.codigo);
-            const desc = this.escapeForHtmlAttribute((item.descripcion || '').substring(0, 60)) + (item.descripcion && item.descripcion.length > 60 ? '...' : '');
+            const desc = this.escapeForHtmlAttribute(item.descripcion || '');
             const price = (item.pvp != null ? Number(item.pvp) : 0).toFixed(2);
             const img = item.imageUrl || this._wcProductImageBase() + cod + '_1.JPG';
             return '<button type="button" class="wc-completo-card wc-completo-card-product" data-tipo="' + tipo + '" data-codigo="' + cod + '" data-descripcion="' + this.escapeForHtmlAttribute(item.descripcion || '') + '" data-pvp="' + (item.pvp != null ? item.pvp : 0) + '" aria-label="' + this.escapeForHtmlAttribute(item.descripcion || item.codigo) + '">' +
@@ -1443,7 +1443,7 @@ class ScanAsYouShopApp {
                 total += (item.pvp != null ? item.pvp : 0);
                 const img = base + this.escapeForHtmlAttribute(item.codigo) + '_1.JPG';
                 const label = tipo === 'taza' ? 'Taza' : tipo === 'tanque' ? 'Tanque' : 'Asiento';
-                const desc = this.escapeForHtmlAttribute((item.descripcion || '').substring(0, 30)) + (item.descripcion && item.descripcion.length > 30 ? '...' : '');
+                const desc = this.escapeForHtmlAttribute(item.descripcion || '');
                 parts.push('<div class="wc-completo-summary-item">' +
                     '<img src="' + img + '" alt="" onerror="this.style.display=\'none\'">' +
                     '<span class="wc-completo-summary-item-label">' + label + '</span>' +

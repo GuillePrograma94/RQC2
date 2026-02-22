@@ -3006,11 +3006,13 @@ body.gate-visible .app-container {
     padding: 0.5rem 0.6rem 0;
     font-size: 0.8rem;
     color: var(--gray-700);
-    line-height: 1.3;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    line-height: 1.35;
+    display: block;
+    overflow-wrap: break-word;
+    white-space: normal;
+    max-height: 9em;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 .wc-completo-card-product-price {
     padding: 0.35rem 0.6rem 0.6rem;
@@ -3075,6 +3077,10 @@ body.gate-visible .app-container {
     font-size: 0.8rem;
     grid-column: 2;
     grid-row: 2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 .wc-completo-summary-item-price {
     font-weight: 600;
