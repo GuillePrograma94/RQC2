@@ -3617,6 +3617,7 @@ class ScanAsYouShopApp {
         if (this.currentUser.is_comercial && !this.currentUser.cliente_representado_id) {
             window.ui.showToast('Selecciona el cliente al que representas para poder enviar el pedido', 'warning');
             this.showScreen('selectorCliente');
+            this.renderSelectorClienteScreen();
             return;
         }
 
@@ -3739,6 +3740,7 @@ class ScanAsYouShopApp {
         if (this.currentUser.is_comercial && !this.currentUser.cliente_representado_id) {
             window.ui.showToast('Selecciona el cliente al que representas para poder enviar el pedido', 'warning');
             this.showScreen('selectorCliente');
+            this.renderSelectorClienteScreen();
             return;
         }
         if (!this.getEffectiveAlmacenHabitual()) {
@@ -3843,6 +3845,7 @@ class ScanAsYouShopApp {
                 this.hideEnviarEnRutaModal();
                 window.ui.showToast('Selecciona el cliente al que representas para poder enviar el pedido', 'warning');
                 this.showScreen('selectorCliente');
+                this.renderSelectorClienteScreen();
                 return;
             }
 
