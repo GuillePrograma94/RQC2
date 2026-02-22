@@ -416,33 +416,35 @@ class CartManager {
     /**
      * Guarda productos en el almacenamiento local
      * NORMALIZA códigos a MAYÚSCULAS para búsqueda exacta ultrarrápida
+     * Optimizado: pre-normaliza fuera de la transacción para reducir bloqueo de la UI
      */
     async saveProductsToStorage(productos) {
         try {
-            const transaction = this.db.transaction(['products'], 'readwrite');
-            const store = transaction.objectStore('products');
-
-            // Limpiar productos anteriores
-            await store.clear();
-
-            // Añadir nuevos productos con códigos normalizados
-            let saved = 0;
-            for (const producto of productos) {
-                // Normalizar código a MAYÚSCULAS
-                const normalizedProduct = {
-                    ...producto,
-                    codigo: producto.codigo.toUpperCase()
-                };
-                await store.add(normalizedProduct);
-                saved++;
+            if (!productos || productos.length === 0) {
+                console.warn('⚠️ No hay productos para guardar');
+                return;
             }
 
-            return new Promise((resolve, reject) => {
-                transaction.oncomplete = () => {
-                    console.log(`✅ ${saved} productos guardados (códigos normalizados a MAYÚSCULAS)`);
+            // Pre-normalizar FUERA de la transacción para no bloquear la UI
+            const normalizedList = productos.map(function (p) {
+                return Object.assign({}, p, { codigo: (p.codigo || '').toUpperCase() });
+            });
+
+            console.log(`📝 Guardando ${normalizedList.length} productos...`);
+
+            const db = this.db;
+            await new Promise(function (resolve, reject) {
+                const transaction = db.transaction(['products'], 'readwrite');
+                const store = transaction.objectStore('products');
+                store.clear();
+                for (let i = 0; i < normalizedList.length; i++) {
+                    store.add(normalizedList[i]);
+                }
+                transaction.oncomplete = function () {
+                    console.log(`✅ ${normalizedList.length} productos guardados (códigos normalizados a MAYÚSCULAS)`);
                     resolve();
                 };
-                transaction.onerror = () => reject(transaction.error);
+                transaction.onerror = function () { reject(transaction.error); };
             });
 
         } catch (error) {
@@ -535,6 +537,7 @@ class CartManager {
     /**
      * Guarda códigos secundarios en el almacenamiento local
      * NORMALIZA códigos a MAYÚSCULAS para búsqueda exacta ultrarrápida
+     * Optimizado: pre-normaliza fuera de transacciones y escribe por chunks para no bloquear la UI
      */
     async saveSecondaryCodesToStorage(codigosSecundarios) {
         try {
@@ -542,48 +545,56 @@ class CartManager {
                 console.warn('⚠️ No hay códigos secundarios para guardar');
                 return;
             }
-            
-            console.log(`📝 Guardando ${codigosSecundarios.length} códigos secundarios...`);
-            
-            const transaction = this.db.transaction(['secondary_codes'], 'readwrite');
-            const store = transaction.objectStore('secondary_codes');
 
-            // Limpiar códigos anteriores
-            await store.clear();
-
-            // Añadir nuevos códigos con normalización
-            let saved = 0;
-            for (const codigo of codigosSecundarios) {
-                try {
-                    // Normalizar códigos a MAYÚSCULAS (NO incluir 'id', se auto-genera)
-                    const normalizedCode = {
-                        codigo_secundario: codigo.codigo_secundario.toUpperCase(),
-                        codigo_principal: codigo.codigo_principal.toUpperCase(),
-                        descripcion: codigo.descripcion || ''
-                    };
-                    store.add(normalizedCode); // Sin await para mejor performance
-                    saved++;
-                    
-                    // Log de los primeros 3 para debug
-                    if (saved <= 3) {
-                        console.log(`  📌 Ejemplo ${saved}: ${normalizedCode.codigo_secundario} → ${normalizedCode.codigo_principal}`);
-                    }
-                } catch (err) {
-                    console.error(`❌ Error al guardar código secundario:`, codigo, err);
-                }
-            }
-
-            return new Promise((resolve, reject) => {
-                transaction.oncomplete = () => {
-                    console.log(`✅ ${saved} códigos secundarios guardados (normalizados a MAYÚSCULAS)`);
-                    resolve();
-                };
-                transaction.onerror = () => {
-                    console.error('❌ Error en transacción de códigos secundarios:', transaction.error);
-                    reject(transaction.error);
+            // Pre-normalizar FUERA de transacciones para no bloquear la UI
+            const normalizedList = codigosSecundarios.map(function (c) {
+                return {
+                    codigo_secundario: (c.codigo_secundario || '').toUpperCase(),
+                    codigo_principal: (c.codigo_principal || '').toUpperCase(),
+                    descripcion: c.descripcion || ''
                 };
             });
 
+            console.log(`📝 Guardando ${normalizedList.length} códigos secundarios...`);
+            if (normalizedList.length >= 3) {
+                console.log(`  📌 Ejemplo 1: ${normalizedList[0].codigo_secundario} → ${normalizedList[0].codigo_principal}`);
+            }
+
+            const CHUNK_SIZE = 2500;
+            const db = this.db;
+            let offset = 0;
+
+            // Primera transacción: clear + primer chunk
+            await new Promise(function (resolve, reject) {
+                const transaction = db.transaction(['secondary_codes'], 'readwrite');
+                const store = transaction.objectStore('secondary_codes');
+                store.clear();
+                const end = Math.min(CHUNK_SIZE, normalizedList.length);
+                for (let i = 0; i < end; i++) {
+                    store.add(normalizedList[i]);
+                }
+                transaction.oncomplete = function () { resolve(); };
+                transaction.onerror = function () { reject(transaction.error); };
+            });
+            offset = Math.min(CHUNK_SIZE, normalizedList.length);
+
+            // Chunks siguientes: permitir que la UI se actualice entre transacciones
+            while (offset < normalizedList.length) {
+                await new Promise(function (r) { setTimeout(r, 0); });
+                await new Promise(function (resolve, reject) {
+                    const transaction = db.transaction(['secondary_codes'], 'readwrite');
+                    const store = transaction.objectStore('secondary_codes');
+                    const end = Math.min(offset + CHUNK_SIZE, normalizedList.length);
+                    for (let i = offset; i < end; i++) {
+                        store.add(normalizedList[i]);
+                    }
+                    transaction.oncomplete = function () { resolve(); };
+                    transaction.onerror = function () { reject(transaction.error); };
+                });
+                offset += CHUNK_SIZE;
+            }
+
+            console.log(`✅ ${normalizedList.length} códigos secundarios guardados (normalizados a MAYÚSCULAS)`);
         } catch (error) {
             console.error('Error al guardar códigos secundarios:', error);
             throw error;
