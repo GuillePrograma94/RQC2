@@ -247,4 +247,4 @@ La columna `tipo` en `usuarios` admite los valores que ya existian (`'CLIENTE'`,
 | **BD** | Columna `usuarios.tipo` ('CLIENTE' \| 'COMERCIAL' \| 'ADMINISTRADOR'); RLS en tablas `wc_*` (lectura amplia, escritura solo admin o service_role). |
 | **RPC** | `verificar_login_usuario` devuelve `tipo` o `es_administrador`. |
 | **API login** | Respuesta con `es_administrador`; app_metadata del Auth con `es_administrador` para el JWT. |
-| **Front** | Herramientas (y WC Completo) visibles para todos; boton Panel de Control solo si es_administrador; dentro del Panel, Configurar conjuntos WC y demas herramientas de admin. | Mostrar Herramientas solo si `es_administrador`; dentro, “Configurar conjuntos WC” solo admin; configurador WC (desplegables) para quien deba usarlo. |
+| **Front** | Herramientas (y WC Completo) visibles para todos; boton Panel de Control solo si es_administrador; dentro del Panel, Configurar conjuntos WC y demas herramientas de admin. |
