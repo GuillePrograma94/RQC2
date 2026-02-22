@@ -2878,42 +2878,225 @@ body.gate-visible .app-container {
 }
 .wc-piezas-item button { flex-shrink: 0; }
 
-/* WC Completo (configurador en Herramientas) */
-.wc-completo-form {
-    padding: 1rem;
+/* WC Completo (configurador en Herramientas) - UX con imagenes y descripciones */
+.wc-completo-main {
+    padding-bottom: 1.5rem;
 }
 .wc-completo-intro {
     font-size: 0.95rem;
     color: var(--gray-600);
-    margin: 0 0 1rem 0;
-    line-height: 1.4;
+    margin: 0 1rem 1rem;
+    line-height: 1.45;
 }
-.wc-completo-form .form-group {
+.wc-completo-step {
+    margin: 0 1rem 1.5rem;
+}
+.wc-completo-step-locked {
+    opacity: 0.6;
+    pointer-events: none;
+}
+.wc-completo-step-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-600);
+    margin: 0 0 0.75rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.wc-completo-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: var(--primary, #667eea);
+    color: var(--white, #fff);
+    font-size: 0.8rem;
+}
+.wc-completo-grid {
+    display: grid;
+    gap: 0.75rem;
+}
+.wc-completo-grid-conjuntos {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+.wc-completo-grid-products {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+.wc-completo-card {
+    border: 2px solid var(--gray-200);
+    border-radius: 12px;
+    background: var(--white);
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    overflow: hidden;
+}
+.wc-completo-card:hover,
+.wc-completo-card:focus {
+    border-color: var(--primary, #667eea);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+.wc-completo-card.selected {
+    border-color: var(--primary, #667eea);
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+}
+/* Card conjunto (modelo): icono + nombre + descripcion */
+.wc-completo-card-conjunto {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem 0.75rem;
+}
+.wc-completo-card-conjunto-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%);
+    margin-bottom: 0.5rem;
+    display: block;
+}
+.wc-completo-card-conjunto-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--gray-800);
+    margin-bottom: 0.25rem;
+}
+.wc-completo-card-conjunto-desc {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+/* Card producto: imagen + descripcion + precio */
+.wc-completo-card-product {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+.wc-completo-card-product-img-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    background: var(--gray-100);
+    overflow: hidden;
+}
+.wc-completo-card-product-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.wc-completo-card-product-placeholder {
+    width: 100%;
+    height: 100%;
+    background: var(--gray-200);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.wc-completo-card-product-desc {
+    padding: 0.5rem 0.6rem 0;
+    font-size: 0.8rem;
+    color: var(--gray-700);
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.wc-completo-card-product-price {
+    padding: 0.35rem 0.6rem 0.6rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--primary, #667eea);
+}
+.wc-completo-loading,
+.wc-completo-empty {
+    padding: 1rem;
+    text-align: center;
+    color: var(--gray-500);
+    font-size: 0.9rem;
+}
+/* Resumen y boton Anadir */
+.wc-completo-summary {
+    margin: 1.5rem 1rem 0;
+    padding: 1rem;
+    background: linear-gradient(180deg, var(--gray-50) 0%, var(--white) 100%);
+    border-radius: 14px;
+    border: 1px solid var(--gray-200);
+}
+.wc-completo-summary-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0 0 0.75rem 0;
+}
+.wc-completo-summary-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+.wc-completo-summary-item {
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 0.15rem 0.5rem;
+    align-items: center;
+    font-size: 0.85rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+.wc-completo-summary-item:last-of-type { border-bottom: none; }
+.wc-completo-summary-item img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: 6px;
+    background: var(--gray-100);
+    grid-row: 1 / -1;
+}
+.wc-completo-summary-item-label {
+    font-weight: 600;
+    color: var(--gray-700);
+    grid-column: 2;
+    grid-row: 1;
+}
+.wc-completo-summary-item-desc {
+    color: var(--gray-500);
+    font-size: 0.8rem;
+    grid-column: 2;
+    grid-row: 2;
+}
+.wc-completo-summary-item-price {
+    font-weight: 600;
+    color: var(--primary, #667eea);
+    grid-column: 3;
+    grid-row: 1 / -1;
+    align-self: center;
+}
+.wc-completo-summary-empty {
+    color: var(--gray-500);
+    font-size: 0.9rem;
+    margin: 0;
+}
+.wc-completo-summary-total {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--gray-800);
     margin-bottom: 1rem;
 }
-.wc-completo-form .form-group label {
-    display: block;
-    margin-bottom: 0.35rem;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--gray-700);
-}
-.wc-completo-form .form-group select {
+.wc-completo-add-btn {
     width: 100%;
-    padding: 0.65rem 0.75rem;
-    border: 1px solid var(--gray-300);
-    border-radius: 8px;
-    font-size: 1rem;
-    background: var(--white);
 }
-.wc-completo-form .form-group select:disabled {
-    background: var(--gray-100);
-    color: var(--gray-500);
-}
-.wc-completo-actions {
-    margin-top: 1.5rem;
-}
-.wc-completo-actions .btn { width: 100%; }
 
 .profile-section {
     margin-bottom: 1.75rem;

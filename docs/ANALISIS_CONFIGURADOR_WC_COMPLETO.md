@@ -237,7 +237,7 @@ La columna `tipo` en `usuarios` admite los valores que ya existian (`'CLIENTE'`,
 ### 7.4 Frontend (scan_client_mobile)
 
 - **Menú**: **Herramientas** se muestra a todos los usuarios autenticados (clientes, comerciales, administradores). Dentro de Herramientas está **WC Completo**, accesible para todos. **Panel de Control** es un botón distinto en el menú, visible solo si `es_administrador === true`; ahí irán las acciones exclusivas del administrador (p. ej. configurar conjuntos WC).
-- **Dentro de Herramientas**: **WC Completo** implementado: pantalla con desplegable Conjunto (activos), al elegir se cargan desplegables Taza, Tanque y Asiento; si un conjunto tiene una sola opcion se preselecciona; boton "Anadir WC completo al carrito" anade las 3 piezas (1 ud cada una) y lleva al carrito.
+- **Dentro de Herramientas**: **WC Completo** con UX orientada a conversion: pasos 1-4 (Modelo, Taza, Tanque, Asiento); cards con imagen de producto (SKU -> URL imagen), descripcion y PVP; seleccion visual (card seleccionada); resumen con miniaturas y total antes de anadir; datos de producto desde IndexedDB (getProductByCodigo) para descripcion y precio.
 - **Dentro de Panel de Control** (solo administrador): **Configurar conjuntos WC** implementado: boton abre lista de conjuntos; Nuevo conjunto / Editar / Eliminar; en detalle se editan nombre, codigo, descripcion, orden, activo y se gestionan tazas, tanques y asientos por codigo de producto (anadir/quitar). CRUD usa Supabase con JWT de admin; RLS restringe escritura a es_administrador.
 
 ### 7.5 Resumen de implementación

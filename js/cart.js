@@ -711,6 +711,25 @@ class CartManager {
     }
 
     /**
+     * Obtiene un producto por codigo (solo almacen local). Sin logs. Para configuradores (WC Completo).
+     */
+    async getProductByCodigo(codigo) {
+        try {
+            if (!codigo || !codigo.trim() || !this.db) return null;
+            const normalizedCode = (codigo.trim()).toUpperCase();
+            return new Promise((resolve) => {
+                const tx = this.db.transaction(['products'], 'readonly');
+                const store = tx.objectStore('products');
+                const req = store.get(normalizedCode);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => resolve(null);
+            });
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
      * Búsqueda inteligente por código: Prioriza match exacto
      * Si existe match exacto, solo muestra ese. Si no, muestra parciales
      */
