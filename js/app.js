@@ -1283,6 +1283,123 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Pantalla WC Completo: carga conjuntos activos en el desplegable
+     */
+    async renderWcCompletoScreen() {
+        const selectConjunto = document.getElementById('wcCompletoConjunto');
+        const selectTaza = document.getElementById('wcCompletoTaza');
+        const selectTanque = document.getElementById('wcCompletoTanque');
+        const selectAsiento = document.getElementById('wcCompletoAsiento');
+        if (!selectConjunto) return;
+        const baseOption = '<option value="">-- Elegir conjunto --</option>';
+        try {
+            const conjuntos = await window.supabaseClient.getWcConjuntos();
+            const activos = (conjuntos || []).filter(c => c.activo !== false);
+            selectConjunto.innerHTML = baseOption + activos.map(c => {
+                const id = this.escapeForHtmlAttribute(c.id);
+                const nombre = this.escapeForHtmlAttribute(c.nombre || '');
+                return '<option value="' + id + '">' + nombre + '</option>';
+            }).join('');
+            selectTaza.innerHTML = '<option value="">-- Elegir taza --</option>';
+            selectTanque.innerHTML = '<option value="">-- Elegir tanque --</option>';
+            selectAsiento.innerHTML = '<option value="">-- Elegir asiento --</option>';
+            selectTaza.disabled = true;
+            selectTanque.disabled = true;
+            selectAsiento.disabled = true;
+            document.getElementById('wcCompletoAddBtn').disabled = true;
+        } catch (e) {
+            console.error('Error renderWcCompletoScreen:', e);
+            selectConjunto.innerHTML = baseOption;
+        }
+    }
+
+    /**
+     * Al cambiar el conjunto seleccionado, carga tazas, tanques y asientos
+     */
+    async onWcCompletoConjuntoChange() {
+        const conjuntoId = document.getElementById('wcCompletoConjunto') && document.getElementById('wcCompletoConjunto').value;
+        const selectTaza = document.getElementById('wcCompletoTaza');
+        const selectTanque = document.getElementById('wcCompletoTanque');
+        const selectAsiento = document.getElementById('wcCompletoAsiento');
+        if (!conjuntoId) {
+            selectTaza.innerHTML = '<option value="">-- Elegir taza --</option>';
+            selectTanque.innerHTML = '<option value="">-- Elegir tanque --</option>';
+            selectAsiento.innerHTML = '<option value="">-- Elegir asiento --</option>';
+            selectTaza.disabled = true;
+            selectTanque.disabled = true;
+            selectAsiento.disabled = true;
+            this.updateWcCompletoAddButtonState();
+            return;
+        }
+        try {
+            const [tazas, tanques, asientos] = await Promise.all([
+                window.supabaseClient.getWcConjuntoTazas(conjuntoId),
+                window.supabaseClient.getWcConjuntoTanques(conjuntoId),
+                window.supabaseClient.getWcConjuntoAsientos(conjuntoId)
+            ]);
+            const fillSelect = (select, items, label) => {
+                const base = '<option value="">-- ' + label + ' --</option>';
+                select.innerHTML = base + (items || []).map(it => {
+                    const cod = this.escapeForHtmlAttribute(it.producto_codigo || '');
+                    return '<option value="' + cod + '">' + cod + '</option>';
+                }).join('');
+                select.disabled = false;
+            };
+            fillSelect(selectTaza, tazas, 'Elegir taza');
+            fillSelect(selectTanque, tanques, 'Elegir tanque');
+            fillSelect(selectAsiento, asientos, 'Elegir asiento');
+            if (tazas && tazas.length === 1) selectTaza.value = tazas[0].producto_codigo || '';
+            if (tanques && tanques.length === 1) selectTanque.value = tanques[0].producto_codigo || '';
+            if (asientos && asientos.length === 1) selectAsiento.value = asientos[0].producto_codigo || '';
+            this.updateWcCompletoAddButtonState();
+        } catch (e) {
+            console.error('Error onWcCompletoConjuntoChange:', e);
+            selectTaza.disabled = true;
+            selectTanque.disabled = true;
+            selectAsiento.disabled = true;
+            this.updateWcCompletoAddButtonState();
+        }
+    }
+
+    /**
+     * Habilita el boton "Anadir WC completo" solo si hay taza, tanque y asiento elegidos
+     */
+    updateWcCompletoAddButtonState() {
+        const taza = document.getElementById('wcCompletoTaza') && document.getElementById('wcCompletoTaza').value;
+        const tanque = document.getElementById('wcCompletoTanque') && document.getElementById('wcCompletoTanque').value;
+        const asiento = document.getElementById('wcCompletoAsiento') && document.getElementById('wcCompletoAsiento').value;
+        const btn = document.getElementById('wcCompletoAddBtn');
+        if (btn) btn.disabled = !(taza && tanque && asiento);
+    }
+
+    /**
+     * Anade las tres piezas (taza, tanque, asiento) al carrito sin modal de cantidad
+     */
+    async handleWcCompletoAddToCart() {
+        const tazaCodigo = document.getElementById('wcCompletoTaza') && document.getElementById('wcCompletoTaza').value;
+        const tanqueCodigo = document.getElementById('wcCompletoTanque') && document.getElementById('wcCompletoTanque').value;
+        const asientoCodigo = document.getElementById('wcCompletoAsiento') && document.getElementById('wcCompletoAsiento').value;
+        if (!tazaCodigo || !tanqueCodigo || !asientoCodigo) {
+            window.ui.showToast('Elige taza, tanque y asiento', 'error');
+            return;
+        }
+        const codigos = [tazaCodigo, tanqueCodigo, asientoCodigo];
+        try {
+            for (const codigo of codigos) {
+                const productos = await window.cartManager.searchProductsExact(codigo);
+                const p = (productos && productos[0]) ? { codigo: productos[0].codigo, descripcion: productos[0].descripcion || codigo, pvp: productos[0].pvp != null ? productos[0].pvp : 0 } : { codigo: codigo, descripcion: codigo, pvp: 0 };
+                await window.cartManager.addProduct(p, 1);
+            }
+            window.ui.updateCartBadge();
+            window.ui.showToast('WC completo anadido al carrito (3 productos)', 'success');
+            this.showScreen('cart');
+        } catch (e) {
+            console.error('Error handleWcCompletoAddToCart:', e);
+            window.ui.showToast('Error al anadir al carrito', 'error');
+        }
+    }
+
+    /**
      * Normaliza teléfono para WhatsApp: solo dígitos, con prefijo de país si no lo lleva
      */
     normalizePhoneForWhatsApp(telefono) {
@@ -1822,11 +1939,41 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Herramientas: WC Completo (accion por definir)
+        // Herramientas: WC Completo -> pantalla configurador
         const herramientaWcCompletoBtn = document.getElementById('herramientaWcCompletoBtn');
         if (herramientaWcCompletoBtn) {
             herramientaWcCompletoBtn.addEventListener('click', () => {
-                // TODO: implementar accion WC Completo
+                this.showScreen('wcCompleto');
+                this.renderWcCompletoScreen();
+            });
+        }
+
+        // WC Completo: Volver a Herramientas
+        const wcCompletoBackBtn = document.getElementById('wcCompletoBackBtn');
+        if (wcCompletoBackBtn) {
+            wcCompletoBackBtn.addEventListener('click', () => {
+                this.showScreen('herramientas');
+            });
+        }
+
+        // WC Completo: cambio de conjunto -> cargar tazas, tanques, asientos
+        const wcCompletoConjuntoSelect = document.getElementById('wcCompletoConjunto');
+        if (wcCompletoConjuntoSelect) {
+            wcCompletoConjuntoSelect.addEventListener('change', () => {
+                this.onWcCompletoConjuntoChange();
+            });
+        }
+
+        // WC Completo: cambio en cualquier selector -> habilitar/deshabilitar boton Anadir
+        [document.getElementById('wcCompletoTaza'), document.getElementById('wcCompletoTanque'), document.getElementById('wcCompletoAsiento')].forEach(el => {
+            if (el) el.addEventListener('change', () => this.updateWcCompletoAddButtonState());
+        });
+
+        // WC Completo: Anadir al carrito
+        const wcCompletoAddBtn = document.getElementById('wcCompletoAddBtn');
+        if (wcCompletoAddBtn) {
+            wcCompletoAddBtn.addEventListener('click', () => {
+                this.handleWcCompletoAddToCart();
             });
         }
 

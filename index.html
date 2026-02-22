@@ -500,6 +500,48 @@
         </div>
 
         <!-- ================================
+             PANTALLA WC COMPLETO (configurador para todos)
+             ================================ -->
+        <div id="wcCompletoScreen" class="screen">
+            <main class="screen-content">
+                <div class="profile-header">
+                    <button type="button" id="wcCompletoBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title">WC Completo</h2>
+                </div>
+                <div class="wc-completo-form">
+                    <p class="wc-completo-intro">Elige un conjunto y las piezas compatibles (taza, tanque, asiento). Luego anade el WC completo al carrito.</p>
+                    <div class="form-group">
+                        <label for="wcCompletoConjunto">Conjunto</label>
+                        <select id="wcCompletoConjunto">
+                            <option value="">-- Elegir conjunto --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="wcCompletoTaza">Taza</label>
+                        <select id="wcCompletoTaza" disabled>
+                            <option value="">-- Elegir taza --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="wcCompletoTanque">Tanque</label>
+                        <select id="wcCompletoTanque" disabled>
+                            <option value="">-- Elegir tanque --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="wcCompletoAsiento">Asiento</label>
+                        <select id="wcCompletoAsiento" disabled>
+                            <option value="">-- Elegir asiento --</option>
+                        </select>
+                    </div>
+                    <div class="wc-completo-actions">
+                        <button type="button" id="wcCompletoAddBtn" class="btn btn-primary btn-lg" disabled>Anadir WC completo al carrito</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- ================================
              PANTALLA PANEL DE CONTROL (solo administrador)
              ================================ -->
         <div id="panelControlScreen" class="screen">

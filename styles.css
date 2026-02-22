@@ -2878,6 +2878,43 @@ body.gate-visible .app-container {
 }
 .wc-piezas-item button { flex-shrink: 0; }
 
+/* WC Completo (configurador en Herramientas) */
+.wc-completo-form {
+    padding: 1rem;
+}
+.wc-completo-intro {
+    font-size: 0.95rem;
+    color: var(--gray-600);
+    margin: 0 0 1rem 0;
+    line-height: 1.4;
+}
+.wc-completo-form .form-group {
+    margin-bottom: 1rem;
+}
+.wc-completo-form .form-group label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--gray-700);
+}
+.wc-completo-form .form-group select {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 1rem;
+    background: var(--white);
+}
+.wc-completo-form .form-group select:disabled {
+    background: var(--gray-100);
+    color: var(--gray-500);
+}
+.wc-completo-actions {
+    margin-top: 1.5rem;
+}
+.wc-completo-actions .btn { width: 100%; }
+
 .profile-section {
     margin-bottom: 1.75rem;
 }
