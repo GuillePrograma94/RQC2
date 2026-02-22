@@ -730,6 +730,37 @@ class CartManager {
     }
 
     /**
+     * Resuelve un codigo (principal o secundario/EAN) al codigo principal de producto. Sin logs.
+     * Para Panel de Control WC: permite anadir por codigo o por EAN.
+     * @returns {Promise<string|null>} codigo principal o null si no se encuentra
+     */
+    async resolveToPrincipalCode(codigo) {
+        try {
+            if (!codigo || !codigo.trim() || !this.db) return null;
+            const normalizedCode = (codigo.trim()).toUpperCase();
+            const enProductos = await new Promise((resolve) => {
+                const tx = this.db.transaction(['products'], 'readonly');
+                const store = tx.objectStore('products');
+                const req = store.get(normalizedCode);
+                req.onsuccess = () => resolve(!!req.result);
+                req.onerror = () => resolve(false);
+            });
+            if (enProductos) return normalizedCode;
+            const enSecundarios = await new Promise((resolve) => {
+                const tx = this.db.transaction(['secondary_codes'], 'readonly');
+                const store = tx.objectStore('secondary_codes');
+                const index = store.index('codigo_secundario');
+                const req = index.get(normalizedCode);
+                req.onsuccess = () => resolve(req.result ? req.result.codigo_principal : null);
+                req.onerror = () => resolve(null);
+            });
+            return enSecundarios || null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
      * Búsqueda inteligente por código: Prioriza match exacto
      * Si existe match exacto, solo muestra ese. Si no, muestra parciales
      */

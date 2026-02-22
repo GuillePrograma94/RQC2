@@ -1233,18 +1233,23 @@ class ScanAsYouShopApp {
         }
         const inputId = tipo === 'taza' ? 'wcConjuntoAddTaza' : (tipo === 'tanque' ? 'wcConjuntoAddTanque' : 'wcConjuntoAddAsiento');
         const input = document.getElementById(inputId);
-        const codigo = (input && input.value || '').trim();
-        if (!codigo) {
-            window.ui.showToast('Escribe un codigo de producto', 'error');
+        const codigoInput = (input && input.value || '').trim();
+        if (!codigoInput) {
+            window.ui.showToast('Escribe codigo de producto o EAN', 'error');
+            return;
+        }
+        const codigoPrincipal = await window.cartManager.resolveToPrincipalCode(codigoInput);
+        if (!codigoPrincipal) {
+            window.ui.showToast('Codigo no encontrado. Usa codigo principal o EAN del catalogo.', 'error');
             return;
         }
         try {
-            if (tipo === 'taza') await window.supabaseClient.addWcConjuntoTaza(id, codigo);
-            else if (tipo === 'tanque') await window.supabaseClient.addWcConjuntoTanque(id, codigo);
-            else await window.supabaseClient.addWcConjuntoAsiento(id, codigo);
+            if (tipo === 'taza') await window.supabaseClient.addWcConjuntoTaza(id, codigoPrincipal);
+            else if (tipo === 'tanque') await window.supabaseClient.addWcConjuntoTanque(id, codigoPrincipal);
+            else await window.supabaseClient.addWcConjuntoAsiento(id, codigoPrincipal);
             input.value = '';
             await this.renderWcConjuntoDetailPiezas();
-            window.ui.showToast('Anadido', 'success');
+            window.ui.showToast('Anadido (' + codigoPrincipal + ')', 'success');
         } catch (e) {
             console.error('Error handleWcConjuntoAddPieza:', e);
             window.ui.showToast('Error: ' + (e.message || 'no se pudo anadir (¿codigo duplicado?)'), 'error');
