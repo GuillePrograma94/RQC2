@@ -2201,62 +2201,79 @@ body.gate-visible .app-container {
     display: flex;
     align-items: center;
     justify-content: center;
+    touch-action: none;
+    overflow: hidden;
+    user-select: none;
 }
 
-.product-detail-carousel-inner img {
+.product-detail-carousel-inner .product-detail-carousel-slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease-out;
+}
+
+.product-detail-carousel-inner .product-detail-carousel-slide.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.product-detail-carousel-inner .product-detail-carousel-slide img {
     max-width: 100%;
     max-height: 100%;
     width: auto;
     height: auto;
     object-fit: contain;
-    display: none;
+    transition: transform 0.1s ease-out;
+    transform-origin: center center;
 }
 
-.product-detail-carousel-inner img.active {
-    display: block;
-    animation: fadeIn 0.3s ease-out;
+.product-detail-carousel-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.25rem 0.25rem;
+    gap: 0.5rem;
+    min-height: 48px;
 }
 
 .product-detail-carousel-prev,
 .product-detail-carousel-next {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
     width: 44px;
     height: 44px;
+    min-width: 44px;
     border: none;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(0, 0, 0, 0.08);
     color: var(--gray-800);
     font-size: 1.5rem;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     transition: background 0.2s, transform 0.2s;
-    z-index: 1;
-}
-
-.product-detail-carousel-prev {
-    left: 0.5rem;
-}
-
-.product-detail-carousel-next {
-    right: 0.5rem;
 }
 
 .product-detail-carousel-prev:hover,
 .product-detail-carousel-next:hover {
-    background: var(--white);
-    transform: translateY(-50%) scale(1.05);
+    background: rgba(0, 0, 0, 0.12);
+    transform: scale(1.05);
 }
 
 .product-detail-carousel-dots {
     display: flex;
     justify-content: center;
+    align-items: center;
     gap: 0.5rem;
-    padding: 0.75rem;
+    padding: 0 0.25rem;
+    flex: 1;
 }
 
 .product-detail-carousel-dot {
@@ -2273,14 +2290,6 @@ body.gate-visible .app-container {
 .product-detail-carousel-dot.active {
     background: var(--primary);
     transform: scale(1.2);
-}
-
-.product-detail-ficha {
-    text-align: center;
-}
-
-.product-detail-ficha .btn {
-    display: inline-block;
 }
 
 .add-to-cart-quantity-section {

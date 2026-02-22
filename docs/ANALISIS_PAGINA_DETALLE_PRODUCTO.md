@@ -167,7 +167,8 @@ Con esto se cumple la mejora de experiencia sin tocar el flujo actual del modal 
 
 ## 9. Implementación realizada (Opción A)
 
-- **HTML**: Overlay `#productDetailOverlay` con botón cerrar, cabecera (código/descripción), carousel (inner + prev/next + dots), bloque "Ver ficha técnica (PDF)".
+- **HTML**: Overlay `#productDetailOverlay` con botón cerrar, cabecera (código/descripción), carousel (inner + prev/next + dots). Sin bloque de ficha técnica.
 - **CSS**: Estilos en `styles.css` (`.product-detail-overlay`, `.product-detail-carousel`, etc.). Contenedor de imagen del modal con `cursor: pointer`.
-- **JS** (`app.js`): `getAvailableProductImageUrls(codigo)` (comprueba _1 a _4 con `Image()` onload/onerror), `checkProductPdfExists(codigo)` (HEAD al PDF), `openProductDetail(producto)` (renderiza carousel 1–4, muestra ficha si existe, cierra con botón/backdrop). En `showAddToCartModal` se asigna clic en `.add-to-cart-image-container` a `openProductDetail(producto)`.
+- **JS** (`app.js`): `getAvailableProductImageUrls(codigo)` (comprueba _1 a _4 con `Image()` onload/onerror), `openProductDetail(producto)` (renderiza carousel 1–4, cierra con botón/backdrop). En `showAddToCartModal` se asigna clic en `.add-to-cart-image-container` a `openProductDetail(producto)`.
 - Al cerrar el overlay se vuelve al modal de añadir al carrito sin perder estado.
+- **Ficha técnica PDF**: Se eliminó. La comprobación con `fetch(..., { method: 'HEAD' })` desde el cliente queda bloqueada por CORS en el dominio del PDF; mostrar el enlace sin poder comprobar existencia generaba mala experiencia si el PDF no existía, por lo que se optó por no incluir el enlace.

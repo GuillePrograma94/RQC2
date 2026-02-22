@@ -2206,20 +2206,7 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Comprueba si existe la ficha técnica PDF del producto
-     */
-    async checkProductPdfExists(codigo) {
-        const url = 'https://www.saneamiento-martinez.com/pdf/fichas/' + codigo + '.PDF';
-        try {
-            const res = await fetch(url, { method: 'HEAD' });
-            return res.ok;
-        } catch (e) {
-            return false;
-        }
-    }
-
-    /**
-     * Abre el overlay de detalle de producto (carousel 1-4 imágenes + ficha técnica si existe)
+     * Abre el overlay de detalle de producto (carousel 1-4 imágenes)
      */
     async openProductDetail(producto) {
         const overlayEl = document.getElementById('productDetailOverlay');
@@ -2227,8 +2214,6 @@ class ScanAsYouShopApp {
         const prevBtn = document.getElementById('productDetailCarouselPrev');
         const nextBtn = document.getElementById('productDetailCarouselNext');
         const dotsContainer = document.getElementById('productDetailCarouselDots');
-        const fichaBlock = document.getElementById('productDetailFicha');
-        const fichaLink = document.getElementById('productDetailFichaLink');
         const codeEl = document.getElementById('productDetailCode');
         const descEl = document.getElementById('productDetailDescription');
         const closeBtn = document.getElementById('closeProductDetailBtn');
@@ -2253,12 +2238,14 @@ class ScanAsYouShopApp {
             carouselInner.appendChild(placeholder);
         } else {
             imageUrls.forEach((url, idx) => {
+                const slide = document.createElement('div');
+                slide.className = 'product-detail-carousel-slide' + (idx === 0 ? ' active' : '');
+                slide.dataset.index = String(idx);
                 const img = document.createElement('img');
                 img.src = url;
                 img.alt = producto.descripcion ? producto.descripcion + ' (imagen ' + (idx + 1) + ')' : 'Imagen ' + (idx + 1);
-                img.dataset.index = String(idx);
-                if (idx === 0) img.classList.add('active');
-                carouselInner.appendChild(img);
+                slide.appendChild(img);
+                carouselInner.appendChild(slide);
             });
             if (imageUrls.length > 1) {
                 prevBtn.style.display = 'flex';
@@ -2274,26 +2261,43 @@ class ScanAsYouShopApp {
             }
         }
 
-        const pdfExists = await this.checkProductPdfExists(producto.codigo);
-        if (pdfExists && fichaLink) {
-            fichaBlock.style.display = 'block';
-            fichaLink.href = 'https://www.saneamiento-martinez.com/pdf/fichas/' + producto.codigo + '.PDF';
-        } else {
-            fichaBlock.style.display = 'none';
-        }
-
         overlayEl.style.display = 'flex';
         overlayEl.setAttribute('aria-hidden', 'false');
 
         let currentIndex = 0;
+        let currentScale = 1;
         const total = imageUrls.length;
+        const MIN_ZOOM = 1;
+        const MAX_ZOOM = 4;
+
+        const controlsRow = document.getElementById('productDetailCarouselControls');
+        if (controlsRow) controlsRow.style.display = imageUrls.length > 1 ? 'flex' : 'none';
+
+        const getActiveSlide = () => carouselInner.querySelector('.product-detail-carousel-slide.active');
+        const getActiveImg = () => {
+            const slide = getActiveSlide();
+            return slide ? slide.querySelector('img') : null;
+        };
+
+        const setZoom = (scale) => {
+            const img = getActiveImg();
+            if (img) img.style.transform = 'scale(' + Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, scale)) + ')';
+        };
+
+        const resetZoom = () => {
+            carouselInner.querySelectorAll('.product-detail-carousel-slide img').forEach(function (im) {
+                im.style.transform = 'scale(1)';
+            });
+        };
 
         const showSlide = (index) => {
-            const imgs = carouselInner.querySelectorAll('img');
+            const slides = carouselInner.querySelectorAll('.product-detail-carousel-slide');
             const dots = dotsContainer.querySelectorAll('.product-detail-carousel-dot');
-            imgs.forEach((img, i) => img.classList.toggle('active', i === index));
-            dots.forEach((dot, i) => dot.classList.toggle('active', i === index));
+            slides.forEach(function (s, i) { s.classList.toggle('active', i === index); });
+            dots.forEach(function (dot, i) { dot.classList.toggle('active', i === index); });
             currentIndex = index;
+            currentScale = 1;
+            resetZoom();
         };
 
         const handlePrev = () => {
@@ -2312,6 +2316,60 @@ class ScanAsYouShopApp {
             if (!isNaN(idx)) showSlide(idx);
         };
 
+        var touchStartX = 0;
+        var touchStartY = 0;
+        var touchStartDist = 0;
+        var touchStartScale = 1;
+        var isPinching = false;
+
+        const handleTouchStart = function (e) {
+            if (e.touches.length === 2) {
+                isPinching = true;
+                touchStartDist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+                touchStartScale = currentScale;
+            } else if (e.touches.length === 1) {
+                isPinching = false;
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }
+        };
+
+        const handleTouchMove = function (e) {
+            if (e.touches.length === 2 && isPinching) {
+                e.preventDefault();
+                var dist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+                if (touchStartDist > 0) {
+                    currentScale = touchStartScale * (dist / touchStartDist);
+                    setZoom(currentScale);
+                }
+            }
+        };
+
+        const handleTouchEnd = function (e) {
+            if (e.changedTouches.length === 1 && !isPinching && e.touches.length === 0) {
+                var dx = e.changedTouches[0].clientX - touchStartX;
+                var dy = e.changedTouches[0].clientY - touchStartY;
+                if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+                    e.preventDefault();
+                    if (dx > 0) handlePrev();
+                    else handleNext();
+                }
+            }
+            if (e.touches.length < 2) {
+                isPinching = false;
+                var img = getActiveImg();
+                if (img) {
+                    var t = img.style.transform || 'scale(1)';
+                    var m = t.match(/scale\(([^)]+)\)/);
+                    currentScale = m ? parseFloat(m[1]) : 1;
+                }
+            }
+        };
+
+        carouselInner.addEventListener('touchstart', handleTouchStart, { passive: true });
+        carouselInner.addEventListener('touchmove', handleTouchMove, { passive: false });
+        carouselInner.addEventListener('touchend', handleTouchEnd, { passive: false });
+
         const handleClose = () => {
             overlayEl.style.display = 'none';
             overlayEl.setAttribute('aria-hidden', 'true');
@@ -2319,16 +2377,19 @@ class ScanAsYouShopApp {
             if (backdrop) backdrop.removeEventListener('click', handleClose);
             prevBtn.removeEventListener('click', handlePrev);
             nextBtn.removeEventListener('click', handleNext);
-            dotsContainer.querySelectorAll('.product-detail-carousel-dot').forEach(dot => {
+            dotsContainer.querySelectorAll('.product-detail-carousel-dot').forEach(function (dot) {
                 dot.removeEventListener('click', handleDotClick);
             });
+            carouselInner.removeEventListener('touchstart', handleTouchStart);
+            carouselInner.removeEventListener('touchmove', handleTouchMove);
+            carouselInner.removeEventListener('touchend', handleTouchEnd);
         };
 
         closeBtn.addEventListener('click', handleClose);
         if (backdrop) backdrop.addEventListener('click', handleClose);
         prevBtn.addEventListener('click', handlePrev);
         nextBtn.addEventListener('click', handleNext);
-        dotsContainer.querySelectorAll('.product-detail-carousel-dot').forEach(dot => {
+        dotsContainer.querySelectorAll('.product-detail-carousel-dot').forEach(function (dot) {
             dot.addEventListener('click', handleDotClick);
         });
     }
