@@ -606,20 +606,32 @@
                 <div id="wcConjuntoDetailPiezas" class="wc-conjunto-piezas" style="display: none;">
                     <h3 class="profile-section-title">Tazas</h3>
                     <div class="wc-piezas-row">
-                        <input type="text" id="wcConjuntoAddTaza" placeholder="Codigo producto o EAN (codigo de barras)" class="wc-piezas-input" autocomplete="off">
-                        <button type="button" id="wcConjuntoAddTazaBtn" class="btn btn-small btn-primary">Anadir</button>
+                        <input type="text" id="wcConjuntoAddTaza" placeholder="Codigo producto o codigo secundario (ej. A341680000)" class="wc-piezas-input" autocomplete="off">
+                        <button type="button" id="wcConjuntoBuscarTazaBtn" class="btn btn-small btn-secondary">Buscar</button>
+                    </div>
+                    <div id="wcConjuntoPreviewTaza" class="wc-conjunto-preview" style="display: none;">
+                        <p class="wc-conjunto-preview-text" id="wcConjuntoPreviewTazaText"></p>
+                        <button type="button" id="wcConjuntoConfirmAddTazaBtn" class="btn btn-small btn-primary" data-tipo="taza">Anadir al conjunto</button>
                     </div>
                     <ul id="wcConjuntoTazasList" class="wc-piezas-list"></ul>
                     <h3 class="profile-section-title">Tanques</h3>
                     <div class="wc-piezas-row">
-                        <input type="text" id="wcConjuntoAddTanque" placeholder="Codigo producto o EAN (codigo de barras)" class="wc-piezas-input" autocomplete="off">
-                        <button type="button" id="wcConjuntoAddTanqueBtn" class="btn btn-small btn-primary">Anadir</button>
+                        <input type="text" id="wcConjuntoAddTanque" placeholder="Codigo producto o codigo secundario (ej. A341680000)" class="wc-piezas-input" autocomplete="off">
+                        <button type="button" id="wcConjuntoBuscarTanqueBtn" class="btn btn-small btn-secondary">Buscar</button>
+                    </div>
+                    <div id="wcConjuntoPreviewTanque" class="wc-conjunto-preview" style="display: none;">
+                        <p class="wc-conjunto-preview-text" id="wcConjuntoPreviewTanqueText"></p>
+                        <button type="button" id="wcConjuntoConfirmAddTanqueBtn" class="btn btn-small btn-primary" data-tipo="tanque">Anadir al conjunto</button>
                     </div>
                     <ul id="wcConjuntoTanquesList" class="wc-piezas-list"></ul>
                     <h3 class="profile-section-title">Asientos</h3>
                     <div class="wc-piezas-row">
-                        <input type="text" id="wcConjuntoAddAsiento" placeholder="Codigo producto o EAN (codigo de barras)" class="wc-piezas-input" autocomplete="off">
-                        <button type="button" id="wcConjuntoAddAsientoBtn" class="btn btn-small btn-primary">Anadir</button>
+                        <input type="text" id="wcConjuntoAddAsiento" placeholder="Codigo producto o codigo secundario (ej. A341680000)" class="wc-piezas-input" autocomplete="off">
+                        <button type="button" id="wcConjuntoBuscarAsientoBtn" class="btn btn-small btn-secondary">Buscar</button>
+                    </div>
+                    <div id="wcConjuntoPreviewAsiento" class="wc-conjunto-preview" style="display: none;">
+                        <p class="wc-conjunto-preview-text" id="wcConjuntoPreviewAsientoText"></p>
+                        <button type="button" id="wcConjuntoConfirmAddAsientoBtn" class="btn btn-small btn-primary" data-tipo="asiento">Anadir al conjunto</button>
                     </div>
                     <ul id="wcConjuntoAsientosList" class="wc-piezas-list"></ul>
                 </div>

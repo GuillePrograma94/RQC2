@@ -11,6 +11,7 @@ class ScanAsYouShopApp {
         this.ordersSubscription = null;
         this.notificationsEnabled = false;
         this.editingWcConjuntoId = null;
+        this.wcConjuntoPreviewData = { taza: null, tanque: null, asiento: null };
     }
 
     /**
@@ -1133,6 +1134,7 @@ class ScanAsYouShopApp {
      */
     async openWcConjuntoDetail(id) {
         this.editingWcConjuntoId = id || null;
+        this.wcConjuntoPreviewData = { taza: null, tanque: null, asiento: null };
         const titleEl = document.getElementById('wcConjuntoDetailTitle');
         const form = document.getElementById('wcConjuntoDetailForm');
         const piezasEl = document.getElementById('wcConjuntoDetailPiezas');
@@ -1141,6 +1143,10 @@ class ScanAsYouShopApp {
         document.getElementById('wcConjuntoOrden').value = '0';
         document.getElementById('wcConjuntoActivo').checked = true;
         if (piezasEl) piezasEl.style.display = id ? 'block' : 'none';
+        ['wcConjuntoPreviewTaza', 'wcConjuntoPreviewTanque', 'wcConjuntoPreviewAsiento'].forEach(pid => {
+            const el = document.getElementById(pid);
+            if (el) el.style.display = 'none';
+        });
         if (id) {
             const conjuntos = await window.supabaseClient.getWcConjuntos();
             const c = conjuntos.find(x => x.id === id);
@@ -1157,7 +1163,7 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Rellena las listas de tazas, tanques y asientos del conjunto en edicion
+     * Rellena las listas de tazas, tanques y asientos del conjunto en edicion (con codigo y descripcion)
      */
     async renderWcConjuntoDetailPiezas() {
         const id = this.editingWcConjuntoId;
@@ -1171,20 +1177,30 @@ class ScanAsYouShopApp {
                 window.supabaseClient.getWcConjuntoTanques(id),
                 window.supabaseClient.getWcConjuntoAsientos(id)
             ]);
-            const renderList = (listEl, items, tipo) => {
+            const renderList = async (listEl, items, tipo) => {
                 if (!listEl) return;
-                listEl.innerHTML = (items || []).map(item => {
-                    const codigo = this.escapeForHtmlAttribute(item.producto_codigo || '');
+                if (!items || items.length === 0) {
+                    listEl.innerHTML = '';
+                    return;
+                }
+                const lines = [];
+                for (const item of items) {
+                    const cod = item.producto_codigo || '';
+                    const product = await window.cartManager.getProductByCodigo(cod);
+                    const desc = (product && product.descripcion) ? product.descripcion : cod;
+                    const codigoEsc = this.escapeForHtmlAttribute(cod);
+                    const descEsc = this.escapeForHtmlAttribute(desc);
                     const itemId = this.escapeForHtmlAttribute(item.id);
-                    return '<li class="wc-piezas-item">' +
-                        '<span>' + codigo + '</span>' +
+                    lines.push('<li class="wc-piezas-item">' +
+                        '<span class="wc-piezas-item-text"><strong>' + codigoEsc + '</strong> – ' + descEsc + '</span>' +
                         '<button type="button" class="btn btn-small btn-danger" data-wc-remove-pieza="' + tipo + '" data-wc-pieza-id="' + itemId + '">Quitar</button>' +
-                        '</li>';
-                }).join('');
+                        '</li>');
+                }
+                listEl.innerHTML = lines.join('');
             };
-            renderList(listTazas, tazas, 'taza');
-            renderList(listTanques, tanques, 'tanque');
-            renderList(listAsientos, asientos, 'asiento');
+            await renderList(listTazas, tazas, 'taza');
+            await renderList(listTanques, tanques, 'tanque');
+            await renderList(listAsientos, asientos, 'asiento');
         } catch (e) {
             console.error('Error renderWcConjuntoDetailPiezas:', e);
         }
@@ -1223,35 +1239,63 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Añade una pieza (taza, tanque o asiento) al conjunto en edicion por codigo de producto
+     * Busca por codigo o codigo secundario y muestra vista previa (codigo + descripcion) antes de anadir
      */
-    async handleWcConjuntoAddPieza(tipo) {
+    async handleWcConjuntoBuscarPieza(tipo) {
+        const inputId = tipo === 'taza' ? 'wcConjuntoAddTaza' : (tipo === 'tanque' ? 'wcConjuntoAddTanque' : 'wcConjuntoAddAsiento');
+        const previewId = tipo === 'taza' ? 'wcConjuntoPreviewTaza' : (tipo === 'tanque' ? 'wcConjuntoPreviewTanque' : 'wcConjuntoPreviewAsiento');
+        const previewTextId = previewId + 'Text';
+        const input = document.getElementById(inputId);
+        const previewEl = document.getElementById(previewId);
+        const previewTextEl = document.getElementById(previewTextId);
+        const codigoInput = (input && input.value || '').trim();
+        if (!codigoInput) {
+            window.ui.showToast('Escribe codigo de producto o codigo secundario', 'error');
+            return;
+        }
+        const details = await window.cartManager.resolveToPrincipalCodeWithDetails(codigoInput);
+        if (!details) {
+            window.ui.showToast('Codigo no encontrado. Usa codigo principal o codigo secundario del catalogo.', 'error');
+            if (previewEl) previewEl.style.display = 'none';
+            this.wcConjuntoPreviewData[tipo] = null;
+            return;
+        }
+        this.wcConjuntoPreviewData[tipo] = details;
+        const texto = details.principalCode + ' – ' + details.descripcion + (details.matchedSecondary ? ' (' + details.matchedSecondary + ')' : '');
+        if (previewTextEl) previewTextEl.textContent = texto;
+        if (previewEl) previewEl.style.display = 'block';
+    }
+
+    /**
+     * Anade la pieza mostrada en la vista previa al conjunto (tras haber buscado)
+     */
+    async handleWcConjuntoConfirmAddPieza(tipo) {
         const id = this.editingWcConjuntoId;
         if (!id) {
             window.ui.showToast('Guarda primero el conjunto', 'error');
             return;
         }
+        const details = this.wcConjuntoPreviewData && this.wcConjuntoPreviewData[tipo];
+        if (!details || !details.principalCode) {
+            window.ui.showToast('Busca antes un producto para anadir', 'error');
+            return;
+        }
         const inputId = tipo === 'taza' ? 'wcConjuntoAddTaza' : (tipo === 'tanque' ? 'wcConjuntoAddTanque' : 'wcConjuntoAddAsiento');
-        const input = document.getElementById(inputId);
-        const codigoInput = (input && input.value || '').trim();
-        if (!codigoInput) {
-            window.ui.showToast('Escribe codigo de producto o EAN', 'error');
-            return;
-        }
-        const codigoPrincipal = await window.cartManager.resolveToPrincipalCode(codigoInput);
-        if (!codigoPrincipal) {
-            window.ui.showToast('Codigo no encontrado. Usa codigo principal o EAN del catalogo.', 'error');
-            return;
-        }
+        const previewId = tipo === 'taza' ? 'wcConjuntoPreviewTaza' : (tipo === 'tanque' ? 'wcConjuntoPreviewTanque' : 'wcConjuntoPreviewAsiento');
         try {
-            if (tipo === 'taza') await window.supabaseClient.addWcConjuntoTaza(id, codigoPrincipal);
-            else if (tipo === 'tanque') await window.supabaseClient.addWcConjuntoTanque(id, codigoPrincipal);
-            else await window.supabaseClient.addWcConjuntoAsiento(id, codigoPrincipal);
-            input.value = '';
+            if (tipo === 'taza') await window.supabaseClient.addWcConjuntoTaza(id, details.principalCode);
+            else if (tipo === 'tanque') await window.supabaseClient.addWcConjuntoTanque(id, details.principalCode);
+            else await window.supabaseClient.addWcConjuntoAsiento(id, details.principalCode);
+            this.wcConjuntoPreviewData[tipo] = null;
+            const input = document.getElementById(inputId);
+            if (input) input.value = '';
+            const previewEl = document.getElementById(previewId);
+            if (previewEl) previewEl.style.display = 'none';
             await this.renderWcConjuntoDetailPiezas();
-            window.ui.showToast('Anadido (' + codigoPrincipal + ')', 'success');
+            const descCorta = details.descripcion ? (details.descripcion.length > 45 ? details.descripcion.substring(0, 45) + '...' : details.descripcion) : '';
+            window.ui.showToast('Anadido: ' + details.principalCode + (descCorta ? ' – ' + descCorta : ''), 'success');
         } catch (e) {
-            console.error('Error handleWcConjuntoAddPieza:', e);
+            console.error('Error handleWcConjuntoConfirmAddPieza:', e);
             window.ui.showToast('Error: ' + (e.message || 'no se pudo anadir (¿codigo duplicado?)'), 'error');
         }
     }
@@ -1993,19 +2037,20 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Conjunto WC: Añadir taza / tanque / asiento
-        const wcConjuntoAddTazaBtn = document.getElementById('wcConjuntoAddTazaBtn');
-        if (wcConjuntoAddTazaBtn) {
-            wcConjuntoAddTazaBtn.addEventListener('click', () => this.handleWcConjuntoAddPieza('taza'));
-        }
-        const wcConjuntoAddTanqueBtn = document.getElementById('wcConjuntoAddTanqueBtn');
-        if (wcConjuntoAddTanqueBtn) {
-            wcConjuntoAddTanqueBtn.addEventListener('click', () => this.handleWcConjuntoAddPieza('tanque'));
-        }
-        const wcConjuntoAddAsientoBtn = document.getElementById('wcConjuntoAddAsientoBtn');
-        if (wcConjuntoAddAsientoBtn) {
-            wcConjuntoAddAsientoBtn.addEventListener('click', () => this.handleWcConjuntoAddPieza('asiento'));
-        }
+        // Conjunto WC: Buscar taza / tanque / asiento (muestra codigo y descripcion antes de anadir)
+        const wcConjuntoBuscarTazaBtn = document.getElementById('wcConjuntoBuscarTazaBtn');
+        if (wcConjuntoBuscarTazaBtn) wcConjuntoBuscarTazaBtn.addEventListener('click', () => this.handleWcConjuntoBuscarPieza('taza'));
+        const wcConjuntoBuscarTanqueBtn = document.getElementById('wcConjuntoBuscarTanqueBtn');
+        if (wcConjuntoBuscarTanqueBtn) wcConjuntoBuscarTanqueBtn.addEventListener('click', () => this.handleWcConjuntoBuscarPieza('tanque'));
+        const wcConjuntoBuscarAsientoBtn = document.getElementById('wcConjuntoBuscarAsientoBtn');
+        if (wcConjuntoBuscarAsientoBtn) wcConjuntoBuscarAsientoBtn.addEventListener('click', () => this.handleWcConjuntoBuscarPieza('asiento'));
+        // Conjunto WC: Confirmar anadir (tras buscar y ver vista previa)
+        const wcConjuntoConfirmAddTazaBtn = document.getElementById('wcConjuntoConfirmAddTazaBtn');
+        if (wcConjuntoConfirmAddTazaBtn) wcConjuntoConfirmAddTazaBtn.addEventListener('click', () => this.handleWcConjuntoConfirmAddPieza('taza'));
+        const wcConjuntoConfirmAddTanqueBtn = document.getElementById('wcConjuntoConfirmAddTanqueBtn');
+        if (wcConjuntoConfirmAddTanqueBtn) wcConjuntoConfirmAddTanqueBtn.addEventListener('click', () => this.handleWcConjuntoConfirmAddPieza('tanque'));
+        const wcConjuntoConfirmAddAsientoBtn = document.getElementById('wcConjuntoConfirmAddAsientoBtn');
+        if (wcConjuntoConfirmAddAsientoBtn) wcConjuntoConfirmAddAsientoBtn.addEventListener('click', () => this.handleWcConjuntoConfirmAddPieza('asiento'));
 
         // Delegacion para eliminar piezas (taza/tanque/asiento) desde listas dinamicas
         const wcDetailPiezas = document.getElementById('wcConjuntoDetailPiezas');

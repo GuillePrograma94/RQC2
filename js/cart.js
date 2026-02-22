@@ -761,6 +761,46 @@ class CartManager {
     }
 
     /**
+     * Resuelve codigo (principal o secundario) y devuelve datos para mostrar: codigo principal, descripcion, pvp y si el input era secundario.
+     * Para Panel de Control: buscar y mostrar "00R1ONBL9 - Tanque ONA... (A341680000)" antes de anadir.
+     * @returns {Promise<{ principalCode: string, descripcion: string, pvp: number, matchedSecondary: string|null }|null>}
+     */
+    async resolveToPrincipalCodeWithDetails(codigo) {
+        try {
+            if (!codigo || !codigo.trim() || !this.db) return null;
+            const normalizedCode = (codigo.trim()).toUpperCase();
+            const product = await this.getProductByCodigo(normalizedCode);
+            if (product) {
+                return {
+                    principalCode: product.codigo,
+                    descripcion: product.descripcion || '',
+                    pvp: product.pvp != null ? product.pvp : 0,
+                    matchedSecondary: null
+                };
+            }
+            const sec = await new Promise((resolve) => {
+                const tx = this.db.transaction(['secondary_codes'], 'readonly');
+                const store = tx.objectStore('secondary_codes');
+                const index = store.index('codigo_secundario');
+                const req = index.get(normalizedCode);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => resolve(null);
+            });
+            if (!sec) return null;
+            const productPrincipal = await this.getProductByCodigo(sec.codigo_principal);
+            if (!productPrincipal) return null;
+            return {
+                principalCode: sec.codigo_principal,
+                descripcion: productPrincipal.descripcion || '',
+                pvp: productPrincipal.pvp != null ? productPrincipal.pvp : 0,
+                matchedSecondary: normalizedCode
+            };
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
      * Búsqueda inteligente por código: Prioriza match exacto
      * Si existe match exacto, solo muestra ese. Si no, muestra parciales
      */

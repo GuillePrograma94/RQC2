@@ -2870,13 +2870,35 @@ body.gate-visible .app-container {
 }
 .wc-piezas-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
+    gap: 0.5rem;
     padding: 0.5rem 0;
     border-bottom: 1px solid var(--gray-100);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
+}
+.wc-piezas-item-text {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.35;
+    color: var(--gray-800);
 }
 .wc-piezas-item button { flex-shrink: 0; }
+
+.wc-conjunto-preview {
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+}
+.wc-conjunto-preview-text {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: var(--gray-800);
+}
+.wc-conjunto-preview .btn { margin-top: 0.25rem; }
 
 /* WC Completo (configurador en Herramientas) - UX con imagenes y descripciones */
 .wc-completo-main {
