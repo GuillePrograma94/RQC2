@@ -238,7 +238,7 @@ La columna `tipo` en `usuarios` admite los valores que ya existian (`'CLIENTE'`,
 
 - **Menú**: **Herramientas** se muestra a todos los usuarios autenticados (clientes, comerciales, administradores). Dentro de Herramientas está **WC Completo**, accesible para todos. **Panel de Control** es un botón distinto en el menú, visible solo si `es_administrador === true`; ahí irán las acciones exclusivas del administrador (p. ej. configurar conjuntos WC).
 - **Dentro de Herramientas**: WC Completo (configurador: conjuntos, tazas, tanques, asientos; solo SELECT sobre tablas WC).
-- **Dentro de Panel de Control** (solo administrador): herramientas de configuracion como **Configurar conjuntos WC** (CRUD en `wc_conjuntos` y tablas de detalle). Las llamadas INSERT/UPDATE/DELETE en tablas WC estan protegidas por RLS (solo admin o service_role).
+- **Dentro de Panel de Control** (solo administrador): **Configurar conjuntos WC** implementado: boton abre lista de conjuntos; Nuevo conjunto / Editar / Eliminar; en detalle se editan nombre, codigo, descripcion, orden, activo y se gestionan tazas, tanques y asientos por codigo de producto (anadir/quitar). CRUD usa Supabase con JWT de admin; RLS restringe escritura a es_administrador.
 
 ### 7.5 Resumen de implementación
 

@@ -10,6 +10,7 @@ class ScanAsYouShopApp {
         this.currentSession = null;
         this.ordersSubscription = null;
         this.notificationsEnabled = false;
+        this.editingWcConjuntoId = null;
     }
 
     /**
@@ -1082,6 +1083,206 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Lista de conjuntos WC (Panel de Control, admin)
+     */
+    async renderWcConjuntosList() {
+        const listEl = document.getElementById('wcConjuntosList');
+        if (!listEl) return;
+        try {
+            const conjuntos = await window.supabaseClient.getWcConjuntos();
+            if (!conjuntos || conjuntos.length === 0) {
+                listEl.innerHTML = '<p class="wc-conjuntos-empty">No hay conjuntos. Pulsa "Nuevo conjunto" para crear uno.</p>';
+                return;
+            }
+            listEl.innerHTML = conjuntos.map(c => {
+                const nombre = this.escapeForHtmlAttribute(c.nombre || '');
+                const codigo = this.escapeForHtmlAttribute(c.codigo || '');
+                const activo = c.activo !== false ? 'Activo' : 'Inactivo';
+                const id = this.escapeForHtmlAttribute(c.id);
+                return '<div class="wc-conjunto-card" data-conjunto-id="' + id + '">' +
+                    '<div class="wc-conjunto-card-info">' +
+                    '<strong>' + nombre + '</strong>' +
+                    (codigo ? ' <span class="wc-conjunto-codigo">' + codigo + '</span>' : '') +
+                    ' <span class="wc-conjunto-activo">' + activo + '</span>' +
+                    '</div>' +
+                    '<div class="wc-conjunto-card-actions">' +
+                    '<button type="button" class="btn btn-small btn-primary wc-conjunto-edit-btn" data-conjunto-id="' + id + '">Editar</button>' +
+                    '<button type="button" class="btn btn-small btn-danger wc-conjunto-delete-btn" data-conjunto-id="' + id + '">Eliminar</button>' +
+                    '</div></div>';
+            }).join('');
+            listEl.querySelectorAll('.wc-conjunto-edit-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = btn.getAttribute('data-conjunto-id');
+                    if (id) this.openWcConjuntoDetail(id);
+                });
+            });
+            listEl.querySelectorAll('.wc-conjunto-delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = btn.getAttribute('data-conjunto-id');
+                    if (id) this.handleWcConjuntoDelete(id);
+                });
+            });
+        } catch (e) {
+            console.error('Error renderWcConjuntosList:', e);
+            listEl.innerHTML = '<p class="wc-conjuntos-empty wc-conjuntos-error">Error al cargar conjuntos.</p>';
+        }
+    }
+
+    /**
+     * Abre pantalla detalle de conjunto WC (crear si id es null, editar si id es UUID)
+     */
+    async openWcConjuntoDetail(id) {
+        this.editingWcConjuntoId = id || null;
+        const titleEl = document.getElementById('wcConjuntoDetailTitle');
+        const form = document.getElementById('wcConjuntoDetailForm');
+        const piezasEl = document.getElementById('wcConjuntoDetailPiezas');
+        if (titleEl) titleEl.textContent = id ? 'Editar conjunto' : 'Nuevo conjunto';
+        if (form) form.reset();
+        document.getElementById('wcConjuntoOrden').value = '0';
+        document.getElementById('wcConjuntoActivo').checked = true;
+        if (piezasEl) piezasEl.style.display = id ? 'block' : 'none';
+        if (id) {
+            const conjuntos = await window.supabaseClient.getWcConjuntos();
+            const c = conjuntos.find(x => x.id === id);
+            if (c) {
+                document.getElementById('wcConjuntoNombre').value = c.nombre || '';
+                document.getElementById('wcConjuntoCodigo').value = c.codigo || '';
+                document.getElementById('wcConjuntoDescripcion').value = c.descripcion || '';
+                document.getElementById('wcConjuntoOrden').value = (c.orden != null ? c.orden : 0);
+                document.getElementById('wcConjuntoActivo').checked = c.activo !== false;
+            }
+            await this.renderWcConjuntoDetailPiezas();
+        }
+        this.showScreen('wcConjuntoDetail');
+    }
+
+    /**
+     * Rellena las listas de tazas, tanques y asientos del conjunto en edicion
+     */
+    async renderWcConjuntoDetailPiezas() {
+        const id = this.editingWcConjuntoId;
+        if (!id) return;
+        const listTazas = document.getElementById('wcConjuntoTazasList');
+        const listTanques = document.getElementById('wcConjuntoTanquesList');
+        const listAsientos = document.getElementById('wcConjuntoAsientosList');
+        try {
+            const [tazas, tanques, asientos] = await Promise.all([
+                window.supabaseClient.getWcConjuntoTazas(id),
+                window.supabaseClient.getWcConjuntoTanques(id),
+                window.supabaseClient.getWcConjuntoAsientos(id)
+            ]);
+            const renderList = (listEl, items, tipo) => {
+                if (!listEl) return;
+                listEl.innerHTML = (items || []).map(item => {
+                    const codigo = this.escapeForHtmlAttribute(item.producto_codigo || '');
+                    const itemId = this.escapeForHtmlAttribute(item.id);
+                    return '<li class="wc-piezas-item">' +
+                        '<span>' + codigo + '</span>' +
+                        '<button type="button" class="btn btn-small btn-danger" data-wc-remove-pieza="' + tipo + '" data-wc-pieza-id="' + itemId + '">Quitar</button>' +
+                        '</li>';
+                }).join('');
+            };
+            renderList(listTazas, tazas, 'taza');
+            renderList(listTanques, tanques, 'tanque');
+            renderList(listAsientos, asientos, 'asiento');
+        } catch (e) {
+            console.error('Error renderWcConjuntoDetailPiezas:', e);
+        }
+    }
+
+    /**
+     * Guarda el conjunto WC (crear o actualizar) y muestra seccion piezas si es nuevo
+     */
+    async handleWcConjuntoDetailSave() {
+        const nombre = (document.getElementById('wcConjuntoNombre') && document.getElementById('wcConjuntoNombre').value || '').trim();
+        if (!nombre) {
+            window.ui.showToast('El nombre es obligatorio', 'error');
+            return;
+        }
+        const codigo = (document.getElementById('wcConjuntoCodigo') && document.getElementById('wcConjuntoCodigo').value || '').trim() || null;
+        const descripcion = (document.getElementById('wcConjuntoDescripcion') && document.getElementById('wcConjuntoDescripcion').value || '').trim() || null;
+        const ordenInput = document.getElementById('wcConjuntoOrden');
+        const orden = ordenInput ? parseInt(ordenInput.value, 10) : 0;
+        const activo = document.getElementById('wcConjuntoActivo') ? document.getElementById('wcConjuntoActivo').checked : true;
+        try {
+            if (this.editingWcConjuntoId) {
+                await window.supabaseClient.updateWcConjunto(this.editingWcConjuntoId, { nombre, codigo, descripcion, orden, activo });
+                window.ui.showToast('Conjunto actualizado', 'success');
+            } else {
+                const created = await window.supabaseClient.createWcConjunto({ nombre, codigo, descripcion, orden, activo });
+                window.ui.showToast('Conjunto creado', 'success');
+                this.editingWcConjuntoId = created.id;
+                const piezasEl = document.getElementById('wcConjuntoDetailPiezas');
+                if (piezasEl) piezasEl.style.display = 'block';
+                await this.renderWcConjuntoDetailPiezas();
+            }
+        } catch (e) {
+            console.error('Error handleWcConjuntoDetailSave:', e);
+            window.ui.showToast('Error: ' + (e.message || 'no se pudo guardar'), 'error');
+        }
+    }
+
+    /**
+     * Añade una pieza (taza, tanque o asiento) al conjunto en edicion por codigo de producto
+     */
+    async handleWcConjuntoAddPieza(tipo) {
+        const id = this.editingWcConjuntoId;
+        if (!id) {
+            window.ui.showToast('Guarda primero el conjunto', 'error');
+            return;
+        }
+        const inputId = tipo === 'taza' ? 'wcConjuntoAddTaza' : (tipo === 'tanque' ? 'wcConjuntoAddTanque' : 'wcConjuntoAddAsiento');
+        const input = document.getElementById(inputId);
+        const codigo = (input && input.value || '').trim();
+        if (!codigo) {
+            window.ui.showToast('Escribe un codigo de producto', 'error');
+            return;
+        }
+        try {
+            if (tipo === 'taza') await window.supabaseClient.addWcConjuntoTaza(id, codigo);
+            else if (tipo === 'tanque') await window.supabaseClient.addWcConjuntoTanque(id, codigo);
+            else await window.supabaseClient.addWcConjuntoAsiento(id, codigo);
+            input.value = '';
+            await this.renderWcConjuntoDetailPiezas();
+            window.ui.showToast('Anadido', 'success');
+        } catch (e) {
+            console.error('Error handleWcConjuntoAddPieza:', e);
+            window.ui.showToast('Error: ' + (e.message || 'no se pudo anadir (¿codigo duplicado?)'), 'error');
+        }
+    }
+
+    /**
+     * Elimina una pieza (taza, tanque o asiento) del conjunto
+     */
+    async handleWcConjuntoRemovePieza(tipo, piezaId) {
+        try {
+            if (tipo === 'taza') await window.supabaseClient.removeWcConjuntoTaza(piezaId);
+            else if (tipo === 'tanque') await window.supabaseClient.removeWcConjuntoTanque(piezaId);
+            else await window.supabaseClient.removeWcConjuntoAsiento(piezaId);
+            this.renderWcConjuntoDetailPiezas();
+            window.ui.showToast('Quitado', 'success');
+        } catch (e) {
+            console.error('Error handleWcConjuntoRemovePieza:', e);
+            window.ui.showToast('Error al quitar', 'error');
+        }
+    }
+
+    /**
+     * Elimina un conjunto WC tras confirmar
+     */
+    async handleWcConjuntoDelete(conjuntoId) {
+        if (!confirm('Eliminar este conjunto? Se borraran tambien sus tazas, tanques y asientos.')) return;
+        try {
+            await window.supabaseClient.deleteWcConjunto(conjuntoId);
+            window.ui.showToast('Conjunto eliminado', 'success');
+            this.renderWcConjuntosList();
+        } catch (e) {
+            console.error('Error handleWcConjuntoDelete:', e);
+            window.ui.showToast('Error: ' + (e.message || 'no se pudo eliminar'), 'error');
+        }
+    }
+
+    /**
      * Normaliza teléfono para WhatsApp: solo dígitos, con prefijo de país si no lo lleva
      */
     normalizePhoneForWhatsApp(telefono) {
@@ -1540,6 +1741,76 @@ class ScanAsYouShopApp {
         if (panelControlBackBtn) {
             panelControlBackBtn.addEventListener('click', () => {
                 this.showScreen('cart');
+            });
+        }
+
+        // Panel de Control: Configurar conjuntos WC
+        const panelControlWcConjuntosBtn = document.getElementById('panelControlWcConjuntosBtn');
+        if (panelControlWcConjuntosBtn) {
+            panelControlWcConjuntosBtn.addEventListener('click', () => {
+                this.showScreen('wcConjuntos');
+                this.renderWcConjuntosList();
+            });
+        }
+
+        // Conjuntos WC: Volver al Panel de Control
+        const wcConjuntosBackBtn = document.getElementById('wcConjuntosBackBtn');
+        if (wcConjuntosBackBtn) {
+            wcConjuntosBackBtn.addEventListener('click', () => {
+                this.showScreen('panelControl');
+            });
+        }
+
+        // Conjuntos WC: Nuevo conjunto
+        const wcConjuntosNuevoBtn = document.getElementById('wcConjuntosNuevoBtn');
+        if (wcConjuntosNuevoBtn) {
+            wcConjuntosNuevoBtn.addEventListener('click', () => {
+                this.openWcConjuntoDetail(null);
+            });
+        }
+
+        // Conjunto WC detalle: Volver a lista
+        const wcConjuntoDetailBackBtn = document.getElementById('wcConjuntoDetailBackBtn');
+        if (wcConjuntoDetailBackBtn) {
+            wcConjuntoDetailBackBtn.addEventListener('click', () => {
+                this.showScreen('wcConjuntos');
+                this.renderWcConjuntosList();
+            });
+        }
+
+        // Conjunto WC detalle: Guardar formulario
+        const wcConjuntoDetailForm = document.getElementById('wcConjuntoDetailForm');
+        if (wcConjuntoDetailForm) {
+            wcConjuntoDetailForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleWcConjuntoDetailSave();
+            });
+        }
+
+        // Conjunto WC: Añadir taza / tanque / asiento
+        const wcConjuntoAddTazaBtn = document.getElementById('wcConjuntoAddTazaBtn');
+        if (wcConjuntoAddTazaBtn) {
+            wcConjuntoAddTazaBtn.addEventListener('click', () => this.handleWcConjuntoAddPieza('taza'));
+        }
+        const wcConjuntoAddTanqueBtn = document.getElementById('wcConjuntoAddTanqueBtn');
+        if (wcConjuntoAddTanqueBtn) {
+            wcConjuntoAddTanqueBtn.addEventListener('click', () => this.handleWcConjuntoAddPieza('tanque'));
+        }
+        const wcConjuntoAddAsientoBtn = document.getElementById('wcConjuntoAddAsientoBtn');
+        if (wcConjuntoAddAsientoBtn) {
+            wcConjuntoAddAsientoBtn.addEventListener('click', () => this.handleWcConjuntoAddPieza('asiento'));
+        }
+
+        // Delegacion para eliminar piezas (taza/tanque/asiento) desde listas dinamicas
+        const wcDetailPiezas = document.getElementById('wcConjuntoDetailPiezas');
+        if (wcDetailPiezas) {
+            wcDetailPiezas.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-wc-remove-pieza]');
+                if (!btn) return;
+                e.preventDefault();
+                const tipo = btn.getAttribute('data-wc-remove-pieza');
+                const id = btn.getAttribute('data-wc-pieza-id');
+                if (tipo && id) this.handleWcConjuntoRemovePieza(tipo, id);
             });
         }
 

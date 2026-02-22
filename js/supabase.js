@@ -1572,8 +1572,209 @@ class SupabaseClient {
             };
 
         } catch (error) {
-            console.error('❌ Error al descargar ofertas:', error);
+            console.error('Error al descargar ofertas:', error);
             throw error;
+        }
+    }
+
+    // --- Conjuntos WC (Panel de Control, solo administrador) ---
+
+    async getWcConjuntos() {
+        try {
+            if (!this.client) return [];
+            const { data, error } = await this.client
+                .from('wc_conjuntos')
+                .select('*')
+                .order('orden', { ascending: true })
+                .order('nombre', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        } catch (e) {
+            console.error('Error getWcConjuntos:', e);
+            return [];
+        }
+    }
+
+    async createWcConjunto(payload) {
+        try {
+            if (!this.client) throw new Error('Cliente no inicializado');
+            const { data, error } = await this.client
+                .from('wc_conjuntos')
+                .insert([{
+                    nombre: payload.nombre || '',
+                    codigo: payload.codigo || null,
+                    descripcion: payload.descripcion || null,
+                    orden: payload.orden != null ? payload.orden : 0,
+                    activo: payload.activo !== false
+                }])
+                .select()
+                .single();
+            if (error) throw error;
+            return data;
+        } catch (e) {
+            console.error('Error createWcConjunto:', e);
+            throw e;
+        }
+    }
+
+    async updateWcConjunto(id, payload) {
+        try {
+            if (!this.client) throw new Error('Cliente no inicializado');
+            const body = {};
+            if (payload.nombre !== undefined) body.nombre = payload.nombre;
+            if (payload.codigo !== undefined) body.codigo = payload.codigo;
+            if (payload.descripcion !== undefined) body.descripcion = payload.descripcion;
+            if (payload.orden !== undefined) body.orden = payload.orden;
+            if (payload.activo !== undefined) body.activo = payload.activo;
+            body.updated_at = new Date().toISOString();
+            const { data, error } = await this.client
+                .from('wc_conjuntos')
+                .update(body)
+                .eq('id', id)
+                .select()
+                .single();
+            if (error) throw error;
+            return data;
+        } catch (e) {
+            console.error('Error updateWcConjunto:', e);
+            throw e;
+        }
+    }
+
+    async deleteWcConjunto(id) {
+        try {
+            if (!this.client) throw new Error('Cliente no inicializado');
+            const { error } = await this.client.from('wc_conjuntos').delete().eq('id', id);
+            if (error) throw error;
+        } catch (e) {
+            console.error('Error deleteWcConjunto:', e);
+            throw e;
+        }
+    }
+
+    async getWcConjuntoTazas(conjuntoId) {
+        try {
+            if (!this.client) return [];
+            const { data, error } = await this.client
+                .from('wc_conjunto_tazas')
+                .select('*')
+                .eq('conjunto_id', conjuntoId)
+                .order('orden', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        } catch (e) {
+            console.error('Error getWcConjuntoTazas:', e);
+            return [];
+        }
+    }
+
+    async getWcConjuntoTanques(conjuntoId) {
+        try {
+            if (!this.client) return [];
+            const { data, error } = await this.client
+                .from('wc_conjunto_tanques')
+                .select('*')
+                .eq('conjunto_id', conjuntoId)
+                .order('orden', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        } catch (e) {
+            console.error('Error getWcConjuntoTanques:', e);
+            return [];
+        }
+    }
+
+    async getWcConjuntoAsientos(conjuntoId) {
+        try {
+            if (!this.client) return [];
+            const { data, error } = await this.client
+                .from('wc_conjunto_asientos')
+                .select('*')
+                .eq('conjunto_id', conjuntoId)
+                .order('orden', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        } catch (e) {
+            console.error('Error getWcConjuntoAsientos:', e);
+            return [];
+        }
+    }
+
+    async addWcConjuntoTaza(conjuntoId, productoCodigo, orden) {
+        try {
+            if (!this.client) throw new Error('Cliente no inicializado');
+            const { error } = await this.client.from('wc_conjunto_tazas').insert([{
+                conjunto_id: conjuntoId,
+                producto_codigo: String(productoCodigo).trim(),
+                orden: orden != null ? orden : 0
+            }]);
+            if (error) throw error;
+        } catch (e) {
+            console.error('Error addWcConjuntoTaza:', e);
+            throw e;
+        }
+    }
+
+    async addWcConjuntoTanque(conjuntoId, productoCodigo, orden) {
+        try {
+            if (!this.client) throw new Error('Cliente no inicializado');
+            const { error } = await this.client.from('wc_conjunto_tanques').insert([{
+                conjunto_id: conjuntoId,
+                producto_codigo: String(productoCodigo).trim(),
+                orden: orden != null ? orden : 0
+            }]);
+            if (error) throw error;
+        } catch (e) {
+            console.error('Error addWcConjuntoTanque:', e);
+            throw e;
+        }
+    }
+
+    async addWcConjuntoAsiento(conjuntoId, productoCodigo, orden) {
+        try {
+            if (!this.client) throw new Error('Cliente no inicializado');
+            const { error } = await this.client.from('wc_conjunto_asientos').insert([{
+                conjunto_id: conjuntoId,
+                producto_codigo: String(productoCodigo).trim(),
+                orden: orden != null ? orden : 0
+            }]);
+            if (error) throw error;
+        } catch (e) {
+            console.error('Error addWcConjuntoAsiento:', e);
+            throw e;
+        }
+    }
+
+    async removeWcConjuntoTaza(id) {
+        try {
+            if (!this.client) throw new Error('Cliente no inicializado');
+            const { error } = await this.client.from('wc_conjunto_tazas').delete().eq('id', id);
+            if (error) throw error;
+        } catch (e) {
+            console.error('Error removeWcConjuntoTaza:', e);
+            throw e;
+        }
+    }
+
+    async removeWcConjuntoTanque(id) {
+        try {
+            if (!this.client) throw new Error('Cliente no inicializado');
+            const { error } = await this.client.from('wc_conjunto_tanques').delete().eq('id', id);
+            if (error) throw error;
+        } catch (e) {
+            console.error('Error removeWcConjuntoTanque:', e);
+            throw e;
+        }
+    }
+
+    async removeWcConjuntoAsiento(id) {
+        try {
+            if (!this.client) throw new Error('Cliente no inicializado');
+            const { error } = await this.client.from('wc_conjunto_asientos').delete().eq('id', id);
+            if (error) throw error;
+        } catch (e) {
+            console.error('Error removeWcConjuntoAsiento:', e);
+            throw e;
         }
     }
 }

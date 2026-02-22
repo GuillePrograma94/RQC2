@@ -509,7 +509,79 @@
                     <h2 class="profile-title">Panel de Control</h2>
                 </div>
                 <div class="herramientas-actions">
-                    <!-- Acciones solo para administrador (ej. configurar conjuntos WC) -->
+                    <button type="button" id="panelControlWcConjuntosBtn" class="btn btn-primary btn-lg">Configurar conjuntos WC</button>
+                </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA CONJUNTOS WC (lista, admin)
+             ================================ -->
+        <div id="wcConjuntosScreen" class="screen">
+            <main class="screen-content">
+                <div class="profile-header">
+                    <button type="button" id="wcConjuntosBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title">Conjuntos WC</h2>
+                </div>
+                <div class="wc-conjuntos-toolbar">
+                    <button type="button" id="wcConjuntosNuevoBtn" class="btn btn-primary">Nuevo conjunto</button>
+                </div>
+                <div id="wcConjuntosList" class="wc-conjuntos-list"></div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA DETALLE CONJUNTO WC (editar / crear, admin)
+             ================================ -->
+        <div id="wcConjuntoDetailScreen" class="screen">
+            <main class="screen-content">
+                <div class="profile-header">
+                    <button type="button" id="wcConjuntoDetailBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title" id="wcConjuntoDetailTitle">Conjunto</h2>
+                </div>
+                <form id="wcConjuntoDetailForm" class="wc-conjunto-detail-form">
+                    <div class="form-group">
+                        <label for="wcConjuntoNombre">Nombre *</label>
+                        <input type="text" id="wcConjuntoNombre" required maxlength="200" placeholder="Ej: Serie Comfort">
+                    </div>
+                    <div class="form-group">
+                        <label for="wcConjuntoCodigo">Código</label>
+                        <input type="text" id="wcConjuntoCodigo" maxlength="50" placeholder="Opcional">
+                    </div>
+                    <div class="form-group">
+                        <label for="wcConjuntoDescripcion">Descripción</label>
+                        <input type="text" id="wcConjuntoDescripcion" maxlength="500" placeholder="Opcional">
+                    </div>
+                    <div class="form-group">
+                        <label for="wcConjuntoOrden">Orden</label>
+                        <input type="number" id="wcConjuntoOrden" min="0" value="0" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="wcConjuntoActivo" checked> Activo</label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="wcConjuntoDetailSaveBtn">Guardar conjunto</button>
+                    </div>
+                </form>
+                <div id="wcConjuntoDetailPiezas" class="wc-conjunto-piezas" style="display: none;">
+                    <h3 class="profile-section-title">Tazas</h3>
+                    <div class="wc-piezas-row">
+                        <input type="text" id="wcConjuntoAddTaza" placeholder="Código producto" class="wc-piezas-input">
+                        <button type="button" id="wcConjuntoAddTazaBtn" class="btn btn-small btn-primary">Añadir</button>
+                    </div>
+                    <ul id="wcConjuntoTazasList" class="wc-piezas-list"></ul>
+                    <h3 class="profile-section-title">Tanques</h3>
+                    <div class="wc-piezas-row">
+                        <input type="text" id="wcConjuntoAddTanque" placeholder="Código producto" class="wc-piezas-input">
+                        <button type="button" id="wcConjuntoAddTanqueBtn" class="btn btn-small btn-primary">Añadir</button>
+                    </div>
+                    <ul id="wcConjuntoTanquesList" class="wc-piezas-list"></ul>
+                    <h3 class="profile-section-title">Asientos</h3>
+                    <div class="wc-piezas-row">
+                        <input type="text" id="wcConjuntoAddAsiento" placeholder="Código producto" class="wc-piezas-input">
+                        <button type="button" id="wcConjuntoAddAsientoBtn" class="btn btn-small btn-primary">Añadir</button>
+                    </div>
+                    <ul id="wcConjuntoAsientosList" class="wc-piezas-list"></ul>
                 </div>
             </main>
         </div>
