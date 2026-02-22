@@ -163,10 +163,14 @@ class ScanAsYouShopApp {
 
     /**
      * Oculta la pantalla de acceso y muestra la app
+     * Quita el foco del gate antes de aria-hidden para evitar el aviso de accesibilidad
      */
     hideLanding() {
-        document.body.classList.remove('gate-visible');
         const gateScreen = document.getElementById('gateScreen');
+        if (gateScreen && gateScreen.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
+        document.body.classList.remove('gate-visible');
         if (gateScreen) gateScreen.setAttribute('aria-hidden', 'true');
     }
 
