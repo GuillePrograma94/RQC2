@@ -63,7 +63,7 @@ Endpoints del ERP:
 | `ERP_BASE_URL` | Base URL del ERP en HTTPS (ej: `https://api.saneamiento-martinez.com:5002/api/tienda/v1`) | Requerido |
 | `ERP_LOGIN_PATH` | Ruta de login del ERP: `/login` | Requerido |
 | `ERP_CREATE_ORDER_PATH` | Ruta de crear pedido: `/pedidos/crear` | Requerido |
-| `ERP_USER` | Usuario del ERP (ej: `TIENDA_PRU`) | Requerido |
+| `ERP_USER` | Usuario del ERP con el que la API hace login (ej: `APP_TIENDA` en produccion). El ERP mostrara este usuario como "quien creo el pedido". | Requerido |
 | `ERP_PASSWORD` | Contraseña del ERP | Requerido |
 | `ERP_REQUEST_TIMEOUT_MS` | Timeout en ms (ej: `15000`) | Opcional |
 
@@ -114,7 +114,7 @@ En tu móvil:
 3. Guarda los cambios.
 4. **Redeploy**: en **Deployments** → menú (⋯) del último deployment → **Redeploy**. Así la función serverless (`/api/erp/pedidos`) usará las nuevas variables en la siguiente petición.
 
-La app móvil **no** envía usuario/contraseña del ERP; quien hace el login es la API en Vercel leyendo `ERP_USER` y `ERP_PASSWORD`. Por eso el cambio solo tiene efecto cuando actualizas esas variables en el proyecto de Vercel y vuelves a desplegar.
+La app móvil **no** envía usuario/contraseña del ERP; quien hace el login es la API en Vercel leyendo `ERP_USER` y `ERP_PASSWORD`. El ERP suele mostrar como "usuario que creó el pedido" el usuario con el que se obtuvo el token (es decir, el valor de `ERP_USER` en Vercel). Si en el ERP aparece TIENDA_PRU en vez de APP_TIENDA, es porque en Vercel sigue configurado `ERP_USER=TIENDA_PRU`; actualiza a `APP_TIENDA` y redeploy. Por eso el cambio solo tiene efecto cuando actualizas esas variables en el proyecto de Vercel y vuelves a desplegar.
 
 ### Error: "No se pudo cargar configuración"
 

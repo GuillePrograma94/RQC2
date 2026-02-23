@@ -1106,9 +1106,28 @@ body.gate-visible .app-container {
     gap: 1.5rem;
 }
 
+/* Bloque "Ya estoy en el almacén" + línea separadora blanca + botón Mostrador */
+.checkout-ya-en-almacen-wrap {
+    margin-top: 1.5rem;
+}
+.remote-order-section .checkout-sep-line {
+    border: 0;
+    height: 1px;
+    background: #fff;
+    margin: 0 0 1rem 0;
+}
+.remote-order-section .checkout-ya-en-almacen-text {
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: center;
+    margin: 0 0 1rem 0;
+    letter-spacing: 0.02em;
+}
+
 /* Integrado en recuadro verde (remote-order-section) */
 .checkout-mostrador-inline {
-    margin-top: 1.5rem;
+    margin-top: 0;
     text-align: center;
 }
 
