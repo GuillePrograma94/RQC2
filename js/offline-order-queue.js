@@ -181,6 +181,12 @@ class OfflineOrderQueue {
                     if (window.purchaseCache && item.usuario_id) window.purchaseCache.invalidateUser(item.usuario_id);
                     continue;
                 }
+                const estadoProc = window.supabaseClient && typeof window.supabaseClient.getCarritoEstadoProcesamiento === 'function'
+                    ? await window.supabaseClient.getCarritoEstadoProcesamiento(carritoId)
+                    : null;
+                if (estadoProc === 'procesando') {
+                    continue;
+                }
                 try {
                     const response = await window.erpClient.createRemoteOrder(erpPayload);
                     if (response && response.success === false) {

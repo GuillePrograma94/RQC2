@@ -79,6 +79,79 @@ class ERPRetryQueue {
         });
     }
 
+    /**
+     * Reintenta enviar al ERP un pedido con estado pendiente_erp de forma inmediata.
+     * Busca el item en la cola por carrito_id; si esta, lo envia y actualiza estado.
+     * @param {string} carritoId - ID del carrito (pedido)
+     * @returns {Promise<{ found: boolean, success?: boolean }>} found=true si estaba en cola, success=true si se envio bien
+     */
+    async retryCarritoNow(carritoId) {
+        if (!this.db) {
+            if (typeof this.init === 'function') await this.init();
+            if (!this.db) return { found: false };
+        }
+        const items = await this.getAll();
+        const item = (items || []).find((i) => String(i.carrito_id) === String(carritoId));
+        if (!item) return { found: false };
+        try {
+            await this.remove(item.carrito_id);
+        } catch (removeErr) {
+            console.warn('ERPRetryQueue retryCarritoNow remove:', removeErr);
+            return { found: true, success: false };
+        }
+        const estadoProc = window.supabaseClient && typeof window.supabaseClient.getCarritoEstadoProcesamiento === 'function'
+            ? await window.supabaseClient.getCarritoEstadoProcesamiento(item.carrito_id)
+            : null;
+        if (estadoProc !== 'pendiente_erp') {
+            return { found: true, success: true };
+        }
+        try {
+            const response = await window.erpClient.createRemoteOrder(item.payload);
+            if (response && response.success === false) {
+                await window.supabaseClient.updateCarritoEstadoProcesamiento(item.carrito_id, 'error_erp');
+                return { found: true, success: false };
+            }
+            const pedidoErp = response && response.data && response.data.pedido != null ? response.data.pedido : null;
+            if (pedidoErp) {
+                await window.supabaseClient.updatePedidoErp(item.carrito_id, pedidoErp);
+            }
+            await window.supabaseClient.marcarPedidoRemotoEnviado(item.carrito_id);
+            try {
+                await window.supabaseClient.registrarHistorialDesdeCarrito(item.carrito_id);
+            } catch (e) {
+                console.warn('registrarHistorialDesdeCarrito en retryCarritoNow:', e);
+            }
+            if (window.purchaseCache && item.usuario_id) {
+                window.purchaseCache.invalidateUser(item.usuario_id);
+            }
+            return { found: true, success: true };
+        } catch (err) {
+            const isValidation = /400|Bad Request|obligatorio|ERP error 4\d\d/i.test(String(err && err.message));
+            if (isValidation) {
+                await window.supabaseClient.updateCarritoEstadoProcesamiento(item.carrito_id, 'error_erp');
+                return { found: true, success: false };
+            }
+            const estadoAfter = window.supabaseClient && typeof window.supabaseClient.getCarritoEstadoProcesamiento === 'function'
+                ? await window.supabaseClient.getCarritoEstadoProcesamiento(item.carrito_id)
+                : null;
+            if (estadoAfter === 'procesando') {
+                return { found: true, success: true };
+            }
+            item.retryCount = (item.retryCount || 0) + 1;
+            item.phase = item.retryCount < MAX_RETRIES_PHASE_0 ? 0 : item.retryCount < MAX_RETRIES_PHASE_1 ? 1 : 2;
+            const interval = item.phase === 0 ? INTERVAL_PHASE_0_MS : item.phase === 1 ? INTERVAL_PHASE_1_MS : INTERVAL_PHASE_2_MS;
+            item.nextRetryAt = Date.now() + interval;
+            await new Promise((res, rej) => {
+                const tx = this.db.transaction(ERP_QUEUE_STORE, 'readwrite');
+                tx.objectStore(ERP_QUEUE_STORE).put(item);
+                tx.oncomplete = res;
+                tx.onerror = () => rej(tx.error);
+            });
+            this.scheduleNextRun();
+            return { found: true, success: false };
+        }
+    }
+
     onConnectionRestored() {
         if (!this.db) return;
         this.getAll().then((items) => {
@@ -133,6 +206,12 @@ class ERPRetryQueue {
                     console.warn('ERPRetryQueue remove before send:', removeErr);
                     continue;
                 }
+                const estadoProc = window.supabaseClient && typeof window.supabaseClient.getCarritoEstadoProcesamiento === 'function'
+                    ? await window.supabaseClient.getCarritoEstadoProcesamiento(item.carrito_id)
+                    : null;
+                if (estadoProc !== 'pendiente_erp') {
+                    continue;
+                }
                 try {
                     const response = await window.erpClient.createRemoteOrder(item.payload);
                     if (response && response.success === false) {
@@ -158,7 +237,12 @@ class ERPRetryQueue {
                         await window.supabaseClient.updateCarritoEstadoProcesamiento(item.carrito_id, 'error_erp');
                         continue;
                     }
-                    // Error de red/timeout: re-encolar con contador incrementado
+                    const estadoAfter = window.supabaseClient && typeof window.supabaseClient.getCarritoEstadoProcesamiento === 'function'
+                        ? await window.supabaseClient.getCarritoEstadoProcesamiento(item.carrito_id)
+                        : null;
+                    if (estadoAfter === 'procesando') {
+                        continue;
+                    }
                     item.retryCount = (item.retryCount || 0) + 1;
                     item.phase = item.retryCount < MAX_RETRIES_PHASE_0 ? 0 : item.retryCount < MAX_RETRIES_PHASE_1 ? 1 : 2;
                     const interval = item.phase === 0 ? INTERVAL_PHASE_0_MS : item.phase === 1 ? INTERVAL_PHASE_1_MS : INTERVAL_PHASE_2_MS;

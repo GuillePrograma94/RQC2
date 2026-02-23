@@ -4074,6 +4074,16 @@ body.gate-visible .app-container {
     color: #6b7280;
 }
 
+.order-badge-erp-retry {
+    cursor: pointer;
+    border: none;
+    font: inherit;
+}
+
+.order-badge-erp-retry:hover {
+    opacity: 0.9;
+}
+
 .order-card-meta {
     display: flex;
     flex-wrap: wrap;

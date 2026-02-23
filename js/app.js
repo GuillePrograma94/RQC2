@@ -5147,13 +5147,16 @@ class ScanAsYouShopApp {
         const operarioText = hasOperario ? this.escapeForHtmlAttribute(String(pedido.nombre_operario).trim()) : '';
 
         const orderIdForClick = typeof pedido.id === 'string' ? JSON.stringify(pedido.id) : String(pedido.id);
+        const badgeHtml = pedido.estado_procesamiento === 'pendiente_erp'
+            ? `<button type="button" class="order-badge order-badge-${estadoInfo.class} order-badge-erp-retry" data-carrito-id="${this.escapeForHtmlAttribute(orderIdAttr)}" title="Pulsar para enviar de nuevo al ERP" onclick="event.stopPropagation(); window.app.retryEnvioErp(this.getAttribute('data-carrito-id'));">${estadoInfo.icon} ${estadoInfo.text}</button>`
+            : `<span class="order-badge order-badge-${estadoInfo.class}">${estadoInfo.icon} ${estadoInfo.text}</span>`;
         card.innerHTML = `
             <div class="order-card-header" onclick="window.app.toggleOrderDetails(${orderIdForClick})">
                 <div class="order-card-main">
                     <div class="order-card-top">
                         <span class="order-almacen">${this.escapeForHtmlAttribute(pedido.almacen_destino || '')}</span>
                         <span class="order-type order-type-${tipoClass}">${tipoPedido}</span>
-                        <span class="order-badge order-badge-${estadoInfo.class}">${estadoInfo.icon} ${estadoInfo.text}</span>
+                        ${badgeHtml}
                     </div>
                     <div class="order-card-meta">
                         <span class="order-date">${fechaFormateada}</span>
@@ -5209,6 +5212,136 @@ class ScanAsYouShopApp {
         };
         const key = typeof estadoProcesamiento !== 'undefined' ? estadoProcesamiento : estado;
         return estados[key] || { class: 'pending', icon: '\u23F3', text: key || estado };
+    }
+
+    /**
+     * Reintento manual de envio al ERP para un pedido en estado pendiente_erp.
+     * Primero intenta desde la cola local; si no esta, construye payload desde Supabase y envia.
+     */
+    async retryEnvioErp(carritoId) {
+        if (!carritoId) return;
+        const id = String(carritoId).trim();
+        if (!id) return;
+        window.ui.showLoading('Enviando a ERP...');
+        try {
+            let result = { found: false };
+            if (window.erpRetryQueue && typeof window.erpRetryQueue.retryCarritoNow === 'function') {
+                if (!window.erpRetryQueue.db && typeof window.erpRetryQueue.init === 'function') {
+                    await window.erpRetryQueue.init();
+                }
+                result = await window.erpRetryQueue.retryCarritoNow(id);
+            }
+            if (result.found) {
+                window.ui.hideLoading();
+                if (result.success) {
+                    window.ui.showToast('Pedido enviado al ERP correctamente', 'success');
+                    await this.loadMyOrders();
+                } else {
+                    window.ui.showToast('No se pudo enviar al ERP. Se reintentara automaticamente.', 'warning');
+                    await this.loadMyOrders();
+                }
+                return;
+            }
+            if (!window.erpClient || (!window.erpClient.proxyPath && !window.erpClient.createOrderPath)) {
+                window.ui.hideLoading();
+                window.ui.showToast('ERP no configurado. El pedido seguira en cola.', 'warning');
+                return;
+            }
+            const carrito = await window.supabaseClient.getCart(id);
+            if (!carrito || !carrito.productos || carrito.productos.length === 0) {
+                window.ui.hideLoading();
+                window.ui.showToast('No se encontraron datos del pedido', 'error');
+                return;
+            }
+            if (carrito.estado_procesamiento !== 'pendiente_erp') {
+                window.ui.hideLoading();
+                window.ui.showToast('El pedido ya fue enviado al ERP', 'success');
+                await this.loadMyOrders();
+                return;
+            }
+            const almacen = carrito.almacen_destino || this.getEffectiveAlmacenHabitual() || '';
+            const referencia = 'RQC/' + id + '-' + (carrito.codigo_qr || '');
+            const cart = {
+                productos: (carrito.productos || []).map((p) => ({
+                    codigo_producto: p.codigo_producto || p.codigo,
+                    cantidad: p.cantidad != null ? p.cantidad : 0
+                }))
+            };
+            const payload = this.buildErpOrderPayload(cart, almacen, referencia, carrito.observaciones || '', carrito.codigo_cliente_usuario);
+            const response = await window.erpClient.createRemoteOrder(payload);
+            if (response && response.success === false) {
+                await window.supabaseClient.updateCarritoEstadoProcesamiento(id, 'error_erp');
+                window.ui.hideLoading();
+                window.ui.showToast(response.message || 'El ERP rechazo el pedido', 'error');
+                await this.loadMyOrders();
+                return;
+            }
+            const pedidoErp = response && response.data && response.data.pedido != null ? response.data.pedido : null;
+            if (pedidoErp) {
+                await window.supabaseClient.updatePedidoErp(id, pedidoErp);
+            }
+            await window.supabaseClient.marcarPedidoRemotoEnviado(id);
+            try {
+                await window.supabaseClient.registrarHistorialDesdeCarrito(id);
+            } catch (e) {
+                console.warn('registrarHistorialDesdeCarrito en retryEnvioErp:', e);
+            }
+            if (window.purchaseCache && carrito.usuario_id) {
+                window.purchaseCache.invalidateUser(carrito.usuario_id);
+            }
+            window.ui.hideLoading();
+            window.ui.showToast('Pedido enviado al ERP correctamente', 'success');
+            await this.loadMyOrders();
+        } catch (err) {
+            window.ui.hideLoading();
+            const errMsg = err && (err.message || String(err));
+            const isValidation = this.isErpValidationError(err);
+            if (isValidation) {
+                try {
+                    await window.supabaseClient.updateCarritoEstadoProcesamiento(id, 'error_erp');
+                } catch (e) {
+                    console.warn('updateCarritoEstadoProcesamiento error_erp:', e);
+                }
+                window.ui.showToast(errMsg || 'Error de validacion ERP', 'error');
+                await this.loadMyOrders();
+                return;
+            }
+            if (this.isConnectionError(errMsg) && window.erpRetryQueue) {
+                const carrito = await window.supabaseClient.getCart(id).catch(() => null);
+                if (carrito && carrito.estado_procesamiento === 'procesando') {
+                    window.ui.showToast('El pedido ya fue enviado al ERP. Comprueba la lista.', 'success');
+                } else if (carrito && carrito.productos && carrito.productos.length > 0 && carrito.estado_procesamiento === 'pendiente_erp') {
+                    const almacen = carrito.almacen_destino || this.getEffectiveAlmacenHabitual() || '';
+                    const referencia = 'RQC/' + id + '-' + (carrito.codigo_qr || '');
+                    const cart = {
+                        productos: (carrito.productos || []).map((p) => ({
+                            codigo_producto: p.codigo_producto || p.codigo,
+                            cantidad: p.cantidad != null ? p.cantidad : 0
+                        }))
+                    };
+                    const payload = this.buildErpOrderPayload(cart, almacen, referencia, carrito.observaciones || '', carrito.codigo_cliente_usuario);
+                    try {
+                        await window.erpRetryQueue.init();
+                        await window.erpRetryQueue.enqueue({
+                            carrito_id: id,
+                            payload: payload,
+                            referencia: referencia,
+                            almacen: almacen,
+                            usuario_id: carrito.usuario_id
+                        });
+                        window.ui.showToast('Sin conexion. Se enviara al ERP cuando haya red.', 'warning');
+                    } catch (e) {
+                        console.warn('No se pudo encolar reintento ERP:', e);
+                        window.ui.showToast('Error de conexion. Intenta de nuevo mas tarde.', 'error');
+                    }
+                } else {
+                    window.ui.showToast('Error de conexion. Intenta de nuevo mas tarde.', 'error');
+                }
+            } else {
+                window.ui.showToast(errMsg || 'Error al enviar al ERP', 'error');
+            }
+            await this.loadMyOrders();
+        }
     }
 
     /**

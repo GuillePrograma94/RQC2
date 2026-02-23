@@ -1220,6 +1220,27 @@ class SupabaseClient {
     }
 
     /**
+     * Obtiene solo el estado_procesamiento de un carrito (consulta ligera).
+     * Usado para evitar duplicar envios al ERP: solo enviar si es 'pendiente_erp'.
+     * @param {string|number} carritoId - ID del carrito
+     * @returns {Promise<string|null>} estado_procesamiento o null si error/no existe
+     */
+    async getCarritoEstadoProcesamiento(carritoId) {
+        try {
+            if (!this.client) return null;
+            const { data, error } = await this.client
+                .from('carritos_clientes')
+                .select('estado_procesamiento')
+                .eq('id', carritoId)
+                .maybeSingle();
+            if (error) return null;
+            return (data && data.estado_procesamiento) ? data.estado_procesamiento : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
      * Obtiene los pedidos remotos del usuario
      */
     async getUserRemoteOrders(usuarioId) {

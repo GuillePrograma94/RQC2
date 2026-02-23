@@ -80,11 +80,25 @@ El item se **elimina de IndexedDB ANTES** de llamar al ERP. Si el ERP falla con 
 
 ---
 
-## 5. Riesgo residual: timeout de red en ERP
+## 5. Proteccion anti-duplicados (envio unico al ERP)
 
-Si el ERP procesa el pedido pero la respuesta llega después del timeout configurado (`ERP_REQUEST_TIMEOUT_MS`, por defecto 15 000 ms), el cliente lanza `AbortError` y el item se re-encola. En el siguiente reintento se enviará de nuevo al ERP, que podría crear un pedido duplicado si no tiene deduplicacion por `referencia`.
+Para que sea **imposible** duplicar pedidos en el ERP:
 
-**Mitigacion a nivel de ERP:** El campo `referencia` del payload tiene el formato `RQC/{carritoId}-{codigoQr}`, donde `carritoId` es un UUID único por pedido de Supabase. Si el ERP implementa deduplicación sobre el campo `referencia`, este escenario queda completamente cubierto. Se recomienda solicitarlo al proveedor del ERP.
+1. **Solo enviar si `estado_procesamiento === 'pendiente_erp'`**  
+   Antes de cada llamada a `createRemoteOrder`, se consulta en Supabase el estado del carrito (`getCarritoEstadoProcesamiento(carritoId)`). Si no es `pendiente_erp`, no se envia (se considera ya enviado o cancelado). Aplicado en:
+   - `erp-retry-queue.js`: `runRetries()` y `retryCarritoNow()`
+   - `app.js`: `retryEnvioErp()` (al construir desde Supabase)
+   - `offline-order-queue.js`: antes de enviar al ERP (si ya es `procesando`, se omite)
+
+2. **No re-encolar si ya esta enviado**  
+   Tras un error de red/timeout, antes de re-encolar se vuelve a leer el estado. Si `estado_procesamiento === 'procesando'`, no se re-encola (el ERP pudo haber respondido OK y otro proceso ya actualizo). Aplicado en `erp-retry-queue.js` y en `app.js` al re-encolar desde `retryEnvioErp`.
+
+3. **Cola: eliminar antes de enviar**  
+   El item se elimina de IndexedDB antes de llamar al ERP, evitando que varios triggers envíen el mismo item.
+
+Con esto, un mismo carrito solo puede generar **un unico** envio al ERP, aunque coincidan reintentos por timer, pulsado manual o recuperacion de red.
+
+**Complemento en ERP:** El campo `referencia` tiene el formato `RQC/{carritoId}-{codigoQr}`. Se recomienda que el ERP implemente deduplicacion por `referencia` como capa adicional.
 
 ---
 
