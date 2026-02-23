@@ -470,36 +470,40 @@ class ScanAsYouShopApp {
             const newRecord = payload.new;
             const oldRecord = payload.old;
 
-            console.log('📋 Manejando cambio de estado de pedido:');
-            console.log('   - Estado anterior:', oldRecord?.estado_procesamiento);
-            console.log('   - Estado nuevo:', newRecord?.estado_procesamiento);
+            console.log('Manejando cambio de estado de pedido:');
+            console.log('   - Estado anterior:', oldRecord?.estado, oldRecord?.estado_procesamiento);
+            console.log('   - Estado nuevo:', newRecord?.estado, newRecord?.estado_procesamiento);
             console.log('   - ID del pedido:', newRecord?.id);
-            console.log('   - Código QR:', newRecord?.codigo_qr);
+            console.log('   - Codigo QR:', newRecord?.codigo_qr);
 
-            // Verificar si el estado cambió a 'en_preparacion' (listo para recoger)
-            if (
-                newRecord?.estado === 'en_preparacion' &&
-                oldRecord?.estado !== 'en_preparacion'
-            ) {
-                console.log('Pedido marcado como listo para recoger - ID:', newRecord.id);
-                
-                // Verificar permisos de notificación
+            const isEnPreparacion = newRecord?.estado === 'en_preparacion' && newRecord?.estado_procesamiento === 'procesando';
+            const wasEnPreparacion = oldRecord?.estado === 'en_preparacion' && oldRecord?.estado_procesamiento === 'procesando';
+            const isCompletado = newRecord?.estado === 'completado' && newRecord?.estado_procesamiento === 'completado';
+            const wasCompletado = oldRecord?.estado === 'completado' && oldRecord?.estado_procesamiento === 'completado';
+
+            // En preparación: estado=en_preparacion y estado_procesamiento=procesando -> notificación "listo para recoger"
+            if (isEnPreparacion && !wasEnPreparacion) {
+                console.log('Pedido en preparacion (listo para recoger) - ID:', newRecord.id);
                 if (Notification.permission !== 'granted') {
-                    console.warn('⚠️ Permisos de notificación no otorgados');
-                    // Intentar solicitar permisos
                     await this.requestNotificationPermission();
                 }
-                
-                // Mostrar notificación
                 await this.showOrderReadyNotification(newRecord);
-
-                // Recargar lista de pedidos si estamos en esa pantalla
                 if (this.currentScreen === 'myOrders') {
-                    console.log('Recargando lista de pedidos...');
+                    await this.loadMyOrders();
+                }
+            }
+            // Completado: estado=completado y estado_procesamiento=completado -> marcar completado y notificación
+            else if (isCompletado && !wasCompletado) {
+                console.log('Pedido completado - ID:', newRecord.id);
+                if (Notification.permission !== 'granted') {
+                    await this.requestNotificationPermission();
+                }
+                await this.showOrderCompletedNotification(newRecord);
+                if (this.currentScreen === 'myOrders') {
                     await this.loadMyOrders();
                 }
             } else {
-                console.log('ℹ️ Cambio de estado no relevante para notificaciones');
+                console.log('Cambio de estado no relevante para notificaciones');
             }
 
         } catch (error) {
@@ -584,6 +588,46 @@ class ScanAsYouShopApp {
 
         } catch (error) {
             console.error('Error al mostrar notificación:', error);
+        }
+    }
+
+    /**
+     * Muestra notificación cuando el pedido está completado (estado=completado, estado_procesamiento=completado).
+     */
+    async showOrderCompletedNotification(pedido) {
+        try {
+            if (!this.notificationsEnabled || Notification.permission !== 'granted') {
+                if (Notification.permission === 'default') {
+                    await this.requestNotificationPermission();
+                } else {
+                    return;
+                }
+            }
+            if (!('serviceWorker' in navigator)) return;
+            const registration = await navigator.serviceWorker.ready;
+            const almacen = pedido.almacen_destino || 'Almacén';
+            const titulo = 'Pedido completado';
+            const mensaje = `ALMACEN ${almacen}: Tu pedido ha sido completado.`;
+            await registration.showNotification(titulo, {
+                body: mensaje,
+                icon: '/icon-192.png',
+                badge: '/icon-192.png',
+                tag: `order-completed-${pedido.id}`,
+                requireInteraction: true,
+                vibrate: [200, 100, 200],
+                data: {
+                    orderId: pedido.id,
+                    codigoQR: pedido.codigo_qr,
+                    almacen: almacen,
+                    url: '/'
+                },
+                actions: [
+                    { action: 'open', title: 'Ver Mis Pedidos' },
+                    { action: 'close', title: 'Cerrar' }
+                ]
+            });
+        } catch (error) {
+            console.error('Error al mostrar notificación de pedido completado:', error);
         }
     }
 
@@ -5088,8 +5132,8 @@ class ScanAsYouShopApp {
         // Fecha en hora España
         const fechaFormateada = this.formatDateSpain(pedido.fecha_creacion);
 
-        // Determinar estado y badge
-        const estadoInfo = this.getEstadoBadge(pedido.estado_procesamiento);
+        // Determinar estado y badge (estado + estado_procesamiento de carritos_clientes)
+        const estadoInfo = this.getEstadoBadge(pedido.estado, pedido.estado_procesamiento);
 
         // Determinar tipo de pedido
         const tipoPedido = pedido.tipo_pedido === 'remoto' ? 'Remoto' : 'Presencial';
@@ -5147,19 +5191,27 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Obtiene información del badge según el estado
+     * Obtiene información del badge según estado y estado_procesamiento (carritos_clientes).
+     * - estado=en_preparacion y estado_procesamiento=procesando -> "En Preparación"
+     * - estado=completado y estado_procesamiento=completado -> "Completado"
      */
-    getEstadoBadge(estado) {
+    getEstadoBadge(estado, estadoProcesamiento) {
+        if (estado === 'en_preparacion' && estadoProcesamiento === 'procesando') {
+            return { class: 'processing', icon: '\uD83D\uDCE6', text: 'En Preparación' };
+        }
+        if (estado === 'completado' && estadoProcesamiento === 'completado') {
+            return { class: 'completed', icon: '\u2705', text: 'Completado' };
+        }
         const estados = {
-            'pendiente': { class: 'pending', icon: '⏳', text: 'Pendiente' },
-            'pendiente_erp': { class: 'pending', icon: '📤', text: 'Pend. enviar a ERP' },
-            'pendiente_envio': { class: 'pending', icon: '📴', text: 'Pend. de envio' },
-            'error_erp': { class: 'cancelled', icon: '❌', text: 'Error ERP' },
-            'procesando': { class: 'processing', icon: '📤', text: 'Enviado' },
-            'completado': { class: 'completed', icon: '✅', text: 'Completado' }
+            'pendiente': { class: 'pending', icon: '\u23F3', text: 'Pendiente' },
+            'pendiente_erp': { class: 'pending', icon: '\uD83D\uDCE4', text: 'Pend. enviar a ERP' },
+            'pendiente_envio': { class: 'pending', icon: '\uD83D\uDCF4', text: 'Pend. de envio' },
+            'error_erp': { class: 'cancelled', icon: '\u274C', text: 'Error ERP' },
+            'procesando': { class: 'processing', icon: '\uD83D\uDCE4', text: 'Enviado' },
+            'completado': { class: 'completed', icon: '\u2705', text: 'Completado' }
         };
-
-        return estados[estado] || { class: 'pending', icon: '⏳', text: estado };
+        const key = typeof estadoProcesamiento !== 'undefined' ? estadoProcesamiento : estado;
+        return estados[key] || { class: 'pending', icon: '\u23F3', text: key || estado };
     }
 
     /**
