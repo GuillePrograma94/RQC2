@@ -481,18 +481,15 @@ class ScanAsYouShopApp {
             const isCompletado = newRecord?.estado === 'completado' && newRecord?.estado_procesamiento === 'completado';
             const wasCompletado = oldRecord?.estado === 'completado' && oldRecord?.estado_procesamiento === 'completado';
 
-            // En preparación: estado=en_preparacion y estado_procesamiento=procesando -> notificación "listo para recoger"
+            // En preparacion (impreso en caja): solo actualizar lista si estamos en Mis Pedidos; NO notificar "listo para recoger"
+            // La notificacion al cliente debe aparecer cuando se marca como ENTREGADO (completado), no al imprimir el ticket
             if (isEnPreparacion && !wasEnPreparacion) {
-                console.log('Pedido en preparacion (listo para recoger) - ID:', newRecord.id);
-                if (Notification.permission !== 'granted') {
-                    await this.requestNotificationPermission();
-                }
-                await this.showOrderReadyNotification(newRecord);
+                console.log('Pedido en preparacion (impreso en caja) - ID:', newRecord.id, '- sin notificacion');
                 if (this.currentScreen === 'myOrders') {
                     await this.loadMyOrders();
                 }
             }
-            // Completado: estado=completado y estado_procesamiento=completado -> marcar completado y notificación
+            // Completado (marcar entregado en caja): notificacion "pedido completado"
             else if (isCompletado && !wasCompletado) {
                 console.log('Pedido completado - ID:', newRecord.id);
                 if (Notification.permission !== 'granted') {
