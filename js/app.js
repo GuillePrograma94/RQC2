@@ -4792,18 +4792,29 @@ class ScanAsYouShopApp {
                     );
                 }
                 await window.supabaseClient.updateCarritoEstadoProcesamiento(result.carrito_id, 'pendiente_erp');
-                window.erpRetryQueue.enqueue({
-                    carrito_id: result.carrito_id,
-                    payload: erpPayload,
-                    referencia: referencia,
-                    almacen: almacen,
-                    usuario_id: this.currentUser.user_id
-                });
+                let erpEnqueued = false;
+                try {
+                    if (!window.erpRetryQueue.db && typeof window.erpRetryQueue.init === 'function') {
+                        await window.erpRetryQueue.init();
+                    }
+                    await window.erpRetryQueue.enqueue({
+                        carrito_id: result.carrito_id,
+                        payload: erpPayload,
+                        referencia: referencia,
+                        almacen: almacen,
+                        usuario_id: this.currentUser.user_id
+                    });
+                    erpEnqueued = true;
+                } catch (queueErr) {
+                    console.warn('No se pudo encolar reintento ERP:', queueErr);
+                }
                 if (window.offlineOrderQueue && typeof window.offlineOrderQueue.registerBackgroundSync === 'function') {
                     window.offlineOrderQueue.registerBackgroundSync();
                 }
                 window.ui.hideLoading();
-                window.ui.showToast('Pedido guardado. Se enviara al ERP cuando haya conexion.', 'success');
+                window.ui.showToast(erpEnqueued
+                    ? 'Pedido guardado. Se enviara al ERP cuando haya conexion.'
+                    : 'Pedido guardado en el servidor. Si el ERP no lo recibe, contacta con soporte.', erpEnqueued ? 'success' : 'warning');
                 if (window.purchaseCache) {
                     window.purchaseCache.invalidateUser(this.currentUser.user_id);
                 }

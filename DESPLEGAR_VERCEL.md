@@ -101,6 +101,21 @@ En tu móvil:
 
 ## Problemas Comunes
 
+### Error: "ERP login error 403: Forbidden" o 502 al crear pedido
+
+**Causa**: La API en Vercel hace el login al ERP con las variables de entorno `ERP_USER` y `ERP_PASSWORD`. Si has cambiado el usuario del ERP para producción (o la URL del ERP), esas credenciales deben estar actualizadas **en Vercel**, no solo en tu entorno local.
+
+**Solución**:
+1. Entra en [Vercel](https://vercel.com) → tu proyecto (ej. **rqc-2**) → **Settings** → **Environment Variables**.
+2. Actualiza:
+   - **`ERP_USER`**: usuario del ERP de **producción**.
+   - **`ERP_PASSWORD`**: contraseña del ERP de producción.
+   - Si el ERP de producción usa otra URL o rutas: **`ERP_BASE_URL`**, **`ERP_LOGIN_PATH`**, **`ERP_CREATE_ORDER_PATH`**.
+3. Guarda los cambios.
+4. **Redeploy**: en **Deployments** → menú (⋯) del último deployment → **Redeploy**. Así la función serverless (`/api/erp/pedidos`) usará las nuevas variables en la siguiente petición.
+
+La app móvil **no** envía usuario/contraseña del ERP; quien hace el login es la API en Vercel leyendo `ERP_USER` y `ERP_PASSWORD`. Por eso el cambio solo tiene efecto cuando actualizas esas variables en el proyecto de Vercel y vuelves a desplegar.
+
 ### Error: "No se pudo cargar configuración"
 
 **Causa**: Variables de entorno no configuradas
