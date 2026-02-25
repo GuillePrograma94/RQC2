@@ -100,6 +100,14 @@ Con esto, un mismo carrito solo puede generar **un unico** envio al ERP, aunque 
 
 **Complemento en ERP:** El campo `referencia` tiene el formato `RQC/{carritoId}-{codigoQr}`. Se recomienda que el ERP implemente deduplicacion por `referencia` como capa adicional.
 
+4. **Tabla de comprobacion `erp_referencias_comprobacion` (Supabase)**  
+   Antes de enviar cualquier pedido al ERP, se consulta esta tabla por `referencia` (ej: `RQC/312-995618`). Si la referencia ya existe, **no se llama a la API del ERP** y se usa el `pedido_erp` ya registrado (ej: `SM1-001800`). Tras un envio exitoso al ERP, se inserta `(referencia, pedido_erp)` en la tabla.  
+   Aplicado en:
+   - `checkout_pc/checkout_webview.py` (confirmacion de carrito presencial)
+   - `scan_client_mobile/api/erp/create-order.js` (API Vercel para pedidos remotos)
+
+   Ver `migration_erp_referencias_comprobacion.sql` en la raiz del proyecto.
+
 ---
 
 ## 6. Problema historico: pedidos duplicados en ERP (corregido)
