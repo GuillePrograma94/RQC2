@@ -467,7 +467,16 @@
                     <button type="button" id="selectorClienteBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
                     <h2 class="profile-title">Representar a un cliente</h2>
                 </div>
-                <p class="profile-section-desc" style="margin: 0 1rem 1rem;">Elige el cliente cuyos pedidos e historial quieres ver.</p>
+
+                <!-- Bloque superior: solo visible cuando ya hay un cliente representado -->
+                <div id="selectorClienteRepresentando" class="selector-cliente-representando" style="display: none;">
+                    <p class="selector-cliente-representando-texto">
+                        Estas representando a <strong id="selectorClienteRepresentandoNombre"></strong>.
+                        <button type="button" id="selectorClienteAñadirAliasBtn" class="selector-cliente-alias-link">Añadir alias</button>
+                    </p>
+                </div>
+
+                <h3 class="selector-cliente-otro-titulo">Representar a otro cliente</h3>
                 <div class="selector-cliente-filters" style="margin: 0 1rem 1rem;">
                     <div class="input-group" style="margin-bottom: 0.5rem;">
                         <label for="selectorClienteFilterNumero" class="input-label">Numero / Codigo</label>

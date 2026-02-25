@@ -3295,23 +3295,41 @@ body.gate-visible .app-container {
     border-color: var(--primary);
 }
 
-.selector-cliente-alias-btn {
-    flex-shrink: 0;
-    font-size: 0.75rem;
-    padding: 0.3rem 0.65rem;
-    background: var(--gray-100);
-    color: var(--gray-600);
-    border: 1px solid var(--gray-300);
-    border-radius: 6px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.15s, color 0.15s;
+.selector-cliente-representando {
+    margin: 0 1rem 1rem;
+    padding: 1rem 1.25rem;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
 }
 
-.selector-cliente-alias-btn:hover {
-    background: var(--primary-light, #e8f0fe);
+.selector-cliente-representando-texto {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--gray-700);
+}
+
+.selector-cliente-alias-link {
+    margin-left: 0.35rem;
+    padding: 0;
+    background: none;
+    border: none;
+    font-size: inherit;
     color: var(--primary);
-    border-color: var(--primary);
+    text-decoration: underline;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.selector-cliente-alias-link:hover {
+    color: var(--primary-dark, #0d47a1);
+}
+
+.selector-cliente-otro-titulo {
+    margin: 0 1rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-700);
 }
 
 .profile-operario-info {

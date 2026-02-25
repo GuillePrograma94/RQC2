@@ -875,7 +875,33 @@ class ScanAsYouShopApp {
             listEl.innerHTML = '';
             return;
         }
+        this._updateSelectorClienteRepresentandoBlock();
         this._renderSelectorClienteList(this._clientesAsignadosComercial);
+    }
+
+    /**
+     * Actualiza el bloque superior "Estas representando a X. [Añadir alias]"
+     * cuando el comercial tiene un cliente seleccionado.
+     */
+    _updateSelectorClienteRepresentandoBlock() {
+        const block = document.getElementById('selectorClienteRepresentando');
+        const nameEl = document.getElementById('selectorClienteRepresentandoNombre');
+        const aliasBtn = document.getElementById('selectorClienteAñadirAliasBtn');
+        if (!block || !nameEl || !aliasBtn) return;
+        const id = this.currentUser && this.currentUser.cliente_representado_id;
+        if (!id) {
+            block.style.display = 'none';
+            return;
+        }
+        const cliente = this._clientesAsignadosComercial && this._clientesAsignadosComercial.find(function (c) { return c.id === id; });
+        if (!cliente) {
+            block.style.display = 'none';
+            return;
+        }
+        nameEl.textContent = cliente.nombre || this.currentUser.cliente_representado_nombre || '';
+        aliasBtn.textContent = cliente.alias ? 'Editar alias' : 'Añadir alias';
+        aliasBtn.onclick = () => this.openEditAliasModal(cliente);
+        block.style.display = 'block';
     }
 
     /**
@@ -966,17 +992,6 @@ class ScanAsYouShopApp {
             }
             info.appendChild(codeDiv);
             item.appendChild(info);
-            // Botón editar alias (no propaga el click al item)
-            const editAliasBtn = document.createElement('button');
-            editAliasBtn.type = 'button';
-            editAliasBtn.className = 'btn btn-small btn-secondary selector-cliente-alias-btn';
-            editAliasBtn.textContent = c.alias ? 'Alias' : '+ Alias';
-            editAliasBtn.title = c.alias ? 'Editar alias: ' + c.alias : 'Añadir alias';
-            editAliasBtn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                self.openEditAliasModal(c);
-            });
-            item.appendChild(editAliasBtn);
 
             item.addEventListener('click', function () {
                 self.currentUser.cliente_representado_id = c.id;
@@ -1214,6 +1229,7 @@ class ScanAsYouShopApp {
         }
 
         this.closeEditAliasModal();
+        this._updateSelectorClienteRepresentandoBlock();
         this._applySelectorClienteFilter();
         window.ui.showToast(nuevoAlias ? ('Alias guardado: ' + nuevoAlias) : 'Alias eliminado', 'success');
     }
