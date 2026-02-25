@@ -35,6 +35,7 @@ node_modules/
 # Archivos de build
 dist/
 build/
+public/
 
 # Cache
 .cache/
