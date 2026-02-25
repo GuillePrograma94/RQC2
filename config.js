@@ -65,12 +65,9 @@ let CONFIG = {
             const configUrl = '/api/config.js';
             console.log('[Config] Solicitando configuracion:', configUrl);
             let response = await fetch(configUrl);
-            
+
             console.log('[Config] Respuesta recibida:', {
-                url: response.url,
                 status: response.status,
-                statusText: response.statusText,
-                contentType: response.headers.get('Content-Type'),
                 ok: response.ok
             });
 
@@ -85,8 +82,7 @@ let CONFIG = {
             }
             
             const responseText = await response.text();
-            const bodyPreview = responseText.length > 200 ? responseText.substring(0, 200) + '...' : responseText;
-            console.log('[Config] Cuerpo de la respuesta (preview):', bodyPreview);
+            // No loguear el cuerpo de la respuesta: puede contener SUPABASE_ANON_KEY
 
             let config;
             try {
