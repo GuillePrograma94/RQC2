@@ -966,6 +966,18 @@ class ScanAsYouShopApp {
             }
             info.appendChild(codeDiv);
             item.appendChild(info);
+            // Botón editar alias (no propaga el click al item)
+            const editAliasBtn = document.createElement('button');
+            editAliasBtn.type = 'button';
+            editAliasBtn.className = 'btn btn-small btn-secondary selector-cliente-alias-btn';
+            editAliasBtn.textContent = c.alias ? 'Alias' : '+ Alias';
+            editAliasBtn.title = c.alias ? 'Editar alias: ' + c.alias : 'Añadir alias';
+            editAliasBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                self.openEditAliasModal(c);
+            });
+            item.appendChild(editAliasBtn);
+
             item.addEventListener('click', function () {
                 self.currentUser.cliente_representado_id = c.id;
                 self.currentUser.cliente_representado_nombre = (c.nombre || '').trim();
@@ -1131,6 +1143,79 @@ class ScanAsYouShopApp {
     closeProfileOperarioModal() {
         const modal = document.getElementById('profileOperarioModal');
         if (modal) modal.style.display = 'none';
+    }
+
+    /**
+     * Abre el modal de editar alias de un cliente (solo comerciales).
+     * @param {Object} cliente - Objeto cliente con id, nombre, alias
+     */
+    openEditAliasModal(cliente) {
+        const modal = document.getElementById('editAliasClienteModal');
+        const hintEl = document.getElementById('editAliasClienteNombreHint');
+        const inputEl = document.getElementById('editAliasClienteInput');
+        const msgEl = document.getElementById('editAliasClienteMessage');
+        const form = document.getElementById('editAliasClienteForm');
+        if (!modal) return;
+        this._editAliasClienteActual = cliente;
+        if (hintEl) hintEl.textContent = 'Cliente: ' + (cliente.nombre || '') + ' (Cod: ' + (cliente.codigo_usuario || '') + ')';
+        if (inputEl) inputEl.value = cliente.alias || '';
+        if (msgEl) { msgEl.style.display = 'none'; msgEl.textContent = ''; msgEl.className = 'profile-message'; }
+        if (form) {
+            form.onsubmit = (e) => {
+                e.preventDefault();
+                this.guardarAliasCliente();
+            };
+        }
+        modal.style.display = 'flex';
+        if (inputEl) inputEl.focus();
+    }
+
+    /**
+     * Cierra el modal de editar alias
+     */
+    closeEditAliasModal() {
+        const modal = document.getElementById('editAliasClienteModal');
+        if (modal) modal.style.display = 'none';
+        this._editAliasClienteActual = null;
+    }
+
+    /**
+     * Guarda el alias del cliente editado y refresca la lista local
+     */
+    async guardarAliasCliente() {
+        const cliente = this._editAliasClienteActual;
+        const inputEl = document.getElementById('editAliasClienteInput');
+        const msgEl = document.getElementById('editAliasClienteMessage');
+        const submitBtn = document.getElementById('editAliasClienteSubmit');
+        if (!cliente || !inputEl) return;
+
+        const nuevoAlias = inputEl.value.trim() || null;
+        if (submitBtn) submitBtn.disabled = true;
+
+        const resultado = await window.supabaseClient.actualizarAliasCliente(cliente.id, nuevoAlias);
+
+        if (submitBtn) submitBtn.disabled = false;
+
+        if (!resultado.success) {
+            if (msgEl) {
+                msgEl.textContent = resultado.message || 'Error al guardar el alias';
+                msgEl.className = 'profile-message profile-message-error';
+                msgEl.style.display = 'block';
+            }
+            return;
+        }
+
+        // Actualizar el objeto en la lista local para que el filtro y la vista reflejen el cambio
+        if (this._clientesAsignadosComercial) {
+            const idx = this._clientesAsignadosComercial.findIndex(function (c) { return c.id === cliente.id; });
+            if (idx !== -1) {
+                this._clientesAsignadosComercial[idx].alias = nuevoAlias;
+            }
+        }
+
+        this.closeEditAliasModal();
+        this._applySelectorClienteFilter();
+        window.ui.showToast(nuevoAlias ? ('Alias guardado: ' + nuevoAlias) : 'Alias eliminado', 'success');
     }
 
     /**
@@ -2350,6 +2435,19 @@ class ScanAsYouShopApp {
             const overlay = profileOperarioModal.querySelector('.profile-modal-overlay');
             if (overlay) {
                 overlay.addEventListener('click', () => this.closeProfileOperarioModal());
+            }
+        }
+
+        // Comercial: Cerrar modal editar alias cliente
+        const editAliasClienteModalClose = document.getElementById('editAliasClienteModalClose');
+        if (editAliasClienteModalClose) {
+            editAliasClienteModalClose.addEventListener('click', () => this.closeEditAliasModal());
+        }
+        const editAliasClienteModal = document.getElementById('editAliasClienteModal');
+        if (editAliasClienteModal) {
+            const overlay = editAliasClienteModal.querySelector('.profile-modal-overlay');
+            if (overlay) {
+                overlay.addEventListener('click', () => this.closeEditAliasModal());
             }
         }
 

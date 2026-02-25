@@ -1798,6 +1798,27 @@ class SupabaseClient {
             throw e;
         }
     }
+    /**
+     * Actualiza el alias de un cliente desde la vista del comercial.
+     * @param {number} clienteId - ID del cliente (usuarios.id)
+     * @param {string|null} nuevoAlias - Nuevo alias, o null/vacio para borrarlo
+     * @returns {Promise<{success: boolean, message?: string}>}
+     */
+    async actualizarAliasCliente(clienteId, nuevoAlias) {
+        try {
+            if (!this.client || !clienteId) throw new Error('Datos incompletos');
+            const valor = nuevoAlias && String(nuevoAlias).trim() ? String(nuevoAlias).trim() : null;
+            const { error } = await this.client
+                .from('usuarios')
+                .update({ alias: valor, fecha_actualizacion: new Date().toISOString() })
+                .eq('id', clienteId);
+            if (error) throw error;
+            return { success: true };
+        } catch (err) {
+            console.error('actualizarAliasCliente:', err);
+            return { success: false, message: (err && err.message) || 'Error al actualizar alias' };
+        }
+    }
 }
 
 // Crear instancia global

@@ -3295,6 +3295,25 @@ body.gate-visible .app-container {
     border-color: var(--primary);
 }
 
+.selector-cliente-alias-btn {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    padding: 0.3rem 0.65rem;
+    background: var(--gray-100);
+    color: var(--gray-600);
+    border: 1px solid var(--gray-300);
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+}
+
+.selector-cliente-alias-btn:hover {
+    background: var(--primary-light, #e8f0fe);
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
 .profile-operario-info {
     flex: 1;
     min-width: 0;

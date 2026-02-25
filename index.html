@@ -735,6 +735,26 @@
             </div>
         </div>
 
+        <!-- Modal editar alias cliente (para comerciales) -->
+        <div id="editAliasClienteModal" class="profile-modal" style="display: none;">
+            <div class="profile-modal-overlay"></div>
+            <div class="profile-modal-content">
+                <div class="profile-modal-header">
+                    <h3>Editar alias</h3>
+                    <button type="button" id="editAliasClienteModalClose" class="profile-modal-close">&#x2715;</button>
+                </div>
+                <p class="profile-operario-hint" id="editAliasClienteNombreHint"></p>
+                <form id="editAliasClienteForm" class="profile-form">
+                    <div class="profile-form-group">
+                        <label for="editAliasClienteInput" class="profile-label">Alias</label>
+                        <input type="text" id="editAliasClienteInput" class="profile-input" placeholder="Introduce un alias para este cliente..." maxlength="100" autocomplete="off">
+                    </div>
+                    <p id="editAliasClienteMessage" class="profile-message" style="display: none;"></p>
+                    <button type="submit" id="editAliasClienteSubmit" class="btn btn-primary">Guardar alias</button>
+                </form>
+            </div>
+        </div>
+
         <!-- ================================
              FOOTER DE NAVEGACIÓN
              ================================ -->
