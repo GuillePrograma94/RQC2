@@ -3,7 +3,10 @@
  * Maneja cache y funcionamiento offline
  */
 
-const CACHE_NAME = 'scan-as-you-shop-v17';
+// __SW_VERSION__ es reemplazado por build.js en cada deployment de Vercel
+// con los primeros 8 caracteres del SHA del commit de Git.
+// En desarrollo local (sin build), permanece como literal y funciona igualmente.
+const CACHE_NAME = 'scan-as-you-shop-__SW_VERSION__';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -23,8 +26,12 @@ const urlsToCache = [
 
 // Instalación del Service Worker
 self.addEventListener('install', event => {
-    console.log('Service Worker: Instalando...');
-    
+    console.log('Service Worker: Instalando version ' + CACHE_NAME);
+
+    // skipWaiting hace que el nuevo SW se active inmediatamente,
+    // sin esperar a que todas las pestanas del cliente se cierren.
+    self.skipWaiting();
+
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
@@ -39,19 +46,25 @@ self.addEventListener('install', event => {
 
 // Activación del Service Worker
 self.addEventListener('activate', event => {
-    console.log('Service Worker: Activando...');
-    
+    console.log('Service Worker: Activando version ' + CACHE_NAME);
+
     event.waitUntil(
-        caches.keys().then(cacheNames => {
-            return Promise.all(
-                cacheNames.map(cacheName => {
-                    if (cacheName !== CACHE_NAME) {
-                        console.log('Service Worker: Eliminando cache antiguo:', cacheName);
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        })
+        caches.keys()
+            .then(cacheNames => {
+                return Promise.all(
+                    cacheNames.map(cacheName => {
+                        if (cacheName !== CACHE_NAME) {
+                            console.log('Service Worker: Eliminando cache antiguo:', cacheName);
+                            return caches.delete(cacheName);
+                        }
+                    })
+                );
+            })
+            .then(() => {
+                // clients.claim hace que el nuevo SW controle todas las pestanas
+                // abiertas de inmediato, sin esperar a que las recarguen.
+                return self.clients.claim();
+            })
     );
 });
 
@@ -137,6 +150,8 @@ self.addEventListener('sync', event => {
 
 // Mensajes desde la app
 self.addEventListener('message', event => {
+    // SKIP_WAITING ya no es necesario (skipWaiting se llama automaticamente en install),
+    // pero se mantiene por compatibilidad por si alguna parte del codigo lo envia.
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }

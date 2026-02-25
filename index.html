@@ -473,9 +473,13 @@
                         <label for="selectorClienteFilterNumero" class="input-label">Numero / Codigo</label>
                         <input type="text" id="selectorClienteFilterNumero" class="search-input" placeholder="Filtrar por numero..." autocomplete="off">
                     </div>
-                    <div class="input-group" style="margin-bottom: 0;">
+                    <div class="input-group" style="margin-bottom: 0.5rem;">
                         <label for="selectorClienteFilterNombre" class="input-label">Nombre</label>
                         <input type="text" id="selectorClienteFilterNombre" class="search-input" placeholder="Filtrar por nombre..." autocomplete="off">
+                    </div>
+                    <div class="input-group" style="margin-bottom: 0;">
+                        <label for="selectorClienteFilterPoblacion" class="input-label">Poblacion</label>
+                        <input type="text" id="selectorClienteFilterPoblacion" class="search-input" placeholder="Filtrar por poblacion..." autocomplete="off">
                     </div>
                 </div>
                 <div id="selectorClienteList" class="profile-operarios-list"></div>
@@ -916,13 +920,33 @@
     <script src="js/ui.js"></script>
     <script src="js/app.js"></script>
 
-    <!-- Service Worker -->
+    <!-- Service Worker con auto-actualizacion -->
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
+            // Guardamos si ya habia un SW controlando la pagina antes de registrar.
+            // Esto nos permite distinguir una primera instalacion (no recargar)
+            // de una actualizacion real (recargar para aplicar la nueva version).
+            var _swHadController = !!navigator.serviceWorker.controller;
+            var _swRefreshing = false;
+
+            // Cuando el SW activo cambia (nuevo SW toma el control tras skipWaiting),
+            // recargamos la pagina una sola vez para que el usuario vea la version nueva.
+            navigator.serviceWorker.addEventListener('controllerchange', function () {
+                if (_swHadController && !_swRefreshing) {
+                    _swRefreshing = true;
+                    console.log('Service Worker: nueva version activa, recargando...');
+                    window.location.reload();
+                }
+            });
+
+            window.addEventListener('load', function () {
                 navigator.serviceWorker.register('/sw.js')
-                    .then(registration => console.log('Service Worker registrado:', registration))
-                    .catch(error => console.error('Error al registrar Service Worker:', error));
+                    .then(function (registration) {
+                        console.log('Service Worker registrado:', registration.scope);
+                    })
+                    .catch(function (error) {
+                        console.error('Error al registrar Service Worker:', error);
+                    });
             });
         }
     </script>

@@ -862,6 +862,8 @@ class ScanAsYouShopApp {
 
         if (filterNum) filterNum.value = '';
         if (filterNombre) filterNombre.value = '';
+        const filterPoblacion = document.getElementById('selectorClienteFilterPoblacion');
+        if (filterPoblacion) filterPoblacion.value = '';
 
         const numero = this.currentUser.comercial_numero != null ? this.currentUser.comercial_numero : parseInt(this.currentUser.codigo_usuario, 10);
         const clientes = await window.supabaseClient.getClientesAsignadosComercial(numero);
@@ -883,8 +885,10 @@ class ScanAsYouShopApp {
         if (!this._clientesAsignadosComercial || !this._clientesAsignadosComercial.length) return;
         const filterNum = document.getElementById('selectorClienteFilterNumero');
         const filterNombre = document.getElementById('selectorClienteFilterNombre');
+        const filterPoblacion = document.getElementById('selectorClienteFilterPoblacion');
         const num = (filterNum && filterNum.value) ? filterNum.value.trim().toLowerCase() : '';
         const nom = (filterNombre && filterNombre.value) ? filterNombre.value.trim().toLowerCase() : '';
+        const pob = (filterPoblacion && filterPoblacion.value) ? filterPoblacion.value.trim().toLowerCase() : '';
         let filtered = this._clientesAsignadosComercial;
         if (num) {
             filtered = filtered.filter(function (c) {
@@ -895,10 +899,17 @@ class ScanAsYouShopApp {
         if (nom) {
             filtered = filtered.filter(function (c) {
                 const nombre = (c.nombre || '').toString().toLowerCase();
-                return nombre.indexOf(nom) !== -1;
+                const alias = (c.alias || '').toString().toLowerCase();
+                return nombre.indexOf(nom) !== -1 || alias.indexOf(nom) !== -1;
             });
         }
-        this._renderSelectorClienteList(filtered, !!num || !!nom);
+        if (pob) {
+            filtered = filtered.filter(function (c) {
+                const poblacion = (c.poblacion || '').toString().toLowerCase();
+                return poblacion.indexOf(pob) !== -1;
+            });
+        }
+        this._renderSelectorClienteList(filtered, !!num || !!nom || !!pob);
     }
 
     /**
@@ -941,6 +952,18 @@ class ScanAsYouShopApp {
             codeDiv.className = 'profile-operario-codigo';
             codeDiv.textContent = 'Codigo: ' + (c.codigo_usuario || '');
             info.appendChild(nameDiv);
+            if (c.alias) {
+                const aliasDiv = document.createElement('div');
+                aliasDiv.className = 'profile-operario-codigo';
+                aliasDiv.textContent = 'Alias: ' + c.alias;
+                info.appendChild(aliasDiv);
+            }
+            if (c.poblacion) {
+                const pobDiv = document.createElement('div');
+                pobDiv.className = 'profile-operario-codigo';
+                pobDiv.textContent = 'Poblacion: ' + c.poblacion;
+                info.appendChild(pobDiv);
+            }
             info.appendChild(codeDiv);
             item.appendChild(info);
             item.addEventListener('click', function () {
@@ -2241,14 +2264,18 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Selector cliente (comercial): filtrar por numero o nombre
+        // Selector cliente (comercial): filtrar por numero, nombre o poblacion
         const selectorClienteFilterNumero = document.getElementById('selectorClienteFilterNumero');
         const selectorClienteFilterNombre = document.getElementById('selectorClienteFilterNombre');
+        const selectorClienteFilterPoblacion = document.getElementById('selectorClienteFilterPoblacion');
         if (selectorClienteFilterNumero) {
             selectorClienteFilterNumero.addEventListener('input', () => this._applySelectorClienteFilter());
         }
         if (selectorClienteFilterNombre) {
             selectorClienteFilterNombre.addEventListener('input', () => this._applySelectorClienteFilter());
+        }
+        if (selectorClienteFilterPoblacion) {
+            selectorClienteFilterPoblacion.addEventListener('input', () => this._applySelectorClienteFilter());
         }
 
         // Perfil: Cambiar contraseña
@@ -4656,9 +4683,11 @@ class ScanAsYouShopApp {
         }));
 
         const codigoClienteErp = (codigoClienteUsuario != null && codigoClienteUsuario !== '') ? codigoClienteUsuario : null;
+        const codigoUsuarioErp = codigoClienteErp;
 
         return {
             codigo_cliente: codigoClienteErp,
+            codigo_usuario_erp: codigoUsuarioErp,
             serie: serie,
             centro_venta: centro_venta,
             referencia: ref,
@@ -4685,8 +4714,10 @@ class ScanAsYouShopApp {
             unidades: p.cantidad != null ? p.cantidad : 0
         }));
         const codigoClienteErp = (codigoClienteUsuario != null && codigoClienteUsuario !== '') ? codigoClienteUsuario : null;
+        const codigoUsuarioErp = codigoClienteErp;
         return {
             codigo_cliente: codigoClienteErp,
+            codigo_usuario_erp: codigoUsuarioErp,
             serie: serie,
             centro_venta: centro_venta,
             referencia: referencia,
