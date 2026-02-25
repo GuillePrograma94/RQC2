@@ -62,11 +62,21 @@ let CONFIG = {
             
             // Intentar cargar desde serverless function (Vercel/Netlify)
             // Forzar .js explícitamente para evitar que cargue .php cacheado
-            let response = await fetch('/api/config.js');
+            const configUrl = '/api/config.js';
+            console.log('[Config] Solicitando configuracion:', configUrl);
+            let response = await fetch(configUrl);
             
+            console.log('[Config] Respuesta recibida:', {
+                url: response.url,
+                status: response.status,
+                statusText: response.statusText,
+                contentType: response.headers.get('Content-Type'),
+                ok: response.ok
+            });
+
             if (!response.ok) {
                 // Fallback: leer desde variables de entorno del navegador (desarrollo)
-                console.warn('No se pudo cargar config desde servidor, usando valores configurados');
+                console.warn('[Config] No se pudo cargar config desde servidor (status ' + response.status + '), usando valores configurados');
                 // Si hay credenciales hardcodeadas, considerarlo válido
                 if (this.SUPABASE_URL && this.SUPABASE_ANON_KEY) {
                     return true;
@@ -74,7 +84,18 @@ let CONFIG = {
                 return false;
             }
             
-            const config = await response.json();
+            const responseText = await response.text();
+            const bodyPreview = responseText.length > 200 ? responseText.substring(0, 200) + '...' : responseText;
+            console.log('[Config] Cuerpo de la respuesta (preview):', bodyPreview);
+
+            let config;
+            try {
+                config = JSON.parse(responseText);
+            } catch (parseError) {
+                console.error('[Config] La respuesta no es JSON valido. Content-Type era:', response.headers.get('Content-Type'), '| Parse error:', parseError.message);
+                console.error('[Config] Posible causa: el Service Worker o el servidor devolvieron otro archivo (p. ej. sw.js). Comprueba que /api/config.js no este siendo cacheado.');
+                throw parseError;
+            }
             
             if (config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
                 this.SUPABASE_URL = config.SUPABASE_URL;
@@ -99,11 +120,12 @@ let CONFIG = {
 
             return !!(this.SUPABASE_URL && this.SUPABASE_ANON_KEY);
         } catch (error) {
-            console.error('Error al cargar configuracion de Supabase:', error);
+            console.error('[Config] Error al cargar configuracion de Supabase:', error);
+            console.error('[Config] Si la respuesta empieza por "/**" o "/*", el servidor o el SW devolvieron un .js en lugar de JSON. Excluye /api/* del cache del Service Worker.');
             // Si hay credenciales hardcodeadas, considerarlo válido
             if (this.SUPABASE_URL && this.SUPABASE_ANON_KEY && 
                 this.SUPABASE_URL !== 'https://tu-proyecto.supabase.co') {
-                console.log('Usando credenciales configuradas como fallback');
+                console.log('[Config] Usando credenciales configuradas como fallback');
                 return true;
             }
             return false;

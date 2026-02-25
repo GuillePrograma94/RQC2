@@ -1,6 +1,7 @@
 {
   "version": 2,
   "buildCommand": "node build.js",
+  "outputDirectory": ".",
   "headers": [
     {
       "source": "/sw.js",

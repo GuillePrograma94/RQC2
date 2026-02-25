@@ -87,6 +87,13 @@ self.addEventListener('fetch', event => {
         return;
     }
 
+    // No cachear ni interceptar rutas /api/* (serverless): siempre ir a red
+    if (url.pathname.startsWith('/api/')) {
+        console.log('Service Worker: /api/ detectado, pasando a red sin cache:', url.pathname);
+        event.respondWith(fetch(event.request));
+        return;
+    }
+
     // La Cache API solo admite GET; no interceptar POST ni otros metodos
     if (event.request.method !== 'GET') {
         return;
@@ -97,10 +104,12 @@ self.addEventListener('fetch', event => {
             .then(response => {
                 // Retornar desde cache si existe
                 if (response) {
+                    console.log('Service Worker: sirviendo desde cache:', url.pathname || url.href);
                     return response;
                 }
 
                 // Si no está en cache, hacer fetch
+                console.log('Service Worker: solicitando a red:', url.pathname || url.href);
                 return fetch(event.request)
                     .then(response => {
                         // Verificar respuesta válida
