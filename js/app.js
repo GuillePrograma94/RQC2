@@ -2277,13 +2277,14 @@ class ScanAsYouShopApp {
      * @returns {string} HTML del badge (puede ser vacio si no hay dato)
      */
     buildStockBadgeHtml(codigo) {
-        const efectivo = this.getStockEfectivo(codigo);
-        if (efectivo === null) return '';
+        // Si el índice aún no se ha cargado, no mostramos nada
+        if (this.stockIndex.size === 0) return '';
 
+        const efectivo = this.getStockEfectivo(codigo);
         let clase, texto;
-        if (efectivo <= 0) {
+        if (efectivo === null || efectivo <= 0) {
             clase = 'stock-rojo';
-            texto = 'SIN STOCK';
+            texto = 'Consultar disponibilidad';
         } else if (efectivo <= 3) {
             clase = 'stock-naranja';
             texto = 'POCAS UNIDADES';
@@ -2306,12 +2307,11 @@ class ScanAsYouShopApp {
         for (const badge of badges) {
             const codigo = badge.dataset.stockCodigo;
             const efectivo = this.getStockEfectivo(codigo);
-            if (efectivo === null) continue;
 
             badge.className = 'stock-badge';
-            if (efectivo <= 0) {
+            if (efectivo === null || efectivo <= 0) {
                 badge.classList.add('stock-rojo');
-                badge.innerHTML = 'SIN STOCK';
+                badge.innerHTML = 'Consultar disponibilidad';
             } else if (efectivo <= 3) {
                 badge.classList.add('stock-naranja');
                 badge.innerHTML = 'POCAS UNIDADES';
