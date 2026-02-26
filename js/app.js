@@ -2080,10 +2080,10 @@ class ScanAsYouShopApp {
             texto = 'SIN STOCK';
         } else if (efectivo <= 3) {
             clase = 'stock-naranja';
-            texto = `POCAS UNIDADES &middot; ${efectivo} ud`;
+            texto = 'POCAS UNIDADES';
         } else {
             clase = 'stock-verde';
-            texto = `EN STOCK &middot; ${efectivo} ud`;
+            texto = 'EN STOCK';
         }
         return `<span class="stock-badge ${clase}" data-stock-codigo="${codigo.toUpperCase()}">${texto}</span>`;
     }
@@ -2108,10 +2108,10 @@ class ScanAsYouShopApp {
                 badge.innerHTML = 'SIN STOCK';
             } else if (efectivo <= 3) {
                 badge.classList.add('stock-naranja');
-                badge.innerHTML = `POCAS UNIDADES &middot; ${efectivo} ud`;
+                badge.innerHTML = 'POCAS UNIDADES';
             } else {
                 badge.classList.add('stock-verde');
-                badge.innerHTML = `EN STOCK &middot; ${efectivo} ud`;
+                badge.innerHTML = 'EN STOCK';
             }
         }
     }
@@ -3022,9 +3022,23 @@ class ScanAsYouShopApp {
                 }
             }
             
+            // Ordenar por stock efectivo descendente (mas stock = mas arriba).
+            // Los articulos sin dato de stock van al final.
+            // Se hace sobre el array ya en memoria: O(n log n), sin coste de red ni IndexedDB.
+            if (this.stockIndex.size > 0) {
+                productos.sort((a, b) => {
+                    const sa = this.getStockEfectivo(a.codigo);
+                    const sb = this.getStockEfectivo(b.codigo);
+                    // null (sin dato) se trata como -1 para ir al final
+                    const va = sa !== null ? sa : -1;
+                    const vb = sb !== null ? sb : -1;
+                    return vb - va;
+                });
+            }
+
             await this.displaySearchResults(productos, onlyPurchased);
         } catch (error) {
-            console.error('Error en búsqueda:', error);
+            console.error('Error en busqueda:', error);
             window.ui.showToast('Error al buscar productos', 'error');
         }
     }
