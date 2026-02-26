@@ -1819,6 +1819,55 @@ class SupabaseClient {
             return { success: false, message: (err && err.message) || 'Error al actualizar alias' };
         }
     }
+
+    /**
+     * Descarga la tabla stock_almacen_articulo completa y la agrupa por codigo_articulo.
+     * Devuelve un array listo para guardar en IndexedDB con saveStockToStorage():
+     *   [ { codigo_articulo, stock_global, por_almacen: { ALMX: N, ... } }, ... ]
+     */
+    async downloadStock(onProgress = null) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            console.log('Descargando stock desde Supabase...');
+
+            const rawRows = await this._downloadWithPagination('stock_almacen_articulo', onProgress);
+
+            if (!rawRows || rawRows.length === 0) {
+                console.log('No hay datos de stock en Supabase');
+                return [];
+            }
+
+            // Agrupar por codigo_articulo
+            const mapa = new Map();
+            for (const row of rawRows) {
+                const art = (row.codigo_articulo || '').toUpperCase().trim();
+                const alm = (row.codigo_almacen  || '').toUpperCase().trim();
+                const qty = parseInt(row.stock, 10) || 0;
+
+                if (!art || !alm) continue;
+
+                if (!mapa.has(art)) {
+                    mapa.set(art, { codigo_articulo: art, stock_global: 0, por_almacen: {} });
+                }
+                const entry = mapa.get(art);
+                entry.stock_global += qty;
+                entry.por_almacen[alm] = (entry.por_almacen[alm] || 0) + qty;
+            }
+
+            const resultado = Array.from(mapa.values());
+            console.log(
+                `Stock descargado: ${rawRows.length} filas -> ${resultado.length} articulos con stock`
+            );
+            return resultado;
+
+        } catch (error) {
+            console.error('Error al descargar stock:', error);
+            throw error;
+        }
+    }
 }
 
 // Crear instancia global

@@ -12,6 +12,9 @@ class ScanAsYouShopApp {
         this.notificationsEnabled = false;
         this.editingWcConjuntoId = null;
         this.wcConjuntoPreviewData = { taza: null, tanque: null, asiento: null };
+        // Stock
+        this.stockAlmacenFiltro = null; // null = global; string = almacen especifico
+        this.stockIndex = new Map();    // Map<codigo_articulo_upper, {stock_global, por_almacen}>
     }
 
     /**
@@ -1787,6 +1790,8 @@ class ScanAsYouShopApp {
             
             // Sincronizar productos EN SEGUNDO PLANO (no bloquea la UI)
             this.syncProductsInBackground();
+            // Sincronizar stock EN SEGUNDO PLANO (una vez al dia)
+            this.syncStockInBackground();
 
         } catch (error) {
             console.error('Error al inicializar aplicacion:', error);
@@ -1954,6 +1959,164 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Sincroniza el stock EN SEGUNDO PLANO una vez al dia.
+     * Guarda en IndexedDB y actualiza el indice en memoria.
+     */
+    async syncStockInBackground() {
+        try {
+            const hoy = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+            const ultimaSync = localStorage.getItem('last_stock_sync_date');
+
+            if (ultimaSync === hoy) {
+                // Ya sincronizado hoy: solo cargar el indice en memoria
+                this.stockIndex = await window.cartManager.getStockIndex();
+                if (this.stockIndex.size > 0) {
+                    console.log(`Stock en memoria: ${this.stockIndex.size} articulos (sync de hoy)`);
+                    this.initStockAlmacenFilter();
+                }
+                return;
+            }
+
+            console.log('Descargando stock del dia...');
+            const stockData = await window.supabaseClient.downloadStock();
+
+            if (stockData && stockData.length > 0) {
+                await window.cartManager.saveStockToStorage(stockData);
+                this.stockIndex = await window.cartManager.getStockIndex();
+                localStorage.setItem('last_stock_sync_date', hoy);
+                console.log(`Stock sincronizado: ${stockData.length} articulos`);
+                this.initStockAlmacenFilter();
+            }
+        } catch (error) {
+            console.error('Error al sincronizar stock (no critico):', error);
+            // Intentar cargar lo que haya en local aunque falle la descarga
+            try {
+                this.stockIndex = await window.cartManager.getStockIndex();
+                if (this.stockIndex.size > 0) {
+                    this.initStockAlmacenFilter();
+                }
+            } catch (e) {
+                // Silencioso: sin stock no se muestra el filtro
+            }
+        }
+    }
+
+    /**
+     * Inicializa el selector de almacen de stock:
+     * - Establece el filtro por defecto segun almacen_habitual del usuario
+     * - Rellena el <select> con los almacenes disponibles en IndexedDB
+     * - Muestra el bloque de filtro
+     */
+    async initStockAlmacenFilter() {
+        const selectEl  = document.getElementById('stockAlmacenSelect');
+        const groupEl   = document.getElementById('stockFilterGroup');
+        if (!selectEl || !groupEl) return;
+
+        const almacenes = await window.cartManager.getAlmacenesConStock();
+        if (almacenes.length === 0) return;
+
+        // Reconstruir opciones
+        selectEl.innerHTML = '<option value="GLOBAL">Stock global</option>';
+        for (const alm of almacenes) {
+            const opt = document.createElement('option');
+            opt.value = alm;
+            opt.textContent = alm;
+            selectEl.appendChild(opt);
+        }
+
+        // Aplicar almacen habitual como predeterminado
+        const habitual = this.getEffectiveAlmacenHabitual();
+        if (habitual && almacenes.includes(habitual.toUpperCase())) {
+            selectEl.value = habitual.toUpperCase();
+            this.stockAlmacenFiltro = habitual.toUpperCase();
+        } else {
+            selectEl.value = 'GLOBAL';
+            this.stockAlmacenFiltro = null;
+        }
+
+        groupEl.style.display = 'block';
+    }
+
+    /**
+     * Calcula el stock efectivo de un articulo para el filtro activo,
+     * descontando la cantidad que ya hay en el carrito.
+     * @param {string} codigo - Codigo del articulo (cualquier casing)
+     * @returns {number|null} - Stock efectivo, o null si no hay dato
+     */
+    getStockEfectivo(codigo) {
+        if (!codigo || this.stockIndex.size === 0) return null;
+
+        const entrada = this.stockIndex.get(codigo.toUpperCase());
+        if (!entrada) return null;
+
+        let stockBase;
+        if (this.stockAlmacenFiltro && this.stockAlmacenFiltro !== 'GLOBAL') {
+            stockBase = entrada.por_almacen?.[this.stockAlmacenFiltro] ?? 0;
+        } else {
+            stockBase = entrada.stock_global ?? 0;
+        }
+
+        // Descontar lo que ya hay en el carrito
+        const enCarrito = window.cartManager.cart?.productos?.find(
+            p => p.codigo?.toUpperCase() === codigo.toUpperCase()
+        );
+        const cantidadCarrito = enCarrito ? (enCarrito.cantidad || 0) : 0;
+
+        return stockBase - cantidadCarrito;
+    }
+
+    /**
+     * Genera el HTML del badge de stock para un articulo.
+     * @param {string} codigo
+     * @returns {string} HTML del badge (puede ser vacio si no hay dato)
+     */
+    buildStockBadgeHtml(codigo) {
+        const efectivo = this.getStockEfectivo(codigo);
+        if (efectivo === null) return '';
+
+        let clase, texto;
+        if (efectivo <= 0) {
+            clase = 'stock-rojo';
+            texto = 'SIN STOCK';
+        } else if (efectivo <= 3) {
+            clase = 'stock-naranja';
+            texto = `POCAS UNIDADES &middot; ${efectivo} ud`;
+        } else {
+            clase = 'stock-verde';
+            texto = `EN STOCK &middot; ${efectivo} ud`;
+        }
+        return `<span class="stock-badge ${clase}" data-stock-codigo="${codigo.toUpperCase()}">${texto}</span>`;
+    }
+
+    /**
+     * Actualiza en el DOM solo los badges de stock de los resultados visibles,
+     * sin re-renderizar la lista completa.
+     * Se llama cada vez que cambia la cantidad en el carrito.
+     */
+    updateStockBadgesVisibles() {
+        if (this.stockIndex.size === 0) return;
+
+        const badges = document.querySelectorAll('[data-stock-codigo]');
+        for (const badge of badges) {
+            const codigo = badge.dataset.stockCodigo;
+            const efectivo = this.getStockEfectivo(codigo);
+            if (efectivo === null) continue;
+
+            badge.className = 'stock-badge';
+            if (efectivo <= 0) {
+                badge.classList.add('stock-rojo');
+                badge.innerHTML = 'SIN STOCK';
+            } else if (efectivo <= 3) {
+                badge.classList.add('stock-naranja');
+                badge.innerHTML = `POCAS UNIDADES &middot; ${efectivo} ud`;
+            } else {
+                badge.classList.add('stock-verde');
+                badge.innerHTML = `EN STOCK &middot; ${efectivo} ud`;
+            }
+        }
+    }
+
+    /**
      * Configura las pantallas y navegación
      */
     setupScreens() {
@@ -2042,6 +2205,20 @@ class ScanAsYouShopApp {
         if (clearSearchBtn) {
             clearSearchBtn.addEventListener('click', () => {
                 this.clearSearch();
+            });
+        }
+
+        // Filtro de almacen de stock
+        const stockAlmacenSelect = document.getElementById('stockAlmacenSelect');
+        if (stockAlmacenSelect) {
+            stockAlmacenSelect.addEventListener('change', (e) => {
+                const val = e.target.value;
+                this.stockAlmacenFiltro = (val === 'GLOBAL') ? null : val;
+                // Si hay resultados visibles, re-renderizar para reflejar el nuevo almacen
+                const resultsList = document.getElementById('searchResultsList');
+                if (resultsList && resultsList.children.length > 0) {
+                    this.performSearch();
+                }
             });
         }
 
@@ -2896,7 +3073,7 @@ class ScanAsYouShopApp {
         const codigoCliente = this.getEffectiveGrupoCliente() || null;
         
         if (codigoCliente && window.cartManager && window.cartManager.db) {
-            console.log('🔍 Cargando índice de ofertas desde cache local...');
+            console.log('Cargando indice de ofertas desde cache local...');
             const inicio = performance.now();
             try {
                 // Obtener TODOS los productos en ofertas de UNA SOLA VEZ desde IndexedDB
@@ -2905,12 +3082,15 @@ class ScanAsYouShopApp {
                     productosConOfertas.add(op.codigo_articulo.toUpperCase());
                 }
                 const tiempo = (performance.now() - inicio).toFixed(0);
-                console.log(`✅ Índice de ofertas cargado en ${tiempo}ms: ${productosConOfertas.size} productos con ofertas`);
+                console.log(`Indice de ofertas cargado en ${tiempo}ms: ${productosConOfertas.size} productos con ofertas`);
             } catch (error) {
-                console.error('Error al cargar índice de ofertas:', error);
+                console.error('Error al cargar indice de ofertas:', error);
             }
-        } else {
-            console.log('🚫 Usuario invitado - no se muestran ofertas en búsqueda');
+        }
+
+        // Refrescar indice de stock en memoria antes de renderizar (es un Map, muy rapido)
+        if (this.stockIndex.size === 0 && window.cartManager && window.cartManager.db) {
+            this.stockIndex = await window.cartManager.getStockIndex();
         }
 
         resultsList.innerHTML = productosLimitados.map(producto => {
@@ -2920,12 +3100,12 @@ class ScanAsYouShopApp {
             
             // Añadir indicador de oferta al código si tiene ofertas
             const tieneOferta = productosConOfertas.has(producto.codigo.toUpperCase());
-            if (tieneOferta) {
-                console.log(`✅ Código ${producto.codigo} encontrado con oferta`);
-            }
             const codigoConOferta = tieneOferta 
                 ? `${producto.codigo} - <span class="oferta-tag">[OFERTA]</span>` 
                 : producto.codigo;
+
+            // Badge de stock
+            const stockBadge = this.buildStockBadgeHtml(producto.codigo);
             
             // Si es del historial, mostrar fecha de última compra y botón de eliminar
             if (isFromHistory && producto.fecha_ultima_compra) {
@@ -2948,7 +3128,8 @@ class ScanAsYouShopApp {
                             <div class="result-name">${producto.descripcion}</div>
                             <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
                             <div class="result-meta">
-                                <span class="result-last-purchase">Última compra: ${fechaFormateada}</span>
+                                <span class="result-last-purchase">Ultima compra: ${fechaFormateada}</span>
+                                ${stockBadge}
                             </div>
                         </div>
                         <button class="btn-delete-history" onclick="event.stopPropagation(); window.app.deleteProductFromHistory('${producto.codigo}', '${escapedDescripcion}')">
@@ -2970,6 +3151,7 @@ class ScanAsYouShopApp {
                         <div class="result-code">${codigoConOferta}</div>
                         <div class="result-name">${producto.descripcion}</div>
                         <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
+                        ${stockBadge ? `<div class="result-stock">${stockBadge}</div>` : ''}
                     </div>
                 </div>
             `;
@@ -3384,6 +3566,9 @@ class ScanAsYouShopApp {
             window.ui.showToast(`Producto añadido (x${cantidad})`, 'success');
             window.ui.updateCartBadge();
             
+            // Actualizar badges de stock en los resultados visibles
+            this.updateStockBadgesVisibles();
+
             // Si estamos en la pantalla de carrito, actualizar vista
             if (this.currentScreen === 'cart') {
                 this.updateCartView();
@@ -4206,6 +4391,7 @@ class ScanAsYouShopApp {
         try {
             await window.cartManager.updateProductQuantity(codigoProducto, newQuantity);
             window.ui.updateCartBadge();
+            this.updateStockBadgesVisibles();
             this.updateCartView();
 
         } catch (error) {
@@ -4231,6 +4417,7 @@ class ScanAsYouShopApp {
 
             window.ui.showToast('Producto eliminado', 'success');
             window.ui.updateCartBadge();
+            this.updateStockBadgesVisibles();
             this.updateCartView();
 
         } catch (error) {

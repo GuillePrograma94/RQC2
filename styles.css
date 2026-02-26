@@ -3625,6 +3625,50 @@ body.gate-visible .app-container {
     color: var(--gray-500);
 }
 
+/* ========================================
+   STOCK BADGES
+   ======================================== */
+.result-stock {
+    margin-top: 0.25rem;
+}
+
+.stock-badge {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    line-height: 1.4;
+}
+
+.stock-verde {
+    background-color: #dcfce7;
+    color: #15803d;
+}
+
+.stock-naranja {
+    background-color: #fff7ed;
+    color: #c2410c;
+}
+
+.stock-rojo {
+    background-color: #fee2e2;
+    color: #b91c1c;
+}
+
+.stock-desconocido {
+    background-color: var(--gray-100);
+    color: var(--gray-500);
+}
+
+/* Select de almacen de stock en la pantalla de busqueda */
+.stock-almacen-select {
+    appearance: auto;
+    cursor: pointer;
+}
+
 /* History Item con botón de eliminar */
 .history-item {
     position: relative;

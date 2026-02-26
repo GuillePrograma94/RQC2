@@ -41,7 +41,7 @@ class CartManager {
      */
     initIndexedDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, 5); // v5: Añadir stores para ofertas
+            const request = indexedDB.open(this.dbName, 6); // v6: Añadir store de stock
 
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
@@ -117,10 +117,16 @@ class CartManager {
                 const gruposStore = db.createObjectStore('ofertas_grupos_asignaciones', { keyPath: 'id', autoIncrement: true });
                 gruposStore.createIndex('numero_oferta', 'numero_oferta', { unique: false });
                 gruposStore.createIndex('codigo_grupo', 'codigo_grupo', { unique: false });
-                console.log('✅ Object store ofertas_grupos_asignaciones creado con índices');
+                console.log('Object store ofertas_grupos_asignaciones creado con indices');
+            }
+
+            // v6: stock por articulo (agrupado: stock_global + por_almacen)
+            if (!db.objectStoreNames.contains('stock')) {
+                db.createObjectStore('stock', { keyPath: 'codigo_articulo' });
+                console.log('Object store stock creado');
             }
                 
-                console.log('✅ Esquema de base de datos creado/actualizado');
+                console.log('Esquema de base de datos creado/actualizado');
             };
         });
     }
@@ -1745,6 +1751,104 @@ class CartManager {
             console.error('Error al obtener lote desde caché:', error);
             return null;
         }
+    }
+    // -------------------------------------------------------------------------
+    // Metodos de stock
+    // -------------------------------------------------------------------------
+
+    /**
+     * Guarda en IndexedDB el stock agrupado por articulo.
+     * stockData: array de { codigo_articulo, stock_global, por_almacen: { ALMX: N, ... } }
+     */
+    async saveStockToStorage(stockData) {
+        if (!this.db || !stockData || stockData.length === 0) return;
+
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(['stock'], 'readwrite');
+            const store = tx.objectStore('stock');
+
+            for (const registro of stockData) {
+                store.put(registro);
+            }
+
+            tx.oncomplete = () => {
+                console.log(`Stock guardado: ${stockData.length} articulos en IndexedDB`);
+                resolve();
+            };
+            tx.onerror = () => {
+                console.error('Error al guardar stock en IndexedDB:', tx.error);
+                reject(tx.error);
+            };
+        });
+    }
+
+    /**
+     * Devuelve un Map<codigo_articulo_upper, registro> con todo el stock local.
+     * Util para construir el indice al renderizar resultados de busqueda.
+     */
+    async getStockIndex() {
+        if (!this.db) return new Map();
+
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(['stock'], 'readonly');
+            const store = tx.objectStore('stock');
+            const request = store.getAll();
+
+            request.onsuccess = () => {
+                const mapa = new Map();
+                for (const r of (request.result || [])) {
+                    mapa.set(r.codigo_articulo.toUpperCase(), r);
+                }
+                resolve(mapa);
+            };
+            request.onerror = () => {
+                console.error('Error al leer stock index:', request.error);
+                resolve(new Map());
+            };
+        });
+    }
+
+    /**
+     * Lookup rapido de stock para un articulo concreto.
+     * Devuelve el registro o null si no hay dato.
+     */
+    async getStockForProduct(codigo) {
+        if (!this.db || !codigo) return null;
+
+        return new Promise((resolve) => {
+            const tx = this.db.transaction(['stock'], 'readonly');
+            const store = tx.objectStore('stock');
+            const request = store.get(codigo.toUpperCase());
+
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => resolve(null);
+        });
+    }
+
+    /**
+     * Devuelve la lista de almacenes con datos de stock (sin duplicados, ordenados).
+     */
+    async getAlmacenesConStock() {
+        if (!this.db) return [];
+
+        return new Promise((resolve) => {
+            const tx = this.db.transaction(['stock'], 'readonly');
+            const store = tx.objectStore('stock');
+            const request = store.getAll();
+
+            request.onsuccess = () => {
+                const almacenesSet = new Set();
+                for (const r of (request.result || [])) {
+                    if (r.por_almacen) {
+                        for (const alm of Object.keys(r.por_almacen)) {
+                            almacenesSet.add(alm);
+                        }
+                    }
+                }
+                resolve([...almacenesSet].sort());
+            };
+            request.onerror = () => resolve([]);
+        });
     }
 }
 

@@ -306,6 +306,14 @@
                             <span class="checkbox-label">📦 Solo artículos que he comprado</span>
                         </label>
                     </div>
+
+                    <!-- Filtro de almacén de stock (se muestra cuando hay datos de stock sincronizados) -->
+                    <div class="input-group stock-filter-group" id="stockFilterGroup" style="display: none;">
+                        <label for="stockAlmacenSelect" class="input-label">📦 Stock de almacén</label>
+                        <select id="stockAlmacenSelect" class="search-input stock-almacen-select">
+                            <option value="GLOBAL">Stock global</option>
+                        </select>
+                    </div>
                     
                     <!-- Botón de búsqueda -->
                     <button id="searchBtn" class="btn btn-primary btn-lg">🔍 Buscar</button>
