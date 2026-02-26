@@ -274,6 +274,8 @@ class SupabaseClient {
                 query = query.order('codigo_secundario');
             } else if (tableName === 'ofertas_intervalos') {
                 query = query.order('desde_unidades');
+            } else if (tableName === 'stock_almacen_articulo') {
+                query = query.order('codigo_almacen').order('codigo_articulo');
             } else {
                 query = query.order('id');
             }
