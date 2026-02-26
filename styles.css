@@ -867,6 +867,20 @@ body.gate-visible .app-container {
 .filter-chips-wrapper {
     position: relative;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Etiqueta "Filtros:" antes de la fila de chips */
+.filter-chips-hint {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--gray-500);
+    white-space: nowrap;
+    flex-shrink: 0;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
 .filter-chips-wrapper::after {
@@ -927,9 +941,44 @@ body.gate-visible .app-container {
     color: #fff;
 }
 
+/* Chips de tipo toggle (Mis compras, Oferta): borde punteado para indicar on/off */
+.filter-chip.chip-toggle {
+    border-style: dashed;
+}
+
+.filter-chip.chip-toggle.active {
+    border-style: solid;
+}
+
+/* Icono dentro del chip (checkmark para toggles) */
+.chip-icon {
+    font-size: 0.8rem;
+    opacity: 0.55;
+    transition: opacity 0.15s;
+}
+
+.filter-chip.active .chip-icon {
+    opacity: 1;
+}
+
 .chip-arrow {
     font-size: 0.7rem;
-    opacity: 0.75;
+    opacity: 0.6;
+    transition: transform 0.15s;
+}
+
+/* Flecha rotada cuando el panel del chip está abierto */
+.filter-chip.config-open .chip-arrow {
+    transform: rotate(180deg);
+    opacity: 1;
+}
+
+/* Texto de ayuda dentro del panel de configuración */
+.chip-config-hint {
+    font-size: 0.78rem;
+    color: var(--gray-500);
+    margin: 0 0 0.6rem 0;
+    line-height: 1.4;
 }
 
 /* Botón Buscar en la barra de filtros (mobile: full width debajo, PC: al final inline) */
@@ -1678,6 +1727,7 @@ body.gate-visible .app-container {
     .filter-chips-wrapper {
         flex: 1;
         min-width: 0;
+        overflow: visible;
     }
 
     /* PC: no scroll, chips se muestran todos en fila (sin fade) */

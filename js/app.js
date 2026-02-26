@@ -2069,10 +2069,10 @@ class ScanAsYouShopApp {
                 const labelEl = document.getElementById('chipFabricanteLabel');
                 const chipFab = document.getElementById('chipFabricante');
                 if (val) {
-                    if (labelEl) labelEl.textContent = 'Fab: ' + val;
+                    if (labelEl) labelEl.textContent = 'Ref: ' + val;
                     if (chipFab) chipFab.classList.add('active');
                 } else {
-                    if (labelEl) labelEl.textContent = 'Cod. fab.';
+                    if (labelEl) labelEl.textContent = 'Ref. fabricante';
                     if (chipFab) chipFab.classList.remove('active');
                 }
             });
@@ -2150,6 +2150,11 @@ class ScanAsYouShopApp {
         for (const [key, el] of Object.entries(blocks)) {
             if (el) el.style.display = (key === tipo) ? '' : 'none';
         }
+        // Indicar visualmente qué chip tiene el panel abierto (flecha girada)
+        const chipIds = { fabricante: 'chipFabricante', precio: 'chipPrecio', almacen: 'chipAlmacen' };
+        for (const [key, id] of Object.entries(chipIds)) {
+            document.getElementById(id)?.classList.toggle('config-open', key === tipo);
+        }
     }
 
     /**
@@ -2157,6 +2162,9 @@ class ScanAsYouShopApp {
      */
     _closeChipConfig() {
         this.filterChips.activeConfig = null;
+        document.getElementById('chipFabricante')?.classList.remove('config-open');
+        document.getElementById('chipPrecio')?.classList.remove('config-open');
+        document.getElementById('chipAlmacen')?.classList.remove('config-open');
         const panel = document.getElementById('chipConfigPanel');
         if (panel) panel.style.display = 'none';
     }
@@ -3831,7 +3839,7 @@ class ScanAsYouShopApp {
 
         const labelFab   = document.getElementById('chipFabricanteLabel');
         const labelPrecio = document.getElementById('chipPrecioLabel');
-        if (labelFab)   labelFab.textContent   = 'Cod. fab.';
+        if (labelFab)   labelFab.textContent   = 'Ref. fabricante';
         if (labelPrecio) labelPrecio.textContent = 'Precio';
 
         const fabricanteInput  = document.getElementById('fabricanteSearchInput');

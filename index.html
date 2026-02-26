@@ -302,27 +302,38 @@
                     <!-- Chips de filtros + botón buscar -->
                     <div class="search-filter-bar">
                         <div class="filter-chips-wrapper">
+                            <span class="filter-chips-hint">Filtros:</span>
                             <div class="filter-chips-row" id="filterChipsRow">
                                 <!-- Mis compras: solo visible para usuarios logueados -->
-                                <button class="filter-chip" id="chipMisCompras" style="display:none" data-chip="misCompras">
-                                    <span class="chip-label">Mis compras</span>
+                                <button class="filter-chip chip-toggle" id="chipMisCompras" style="display:none" data-chip="misCompras"
+                                        title="Muestra solo artículos que has pedido anteriormente">
+                                    <span class="chip-icon">☑</span>
+                                    <span class="chip-label">Solo mis compras</span>
                                 </button>
                                 <!-- Almacén stock: solo visible con stock sincronizado -->
-                                <button class="filter-chip chip-with-dropdown" id="chipAlmacen" style="display:none" data-chip="almacen">
+                                <button class="filter-chip chip-with-dropdown" id="chipAlmacen" style="display:none" data-chip="almacen"
+                                        title="Elige de qué almacén ver el stock">
+                                    <span class="chip-icon">📦</span>
                                     <span class="chip-label" id="chipAlmacenLabel">Stock global</span>
                                     <span class="chip-arrow">▾</span>
                                 </button>
                                 <!-- Oferta: solo visible para usuarios logueados -->
-                                <button class="filter-chip" id="chipOferta" style="display:none" data-chip="oferta">
-                                    <span class="chip-label">Oferta</span>
+                                <button class="filter-chip chip-toggle" id="chipOferta" style="display:none" data-chip="oferta"
+                                        title="Muestra solo artículos que tienen oferta para tu tarifa">
+                                    <span class="chip-icon">☑</span>
+                                    <span class="chip-label">Solo en oferta</span>
                                 </button>
-                                <!-- Cód. fabricante: siempre visible -->
-                                <button class="filter-chip chip-expandable" id="chipFabricante" data-chip="fabricante">
-                                    <span class="chip-label" id="chipFabricanteLabel">Cód. fab.</span>
+                                <!-- Ref. fabricante: siempre visible -->
+                                <button class="filter-chip chip-expandable" id="chipFabricante" data-chip="fabricante"
+                                        title="Busca por la referencia del fabricante (no EAN)">
+                                    <span class="chip-label" id="chipFabricanteLabel">Ref. fabricante</span>
+                                    <span class="chip-arrow">▾</span>
                                 </button>
                                 <!-- Precio: siempre visible -->
-                                <button class="filter-chip chip-expandable" id="chipPrecio" data-chip="precio">
-                                    <span class="chip-label" id="chipPrecioLabel">Precio</span>
+                                <button class="filter-chip chip-expandable" id="chipPrecio" data-chip="precio"
+                                        title="Filtra resultados por rango de precio con IVA">
+                                    <span class="chip-label" id="chipPrecioLabel">Precio €</span>
+                                    <span class="chip-arrow">▾</span>
                                 </button>
                             </div>
                         </div>
@@ -332,13 +343,15 @@
 
                     <!-- Panel de configuración expandible (aparece debajo de los chips) -->
                     <div class="chip-config-panel" id="chipConfigPanel" style="display:none">
-                        <!-- Cód. fabricante -->
+                        <!-- Ref. fabricante -->
                         <div id="chipConfigFabricante" class="chip-config-block" style="display:none">
+                            <p class="chip-config-hint">Escribe la referencia del fabricante (código interno, no el EAN)</p>
                             <input type="text" id="fabricanteSearchInput" class="chip-config-input"
-                                   placeholder="Escribe el código de fabricante..." autocomplete="off">
+                                   placeholder="Ej: BM-300, A4572X..." autocomplete="off">
                         </div>
                         <!-- Precio desde / hasta -->
                         <div id="chipConfigPrecio" class="chip-config-block" style="display:none">
+                            <p class="chip-config-hint">Precio de venta al público con IVA incluido</p>
                             <div class="price-range-row">
                                 <div class="price-field">
                                     <span class="price-field-label">Desde</span>
@@ -350,13 +363,14 @@
                                 <div class="price-field">
                                     <span class="price-field-label">Hasta</span>
                                     <input type="number" id="precioHastaInput" class="chip-config-input price-input"
-                                           placeholder="∞" min="0" step="1">
+                                           placeholder="Sin límite" min="0" step="1">
                                     <span class="price-field-currency">€</span>
                                 </div>
                             </div>
                         </div>
                         <!-- Mini selector de almacén -->
                         <div id="chipConfigAlmacen" class="chip-config-block" style="display:none">
+                            <p class="chip-config-hint">Selecciona el almacén cuyo stock quieres consultar</p>
                             <div class="almacen-mini-row" id="almacenMiniRow">
                                 <!-- Se rellena dinámicamente con los almacenes disponibles -->
                             </div>
