@@ -15,6 +15,15 @@ class ScanAsYouShopApp {
         // Stock
         this.stockAlmacenFiltro = null; // null = global; string = almacen especifico
         this.stockIndex = new Map();    // Map<codigo_articulo_upper, {stock_global, por_almacen}>
+        // Estado de chips de filtro de búsqueda
+        this.filterChips = {
+            misCompras: false,
+            oferta: false,
+            fabricante: '',      // '' = inactivo
+            precioDesde: null,
+            precioHasta: null,
+            activeConfig: null,  // null | 'fabricante' | 'precio' | 'almacen' (panel abierto)
+        };
     }
 
     /**
@@ -653,7 +662,8 @@ class ScanAsYouShopApp {
         const menuUserSubtitle = document.getElementById('menuUserSubtitle');
         const menuUserInfo = document.getElementById('menuUserInfo');
         const menuUserArrow = menuUserInfo ? menuUserInfo.querySelector('.user-info-arrow') : null;
-        const historyFilterGroup = document.querySelector('.history-filter-group');
+        const chipMisCompras = document.getElementById('chipMisCompras');
+        const chipOferta     = document.getElementById('chipOferta');
 
         if (this.currentUser) {
             // Usuario logueado
@@ -678,14 +688,13 @@ class ScanAsYouShopApp {
                     menuUserInfo.setAttribute('aria-label', 'Seleccionar cliente a representar');
                 }
                 if (menuUserArrow) menuUserArrow.style.display = '';
-                if (historyFilterGroup) {
-                    if (this.currentUser.cliente_representado_id) {
-                        historyFilterGroup.style.display = 'block';
-                        const historyLabel = historyFilterGroup.querySelector('.checkbox-label');
-                        if (historyLabel) historyLabel.textContent = 'Solo articulos que ha comprado el cliente';
-                    } else {
-                        historyFilterGroup.style.display = 'none';
-                    }
+                // Chip Mis compras: solo si hay cliente representado
+                if (chipMisCompras) {
+                    chipMisCompras.style.display = this.currentUser.cliente_representado_id ? '' : 'none';
+                }
+                // Chip Oferta: solo si hay cliente representado
+                if (chipOferta) {
+                    chipOferta.style.display = this.currentUser.cliente_representado_id ? '' : 'none';
                 }
                 var menuCommercialCard = document.getElementById('menuCommercialCard');
                 if (menuCommercialCard) menuCommercialCard.style.display = 'none';
@@ -709,11 +718,8 @@ class ScanAsYouShopApp {
                     menuUserInfo.setAttribute('aria-label', 'Sesion de operario');
                 }
                 if (menuUserArrow) menuUserArrow.style.display = 'none';
-                if (historyFilterGroup) {
-                    historyFilterGroup.style.display = 'block';
-                    const historyLabel = historyFilterGroup.querySelector('.checkbox-label');
-                    if (historyLabel) historyLabel.textContent = 'Solo articulos que he comprado';
-                }
+                if (chipMisCompras) chipMisCompras.style.display = '';
+                if (chipOferta)     chipOferta.style.display = '';
                 if (!this.currentUser.comercial) {
                     this.loadComercialAsignado();
                 } else {
@@ -736,11 +742,8 @@ class ScanAsYouShopApp {
                     menuUserInfo.setAttribute('aria-label', 'Ver mi perfil');
                 }
                 if (menuUserArrow) menuUserArrow.style.display = '';
-                if (historyFilterGroup) {
-                    historyFilterGroup.style.display = 'block';
-                    const historyLabel = historyFilterGroup.querySelector('.checkbox-label');
-                    if (historyLabel) historyLabel.textContent = 'Solo articulos que he comprado';
-                }
+                if (chipMisCompras) chipMisCompras.style.display = '';
+                if (chipOferta)     chipOferta.style.display = '';
                 var myOrdersBtn = document.getElementById('myOrdersBtn');
                 if (myOrdersBtn) myOrdersBtn.style.display = '';
                 if (!this.currentUser.comercial) {
@@ -757,8 +760,11 @@ class ScanAsYouShopApp {
             // Usuario NO logueado
             if (menuGuest) menuGuest.style.display = 'block';
             if (menuUser) menuUser.style.display = 'none';
-            // Ocultar filtro de historial en búsqueda
-            if (historyFilterGroup) historyFilterGroup.style.display = 'none';
+            // Ocultar chips de usuario en búsqueda
+            if (chipMisCompras) { chipMisCompras.style.display = 'none'; chipMisCompras.classList.remove('active'); }
+            if (chipOferta)     { chipOferta.style.display = 'none';     chipOferta.classList.remove('active'); }
+            this.filterChips.misCompras = false;
+            this.filterChips.oferta = false;
             const menuCommercialCard = document.getElementById('menuCommercialCard');
             if (menuCommercialCard) menuCommercialCard.style.display = 'none';
             const herramientasBtnGuest = document.getElementById('herramientasBtn');
@@ -1732,11 +1738,11 @@ class ScanAsYouShopApp {
             this.currentUser = null;
             this.currentSession = null;
 
-            // Desmarcar checkbox de historial en búsqueda
-            const onlyPurchasedCheckbox = document.getElementById('onlyPurchasedCheckbox');
-            if (onlyPurchasedCheckbox) {
-                onlyPurchasedCheckbox.checked = false;
-            }
+            // Resetear chips de filtro de búsqueda al cerrar sesión
+            this.filterChips.misCompras = false;
+            this.filterChips.oferta     = false;
+            document.getElementById('chipMisCompras')?.classList.remove('active');
+            document.getElementById('chipOferta')?.classList.remove('active');
 
             // Limpiar cache de historial (Phase 2 - Cache)
             if (window.purchaseCache) {
@@ -2002,39 +2008,231 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Inicializa el selector de almacen de stock:
+     * Configura toda la logica de interaccion de los chips de filtro de busqueda.
+     * Debe llamarse una vez en setupScreens().
+     */
+    setupFilterChips() {
+        const self = this;
+
+        // --- Chip: Mis compras ---
+        const chipMisCompras = document.getElementById('chipMisCompras');
+        if (chipMisCompras) {
+            chipMisCompras.addEventListener('click', () => {
+                self.filterChips.misCompras = !self.filterChips.misCompras;
+                chipMisCompras.classList.toggle('active', self.filterChips.misCompras);
+                self._closeChipConfig();
+            });
+        }
+
+        // --- Chip: Oferta ---
+        const chipOferta = document.getElementById('chipOferta');
+        if (chipOferta) {
+            chipOferta.addEventListener('click', () => {
+                self.filterChips.oferta = !self.filterChips.oferta;
+                chipOferta.classList.toggle('active', self.filterChips.oferta);
+                self._closeChipConfig();
+            });
+        }
+
+        // --- Chip: Almacen (abre/cierra mini picker) ---
+        const chipAlmacen = document.getElementById('chipAlmacen');
+        if (chipAlmacen) {
+            chipAlmacen.addEventListener('click', () => {
+                const isOpen = self.filterChips.activeConfig === 'almacen';
+                self._closeChipConfig();
+                if (!isOpen) self._openChipConfig('almacen');
+            });
+        }
+
+        // --- Chip: Cód. fabricante (abre/cierra input) ---
+        const chipFabricante = document.getElementById('chipFabricante');
+        if (chipFabricante) {
+            chipFabricante.addEventListener('click', () => {
+                const isOpen = self.filterChips.activeConfig === 'fabricante';
+                self._closeChipConfig();
+                if (!isOpen) {
+                    self._openChipConfig('fabricante');
+                    setTimeout(() => {
+                        const input = document.getElementById('fabricanteSearchInput');
+                        if (input) input.focus();
+                    }, 80);
+                }
+            });
+        }
+
+        // Input de fabricante: actualiza estado y label del chip
+        const fabricanteInput = document.getElementById('fabricanteSearchInput');
+        if (fabricanteInput) {
+            fabricanteInput.addEventListener('input', () => {
+                const val = fabricanteInput.value.trim();
+                self.filterChips.fabricante = val;
+                const labelEl = document.getElementById('chipFabricanteLabel');
+                const chipFab = document.getElementById('chipFabricante');
+                if (val) {
+                    if (labelEl) labelEl.textContent = 'Fab: ' + val;
+                    if (chipFab) chipFab.classList.add('active');
+                } else {
+                    if (labelEl) labelEl.textContent = 'Cod. fab.';
+                    if (chipFab) chipFab.classList.remove('active');
+                }
+            });
+            fabricanteInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') self.performSearch();
+            });
+        }
+
+        // --- Chip: Precio (abre/cierra inputs desde/hasta) ---
+        const chipPrecio = document.getElementById('chipPrecio');
+        if (chipPrecio) {
+            chipPrecio.addEventListener('click', () => {
+                const isOpen = self.filterChips.activeConfig === 'precio';
+                self._closeChipConfig();
+                if (!isOpen) {
+                    self._openChipConfig('precio');
+                    setTimeout(() => {
+                        const input = document.getElementById('precioDesdeInput');
+                        if (input) input.focus();
+                    }, 80);
+                }
+            });
+        }
+
+        // Inputs de precio: actualizan estado y label del chip
+        const precioDesdeInput = document.getElementById('precioDesdeInput');
+        const precioHastaInput = document.getElementById('precioHastaInput');
+        const updatePrecioChip = () => {
+            const desde = precioDesdeInput ? parseFloat(precioDesdeInput.value) : NaN;
+            const hasta = precioHastaInput ? parseFloat(precioHastaInput.value) : NaN;
+            self.filterChips.precioDesde = !isNaN(desde) ? desde : null;
+            self.filterChips.precioHasta = !isNaN(hasta) ? hasta : null;
+
+            const labelEl = document.getElementById('chipPrecioLabel');
+            const chipPr  = document.getElementById('chipPrecio');
+            const active  = self.filterChips.precioDesde !== null || self.filterChips.precioHasta !== null;
+            if (active) {
+                const partes = [];
+                if (self.filterChips.precioDesde !== null) partes.push(self.filterChips.precioDesde + '+');
+                if (self.filterChips.precioHasta !== null) partes.push('hasta ' + self.filterChips.precioHasta);
+                if (labelEl) labelEl.textContent = partes.join(' ') + ' EUR';
+                if (chipPr) chipPr.classList.add('active');
+            } else {
+                if (labelEl) labelEl.textContent = 'Precio';
+                if (chipPr) chipPr.classList.remove('active');
+            }
+        };
+        if (precioDesdeInput) {
+            precioDesdeInput.addEventListener('input', updatePrecioChip);
+            precioDesdeInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') self.performSearch();
+            });
+        }
+        if (precioHastaInput) {
+            precioHastaInput.addEventListener('input', updatePrecioChip);
+            precioHastaInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') self.performSearch();
+            });
+        }
+    }
+
+    /**
+     * Abre el panel de configuracion de un chip especifico.
+     * @param {'fabricante'|'precio'|'almacen'} tipo
+     */
+    _openChipConfig(tipo) {
+        this.filterChips.activeConfig = tipo;
+        const panel = document.getElementById('chipConfigPanel');
+        const blocks = {
+            fabricante: document.getElementById('chipConfigFabricante'),
+            precio:     document.getElementById('chipConfigPrecio'),
+            almacen:    document.getElementById('chipConfigAlmacen'),
+        };
+        if (panel) panel.style.display = '';
+        for (const [key, el] of Object.entries(blocks)) {
+            if (el) el.style.display = (key === tipo) ? '' : 'none';
+        }
+    }
+
+    /**
+     * Cierra el panel de configuracion de chip.
+     */
+    _closeChipConfig() {
+        this.filterChips.activeConfig = null;
+        const panel = document.getElementById('chipConfigPanel');
+        if (panel) panel.style.display = 'none';
+    }
+
+    /**
+     * Inicializa el chip de almacen de stock:
      * - Establece el filtro por defecto segun almacen_habitual del usuario
-     * - Rellena el <select> con los almacenes disponibles en IndexedDB
-     * - Muestra el bloque de filtro
+     * - Rellena el mini-selector de almacenes disponibles en IndexedDB
+     * - Muestra el chip de almacen
      */
     async initStockAlmacenFilter() {
-        const selectEl  = document.getElementById('stockAlmacenSelect');
-        const groupEl   = document.getElementById('stockFilterGroup');
-        if (!selectEl || !groupEl) return;
+        const chipAlmacen = document.getElementById('chipAlmacen');
+        if (!chipAlmacen) return;
 
         const almacenes = await window.cartManager.getAlmacenesConStock();
         if (almacenes.length === 0) return;
 
-        // Reconstruir opciones
-        selectEl.innerHTML = '<option value="GLOBAL">Stock global</option>';
-        for (const alm of almacenes) {
-            const opt = document.createElement('option');
-            opt.value = alm;
-            opt.textContent = alm;
-            selectEl.appendChild(opt);
-        }
-
-        // Aplicar almacen habitual como predeterminado
+        // Establecer almacen habitual como predeterminado
         const habitual = this.getEffectiveAlmacenHabitual();
         if (habitual && almacenes.includes(habitual.toUpperCase())) {
-            selectEl.value = habitual.toUpperCase();
             this.stockAlmacenFiltro = habitual.toUpperCase();
         } else {
-            selectEl.value = 'GLOBAL';
             this.stockAlmacenFiltro = null;
         }
 
-        groupEl.style.display = 'block';
+        // Actualizar label del chip
+        this._updateChipAlmacenLabel();
+
+        // Rellenar mini selector de almacenes
+        this._buildAlmacenMiniRow(almacenes);
+
+        // Mostrar el chip
+        chipAlmacen.style.display = '';
+    }
+
+    /**
+     * Actualiza el texto del chip de almacen segun el filtro activo.
+     */
+    _updateChipAlmacenLabel() {
+        const labelEl = document.getElementById('chipAlmacenLabel');
+        if (!labelEl) return;
+        labelEl.textContent = this.stockAlmacenFiltro ? this.stockAlmacenFiltro : 'Stock global';
+    }
+
+    /**
+     * Construye o actualiza los botones del mini-selector de almacen.
+     * @param {string[]} almacenes
+     */
+    _buildAlmacenMiniRow(almacenes) {
+        const container = document.getElementById('almacenMiniRow');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const opciones = [{ value: null, label: 'Global' }, ...almacenes.map(a => ({ value: a, label: a }))];
+        for (const op of opciones) {
+            const btn = document.createElement('button');
+            btn.className = 'almacen-mini-btn' + (this.stockAlmacenFiltro === op.value ? ' selected' : '');
+            btn.textContent = op.label;
+            btn.type = 'button';
+            btn.addEventListener('click', () => {
+                this.stockAlmacenFiltro = op.value;
+                this._updateChipAlmacenLabel();
+                this._buildAlmacenMiniRow(almacenes);
+                // Actualizar estado visual del chip
+                const chipAlmacen = document.getElementById('chipAlmacen');
+                if (chipAlmacen) {
+                    chipAlmacen.classList.toggle('active', op.value !== null);
+                }
+                // Si hay resultados, re-buscar con nuevo filtro
+                const resultsList = document.getElementById('searchResultsList');
+                if (resultsList && resultsList.children.length > 0) {
+                    this.performSearch();
+                }
+            });
+            container.appendChild(btn);
+        }
     }
 
     /**
@@ -2208,19 +2406,8 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Filtro de almacen de stock
-        const stockAlmacenSelect = document.getElementById('stockAlmacenSelect');
-        if (stockAlmacenSelect) {
-            stockAlmacenSelect.addEventListener('change', (e) => {
-                const val = e.target.value;
-                this.stockAlmacenFiltro = (val === 'GLOBAL') ? null : val;
-                // Si hay resultados visibles, re-renderizar para reflejar el nuevo almacen
-                const resultsList = document.getElementById('searchResultsList');
-                if (resultsList && resultsList.children.length > 0) {
-                    this.performSearch();
-                }
-            });
-        }
+        // Chips de filtro de búsqueda
+        this.setupFilterChips();
 
         // Checkout (código manual)
         const submitCheckoutCodeBtn = document.getElementById('submitCheckoutCodeBtn');
@@ -2955,26 +3142,31 @@ class ScanAsYouShopApp {
     async performSearch() {
         const codeInput = document.getElementById('codeSearchInput');
         const descInput = document.getElementById('descriptionSearchInput');
-        const onlyPurchasedCheckbox = document.getElementById('onlyPurchasedCheckbox');
         
-        const code = codeInput?.value.trim() || '';
+        const code        = codeInput?.value.trim() || '';
         const description = descInput?.value.trim() || '';
-        const onlyPurchased = onlyPurchasedCheckbox?.checked || false;
+        const fabricante  = this.filterChips.fabricante || '';
+        const onlyPurchased = this.filterChips.misCompras;
+        const soloOfertas   = this.filterChips.oferta;
+        const precioDesde   = this.filterChips.precioDesde;
+        const precioHasta   = this.filterChips.precioHasta;
 
-        if (!code && !description) {
-            window.ui.showToast('Introduce un código o descripción', 'warning');
+        if (!code && !description && !fabricante) {
+            window.ui.showToast('Introduce un código, descripción o código de fabricante', 'warning');
             return;
         }
 
         // Si el filtro de "solo comprados" está activo, verificar que el usuario esté logueado
         if (onlyPurchased && !this.currentUser) {
             window.ui.showToast('Debes iniciar sesión para filtrar por historial', 'warning');
-            onlyPurchasedCheckbox.checked = false;
+            this.filterChips.misCompras = false;
+            document.getElementById('chipMisCompras')?.classList.remove('active');
             return;
         }
         if (onlyPurchased && !this.getEffectiveUserId()) {
             window.ui.showToast('Selecciona un cliente a representar (menú) para ver su historial', 'info');
-            onlyPurchasedCheckbox.checked = false;
+            this.filterChips.misCompras = false;
+            document.getElementById('chipMisCompras')?.classList.remove('active');
             return;
         }
 
@@ -2983,53 +3175,72 @@ class ScanAsYouShopApp {
             
             if (onlyPurchased) {
                 const effectiveUserId = this.getEffectiveUserId();
-                console.log('📦 Buscando en historial de compras (con cache)...');
+                console.log('Buscando en historial de compras (con cache)...');
                 const historial = await window.purchaseCache.getUserHistory(
                     effectiveUserId,
                     code || null,
                     description || null
                 );
-                
-                // Convertir historial a formato de productos para displaySearchResults
                 productos = historial.map(item => ({
                     codigo: item.codigo,
                     descripcion: item.descripcion,
                     pvp: item.pvp,
                     fecha_ultima_compra: item.fecha_ultima_compra
                 }));
-                
+
+            } else if (fabricante && !code && !description) {
+                // Búsqueda exclusiva por código de fabricante
+                console.log('Buscando por cod. fabricante:', fabricante);
+                productos = await window.cartManager.searchByManufacturerCode(fabricante);
+
             } else {
-                // Búsqueda en el catálogo completo
+                // Búsqueda en el catálogo completo (código y/o descripción)
                 if (code && description) {
-                    // Búsqueda combinada: primero por descripción, luego filtrar por código
-                    console.log('🔍 Búsqueda combinada: descripción + código');
+                    console.log('Busqueda combinada: descripcion + codigo');
                     const productosPorDescripcion = await window.cartManager.searchByDescriptionAllWords(description);
-                    
-                    // Filtrar por código dentro de los resultados de descripción
                     const codeUpper = code.toUpperCase().trim();
-                    productos = productosPorDescripcion.filter(p => 
+                    productos = productosPorDescripcion.filter(p =>
                         p.codigo.toUpperCase().includes(codeUpper)
                     );
-                    
-                    console.log(`📊 Resultados: ${productosPorDescripcion.length} por descripción → ${productos.length} con código`);
-                    
+                    console.log(`Resultados: ${productosPorDescripcion.length} por descripcion, ${productos.length} con codigo`);
                 } else if (code) {
-                    // Búsqueda por código con prioridad a match exacto
                     productos = await window.cartManager.searchByCodeSmart(code);
                 } else if (description) {
-                    // Búsqueda por descripción (todas las palabras)
                     productos = await window.cartManager.searchByDescriptionAllWords(description);
                 }
+
+                // Si además hay filtro de fabricante, cruzamos con sus resultados
+                if (fabricante && productos.length > 0) {
+                    const porFabricante = await window.cartManager.searchByManufacturerCode(fabricante);
+                    const codigosFab = new Set(porFabricante.map(p => p.codigo.toUpperCase()));
+                    productos = productos.filter(p => codigosFab.has(p.codigo.toUpperCase()));
+                }
             }
-            
+
+            // Filtro de ofertas
+            if (soloOfertas && window.cartManager && window.cartManager.db) {
+                const codigoCliente = this.getEffectiveGrupoCliente() || null;
+                if (codigoCliente) {
+                    const ofertasProductos = await window.cartManager.getAllOfertasProductosFromCache(codigoCliente);
+                    const codigosConOferta = new Set(ofertasProductos.map(op => op.codigo_articulo.toUpperCase()));
+                    productos = productos.filter(p => codigosConOferta.has(p.codigo.toUpperCase()));
+                }
+            }
+
+            // Filtro de precio (PVP sin IVA; comparamos contra pvp * 1.21 para precio con IVA)
+            if (precioDesde !== null) {
+                productos = productos.filter(p => (p.pvp || 0) * 1.21 >= precioDesde);
+            }
+            if (precioHasta !== null) {
+                productos = productos.filter(p => (p.pvp || 0) * 1.21 <= precioHasta);
+            }
+
             // Ordenar por stock efectivo descendente (mas stock = mas arriba).
             // Los articulos sin dato de stock van al final.
-            // Se hace sobre el array ya en memoria: O(n log n), sin coste de red ni IndexedDB.
             if (this.stockIndex.size > 0) {
                 productos.sort((a, b) => {
                     const sa = this.getStockEfectivo(a.codigo);
                     const sb = this.getStockEfectivo(b.codigo);
-                    // null (sin dato) se trata como -1 para ir al final
                     const va = sa !== null ? sa : -1;
                     const vb = sb !== null ? sb : -1;
                     return vb - va;
@@ -3599,13 +3810,37 @@ class ScanAsYouShopApp {
     clearSearch() {
         const codeInput = document.getElementById('codeSearchInput');
         const descInput = document.getElementById('descriptionSearchInput');
-        const onlyPurchasedCheckbox = document.getElementById('onlyPurchasedCheckbox');
         const resultsContainer = document.getElementById('searchResults');
         const emptyState = document.getElementById('searchEmpty');
 
         if (codeInput) codeInput.value = '';
         if (descInput) descInput.value = '';
-        if (onlyPurchasedCheckbox) onlyPurchasedCheckbox.checked = false;
+
+        // Resetear chips activos
+        this.filterChips.misCompras  = false;
+        this.filterChips.oferta      = false;
+        this.filterChips.fabricante  = '';
+        this.filterChips.precioDesde = null;
+        this.filterChips.precioHasta = null;
+        this._closeChipConfig();
+
+        document.getElementById('chipMisCompras')?.classList.remove('active');
+        document.getElementById('chipOferta')?.classList.remove('active');
+        document.getElementById('chipFabricante')?.classList.remove('active');
+        document.getElementById('chipPrecio')?.classList.remove('active');
+
+        const labelFab   = document.getElementById('chipFabricanteLabel');
+        const labelPrecio = document.getElementById('chipPrecioLabel');
+        if (labelFab)   labelFab.textContent   = 'Cod. fab.';
+        if (labelPrecio) labelPrecio.textContent = 'Precio';
+
+        const fabricanteInput  = document.getElementById('fabricanteSearchInput');
+        const precioDesdeInput = document.getElementById('precioDesdeInput');
+        const precioHastaInput = document.getElementById('precioHastaInput');
+        if (fabricanteInput)  fabricanteInput.value  = '';
+        if (precioDesdeInput) precioDesdeInput.value = '';
+        if (precioHastaInput) precioHastaInput.value = '';
+
         if (resultsContainer) resultsContainer.style.display = 'none';
         if (emptyState) {
             emptyState.style.display = 'flex';

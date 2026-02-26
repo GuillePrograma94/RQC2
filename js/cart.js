@@ -979,6 +979,56 @@ class CartManager {
     }
     
     /**
+     * Busca productos por código de fabricante (códigos secundarios que NO son EAN).
+     * Un EAN es una cadena puramente numérica de 8, 12, 13 o 14 dígitos.
+     * La búsqueda es parcial (contiene el término) e insensible a mayúsculas.
+     * Devuelve array de productos (objetos del store 'products').
+     */
+    async searchByManufacturerCode(query) {
+        if (!this.db || !query || !query.trim()) return [];
+        const EAN_REGEX = /^\d{8}$|^\d{12}$|^\d{13}$|^\d{14}$/;
+        const normalizedQuery = query.trim().toLowerCase();
+        try {
+            const allSecondary = await new Promise((resolve, reject) => {
+                const tx = this.db.transaction(['secondary_codes'], 'readonly');
+                const store = tx.objectStore('secondary_codes');
+                const req = store.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+
+            const matchingPrincipales = new Set();
+            for (const entry of allSecondary) {
+                const code = (entry.codigo_secundario || '').trim();
+                if (EAN_REGEX.test(code)) continue;
+                if (code.toLowerCase().includes(normalizedQuery)) {
+                    matchingPrincipales.add(entry.codigo_principal);
+                }
+            }
+
+            if (matchingPrincipales.size === 0) return [];
+
+            const results = [];
+            const tx = this.db.transaction(['products'], 'readonly');
+            const store = tx.objectStore('products');
+
+            for (const codigoPrincipal of matchingPrincipales) {
+                const producto = await new Promise((resolve) => {
+                    const req = store.get(codigoPrincipal);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => resolve(null);
+                });
+                if (producto) results.push(producto);
+            }
+
+            return results;
+        } catch (error) {
+            console.error('Error en searchByManufacturerCode:', error);
+            return [];
+        }
+    }
+
+    /**
      * Normaliza texto para búsqueda (elimina acentos, espacios extra, etc.)
      */
     normalizeText(text) {

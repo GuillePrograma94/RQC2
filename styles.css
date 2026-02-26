@@ -844,6 +844,208 @@ body.gate-visible .app-container {
     box-shadow: 0 0 0 3px rgba(120, 81, 169, 0.15);
 }
 
+/* ==============================
+   SEARCH INPUTS GRID + CHIPS UI
+   ============================== */
+
+/* Grid 2 cols en PC, 1 col en mobile */
+.search-inputs-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Barra de chips + botón buscar */
+.search-filter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+/* Wrapper con fade derecho en mobile */
+.filter-chips-wrapper {
+    position: relative;
+    overflow: hidden;
+}
+
+.filter-chips-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 36px;
+    background: linear-gradient(to right, transparent, var(--white));
+    pointer-events: none;
+}
+
+/* Fila de chips: scroll horizontal en mobile */
+.filter-chips-row {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    padding-right: 36px;
+    scrollbar-width: none;
+}
+
+.filter-chips-row::-webkit-scrollbar {
+    display: none;
+}
+
+/* Chip base */
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0 0.9rem;
+    height: 40px;
+    min-height: 40px;
+    border: 2px solid var(--gray-300);
+    border-radius: 999px;
+    background: var(--white);
+    color: var(--gray-700);
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+.filter-chip:active {
+    transform: scale(0.96);
+}
+
+.filter-chip.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.chip-arrow {
+    font-size: 0.7rem;
+    opacity: 0.75;
+}
+
+/* Botón Buscar en la barra de filtros (mobile: full width debajo, PC: al final inline) */
+.search-btn-chip {
+    width: 100%;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+/* Panel expandible de configuración de chip */
+.chip-config-panel {
+    background: var(--white);
+    border: 2px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    animation: chipConfigSlideIn 0.15s ease;
+}
+
+@keyframes chipConfigSlideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.chip-config-block + .chip-config-block {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+/* Input dentro del panel de chip */
+.chip-config-input {
+    width: 100%;
+    padding: 0.6rem 0.85rem;
+    border: 2px solid var(--gray-200);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+}
+
+.chip-config-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(120, 81, 169, 0.15);
+}
+
+/* Rango de precio */
+.price-range-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.price-field {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.price-field-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--gray-600);
+    white-space: nowrap;
+}
+
+.price-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.price-field-currency {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--gray-500);
+}
+
+.price-field-sep {
+    color: var(--gray-400);
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+/* Mini selector de almacén */
+.almacen-mini-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.almacen-mini-btn {
+    padding: 0.38rem 0.85rem;
+    border: 2px solid var(--gray-300);
+    border-radius: 999px;
+    background: var(--white);
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    color: var(--gray-700);
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+
+.almacen-mini-btn.selected {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
 /* Resultados de búsqueda */
 .search-results {
     margin-top: 1rem;
@@ -1457,6 +1659,44 @@ body.gate-visible .app-container {
         margin-left: auto;
         margin-right: auto;
         width: 100%;
+    }
+
+    /* PC: inputs en 2 columnas */
+    .search-inputs-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    /* PC: chips + botón en fila horizontal */
+    .search-filter-bar {
+        flex-direction: row;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .filter-chips-wrapper {
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* PC: no scroll, chips se muestran todos en fila (sin fade) */
+    .filter-chips-wrapper::after {
+        display: none;
+    }
+
+    .filter-chips-row {
+        flex-wrap: wrap;
+        overflow-x: visible;
+        padding-right: 0;
+    }
+
+    /* PC: botón al final de la fila, tamaño ajustado */
+    .search-btn-chip {
+        width: auto;
+        min-width: 110px;
+        padding: 0.65rem 1.4rem;
+        font-size: 0.9rem;
     }
 
     .cart-info-bar {

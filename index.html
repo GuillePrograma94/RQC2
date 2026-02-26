@@ -275,48 +275,96 @@
             <main class="screen-content">
                 <!-- Search Inputs -->
                 <div class="search-section">
-                    <!-- Campo de código -->
-                    <div class="input-group code-group">
-                        <label for="codeSearchInput" class="input-label">📋 Código (SKU/EAN)</label>
-                        <input 
-                            type="text" 
-                            id="codeSearchInput" 
-                            class="search-input code-input" 
-                            placeholder="Ej: 013823608 o 1234567890123"
-                            autocomplete="off"
-                        >
-                    </div>
-                    
-                    <!-- Campo de descripción -->
-                    <div class="input-group description-group">
-                        <label for="descriptionSearchInput" class="input-label">📝 Descripción</label>
-                        <input 
-                            type="text" 
-                            id="descriptionSearchInput" 
-                            class="search-input description-input" 
-                            placeholder="Ej: monomando lavabo"
-                            autocomplete="off"
-                        >
-                    </div>
-                    
-                    <!-- Filtro de historial de compras (solo visible para usuarios logueados) -->
-                    <div class="input-group history-filter-group" style="display: none;">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="onlyPurchasedCheckbox">
-                            <span class="checkbox-label">📦 Solo artículos que he comprado</span>
-                        </label>
+                    <!-- Inputs principales: apilados en mobile, 2 columnas en PC -->
+                    <div class="search-inputs-grid">
+                        <div class="input-group code-group">
+                            <label for="codeSearchInput" class="input-label">Código (SKU/EAN)</label>
+                            <input 
+                                type="text" 
+                                id="codeSearchInput" 
+                                class="search-input code-input" 
+                                placeholder="Ej: 013823608 o 1234567890123"
+                                autocomplete="off"
+                            >
+                        </div>
+                        <div class="input-group description-group">
+                            <label for="descriptionSearchInput" class="input-label">Descripción</label>
+                            <input 
+                                type="text" 
+                                id="descriptionSearchInput" 
+                                class="search-input description-input" 
+                                placeholder="Ej: monomando lavabo"
+                                autocomplete="off"
+                            >
+                        </div>
                     </div>
 
-                    <!-- Filtro de almacén de stock (se muestra cuando hay datos de stock sincronizados) -->
-                    <div class="input-group stock-filter-group" id="stockFilterGroup" style="display: none;">
-                        <label for="stockAlmacenSelect" class="input-label">📦 Stock de almacén</label>
-                        <select id="stockAlmacenSelect" class="search-input stock-almacen-select">
-                            <option value="GLOBAL">Stock global</option>
-                        </select>
+                    <!-- Chips de filtros + botón buscar -->
+                    <div class="search-filter-bar">
+                        <div class="filter-chips-wrapper">
+                            <div class="filter-chips-row" id="filterChipsRow">
+                                <!-- Mis compras: solo visible para usuarios logueados -->
+                                <button class="filter-chip" id="chipMisCompras" style="display:none" data-chip="misCompras">
+                                    <span class="chip-label">Mis compras</span>
+                                </button>
+                                <!-- Almacén stock: solo visible con stock sincronizado -->
+                                <button class="filter-chip chip-with-dropdown" id="chipAlmacen" style="display:none" data-chip="almacen">
+                                    <span class="chip-label" id="chipAlmacenLabel">Stock global</span>
+                                    <span class="chip-arrow">▾</span>
+                                </button>
+                                <!-- Oferta: solo visible para usuarios logueados -->
+                                <button class="filter-chip" id="chipOferta" style="display:none" data-chip="oferta">
+                                    <span class="chip-label">Oferta</span>
+                                </button>
+                                <!-- Cód. fabricante: siempre visible -->
+                                <button class="filter-chip chip-expandable" id="chipFabricante" data-chip="fabricante">
+                                    <span class="chip-label" id="chipFabricanteLabel">Cód. fab.</span>
+                                </button>
+                                <!-- Precio: siempre visible -->
+                                <button class="filter-chip chip-expandable" id="chipPrecio" data-chip="precio">
+                                    <span class="chip-label" id="chipPrecioLabel">Precio</span>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Botón buscar: debajo en mobile, inline al final en PC -->
+                        <button id="searchBtn" class="btn btn-primary search-btn-chip">Buscar</button>
                     </div>
-                    
-                    <!-- Botón de búsqueda -->
-                    <button id="searchBtn" class="btn btn-primary btn-lg">🔍 Buscar</button>
+
+                    <!-- Panel de configuración expandible (aparece debajo de los chips) -->
+                    <div class="chip-config-panel" id="chipConfigPanel" style="display:none">
+                        <!-- Cód. fabricante -->
+                        <div id="chipConfigFabricante" class="chip-config-block" style="display:none">
+                            <input type="text" id="fabricanteSearchInput" class="chip-config-input"
+                                   placeholder="Escribe el código de fabricante..." autocomplete="off">
+                        </div>
+                        <!-- Precio desde / hasta -->
+                        <div id="chipConfigPrecio" class="chip-config-block" style="display:none">
+                            <div class="price-range-row">
+                                <div class="price-field">
+                                    <span class="price-field-label">Desde</span>
+                                    <input type="number" id="precioDesdeInput" class="chip-config-input price-input"
+                                           placeholder="0" min="0" step="1">
+                                    <span class="price-field-currency">€</span>
+                                </div>
+                                <div class="price-field-sep">—</div>
+                                <div class="price-field">
+                                    <span class="price-field-label">Hasta</span>
+                                    <input type="number" id="precioHastaInput" class="chip-config-input price-input"
+                                           placeholder="∞" min="0" step="1">
+                                    <span class="price-field-currency">€</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Mini selector de almacén -->
+                        <div id="chipConfigAlmacen" class="chip-config-block" style="display:none">
+                            <div class="almacen-mini-row" id="almacenMiniRow">
+                                <!-- Se rellena dinámicamente con los almacenes disponibles -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Checkbox oculto para compatibilidad interna (historial) -->
+                    <input type="checkbox" id="onlyPurchasedCheckbox" style="display:none">
                 </div>
 
                 <!-- Search Results -->
