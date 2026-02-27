@@ -1827,6 +1827,25 @@ class SupabaseClient {
      * Devuelve un array listo para guardar en IndexedDB con saveStockToStorage():
      *   [ { codigo_articulo, stock_global, por_almacen: { ALMX: N, ... } }, ... ]
      */
+    /**
+     * Devuelve el hash actual de stock desde stock_meta (fila id=1).
+     * Retorna null si la tabla no existe o no hay datos.
+     */
+    async getStockHash() {
+        try {
+            if (!this.client) return null;
+            const { data, error } = await this.client
+                .from('stock_meta')
+                .select('hash')
+                .eq('id', 1)
+                .single();
+            if (error) return null;
+            return data?.hash || null;
+        } catch (e) {
+            return null;
+        }
+    }
+
     async downloadStock(onProgress = null) {
         try {
             if (!this.client) {

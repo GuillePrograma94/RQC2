@@ -1970,26 +1970,27 @@ class ScanAsYouShopApp {
      */
     async syncStockInBackground() {
         try {
-            const hoy = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-            const ultimaSync = localStorage.getItem('last_stock_sync_date');
+            // Comparar hash remoto con el local para detectar cambios
+            const remoteHash = await window.supabaseClient.getStockHash();
+            const localHash  = localStorage.getItem('stock_hash_local');
 
-            if (ultimaSync === hoy) {
-                // Ya sincronizado hoy: solo cargar el indice en memoria
+            if (remoteHash && localHash === remoteHash) {
+                // Hash coincide: no hay cambios, cargar de IndexedDB
                 this.stockIndex = await window.cartManager.getStockIndex();
                 if (this.stockIndex.size > 0) {
-                    console.log(`Stock en memoria: ${this.stockIndex.size} articulos (sync de hoy)`);
+                    console.log(`Stock en memoria: ${this.stockIndex.size} articulos (sin cambios en hash)`);
                     this.initStockAlmacenFilter();
                 }
                 return;
             }
 
-            console.log('Descargando stock del dia...');
+            console.log('Hash de stock actualizado, descargando...');
             const stockData = await window.supabaseClient.downloadStock();
 
             if (stockData && stockData.length > 0) {
                 await window.cartManager.saveStockToStorage(stockData);
                 this.stockIndex = await window.cartManager.getStockIndex();
-                localStorage.setItem('last_stock_sync_date', hoy);
+                if (remoteHash) localStorage.setItem('stock_hash_local', remoteHash);
                 console.log(`Stock sincronizado: ${stockData.length} articulos`);
                 this.initStockAlmacenFilter();
             }
