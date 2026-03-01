@@ -3659,35 +3659,6 @@ class ScanAsYouShopApp {
         codeEl.textContent = producto.codigo;
         descEl.textContent = producto.descripcion || '';
 
-        const wcConjuntosBlock = document.getElementById('productDetailWcConjuntos');
-        const wcConjuntosLabels = document.getElementById('productDetailWcConjuntosLabels');
-        if (wcConjuntosBlock && wcConjuntosLabels) {
-            let conjuntos = [];
-            try {
-                conjuntos = await window.supabaseClient.getWcConjuntosByProductoCodigo(producto.codigo) || [];
-            } catch (e) {
-                console.error('Error getWcConjuntosByProductoCodigo:', e);
-            }
-            if (conjuntos.length === 0) {
-                wcConjuntosBlock.style.display = 'none';
-            } else {
-                wcConjuntosBlock.style.display = 'block';
-                wcConjuntosLabels.innerHTML = conjuntos.map(function (c) {
-                    const id = this.escapeForHtmlAttribute(c.id);
-                    const nombre = this.escapeForHtmlAttribute((c.nombre || '').trim() || c.id);
-                    return '<button type="button" class="product-detail-wc-conjunto-label" data-conjunto-id="' + id + '">' + nombre + '</button>';
-                }.bind(this)).join('');
-                wcConjuntosLabels.querySelectorAll('.product-detail-wc-conjunto-label').forEach(function (btn) {
-                    btn.addEventListener('click', function () {
-                        const conjuntoId = btn.getAttribute('data-conjunto-id');
-                        const closeProductDetailBtn = document.getElementById('closeProductDetailBtn');
-                        if (closeProductDetailBtn) closeProductDetailBtn.click();
-                        if (conjuntoId) window.app.openWcCompletoWithConjunto(conjuntoId);
-                    });
-                });
-            }
-        }
-
         const imageUrls = await this.getAvailableProductImageUrls(producto.codigo);
         carouselInner.innerHTML = '';
         prevBtn.style.display = 'none';
@@ -3941,6 +3912,27 @@ class ScanAsYouShopApp {
                 }
             }
 
+            const wcConjuntosBlock = document.getElementById('addToCartWcConjuntos');
+            const wcConjuntosLabels = document.getElementById('addToCartWcConjuntosLabels');
+            let conjuntos = [];
+            try {
+                conjuntos = await window.supabaseClient.getWcConjuntosByProductoCodigo(producto.codigo) || [];
+            } catch (e) {
+                console.error('Error getWcConjuntosByProductoCodigo:', e);
+            }
+            if (wcConjuntosBlock && wcConjuntosLabels) {
+                if (conjuntos.length === 0) {
+                    wcConjuntosBlock.style.display = 'none';
+                } else {
+                    wcConjuntosBlock.style.display = 'block';
+                    wcConjuntosLabels.innerHTML = conjuntos.map(function (c) {
+                        const id = this.escapeForHtmlAttribute(c.id);
+                        const nombre = this.escapeForHtmlAttribute((c.nombre || '').trim() || c.id);
+                        return '<button type="button" class="product-detail-wc-conjunto-label" data-conjunto-id="' + id + '">' + nombre + '</button>';
+                    }.bind(this)).join('');
+                }
+            }
+
             // Resetear cantidad a 1
             qtyInput.value = 1;
 
@@ -3998,10 +3990,21 @@ class ScanAsYouShopApp {
                 this.openProductDetail(producto);
             };
 
+            const handleWcConjuntoLabelClick = (e) => {
+                const btn = e.target.closest('.product-detail-wc-conjunto-label');
+                if (!btn) return;
+                const conjuntoId = btn.getAttribute('data-conjunto-id');
+                modal.style.display = 'none';
+                cleanup();
+                resolve(null);
+                if (conjuntoId) this.openWcCompletoWithConjunto(conjuntoId);
+            };
+
             const cleanup = () => {
                 closeBtn.removeEventListener('click', handleClose);
                 overlay.removeEventListener('click', handleClose);
                 if (imageContainer) imageContainer.removeEventListener('click', handleImageClick);
+                if (wcConjuntosLabels && conjuntos.length > 0) wcConjuntosLabels.removeEventListener('click', handleWcConjuntoLabelClick);
                 confirmBtn.removeEventListener('click', handleConfirm);
                 decreaseBtn.removeEventListener('click', handleDecrease);
                 increaseBtn.removeEventListener('click', handleIncrease);
@@ -4017,6 +4020,7 @@ class ScanAsYouShopApp {
             closeBtn.addEventListener('click', handleClose);
             overlay.addEventListener('click', handleClose);
             if (imageContainer) imageContainer.addEventListener('click', handleImageClick);
+            if (wcConjuntosLabels && conjuntos.length > 0) wcConjuntosLabels.addEventListener('click', handleWcConjuntoLabelClick);
             confirmBtn.addEventListener('click', handleConfirm);
             decreaseBtn.addEventListener('click', handleDecrease);
             increaseBtn.addEventListener('click', handleIncrease);

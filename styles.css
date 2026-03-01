@@ -2661,6 +2661,10 @@ body.gate-visible .app-container {
     padding: 1rem 0;
 }
 
+.add-to-cart-content .add-to-cart-wc-conjuntos {
+    margin-top: 0.5rem;
+}
+
 .quantity-section-label {
     font-size: 1rem;
     font-weight: 600;

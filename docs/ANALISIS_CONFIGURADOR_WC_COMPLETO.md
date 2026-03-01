@@ -382,12 +382,12 @@ Al guardar se persisten en Supabase junto con nombre, codigo, descripcion, orden
 
 ## 10. Detalle de producto: "Parte de conjunto completo"
 
-En la ventana de detalle de producto (overlay que se abre al pulsar sobre un articulo escaneado o buscado) se muestra, cuando el articulo forma parte de uno o mas conjuntos WC completos:
+En la **ventana de añadir al carrito** (modal que se abre al pulsar sobre un articulo escaneado o buscado, antes del overlay con el carousel de imagenes) se muestra, cuando el articulo forma parte de uno o mas conjuntos WC completos:
 
 - **Titulo**: "Parte de conjunto completo".
 - **Labels clicables**: uno por cada conjunto (activo) en el que participa el producto (como taza, tanque o asiento). Un mismo articulo puede estar en varios conjuntos; en ese caso se muestran varios labels.
 
-Al pulsar un label se cierra el overlay, se navega a **Herramientas > WC Completo** y se preselecciona ese conjunto (cargando sus tazas, tanques y asientos).
+Al pulsar un label se cierra el modal de añadir al carrito, se navega a **Herramientas > WC Completo** y se preselecciona ese conjunto (cargando sus tazas, tanques y asientos).
 
 - **Backend**: `getWcConjuntosByProductoCodigo(productoCodigo)` en `supabase.js` consulta `wc_conjunto_tazas`, `wc_conjunto_tanques` y `wc_conjunto_asientos` por `producto_codigo`, obtiene los `conjunto_id` distintos y devuelve los `wc_conjuntos` activos ordenados.
-- **Frontend**: bloque `#productDetailWcConjuntos` en el overlay de detalle; se rellena en `openProductDetail()`; metodo `openWcCompletoWithConjunto(conjuntoId)` para abrir WC Completo con el conjunto preseleccionado.
+- **Frontend**: bloque `#addToCartWcConjuntos` en el modal de añadir al carrito (`#addToCartModal`); se rellena en `showAddToCartModal()`; metodo `openWcCompletoWithConjunto(conjuntoId)` para abrir WC Completo con el conjunto preseleccionado.
