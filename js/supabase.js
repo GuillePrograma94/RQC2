@@ -1727,6 +1727,41 @@ class SupabaseClient {
         }
     }
 
+    /**
+     * Devuelve los conjuntos WC (activos) en los que participa un producto dado por su codigo.
+     * Un producto puede ser taza, tanque o asiento en varios conjuntos.
+     * @param {string} productoCodigo - codigo del producto (productos.codigo)
+     * @returns {Promise<Array<{id: string, nombre: string, codigo?: string, ...}>>}
+     */
+    async getWcConjuntosByProductoCodigo(productoCodigo) {
+        try {
+            if (!this.client || !productoCodigo) return [];
+            const codigo = String(productoCodigo).trim();
+            const [tazas, tanques, asientos] = await Promise.all([
+                this.client.from('wc_conjunto_tazas').select('conjunto_id').eq('producto_codigo', codigo),
+                this.client.from('wc_conjunto_tanques').select('conjunto_id').eq('producto_codigo', codigo),
+                this.client.from('wc_conjunto_asientos').select('conjunto_id').eq('producto_codigo', codigo)
+            ]);
+            const ids = new Set();
+            (tazas.data || []).forEach(r => { if (r && r.conjunto_id) ids.add(r.conjunto_id); });
+            (tanques.data || []).forEach(r => { if (r && r.conjunto_id) ids.add(r.conjunto_id); });
+            (asientos.data || []).forEach(r => { if (r && r.conjunto_id) ids.add(r.conjunto_id); });
+            if (ids.size === 0) return [];
+            const { data, error } = await this.client
+                .from('wc_conjuntos')
+                .select('*')
+                .in('id', Array.from(ids))
+                .eq('activo', true)
+                .order('orden', { ascending: true })
+                .order('nombre', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        } catch (e) {
+            console.error('Error getWcConjuntosByProductoCodigo:', e);
+            return [];
+        }
+    }
+
     async addWcConjuntoTaza(conjuntoId, productoCodigo, orden) {
         try {
             if (!this.client) throw new Error('Cliente no inicializado');

@@ -378,4 +378,16 @@ Al guardar se persisten en Supabase junto con nombre, codigo, descripcion, orden
 - Uso previsto: subir imagenes de cada conjunto (nombre = codigo del conjunto, ej. `serie-comfort.jpg`) para mostrarlas en las cards del paso 1 cuando se implemente la carga de imagen por conjunto (seccion 8.3).
 - En la carpeta hay un `README.md` con la convencion de nombres.
 
+---
 
+## 10. Detalle de producto: "Parte de conjunto completo"
+
+En la ventana de detalle de producto (overlay que se abre al pulsar sobre un articulo escaneado o buscado) se muestra, cuando el articulo forma parte de uno o mas conjuntos WC completos:
+
+- **Titulo**: "Parte de conjunto completo".
+- **Labels clicables**: uno por cada conjunto (activo) en el que participa el producto (como taza, tanque o asiento). Un mismo articulo puede estar en varios conjuntos; en ese caso se muestran varios labels.
+
+Al pulsar un label se cierra el overlay, se navega a **Herramientas > WC Completo** y se preselecciona ese conjunto (cargando sus tazas, tanques y asientos).
+
+- **Backend**: `getWcConjuntosByProductoCodigo(productoCodigo)` en `supabase.js` consulta `wc_conjunto_tazas`, `wc_conjunto_tanques` y `wc_conjunto_asientos` por `producto_codigo`, obtiene los `conjunto_id` distintos y devuelve los `wc_conjuntos` activos ordenados.
+- **Frontend**: bloque `#productDetailWcConjuntos` en el overlay de detalle; se rellena en `openProductDetail()`; metodo `openWcCompletoWithConjunto(conjuntoId)` para abrir WC Completo con el conjunto preseleccionado.

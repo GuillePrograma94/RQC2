@@ -2504,6 +2504,48 @@ body.gate-visible .app-container {
     line-height: 1.35;
 }
 
+.product-detail-wc-conjuntos {
+    margin-bottom: 1rem;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--gray-200);
+}
+
+.product-detail-wc-conjuntos-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.5rem;
+}
+
+.product-detail-wc-conjuntos-labels {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.product-detail-wc-conjunto-label {
+    display: inline-block;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--primary);
+    background: rgba(120, 81, 169, 0.1);
+    border: 1px solid rgba(120, 81, 169, 0.3);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.product-detail-wc-conjunto-label:hover,
+.product-detail-wc-conjunto-label:focus {
+    background: rgba(120, 81, 169, 0.18);
+    border-color: var(--primary);
+    color: var(--primary-dark);
+    outline: none;
+}
+
 .product-detail-carousel {
     position: relative;
     width: 100%;

@@ -1665,6 +1665,18 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Cierra el overlay de detalle de producto (si esta abierto), muestra WC Completo y preselecciona el conjunto.
+     * Se usa desde los labels "Parte de conjunto completo" en el detalle de producto.
+     * @param {string} conjuntoId - id del conjunto (wc_conjuntos.id)
+     */
+    async openWcCompletoWithConjunto(conjuntoId) {
+        if (!conjuntoId) return;
+        this.showScreen('wcCompleto');
+        await this.renderWcCompletoScreen();
+        await this.onWcCompletoConjuntoSelect(conjuntoId);
+    }
+
+    /**
      * Al elegir un conjunto: cargar tazas, tanques, asientos enriquecidos y mostrar como cards
      */
     async onWcCompletoConjuntoSelect(conjuntoId) {
@@ -3646,6 +3658,35 @@ class ScanAsYouShopApp {
 
         codeEl.textContent = producto.codigo;
         descEl.textContent = producto.descripcion || '';
+
+        const wcConjuntosBlock = document.getElementById('productDetailWcConjuntos');
+        const wcConjuntosLabels = document.getElementById('productDetailWcConjuntosLabels');
+        if (wcConjuntosBlock && wcConjuntosLabels) {
+            let conjuntos = [];
+            try {
+                conjuntos = await window.supabaseClient.getWcConjuntosByProductoCodigo(producto.codigo) || [];
+            } catch (e) {
+                console.error('Error getWcConjuntosByProductoCodigo:', e);
+            }
+            if (conjuntos.length === 0) {
+                wcConjuntosBlock.style.display = 'none';
+            } else {
+                wcConjuntosBlock.style.display = 'block';
+                wcConjuntosLabels.innerHTML = conjuntos.map(function (c) {
+                    const id = this.escapeForHtmlAttribute(c.id);
+                    const nombre = this.escapeForHtmlAttribute((c.nombre || '').trim() || c.id);
+                    return '<button type="button" class="product-detail-wc-conjunto-label" data-conjunto-id="' + id + '">' + nombre + '</button>';
+                }.bind(this)).join('');
+                wcConjuntosLabels.querySelectorAll('.product-detail-wc-conjunto-label').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        const conjuntoId = btn.getAttribute('data-conjunto-id');
+                        const closeProductDetailBtn = document.getElementById('closeProductDetailBtn');
+                        if (closeProductDetailBtn) closeProductDetailBtn.click();
+                        if (conjuntoId) window.app.openWcCompletoWithConjunto(conjuntoId);
+                    });
+                });
+            }
+        }
 
         const imageUrls = await this.getAvailableProductImageUrls(producto.codigo);
         carouselInner.innerHTML = '';
