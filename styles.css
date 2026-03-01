@@ -3312,6 +3312,11 @@ body.gate-visible .app-container {
 .wc-completo-grid-conjuntos {
     grid-template-columns: repeat(2, 1fr);
 }
+@media (min-width: 768px) {
+    .wc-completo-grid-conjuntos {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
 .wc-completo-grid-products {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
 }
