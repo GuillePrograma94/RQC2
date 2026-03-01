@@ -1712,7 +1712,7 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Rellena el resumen (3 miniaturas + total) y habilita/deshabilita el boton Anadir
+     * Rellena el resumen (miniaturas + total) y habilita el boton cuando hay al menos una pieza seleccionada
      */
     renderWcCompletoSummary() {
         const sel = this.wcCompletoSelection || {};
@@ -1738,21 +1738,22 @@ class ScanAsYouShopApp {
                     '</div>');
             }
         });
-        itemsEl.innerHTML = parts.length ? parts.join('') : '<p class="wc-completo-summary-empty">Elige modelo, taza, tanque y asiento.</p>';
-        if (totalEl) totalEl.textContent = parts.length === 3 ? 'Total: ' + total.toFixed(2) + ' EUR' : '';
-        if (btn) btn.disabled = parts.length !== 3;
+        itemsEl.innerHTML = parts.length ? parts.join('') : '<p class="wc-completo-summary-empty">Elige modelo y las piezas que quieras anadir.</p>';
+        if (totalEl) totalEl.textContent = parts.length ? 'Total: ' + total.toFixed(2) + ' EUR' : '';
+        if (btn) btn.disabled = parts.length === 0;
     }
 
     /**
-     * Anade las tres piezas (taza, tanque, asiento) al carrito
+     * Anade al carrito las piezas seleccionadas (taza, tanque y/o asiento; las que haya)
      */
     async handleWcCompletoAddToCart() {
         const sel = this.wcCompletoSelection;
-        if (!sel || !sel.taza || !sel.tanque || !sel.asiento) {
-            window.ui.showToast('Elige taza, tanque y asiento', 'error');
+        if (!sel) return;
+        const items = [sel.taza, sel.tanque, sel.asiento].filter(Boolean);
+        if (items.length === 0) {
+            window.ui.showToast('Elige al menos una pieza para anadir', 'error');
             return;
         }
-        const items = [sel.taza, sel.tanque, sel.asiento];
         try {
             for (const item of items) {
                 await window.cartManager.addProduct(
@@ -1761,7 +1762,7 @@ class ScanAsYouShopApp {
                 );
             }
             window.ui.updateCartBadge();
-            window.ui.showToast('WC completo anadido al carrito (3 productos)', 'success');
+            window.ui.showToast(items.length === 1 ? '1 articulo anadido al carrito' : items.length + ' articulos anadidos al carrito', 'success');
             this.showScreen('cart');
         } catch (e) {
             console.error('Error handleWcCompletoAddToCart:', e);
