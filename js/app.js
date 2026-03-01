@@ -1813,7 +1813,7 @@ class ScanAsYouShopApp {
             sectionTitleEl.textContent = mode === 'recambios' ? 'Articulos que son recambio de este producto' : 'Productos que puedes reparar o completar con este articulo';
         }
         if (sectionDescEl) {
-            sectionDescEl.textContent = mode === 'recambios' ? 'Pulsa en un articulo para ver su ficha.' : 'Pulsa en un producto para ver su ficha.';
+            sectionDescEl.textContent = mode === 'recambios' ? 'Pulsa en un articulo para anadirlo al carrito.' : 'Pulsa en un producto para anadirlo al carrito.';
         }
 
         const p = await window.cartManager.getProductByCodigo(codigo);
@@ -3194,7 +3194,7 @@ class ScanAsYouShopApp {
                 const codigo = item.dataset.codigo;
                 const descripcion = item.dataset.descripcion || '';
                 const pvp = parseFloat(item.dataset.pvp) || 0;
-                this.openProductDetail({ codigo: codigo, descripcion: descripcion, pvp: pvp });
+                this.showAddToCartModal({ codigo: codigo, descripcion: descripcion, pvp: pvp });
             });
         }
 
@@ -4125,11 +4125,15 @@ class ScanAsYouShopApp {
 
         const onVerRecambiosClick = () => {
             handleClose();
+            const addToCartModal = document.getElementById('addToCartModal');
+            if (addToCartModal) addToCartModal.style.display = 'none';
             this.recambiosVistaReturnScreen = this.currentScreen;
             this.openRecambiosVistaPage(producto, 'recambios');
         };
         const onSirveParaClick = () => {
             handleClose();
+            const addToCartModal = document.getElementById('addToCartModal');
+            if (addToCartModal) addToCartModal.style.display = 'none';
             this.recambiosVistaReturnScreen = this.currentScreen;
             this.openRecambiosVistaPage(producto, 'sirvePara');
         };
