@@ -4031,12 +4031,9 @@ body.gate-visible .app-container {
 .stock-almacen-line {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
-    font-size: 0.75rem;
-    color: var(--gray-700);
 }
 
-.stock-almacen-line .stock-badge {
+.stock-almacen-line .stock-almacen-label {
     flex-shrink: 0;
 }
 

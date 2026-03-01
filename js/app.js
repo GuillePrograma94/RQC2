@@ -2398,7 +2398,7 @@ class ScanAsYouShopApp {
             }
             const almEsc = this.escapeForHtmlAttribute(alm);
             const codEsc = this.escapeForHtmlAttribute(codigo.toUpperCase());
-            return `<div class="stock-almacen-line" data-stock-codigo="${codEsc}" data-almacen="${almEsc}"><span class="stock-badge ${clase}">${texto}</span> ${almEsc}</div>`;
+            return `<div class="stock-almacen-line" data-stock-codigo="${codEsc}" data-almacen="${almEsc}"><span class="stock-almacen-label stock-badge ${clase}"><strong>${almEsc}</strong>: ${texto}</span></div>`;
         });
         return `<div class="result-stock-global">${lineas.join('')}</div>`;
     }
@@ -2421,8 +2421,8 @@ class ScanAsYouShopApp {
 
             if (el.classList.contains('stock-almacen-line')) {
                 const almacen = el.dataset.almacen;
-                const badge = el.querySelector('.stock-badge');
-                if (!badge || !almacen) continue;
+                const label = el.querySelector('.stock-almacen-label');
+                if (!label || !almacen) continue;
                 const qty = (entrada.por_almacen || {})[almacen] ?? 0;
                 let clase, texto;
                 if (qty <= 0) {
@@ -2435,8 +2435,8 @@ class ScanAsYouShopApp {
                     clase = 'stock-verde';
                     texto = 'EN STOCK';
                 }
-                badge.className = 'stock-badge ' + clase;
-                badge.innerHTML = texto;
+                label.className = 'stock-almacen-label stock-badge ' + clase;
+                label.innerHTML = '<strong>' + this.escapeForHtmlAttribute(almacen) + '</strong>: ' + texto;
             } else {
                 const efectivo = this.getStockEfectivo(codigo);
                 el.className = 'stock-badge';
