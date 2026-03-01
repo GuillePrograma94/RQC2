@@ -4021,6 +4021,25 @@ body.gate-visible .app-container {
     margin-top: 0.25rem;
 }
 
+.result-stock-global {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin-top: 0.35rem;
+}
+
+.stock-almacen-line {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--gray-700);
+}
+
+.stock-almacen-line .stock-badge {
+    flex-shrink: 0;
+}
+
 .stock-badge {
     display: inline-block;
     padding: 0.15rem 0.55rem;

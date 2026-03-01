@@ -2353,51 +2353,103 @@ class ScanAsYouShopApp {
 
     /**
      * Genera el HTML del badge de stock para un articulo.
+     * Con filtro Global: desglose por almacen (cada uno con su estado y color).
+     * Con almacen especifico: un solo badge como hasta ahora.
      * @param {string} codigo
      * @returns {string} HTML del badge (puede ser vacio si no hay dato)
      */
     buildStockBadgeHtml(codigo) {
-        // Si el índice aún no se ha cargado, no mostramos nada
         if (this.stockIndex.size === 0) return '';
 
-        const efectivo = this.getStockEfectivo(codigo);
-        let clase, texto;
-        if (efectivo === null || efectivo <= 0) {
-            clase = 'stock-rojo';
-            texto = 'Consultar disponibilidad';
-        } else if (efectivo <= 3) {
-            clase = 'stock-naranja';
-            texto = 'POCAS UNIDADES';
-        } else {
-            clase = 'stock-verde';
-            texto = 'EN STOCK';
+        const entrada = this.stockIndex.get(codigo.toUpperCase());
+        if (!entrada) return '';
+
+        const ALMACENES_ORDER = ['ONTINYENT', 'ALZIRA', 'GANDIA', 'REQUENA'];
+
+        if (this.stockAlmacenFiltro && this.stockAlmacenFiltro !== 'GLOBAL') {
+            const efectivo = this.getStockEfectivo(codigo);
+            let clase, texto;
+            if (efectivo === null || efectivo <= 0) {
+                clase = 'stock-rojo';
+                texto = 'Consultar disponibilidad';
+            } else if (efectivo <= 3) {
+                clase = 'stock-naranja';
+                texto = 'POCAS UNIDADES';
+            } else {
+                clase = 'stock-verde';
+                texto = 'EN STOCK';
+            }
+            return `<span class="stock-badge ${clase}" data-stock-codigo="${this.escapeForHtmlAttribute(codigo.toUpperCase())}">${texto}</span>`;
         }
-        return `<span class="stock-badge ${clase}" data-stock-codigo="${codigo.toUpperCase()}">${texto}</span>`;
+
+        const porAlmacen = entrada.por_almacen || {};
+        const lineas = ALMACENES_ORDER.map(alm => {
+            const qty = porAlmacen[alm] ?? 0;
+            let clase, texto;
+            if (qty <= 0) {
+                clase = 'stock-rojo';
+                texto = 'CONSULTAR DISPONIBILIDAD';
+            } else if (qty <= 3) {
+                clase = 'stock-naranja';
+                texto = 'POCAS UNIDADES';
+            } else {
+                clase = 'stock-verde';
+                texto = 'EN STOCK';
+            }
+            const almEsc = this.escapeForHtmlAttribute(alm);
+            const codEsc = this.escapeForHtmlAttribute(codigo.toUpperCase());
+            return `<div class="stock-almacen-line" data-stock-codigo="${codEsc}" data-almacen="${almEsc}"><span class="stock-badge ${clase}">${texto}</span> ${almEsc}</div>`;
+        });
+        return `<div class="result-stock-global">${lineas.join('')}</div>`;
     }
 
     /**
      * Actualiza en el DOM solo los badges de stock de los resultados visibles,
      * sin re-renderizar la lista completa.
      * Se llama cada vez que cambia la cantidad en el carrito.
+     * Con filtro Global: actualiza cada linea por almacen (stock sin descontar carrito).
+     * Con almacen especifico: actualiza el badge unico (stock efectivo con carrito).
      */
     updateStockBadgesVisibles() {
         if (this.stockIndex.size === 0) return;
 
-        const badges = document.querySelectorAll('[data-stock-codigo]');
-        for (const badge of badges) {
-            const codigo = badge.dataset.stockCodigo;
-            const efectivo = this.getStockEfectivo(codigo);
+        const elements = document.querySelectorAll('[data-stock-codigo]');
+        for (const el of elements) {
+            const codigo = el.dataset.stockCodigo;
+            const entrada = this.stockIndex.get(codigo);
+            if (!entrada) continue;
 
-            badge.className = 'stock-badge';
-            if (efectivo === null || efectivo <= 0) {
-                badge.classList.add('stock-rojo');
-                badge.innerHTML = 'Consultar disponibilidad';
-            } else if (efectivo <= 3) {
-                badge.classList.add('stock-naranja');
-                badge.innerHTML = 'POCAS UNIDADES';
+            if (el.classList.contains('stock-almacen-line')) {
+                const almacen = el.dataset.almacen;
+                const badge = el.querySelector('.stock-badge');
+                if (!badge || !almacen) continue;
+                const qty = (entrada.por_almacen || {})[almacen] ?? 0;
+                let clase, texto;
+                if (qty <= 0) {
+                    clase = 'stock-rojo';
+                    texto = 'CONSULTAR DISPONIBILIDAD';
+                } else if (qty <= 3) {
+                    clase = 'stock-naranja';
+                    texto = 'POCAS UNIDADES';
+                } else {
+                    clase = 'stock-verde';
+                    texto = 'EN STOCK';
+                }
+                badge.className = 'stock-badge ' + clase;
+                badge.innerHTML = texto;
             } else {
-                badge.classList.add('stock-verde');
-                badge.innerHTML = 'EN STOCK';
+                const efectivo = this.getStockEfectivo(codigo);
+                el.className = 'stock-badge';
+                if (efectivo === null || efectivo <= 0) {
+                    el.classList.add('stock-rojo');
+                    el.innerHTML = 'Consultar disponibilidad';
+                } else if (efectivo <= 3) {
+                    el.classList.add('stock-naranja');
+                    el.innerHTML = 'POCAS UNIDADES';
+                } else {
+                    el.classList.add('stock-verde');
+                    el.innerHTML = 'EN STOCK';
+                }
             }
         }
     }
