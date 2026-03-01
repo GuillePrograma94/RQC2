@@ -650,10 +650,10 @@
         </div>
 
         <!-- ================================
-             PANTALLA VER RECAMBIOS (Herramientas - consulta cliente)
+             PANTALLA VER RECAMBIOS (Herramientas - consulta cliente, pagina con imagenes)
              ================================ -->
-        <div id="recambiosVistaScreen" class="screen">
-            <main class="screen-content">
+        <div id="recambiosVistaScreen" class="screen recambios-vista-page">
+            <main class="screen-content recambios-vista-page-content">
                 <div class="profile-header">
                     <button type="button" id="recambiosVistaBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
                     <h2 class="profile-title">Recambios</h2>
@@ -668,22 +668,22 @@
                 </div>
                 <div id="recambiosVistaProductoActual" class="recambios-vista-producto-actual" style="display: none;">
                     <h3 class="profile-section-title">Producto seleccionado</h3>
-                    <div class="recambios-vista-producto-card" id="recambiosVistaProductoCard"></div>
+                    <div class="recambios-vista-producto-card recambios-vista-card-destacada" id="recambiosVistaProductoCard"></div>
                 </div>
                 <div id="recambiosVistaContenido" class="recambios-vista-contenido" style="display: none;">
                     <section class="recambios-vista-seccion">
                         <h3 class="profile-section-title">Recambios de este producto</h3>
                         <p class="recambios-vista-seccion-desc">Articulos que son recambio de este producto.</p>
-                        <ul id="recambiosVistaListRecambios" class="recambios-vista-lista"></ul>
+                        <div id="recambiosVistaGridRecambios" class="recambios-vista-grid"></div>
                     </section>
                     <section class="recambios-vista-seccion">
                         <h3 class="profile-section-title">Sirve para estos productos</h3>
                         <p class="recambios-vista-seccion-desc">Productos para los que este articulo es recambio.</p>
-                        <ul id="recambiosVistaListPadres" class="recambios-vista-lista"></ul>
+                        <div id="recambiosVistaGridPadres" class="recambios-vista-grid"></div>
                     </section>
                 </div>
-                <div id="recambiosVistaEmpty" class="recambios-vista-empty" style="display: none;">
-                    <p>Busca un producto para ver sus recambios y los productos para los que sirve.</p>
+                <div id="recambiosVistaEmpty" class="recambios-vista-empty">
+                    <p>Busca un producto por codigo o EAN para ver sus recambios y los productos para los que sirve.</p>
                 </div>
             </main>
         </div>

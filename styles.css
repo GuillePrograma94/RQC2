@@ -3387,80 +3387,153 @@ body.gate-visible .app-container {
 .recambios-contenido { margin-top: 1rem; }
 .recambios-seccion { margin-bottom: 1.5rem; }
 
-/* Vista Recambios (cliente, Herramientas) */
+/* Vista Recambios (cliente, Herramientas) - Pagina con imagenes */
+.recambios-vista-page {
+    overflow-y: auto;
+}
+.recambios-vista-page-content {
+    padding-bottom: 2rem;
+    max-width: 100%;
+}
 .recambios-vista-intro {
     font-size: 0.95rem;
     color: var(--gray-600);
     margin: 0 1rem 1rem;
     line-height: 1.45;
 }
-.recambios-vista-buscar { margin-bottom: 1.25rem; }
-.recambios-vista-producto-actual { margin-bottom: 1.5rem; }
-.recambios-vista-producto-card {
-    padding: 1rem;
+.recambios-vista-buscar { margin: 0 1rem 1.25rem; }
+.recambios-vista-producto-actual { margin: 0 1rem 1.5rem; }
+.recambios-vista-producto-actual .profile-section-title { margin-bottom: 0.75rem; }
+/* Tarjeta destacada del producto seleccionado (imagen + cuerpo en horizontal en escritorio, apilado en movil) */
+.recambios-vista-card-destacada {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 0;
     background: var(--gray-50);
-    border-radius: 8px;
+    border-radius: 12px;
     border: 1px solid var(--gray-200);
+    overflow: hidden;
 }
-.recambios-vista-producto-text { margin: 0; font-size: 0.95rem; color: var(--gray-800); }
-.recambios-vista-codigo-sec { font-size: 0.85rem; color: var(--gray-600); }
-.recambios-vista-contenido { margin-top: 0.5rem; }
-.recambios-vista-seccion { margin-bottom: 1.5rem; }
+@media (min-width: 480px) {
+    .recambios-vista-card-destacada {
+        grid-template-columns: 200px 1fr;
+    }
+}
+.recambios-vista-card-destacada .recambios-vista-card-img-wrap {
+    aspect-ratio: 1;
+    background: var(--gray-100);
+}
+.recambios-vista-card-destacada .recambios-vista-card-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.recambios-vista-producto-text { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--gray-800); }
+.recambios-vista-codigo-sec { font-size: 0.85rem; color: var(--gray-600); font-weight: normal; }
+.recambios-vista-producto-desc {
+    margin: 0.35rem 0 0 0;
+    font-size: 0.9rem;
+    color: var(--gray-700);
+    line-height: 1.4;
+}
+.recambios-vista-contenido { margin: 0 1rem 2rem; }
+.recambios-vista-seccion { margin-bottom: 2rem; }
+.recambios-vista-seccion .profile-section-title { margin-bottom: 0.35rem; }
 .recambios-vista-seccion-desc {
     font-size: 0.85rem;
     color: var(--gray-600);
-    margin: 0 0 0.5rem 0;
+    margin: 0 0 0.75rem 0;
 }
-.recambios-vista-lista {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    border: 1px solid var(--gray-200);
-    border-radius: 8px;
-    overflow: hidden;
+/* Grid de tarjetas (2 columnas como WC Completo) */
+.recambios-vista-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem 1rem;
 }
-.recambios-vista-item {
+.recambios-vista-card {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1rem;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+    text-align: left;
     background: var(--gray-0, #fff);
-    border-bottom: 1px solid var(--gray-100);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    overflow: hidden;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: box-shadow 0.2s, border-color 0.2s;
 }
-.recambios-vista-item:last-child { border-bottom: none; }
-.recambios-vista-item:hover,
-.recambios-vista-item:focus {
-    background: var(--gray-50);
+.recambios-vista-card:hover,
+.recambios-vista-card:focus {
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     outline: none;
 }
-.recambios-vista-item-text {
-    flex: 1;
-    min-width: 0;
-    font-size: 0.9rem;
-    color: var(--gray-800);
+.recambios-vista-card-img-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    background: var(--gray-100);
+    overflow: hidden;
 }
-.recambios-vista-item-arrow {
-    flex-shrink: 0;
-    margin-left: 0.5rem;
-    color: var(--primary);
-    font-size: 1rem;
+.recambios-vista-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
 }
-.recambios-vista-lista-empty,
-.recambios-vista-lista-error {
-    padding: 0.75rem 1rem;
-    font-size: 0.9rem;
+.recambios-vista-card-placeholder {
+    width: 100%;
+    height: 100%;
+    background: var(--gray-200);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.recambios-vista-card-desc {
+    padding: 0.5rem 0.6rem 0;
+    font-size: 0.8rem;
+    color: var(--gray-700);
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.recambios-vista-card-code {
+    padding: 0.25rem 0.6rem 0;
+    font-size: 0.75rem;
+    font-weight: 600;
     color: var(--gray-600);
+}
+.recambios-vista-card-price {
+    padding: 0.35rem 0.6rem 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary);
+}
+.recambios-vista-empty-grid {
+    padding: 1rem;
+    text-align: center;
+    color: var(--gray-500);
+    font-size: 0.9rem;
     font-style: italic;
 }
-.recambios-vista-lista-error { color: var(--red-600, #b91c1c); font-style: normal; }
+.recambios-vista-lista-error {
+    padding: 1rem;
+    text-align: center;
+    color: var(--red-600, #b91c1c);
+    font-size: 0.9rem;
+}
 .recambios-vista-empty {
-    padding: 1.5rem 1rem;
+    padding: 2rem 1.5rem;
     text-align: center;
     color: var(--gray-600);
     font-size: 0.95rem;
+    line-height: 1.5;
 }
+.recambios-vista-empty p { margin: 0; }
 
 .wc-conjunto-preview {
     margin-top: 0.5rem;

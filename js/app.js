@@ -1803,8 +1803,19 @@ class ScanAsYouShopApp {
         const productCardEl = document.getElementById('recambiosVistaProductoCard');
         const contenidoEl = document.getElementById('recambiosVistaContenido');
         const emptyEl = document.getElementById('recambiosVistaEmpty');
+        const base = this._wcProductImageBase();
+        const imgUrl = base + this.escapeForHtmlAttribute(details.principalCode) + '_1.JPG';
+        const descEsc = this.escapeForHtmlAttribute(details.descripcion);
+        const codEsc = this.escapeForHtmlAttribute(details.principalCode);
+        const secEsc = details.matchedSecondary ? ' <span class="recambios-vista-codigo-sec">(' + this.escapeForHtmlAttribute(details.matchedSecondary) + ')</span>' : '';
         if (productCardEl) {
-            productCardEl.innerHTML = '<p class="recambios-vista-producto-text"><strong>' + this.escapeForHtmlAttribute(details.principalCode) + '</strong> – ' + this.escapeForHtmlAttribute(details.descripcion) + (details.matchedSecondary ? ' <span class="recambios-vista-codigo-sec">(' + this.escapeForHtmlAttribute(details.matchedSecondary) + ')</span>' : '') + '</p>';
+            productCardEl.innerHTML = '<div class="recambios-vista-card-img-wrap">' +
+                '<img src="' + imgUrl + '" alt="" class="recambios-vista-card-img" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';"><span class="recambios-vista-card-placeholder" style="display:none;" aria-hidden="true"></span>' +
+                '</div>' +
+                '<div class="recambios-vista-card-body">' +
+                '<p class="recambios-vista-producto-text"><strong>' + codEsc + '</strong>' + secEsc + '</p>' +
+                '<p class="recambios-vista-producto-desc">' + descEsc + '</p>' +
+                '</div>';
         }
         if (productoActualEl) productoActualEl.style.display = 'block';
         if (contenidoEl) contenidoEl.style.display = 'block';
@@ -1813,44 +1824,52 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Rellena las listas de la Vista Recambios (recambios del producto y productos para los que sirve)
+     * Rellena las listas de la Vista Recambios (recambios del producto y productos para los que sirve) como grids de tarjetas con imagen
      */
     async renderRecambiosVistaLists() {
         const codigo = this.recambiosVistaProductoCodigo;
         if (!codigo) return;
-        const listRecambios = document.getElementById('recambiosVistaListRecambios');
-        const listPadres = document.getElementById('recambiosVistaListPadres');
+        const gridRecambios = document.getElementById('recambiosVistaGridRecambios');
+        const gridPadres = document.getElementById('recambiosVistaGridPadres');
+        const base = this._wcProductImageBase();
         try {
             const [recambios, padres] = await Promise.all([
                 window.supabaseClient.getRecambiosDeProducto(codigo),
                 window.supabaseClient.getPadresDeRecambio(codigo)
             ]);
-            const renderList = async (listEl, items, codigoKey) => {
-                if (!listEl) return;
+            const renderGrid = async (gridEl, items, codigoKey) => {
+                if (!gridEl) return;
                 if (!items || items.length === 0) {
-                    listEl.innerHTML = '<li class="recambios-vista-lista-empty">Ninguno</li>';
+                    gridEl.innerHTML = '<p class="recambios-vista-empty-grid">Ninguno</p>';
                     return;
                 }
-                const lines = [];
+                const cards = [];
                 for (const item of items) {
                     const cod = item[codigoKey] || '';
                     const p = await window.cartManager.getProductByCodigo(cod);
                     const desc = (p && p.descripcion) ? p.descripcion : cod;
-                    const codigoEsc = this.escapeForHtmlAttribute(cod);
+                    const pvp = (p && p.pvp != null) ? p.pvp : 0;
+                    const codEsc = this.escapeForHtmlAttribute(cod);
                     const descEsc = this.escapeForHtmlAttribute(desc);
-                    lines.push('<li class="recambios-vista-item" data-codigo="' + codigoEsc + '" data-descripcion="' + descEsc + '" data-pvp="' + (p && p.pvp != null ? p.pvp : 0) + '">' +
-                        '<span class="recambios-vista-item-text"><strong>' + codigoEsc + '</strong> – ' + descEsc + '</span>' +
-                        '<span class="recambios-vista-item-arrow" aria-hidden="true">&rarr;</span>' +
-                        '</li>');
+                    const imgUrl = base + codEsc + '_1.JPG';
+                    const priceStr = (pvp * 1.21).toFixed(2);
+                    cards.push('<button type="button" class="recambios-vista-card" data-codigo="' + codEsc + '" data-descripcion="' + descEsc + '" data-pvp="' + pvp + '" aria-label="' + descEsc + '">' +
+                        '<span class="recambios-vista-card-img-wrap">' +
+                        '<img src="' + imgUrl + '" alt="" class="recambios-vista-card-img" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';"><span class="recambios-vista-card-placeholder" style="display:none;" aria-hidden="true"></span>' +
+                        '</span>' +
+                        '<span class="recambios-vista-card-desc">' + descEsc + '</span>' +
+                        '<span class="recambios-vista-card-code">' + codEsc + '</span>' +
+                        '<span class="recambios-vista-card-price">' + priceStr + ' EUR</span>' +
+                        '</button>');
                 }
-                listEl.innerHTML = lines.join('');
+                gridEl.innerHTML = cards.join('');
             };
-            await renderList(listRecambios, recambios || [], 'producto_recambio_codigo');
-            await renderList(listPadres, padres || [], 'producto_padre_codigo');
+            await renderGrid(gridRecambios, recambios || [], 'producto_recambio_codigo');
+            await renderGrid(gridPadres, padres || [], 'producto_padre_codigo');
         } catch (e) {
             console.error('Error renderRecambiosVistaLists:', e);
-            if (listRecambios) listRecambios.innerHTML = '<li class="recambios-vista-lista-error">Error al cargar.</li>';
-            if (listPadres) listPadres.innerHTML = '<li class="recambios-vista-lista-error">Error al cargar.</li>';
+            if (gridRecambios) gridRecambios.innerHTML = '<p class="recambios-vista-lista-error">Error al cargar.</p>';
+            if (gridPadres) gridPadres.innerHTML = '<p class="recambios-vista-lista-error">Error al cargar.</p>';
         }
     }
 
@@ -3178,7 +3197,7 @@ class ScanAsYouShopApp {
         const recambiosVistaContenido = document.getElementById('recambiosVistaContenido');
         if (recambiosVistaContenido) {
             recambiosVistaContenido.addEventListener('click', (e) => {
-                const item = e.target.closest('.recambios-vista-item');
+                const item = e.target.closest('.recambios-vista-card');
                 if (!item || !item.dataset.codigo) return;
                 const codigo = item.dataset.codigo;
                 const descripcion = item.dataset.descripcion || '';

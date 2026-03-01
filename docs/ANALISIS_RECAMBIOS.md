@@ -65,14 +65,15 @@ Ambos botones pueden mostrarse a la vez si el producto tiene recambios y ademas 
 
 ### 4.2 Vista Recambios (Herramientas)
 
-Desde **Herramientas** el cliente puede pulsar **"Ver recambios"** y acceder a una pantalla dedicada:
+Desde **Herramientas** el cliente puede pulsar **"Ver recambios"** y acceder a una **pagina** dedicada (no una ventana modal):
 
 - Campo de busqueda por **codigo** o **codigo secundario** (EAN) del producto.
-- Al buscar se muestra el producto seleccionado y dos bloques:
-  - **Recambios de este producto**: articulos que son recambio de ese producto. Clic en una fila abre el detalle del recambio.
-  - **Sirve para estos productos**: productos para los que ese articulo es recambio. Clic en una fila abre el detalle del producto.
+- Al buscar se muestra:
+  - **Producto seleccionado**: tarjeta destacada con imagen del producto, codigo y descripcion (layout horizontal en pantallas anchas).
+  - **Recambios de este producto**: grid de tarjetas (2 columnas) con imagen, descripcion, codigo y precio de cada recambio. Clic en una tarjeta abre el detalle de ese producto.
+  - **Sirve para estos productos**: grid de tarjetas con imagen, descripcion, codigo y precio de cada producto para el que sirve. Clic en una tarjeta abre el detalle de ese producto.
 
-Es una vista de solo consulta (sin anadir/quitar relaciones); permite ver de un vistazo recambios y productos relacionados.
+Es una vista de solo consulta, con scroll vertical, pensada como pagina con contenido visual (imagenes y descripciones) para que sea mas intuitiva.
 
 ---
 
