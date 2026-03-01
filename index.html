@@ -599,22 +599,26 @@
                 <div class="wc-completo-step" id="wcCompletoStepConjunto">
                     <h3 class="wc-completo-step-title"><span class="wc-completo-step-num">1</span> Modelo de WC</h3>
                     <div class="wc-completo-filters">
-                        <div class="wc-completo-filter-group">
-                            <label for="wcCompletoFilterTipo">Tipo instalacion</label>
-                            <select id="wcCompletoFilterTipo">
-                                <option value="">Todos</option>
-                                <option value="TANQUE_ALTO">Tanque Alto</option>
-                                <option value="TANQUE_BAJO">Tanque Bajo</option>
-                                <option value="SUSPENDIDO">Suspendido</option>
-                            </select>
+                        <div class="wc-completo-chips-block">
+                            <span class="wc-completo-chips-label">Tipo</span>
+                            <div class="wc-completo-chips-row" id="wcCompletoChipsTipo">
+                                <button type="button" class="wc-completo-chip selected" data-value="">Todos</button>
+                                <button type="button" class="wc-completo-chip" data-value="TANQUE_ALTO">Tanque Alto</button>
+                                <button type="button" class="wc-completo-chip" data-value="TANQUE_BAJO">Tanque Bajo</button>
+                                <button type="button" class="wc-completo-chip" data-value="SUSPENDIDO">Suspendido</button>
+                            </div>
                         </div>
-                        <div class="wc-completo-filter-group">
-                            <label for="wcCompletoFilterAdosado">Adosado a pared</label>
-                            <select id="wcCompletoFilterAdosado">
-                                <option value="">Todos</option>
-                                <option value="true">Si</option>
-                                <option value="false">No</option>
-                            </select>
+                        <div class="wc-completo-chips-block">
+                            <span class="wc-completo-chips-label">Adosado a pared</span>
+                            <div class="wc-completo-chips-row" id="wcCompletoChipsAdosado">
+                                <button type="button" class="wc-completo-chip selected" data-value="">Todos</button>
+                                <button type="button" class="wc-completo-chip" data-value="true">Si</button>
+                                <button type="button" class="wc-completo-chip" data-value="false">No</button>
+                            </div>
+                        </div>
+                        <div class="wc-completo-chips-block wc-completo-chip-nombre-wrap">
+                            <span class="wc-completo-chips-label">Nombre</span>
+                            <input type="text" id="wcCompletoFilterNombre" class="wc-completo-chip-input" placeholder="Filtrar por nombre..." autocomplete="off">
                         </div>
                     </div>
                     <div id="wcCompletoConjuntosGrid" class="wc-completo-grid wc-completo-grid-conjuntos"></div>

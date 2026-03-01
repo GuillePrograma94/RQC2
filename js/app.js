@@ -1594,16 +1594,35 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Filtra conjuntos por tipo instalacion y adosado a pared, y rellena el grid de modelos (paso 1)
+     * Devuelve el data-value del chip seleccionado en una fila de chips WC Completo
+     * @param {string} containerId - id del contenedor (wcCompletoChipsTipo o wcCompletoChipsAdosado)
+     * @returns {string}
+     */
+    _getWcCompletoChipValue(containerId) {
+        const row = document.getElementById(containerId);
+        if (!row) return '';
+        const selected = row.querySelector('.wc-completo-chip.selected');
+        return selected ? (selected.getAttribute('data-value') || '') : '';
+    }
+
+    /**
+     * Filtra conjuntos por tipo instalacion, adosado a pared y nombre; rellena el grid de modelos (paso 1)
      */
     renderWcCompletoConjuntosGrid() {
         const gridConjuntos = document.getElementById('wcCompletoConjuntosGrid');
         if (!gridConjuntos || !this.wcCompletoConjuntosAll) return;
-        const tipoVal = document.getElementById('wcCompletoFilterTipo') ? document.getElementById('wcCompletoFilterTipo').value : '';
-        const adosadoVal = document.getElementById('wcCompletoFilterAdosado') ? document.getElementById('wcCompletoFilterAdosado').value : '';
+        const tipoVal = this._getWcCompletoChipValue('wcCompletoChipsTipo');
+        const adosadoVal = this._getWcCompletoChipValue('wcCompletoChipsAdosado');
+        const nombreVal = (document.getElementById('wcCompletoFilterNombre') && document.getElementById('wcCompletoFilterNombre').value || '').trim().toLowerCase();
         let list = this.wcCompletoConjuntosAll;
         if (tipoVal) list = list.filter(c => c.tipo_instalacion === tipoVal);
         if (adosadoVal !== '') list = list.filter(c => (adosadoVal === 'true') === (c.adosado_pared === true));
+        if (nombreVal) list = list.filter(c => {
+            const nombre = (c.nombre || '').toLowerCase();
+            const codigo = (c.codigo || '').toLowerCase();
+            const desc = (c.descripcion || '').toLowerCase();
+            return nombre.includes(nombreVal) || codigo.includes(nombreVal) || desc.includes(nombreVal);
+        });
         if (list.length === 0) {
             gridConjuntos.innerHTML = '<p class="wc-completo-empty">Ningun conjunto coincide con los filtros.</p>';
             return;
@@ -2352,36 +2371,16 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Genera el HTML del badge de stock para un articulo.
-     * Con filtro Global: desglose por almacen (cada uno con su estado y color).
-     * Con almacen especifico: un solo badge como hasta ahora.
-     * @param {string} codigo
-     * @returns {string} HTML del badge (puede ser vacio si no hay dato)
+     * Genera el HTML del desglose de stock por almacen (ONTINYENT, ALZIRA, GANDIA, REQUENA).
+     * Usado en busqueda con filtro Global y en las tarjetas del carrito.
+     * @param {string} codigo - Codigo del articulo
+     * @returns {string} HTML del bloque o vacio si no hay dato de stock
      */
-    buildStockBadgeHtml(codigo) {
-        if (this.stockIndex.size === 0) return '';
-
+    buildStockBreakdownByAlmacenHtml(codigo) {
+        if (!codigo || this.stockIndex.size === 0) return '';
         const entrada = this.stockIndex.get(codigo.toUpperCase());
         if (!entrada) return '';
-
         const ALMACENES_ORDER = ['ONTINYENT', 'ALZIRA', 'GANDIA', 'REQUENA'];
-
-        if (this.stockAlmacenFiltro && this.stockAlmacenFiltro !== 'GLOBAL') {
-            const efectivo = this.getStockEfectivo(codigo);
-            let clase, texto;
-            if (efectivo === null || efectivo <= 0) {
-                clase = 'stock-rojo';
-                texto = 'Consultar disponibilidad';
-            } else if (efectivo <= 3) {
-                clase = 'stock-naranja';
-                texto = 'POCAS UNIDADES';
-            } else {
-                clase = 'stock-verde';
-                texto = 'EN STOCK';
-            }
-            return `<span class="stock-badge ${clase}" data-stock-codigo="${this.escapeForHtmlAttribute(codigo.toUpperCase())}">${texto}</span>`;
-        }
-
         const porAlmacen = entrada.por_almacen || {};
         const lineas = ALMACENES_ORDER.map(alm => {
             const qty = porAlmacen[alm] ?? 0;
@@ -2400,7 +2399,35 @@ class ScanAsYouShopApp {
             const codEsc = this.escapeForHtmlAttribute(codigo.toUpperCase());
             return `<div class="stock-almacen-line" data-stock-codigo="${codEsc}" data-almacen="${almEsc}"><span class="stock-almacen-label stock-badge ${clase}"><strong>${almEsc}</strong>: ${texto}</span></div>`;
         });
-        return `<div class="result-stock-global">${lineas.join('')}</div>`;
+        return `<div class="result-stock-global cart-stock-breakdown">${lineas.join('')}</div>`;
+    }
+
+    /**
+     * Genera el HTML del badge de stock para un articulo.
+     * Con filtro Global: desglose por almacen (cada uno con su estado y color).
+     * Con almacen especifico: un solo badge como hasta ahora.
+     * @param {string} codigo
+     * @returns {string} HTML del badge (puede ser vacio si no hay dato)
+     */
+    buildStockBadgeHtml(codigo) {
+        if (this.stockIndex.size === 0) return '';
+
+        if (this.stockAlmacenFiltro && this.stockAlmacenFiltro !== 'GLOBAL') {
+            const efectivo = this.getStockEfectivo(codigo);
+            let clase, texto;
+            if (efectivo === null || efectivo <= 0) {
+                clase = 'stock-rojo';
+                texto = 'Consultar disponibilidad';
+            } else if (efectivo <= 3) {
+                clase = 'stock-naranja';
+                texto = 'POCAS UNIDADES';
+            } else {
+                clase = 'stock-verde';
+                texto = 'EN STOCK';
+            }
+            return `<span class="stock-badge ${clase}" data-stock-codigo="${this.escapeForHtmlAttribute(codigo.toUpperCase())}">${texto}</span>`;
+        }
+        return this.buildStockBreakdownByAlmacenHtml(codigo);
     }
 
     /**
@@ -2795,14 +2822,24 @@ class ScanAsYouShopApp {
             });
         }
 
-        // WC Completo: filtros (tipo instalacion, adosado a pared) re-renderizan el grid de conjuntos
-        const wcCompletoFilterTipo = document.getElementById('wcCompletoFilterTipo');
-        const wcCompletoFilterAdosado = document.getElementById('wcCompletoFilterAdosado');
-        if (wcCompletoFilterTipo) {
-            wcCompletoFilterTipo.addEventListener('change', () => this.renderWcCompletoConjuntosGrid && this.renderWcCompletoConjuntosGrid());
+        // WC Completo: chips tipo y adosado + filtro nombre re-renderizan el grid de conjuntos
+        const wcCompletoChipsTipo = document.getElementById('wcCompletoChipsTipo');
+        const wcCompletoChipsAdosado = document.getElementById('wcCompletoChipsAdosado');
+        const wcCompletoFilterNombre = document.getElementById('wcCompletoFilterNombre');
+        const selectChipInRow = (row, target) => {
+            if (!row || !target || !target.classList.contains('wc-completo-chip')) return;
+            row.querySelectorAll('.wc-completo-chip').forEach(el => el.classList.remove('selected'));
+            target.classList.add('selected');
+            if (this.renderWcCompletoConjuntosGrid) this.renderWcCompletoConjuntosGrid();
+        };
+        if (wcCompletoChipsTipo) {
+            wcCompletoChipsTipo.addEventListener('click', (e) => selectChipInRow(wcCompletoChipsTipo, e.target));
         }
-        if (wcCompletoFilterAdosado) {
-            wcCompletoFilterAdosado.addEventListener('change', () => this.renderWcCompletoConjuntosGrid && this.renderWcCompletoConjuntosGrid());
+        if (wcCompletoChipsAdosado) {
+            wcCompletoChipsAdosado.addEventListener('click', (e) => selectChipInRow(wcCompletoChipsAdosado, e.target));
+        }
+        if (wcCompletoFilterNombre) {
+            wcCompletoFilterNombre.addEventListener('input', () => this.renderWcCompletoConjuntosGrid && this.renderWcCompletoConjuntosGrid());
         }
 
         // Tarjeta comercial en menú: abre pantalla de comercial
@@ -4110,6 +4147,11 @@ class ScanAsYouShopApp {
         emptyState.style.display = 'none';
         container.style.display = 'block';
 
+        // Asegurar indice de stock para mostrar desglose por almacen en las tarjetas
+        if (this.stockIndex.size === 0 && window.cartManager && window.cartManager.db) {
+            this.stockIndex = await window.cartManager.getStockIndex();
+        }
+
         // Precalcular mapa de ofertas por codigo (una sola pasada) para evitar O(N^2) llamadas
         const codigoCliente = this.getEffectiveGrupoCliente() || null;
         const ofertasByCodigo = new Map();
@@ -4692,6 +4734,8 @@ class ScanAsYouShopApp {
         // Determinar si hay oferta para ajustar el layout
         const footerClass = ofertaHTML ? 'cart-product-footer has-oferta' : 'cart-product-footer';
 
+        const stockBreakdownHtml = this.buildStockBreakdownByAlmacenHtml(producto.codigo_producto);
+
         card.innerHTML = `
             <div class="cart-product-image">
                 <div class="cart-product-quantity-badge">${producto.cantidad}</div>
@@ -4704,6 +4748,7 @@ class ScanAsYouShopApp {
                     <div class="cart-product-details">
                         <div class="cart-product-name">${producto.descripcion_producto}</div>
                         <div class="cart-product-code">${producto.codigo_producto}</div>
+                        ${stockBreakdownHtml ? `<div class="cart-product-stock">${stockBreakdownHtml}</div>` : ''}
                         ${precioHTML}
                     </div>
                     ${subtotalHTML}

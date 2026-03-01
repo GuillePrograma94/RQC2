@@ -1890,6 +1890,14 @@ body.gate-visible .app-container {
     font-weight: 400;
 }
 
+.cart-product-stock {
+    margin-top: 0.4rem;
+}
+
+.cart-product-stock .cart-stock-breakdown {
+    margin-top: 0.2rem;
+}
+
 .cart-product-price {
     font-size: 0.85rem;
     color: var(--gray-700);
@@ -3325,6 +3333,64 @@ body.gate-visible .app-container {
     border: 1px solid var(--gray-300);
     font-size: 0.9rem;
     min-width: 140px;
+}
+/* Chips de filtro WC Completo (tipo, adosado, nombre) */
+.wc-completo-chips-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 100%;
+}
+.wc-completo-chips-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--gray-600);
+}
+.wc-completo-chips-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+}
+.wc-completo-chip {
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--gray-300);
+    background: var(--white);
+    font-size: 0.85rem;
+    color: var(--gray-700);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.wc-completo-chip:hover {
+    border-color: var(--primary, #667eea);
+    color: var(--primary, #667eea);
+}
+.wc-completo-chip.selected {
+    background: var(--primary, #667eea);
+    border-color: var(--primary, #667eea);
+    color: var(--white, #fff);
+}
+.wc-completo-chip-nombre-wrap {
+    max-width: 280px;
+}
+.wc-completo-chip-input {
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--gray-300);
+    font-size: 0.85rem;
+    color: var(--gray-800);
+    background: var(--white);
+    width: 100%;
+    min-width: 0;
+}
+.wc-completo-chip-input::placeholder {
+    color: var(--gray-500);
+}
+.wc-completo-chip-input:focus {
+    outline: none;
+    border-color: var(--primary, #667eea);
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
 }
 .wc-completo-grid {
     display: grid;
