@@ -1316,6 +1316,8 @@ class ScanAsYouShopApp {
         if (form) form.reset();
         document.getElementById('wcConjuntoOrden').value = '0';
         document.getElementById('wcConjuntoActivo').checked = true;
+        document.getElementById('wcConjuntoTipoInstalacion').value = '';
+        document.getElementById('wcConjuntoAdosadoPared').checked = false;
         if (piezasEl) piezasEl.style.display = id ? 'block' : 'none';
         ['wcConjuntoPreviewTaza', 'wcConjuntoPreviewTanque', 'wcConjuntoPreviewAsiento'].forEach(pid => {
             const el = document.getElementById(pid);
@@ -1330,6 +1332,8 @@ class ScanAsYouShopApp {
                 document.getElementById('wcConjuntoDescripcion').value = c.descripcion || '';
                 document.getElementById('wcConjuntoOrden').value = (c.orden != null ? c.orden : 0);
                 document.getElementById('wcConjuntoActivo').checked = c.activo !== false;
+                document.getElementById('wcConjuntoTipoInstalacion').value = c.tipo_instalacion || '';
+                document.getElementById('wcConjuntoAdosadoPared').checked = c.adosado_pared === true;
             }
             await this.renderWcConjuntoDetailPiezas();
         }
@@ -1394,12 +1398,15 @@ class ScanAsYouShopApp {
         const ordenInput = document.getElementById('wcConjuntoOrden');
         const orden = ordenInput ? parseInt(ordenInput.value, 10) : 0;
         const activo = document.getElementById('wcConjuntoActivo') ? document.getElementById('wcConjuntoActivo').checked : true;
+        const tipoInstalacionEl = document.getElementById('wcConjuntoTipoInstalacion');
+        const tipoInstalacion = (tipoInstalacionEl && tipoInstalacionEl.value) ? tipoInstalacionEl.value.trim() : null;
+        const adosadoPared = document.getElementById('wcConjuntoAdosadoPared') ? document.getElementById('wcConjuntoAdosadoPared').checked : false;
         try {
             if (this.editingWcConjuntoId) {
-                await window.supabaseClient.updateWcConjunto(this.editingWcConjuntoId, { nombre, codigo, descripcion, orden, activo });
+                await window.supabaseClient.updateWcConjunto(this.editingWcConjuntoId, { nombre, codigo, descripcion, orden, activo, tipo_instalacion: tipoInstalacion, adosado_pared: adosadoPared });
                 window.ui.showToast('Conjunto actualizado', 'success');
             } else {
-                const created = await window.supabaseClient.createWcConjunto({ nombre, codigo, descripcion, orden, activo });
+                const created = await window.supabaseClient.createWcConjunto({ nombre, codigo, descripcion, orden, activo, tipo_instalacion: tipoInstalacion, adosado_pared: adosadoPared });
                 window.ui.showToast('Conjunto creado', 'success');
                 this.editingWcConjuntoId = created.id;
                 const piezasEl = document.getElementById('wcConjuntoDetailPiezas');
@@ -1511,10 +1518,11 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Pantalla WC Completo: carga conjuntos activos como cards
+     * Pantalla WC Completo: carga conjuntos activos como cards (con filtros y grid de 2 columnas)
      */
     async renderWcCompletoScreen() {
         this.wcCompletoSelection = { conjuntoId: null, taza: null, tanque: null, asiento: null };
+        this.wcCompletoConjuntosAll = [];
         const gridConjuntos = document.getElementById('wcCompletoConjuntosGrid');
         const gridTazas = document.getElementById('wcCompletoTazasGrid');
         const gridTanques = document.getElementById('wcCompletoTanquesGrid');
@@ -1522,17 +1530,8 @@ class ScanAsYouShopApp {
         if (!gridConjuntos) return;
         try {
             const conjuntos = await window.supabaseClient.getWcConjuntos();
-            const activos = (conjuntos || []).filter(c => c.activo !== false);
-            gridConjuntos.innerHTML = activos.map(c => {
-                const id = this.escapeForHtmlAttribute(c.id);
-                const nombre = this.escapeForHtmlAttribute(c.nombre || '');
-                const desc = this.escapeForHtmlAttribute((c.descripcion || '').substring(0, 80));
-                return '<button type="button" class="wc-completo-card wc-completo-card-conjunto" data-conjunto-id="' + id + '" aria-label="Elegir ' + nombre + '">' +
-                    '<span class="wc-completo-card-conjunto-icon" aria-hidden="true"></span>' +
-                    '<span class="wc-completo-card-conjunto-name">' + nombre + '</span>' +
-                    (desc ? '<span class="wc-completo-card-conjunto-desc">' + desc + (c.descripcion && c.descripcion.length > 80 ? '...' : '') + '</span>' : '') +
-                    '</button>';
-            }).join('');
+            this.wcCompletoConjuntosAll = (conjuntos || []).filter(c => c.activo !== false);
+            this.renderWcCompletoConjuntosGrid();
             gridTazas.innerHTML = '';
             gridTanques.innerHTML = '';
             gridAsientos.innerHTML = '';
@@ -1545,6 +1544,33 @@ class ScanAsYouShopApp {
             console.error('Error renderWcCompletoScreen:', e);
             gridConjuntos.innerHTML = '<p class="wc-completo-empty">Error al cargar conjuntos.</p>';
         }
+    }
+
+    /**
+     * Filtra conjuntos por tipo instalacion y adosado a pared, y rellena el grid de modelos (paso 1)
+     */
+    renderWcCompletoConjuntosGrid() {
+        const gridConjuntos = document.getElementById('wcCompletoConjuntosGrid');
+        if (!gridConjuntos || !this.wcCompletoConjuntosAll) return;
+        const tipoVal = document.getElementById('wcCompletoFilterTipo') ? document.getElementById('wcCompletoFilterTipo').value : '';
+        const adosadoVal = document.getElementById('wcCompletoFilterAdosado') ? document.getElementById('wcCompletoFilterAdosado').value : '';
+        let list = this.wcCompletoConjuntosAll;
+        if (tipoVal) list = list.filter(c => c.tipo_instalacion === tipoVal);
+        if (adosadoVal !== '') list = list.filter(c => (adosadoVal === 'true') === (c.adosado_pared === true));
+        if (list.length === 0) {
+            gridConjuntos.innerHTML = '<p class="wc-completo-empty">Ningun conjunto coincide con los filtros.</p>';
+            return;
+        }
+        gridConjuntos.innerHTML = list.map(c => {
+            const id = this.escapeForHtmlAttribute(c.id);
+            const nombre = this.escapeForHtmlAttribute(c.nombre || '');
+            const desc = this.escapeForHtmlAttribute((c.descripcion || '').substring(0, 80));
+            return '<button type="button" class="wc-completo-card wc-completo-card-conjunto" data-conjunto-id="' + id + '" aria-label="Elegir ' + nombre + '">' +
+                '<span class="wc-completo-card-conjunto-icon" aria-hidden="true"></span>' +
+                '<span class="wc-completo-card-conjunto-name">' + nombre + '</span>' +
+                (desc ? '<span class="wc-completo-card-conjunto-desc">' + desc + (c.descripcion && c.descripcion.length > 80 ? '...' : '') + '</span>' : '') +
+                '</button>';
+        }).join('');
     }
 
     /**
@@ -2650,6 +2676,16 @@ class ScanAsYouShopApp {
             wcCompletoAddBtn.addEventListener('click', () => {
                 this.handleWcCompletoAddToCart();
             });
+        }
+
+        // WC Completo: filtros (tipo instalacion, adosado a pared) re-renderizan el grid de conjuntos
+        const wcCompletoFilterTipo = document.getElementById('wcCompletoFilterTipo');
+        const wcCompletoFilterAdosado = document.getElementById('wcCompletoFilterAdosado');
+        if (wcCompletoFilterTipo) {
+            wcCompletoFilterTipo.addEventListener('change', () => this.renderWcCompletoConjuntosGrid && this.renderWcCompletoConjuntosGrid());
+        }
+        if (wcCompletoFilterAdosado) {
+            wcCompletoFilterAdosado.addEventListener('change', () => this.renderWcCompletoConjuntosGrid && this.renderWcCompletoConjuntosGrid());
         }
 
         // Tarjeta comercial en menú: abre pantalla de comercial

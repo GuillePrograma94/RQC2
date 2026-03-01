@@ -598,6 +598,25 @@
 
                 <div class="wc-completo-step" id="wcCompletoStepConjunto">
                     <h3 class="wc-completo-step-title"><span class="wc-completo-step-num">1</span> Modelo de WC</h3>
+                    <div class="wc-completo-filters">
+                        <div class="wc-completo-filter-group">
+                            <label for="wcCompletoFilterTipo">Tipo instalacion</label>
+                            <select id="wcCompletoFilterTipo">
+                                <option value="">Todos</option>
+                                <option value="TANQUE_ALTO">Tanque Alto</option>
+                                <option value="TANQUE_BAJO">Tanque Bajo</option>
+                                <option value="SUSPENDIDO">Suspendido</option>
+                            </select>
+                        </div>
+                        <div class="wc-completo-filter-group">
+                            <label for="wcCompletoFilterAdosado">Adosado a pared</label>
+                            <select id="wcCompletoFilterAdosado">
+                                <option value="">Todos</option>
+                                <option value="true">Si</option>
+                                <option value="false">No</option>
+                            </select>
+                        </div>
+                    </div>
                     <div id="wcCompletoConjuntosGrid" class="wc-completo-grid wc-completo-grid-conjuntos"></div>
                 </div>
 
@@ -681,6 +700,18 @@
                     <div class="form-group">
                         <label for="wcConjuntoOrden">Orden</label>
                         <input type="number" id="wcConjuntoOrden" min="0" value="0" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="wcConjuntoTipoInstalacion">Tipo de instalacion</label>
+                        <select id="wcConjuntoTipoInstalacion">
+                            <option value="">-- Sin especificar --</option>
+                            <option value="TANQUE_ALTO">Tanque Alto</option>
+                            <option value="TANQUE_BAJO">Tanque Bajo</option>
+                            <option value="SUSPENDIDO">Suspendido</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="wcConjuntoAdosadoPared"> Adosado a pared</label>
                     </div>
                     <div class="form-group">
                         <label><input type="checkbox" id="wcConjuntoActivo" checked> Activo</label>

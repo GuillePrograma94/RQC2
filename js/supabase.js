@@ -1628,7 +1628,9 @@ class SupabaseClient {
                     codigo: payload.codigo || null,
                     descripcion: payload.descripcion || null,
                     orden: payload.orden != null ? payload.orden : 0,
-                    activo: payload.activo !== false
+                    activo: payload.activo !== false,
+                    tipo_instalacion: payload.tipo_instalacion || null,
+                    adosado_pared: payload.adosado_pared === true
                 }])
                 .select()
                 .single();
@@ -1649,6 +1651,8 @@ class SupabaseClient {
             if (payload.descripcion !== undefined) body.descripcion = payload.descripcion;
             if (payload.orden !== undefined) body.orden = payload.orden;
             if (payload.activo !== undefined) body.activo = payload.activo;
+            if (payload.tipo_instalacion !== undefined) body.tipo_instalacion = payload.tipo_instalacion || null;
+            if (payload.adosado_pared !== undefined) body.adosado_pared = payload.adosado_pared === true;
             body.updated_at = new Date().toISOString();
             const { data, error } = await this.client
                 .from('wc_conjuntos')
