@@ -1544,9 +1544,9 @@ class ScanAsYouShopApp {
         return 'https://www.saneamiento-martinez.com/imagenes/articulos/';
     }
 
-    /** Base URL imagenes conjuntos WC (carpeta local assets/wc-conjuntos) */
+    /** Base URL imagenes conjuntos WC (GitHub raw; mismo repo que la app para que funcione al comprobar y en Herramientas) */
     _wcConjuntoImageBase() {
-        return 'assets/wc-conjuntos/';
+        return 'https://raw.githubusercontent.com/GuillePrograma94/RQC2/main/assets/wc-conjuntos/';
     }
 
     /**
