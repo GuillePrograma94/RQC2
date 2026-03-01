@@ -12,6 +12,7 @@ Objetivo: permitir al administrador indicar que un articulo es **recambio** de o
 - Se identifica por **codigo** de producto (misma convencion que WC: `productos.codigo` o codigo en IndexedDB).
 
 Uso de la informacion:
+
 1. **"Este producto tiene estos recambios"**: dado un producto (padre), listar sus recambios (hijos). Ej. en ficha de producto o en modal de anadir al carrito.
 2. **"Este recambio sirve para estos productos"**: dado un recambio, listar los productos (padres) para los que sirve. Ej. en ficha del recambio.
 
@@ -21,17 +22,20 @@ Uso de la informacion:
 
 Una sola tabla: `producto_recambios`.
 
-| Columna                   | Tipo      | Descripcion                          |
-|---------------------------|-----------|--------------------------------------|
-| id                        | UUID PK   | Identificador de la fila             |
-| producto_padre_codigo     | TEXT NOT NULL | Codigo del producto principal    |
-| producto_recambio_codigo  | TEXT NOT NULL | Codigo del recambio (hijo)       |
-| created_at                | TIMESTAMPTZ   | Opcional                            |
+
+| Columna                  | Tipo          | Descripcion                   |
+| ------------------------ | ------------- | ----------------------------- |
+| id                       | UUID PK       | Identificador de la fila      |
+| producto_padre_codigo    | TEXT NOT NULL | Codigo del producto principal |
+| producto_recambio_codigo | TEXT NOT NULL | Codigo del recambio (hijo)    |
+| created_at               | TIMESTAMPTZ   | Opcional                      |
+
 
 - **UNIQUE(producto_padre_codigo, producto_recambio_codigo)** para no duplicar la misma relacion.
 - Indices: por `producto_padre_codigo` (recambios de un producto) y por `producto_recambio_codigo` (para que productos sirve un recambio).
 
 Consultas tipicas:
+
 - Recambios de un producto: `SELECT * FROM producto_recambios WHERE producto_padre_codigo = $codigo`
 - Padres de un recambio: `SELECT * FROM producto_recambios WHERE producto_recambio_codigo = $codigo`
 
@@ -42,10 +46,11 @@ Consultas tipicas:
 Nueva herramienta **Configurar recambios** en el Panel de Control (junto a Configurar conjuntos WC).
 
 Flujo:
+
 1. Pantalla **Recambios**: campo "Buscar producto" (codigo o codigo secundario) + boton Buscar.
 2. Al encontrar el producto se muestran dos bloques:
-   - **Este producto tiene estos recambios**: lista de recambios (hijos) del producto actual. Anadir por codigo (buscar + confirmar), quitar con boton por fila.
-   - **Este producto es recambio de**: lista de productos (padres) para los que el producto actual es recambio. Anadir por codigo (buscar + confirmar), quitar con boton por fila.
+  - **Este producto tiene estos recambios**: lista de recambios (hijos) del producto actual. Anadir por codigo (buscar + confirmar), quitar con boton por fila.
+  - **Este producto es recambio de**: lista de productos (padres) para los que el producto actual es recambio. Anadir por codigo (buscar + confirmar), quitar con boton por fila.
 3. Resolucion de codigo igual que en WC: `cartManager.resolveToPrincipalCodeWithDetails(codigo)` para aceptar codigo principal o secundario (EAN) y mostrar descripcion antes de anadir.
 
 RLS: lectura para autenticados (para poder mostrar recambios en fichas/modales); escritura (INSERT/UPDATE/DELETE) solo administrador.
@@ -63,27 +68,27 @@ En la **ventana de detalle de producto** (overlay con carousel de imagenes, que 
 
 Ambos botones pueden mostrarse a la vez si el producto tiene recambios y ademas es recambio de otros.
 
-### 4.2 Vista Recambios (Herramientas)
+### 4.2 Pagina Recambios (desde detalle de producto)
 
-Desde **Herramientas** el cliente puede pulsar **"Ver recambios"** y acceder a una **pagina** dedicada (no una ventana modal):
+Desde la **ventana de detalle de producto** (overlay con carousel), al pulsar **"Ver Recambios"** o **"Sirve para estos productos"** se cierra el overlay y se abre una **pagina** dedicada:
 
-- Campo de busqueda por **codigo** o **codigo secundario** (EAN) del producto.
-- Al buscar se muestra:
-  - **Producto seleccionado**: tarjeta destacada con imagen del producto, codigo y descripcion (layout horizontal en pantallas anchas).
-  - **Recambios de este producto**: grid de tarjetas (2 columnas) con imagen, descripcion, codigo y precio de cada recambio. Clic en una tarjeta abre el detalle de ese producto.
-  - **Sirve para estos productos**: grid de tarjetas con imagen, descripcion, codigo y precio de cada producto para el que sirve. Clic en una tarjeta abre el detalle de ese producto.
+- **Ver Recambios**: titulo "Recambios de este producto". Se muestra la tarjeta del producto actual (imagen, codigo, descripcion) y un grid de tarjetas con imagen, descripcion, codigo y precio de cada recambio. Clic en una tarjeta abre el detalle de ese producto.
+- **Sirve para estos productos**: titulo "Sirve para estos productos". Se muestra la tarjeta del producto actual y un grid de los productos que se pueden reparar o completar con ese articulo (imagen, descripcion, codigo, precio). Clic en una tarjeta abre el detalle de ese producto.
 
-Es una vista de solo consulta, con scroll vertical, pensada como pagina con contenido visual (imagenes y descripciones) para que sea mas intuitiva.
+El boton **Volver** devuelve a la pantalla desde la que se habia abierto el detalle (busqueda, carrito, etc.). No hay boton "Recambios" en Herramientas; la unica forma de llegar a esta pagina es desde los botones del overlay de detalle.
 
 ---
 
 ## 5. Archivos
 
-| Archivo | Uso |
-|---------|-----|
-| `migration_producto_recambios.sql` | Crear tabla e indices (ejecutar en Supabase). |
-| `migration_rls_producto_recambios.sql` | RLS (ejecutar despues de la migracion de tabla). |
-| `supabase.js` | Metodos: getRecambiosDeProducto(codigo), getPadresDeRecambio(codigo), addRecambio(padreCodigo, recambioCodigo), removeRecambio(id). |
-| `index.html` | Boton en Panel de Control + pantalla recambios (buscar producto + dos listas). |
-| `app.js` | showScreen('recambios'), renderRecambios, anadir/quitar recambios y padres. |
-| `styles.css` | Estilos para pantalla recambios (reutilizar .wc-piezas-* o .recambios-*). |
+
+| Archivo                                | Uso                                                                                                                                 |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `migration_producto_recambios.sql`     | Crear tabla e indices (ejecutar en Supabase).                                                                                       |
+| `migration_rls_producto_recambios.sql` | RLS (ejecutar despues de la migracion de tabla).                                                                                    |
+| `supabase.js`                          | Metodos: getRecambiosDeProducto(codigo), getPadresDeRecambio(codigo), addRecambio(padreCodigo, recambioCodigo), removeRecambio(id). |
+| `index.html`                           | Boton en Panel de Control + pantalla recambios (buscar producto + dos listas).                                                      |
+| `app.js`                               | showScreen('recambios'), renderRecambios, anadir/quitar recambios y padres.                                                         |
+| `styles.css`                           | Estilos para pantalla recambios (reutilizar .wc-piezas-* o .recambios-*).                                                           |
+
+

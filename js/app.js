@@ -1773,104 +1773,102 @@ class ScanAsYouShopApp {
      */
     initRecambiosVistaScreen() {
         this.recambiosVistaProductoCodigo = null;
-        const input = document.getElementById('recambiosVistaProductoInput');
+        this.recambiosVistaMode = null;
         const productoActualEl = document.getElementById('recambiosVistaProductoActual');
         const contenidoEl = document.getElementById('recambiosVistaContenido');
-        const emptyEl = document.getElementById('recambiosVistaEmpty');
-        if (input) input.value = '';
         if (productoActualEl) productoActualEl.style.display = 'none';
         if (contenidoEl) contenidoEl.style.display = 'none';
-        if (emptyEl) emptyEl.style.display = 'block';
     }
 
     /**
-     * Busca producto en Vista Recambios y muestra recambios / productos para los que sirve
+     * Abre la pagina de recambios desde el overlay de detalle de producto (Ver Recambios o Sirve para estos productos)
+     * @param {Object} producto - { codigo, descripcion, pvp }
+     * @param {string} mode - 'recambios' (muestra recambios de este producto) o 'sirvePara' (muestra productos para los que sirve)
      */
-    async handleRecambiosVistaBuscar() {
-        const input = document.getElementById('recambiosVistaProductoInput');
-        const codigoInput = (input && input.value || '').trim();
-        if (!codigoInput) {
-            window.ui.showToast('Escribe codigo de producto o codigo secundario', 'error');
-            return;
-        }
-        const details = await window.cartManager.resolveToPrincipalCodeWithDetails(codigoInput);
-        if (!details) {
-            window.ui.showToast('Codigo no encontrado. Usa codigo principal o codigo secundario del catalogo.', 'error');
-            return;
-        }
-        this.recambiosVistaProductoCodigo = details.principalCode;
+    openRecambiosVistaPage(producto, mode) {
+        this.recambiosVistaProductoCodigo = producto.codigo;
+        this.recambiosVistaMode = mode;
+        this.showScreen('recambiosVista');
+    }
+
+    /**
+     * Rellena la pagina de recambios: producto actual + grid de articulos (recambios o padres segun modo)
+     */
+    async renderRecambiosVistaPageFromProduct() {
+        const codigo = this.recambiosVistaProductoCodigo;
+        const mode = this.recambiosVistaMode;
+        if (!codigo || !mode) return;
+        const titleEl = document.getElementById('recambiosVistaTitle');
         const productoActualEl = document.getElementById('recambiosVistaProductoActual');
         const productCardEl = document.getElementById('recambiosVistaProductoCard');
         const contenidoEl = document.getElementById('recambiosVistaContenido');
-        const emptyEl = document.getElementById('recambiosVistaEmpty');
+        const sectionTitleEl = document.getElementById('recambiosVistaSectionTitle');
+        const sectionDescEl = document.getElementById('recambiosVistaSectionDesc');
+        const gridEl = document.getElementById('recambiosVistaGrid');
+
+        if (titleEl) {
+            titleEl.textContent = mode === 'recambios' ? 'Recambios de este producto' : 'Sirve para estos productos';
+        }
+        if (sectionTitleEl) {
+            sectionTitleEl.textContent = mode === 'recambios' ? 'Articulos que son recambio de este producto' : 'Productos que puedes reparar o completar con este articulo';
+        }
+        if (sectionDescEl) {
+            sectionDescEl.textContent = mode === 'recambios' ? 'Pulsa en un articulo para ver su ficha.' : 'Pulsa en un producto para ver su ficha.';
+        }
+
+        const p = await window.cartManager.getProductByCodigo(codigo);
+        const desc = (p && p.descripcion) ? p.descripcion : codigo;
         const base = this._wcProductImageBase();
-        const imgUrl = base + this.escapeForHtmlAttribute(details.principalCode) + '_1.JPG';
-        const descEsc = this.escapeForHtmlAttribute(details.descripcion);
-        const codEsc = this.escapeForHtmlAttribute(details.principalCode);
-        const secEsc = details.matchedSecondary ? ' <span class="recambios-vista-codigo-sec">(' + this.escapeForHtmlAttribute(details.matchedSecondary) + ')</span>' : '';
+        const imgUrl = base + this.escapeForHtmlAttribute(codigo) + '_1.JPG';
+        const codEsc = this.escapeForHtmlAttribute(codigo);
+        const descEsc = this.escapeForHtmlAttribute(desc);
         if (productCardEl) {
             productCardEl.innerHTML = '<div class="recambios-vista-card-img-wrap">' +
                 '<img src="' + imgUrl + '" alt="" class="recambios-vista-card-img" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';"><span class="recambios-vista-card-placeholder" style="display:none;" aria-hidden="true"></span>' +
                 '</div>' +
                 '<div class="recambios-vista-card-body">' +
-                '<p class="recambios-vista-producto-text"><strong>' + codEsc + '</strong>' + secEsc + '</p>' +
+                '<p class="recambios-vista-producto-text"><strong>' + codEsc + '</strong></p>' +
                 '<p class="recambios-vista-producto-desc">' + descEsc + '</p>' +
                 '</div>';
         }
         if (productoActualEl) productoActualEl.style.display = 'block';
         if (contenidoEl) contenidoEl.style.display = 'block';
-        if (emptyEl) emptyEl.style.display = 'none';
-        await this.renderRecambiosVistaLists();
-    }
 
-    /**
-     * Rellena las listas de la Vista Recambios (recambios del producto y productos para los que sirve) como grids de tarjetas con imagen
-     */
-    async renderRecambiosVistaLists() {
-        const codigo = this.recambiosVistaProductoCodigo;
-        if (!codigo) return;
-        const gridRecambios = document.getElementById('recambiosVistaGridRecambios');
-        const gridPadres = document.getElementById('recambiosVistaGridPadres');
-        const base = this._wcProductImageBase();
+        const codigoKey = mode === 'recambios' ? 'producto_recambio_codigo' : 'producto_padre_codigo';
+        let items = [];
         try {
-            const [recambios, padres] = await Promise.all([
-                window.supabaseClient.getRecambiosDeProducto(codigo),
-                window.supabaseClient.getPadresDeRecambio(codigo)
-            ]);
-            const renderGrid = async (gridEl, items, codigoKey) => {
-                if (!gridEl) return;
-                if (!items || items.length === 0) {
-                    gridEl.innerHTML = '<p class="recambios-vista-empty-grid">Ninguno</p>';
-                    return;
-                }
-                const cards = [];
-                for (const item of items) {
-                    const cod = item[codigoKey] || '';
-                    const p = await window.cartManager.getProductByCodigo(cod);
-                    const desc = (p && p.descripcion) ? p.descripcion : cod;
-                    const pvp = (p && p.pvp != null) ? p.pvp : 0;
-                    const codEsc = this.escapeForHtmlAttribute(cod);
-                    const descEsc = this.escapeForHtmlAttribute(desc);
-                    const imgUrl = base + codEsc + '_1.JPG';
-                    const priceStr = (pvp * 1.21).toFixed(2);
-                    cards.push('<button type="button" class="recambios-vista-card" data-codigo="' + codEsc + '" data-descripcion="' + descEsc + '" data-pvp="' + pvp + '" aria-label="' + descEsc + '">' +
-                        '<span class="recambios-vista-card-img-wrap">' +
-                        '<img src="' + imgUrl + '" alt="" class="recambios-vista-card-img" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';"><span class="recambios-vista-card-placeholder" style="display:none;" aria-hidden="true"></span>' +
-                        '</span>' +
-                        '<span class="recambios-vista-card-desc">' + descEsc + '</span>' +
-                        '<span class="recambios-vista-card-code">' + codEsc + '</span>' +
-                        '<span class="recambios-vista-card-price">' + priceStr + ' EUR</span>' +
-                        '</button>');
-                }
-                gridEl.innerHTML = cards.join('');
-            };
-            await renderGrid(gridRecambios, recambios || [], 'producto_recambio_codigo');
-            await renderGrid(gridPadres, padres || [], 'producto_padre_codigo');
+            items = mode === 'recambios'
+                ? (await window.supabaseClient.getRecambiosDeProducto(codigo)) || []
+                : (await window.supabaseClient.getPadresDeRecambio(codigo)) || [];
         } catch (e) {
-            console.error('Error renderRecambiosVistaLists:', e);
-            if (gridRecambios) gridRecambios.innerHTML = '<p class="recambios-vista-lista-error">Error al cargar.</p>';
-            if (gridPadres) gridPadres.innerHTML = '<p class="recambios-vista-lista-error">Error al cargar.</p>';
+            console.error('Error cargando recambios/padres:', e);
         }
+
+        if (!gridEl) return;
+        if (!items || items.length === 0) {
+            gridEl.innerHTML = '<p class="recambios-vista-empty-grid">Ninguno</p>';
+            return;
+        }
+        const cards = [];
+        for (const item of items) {
+            const cod = item[codigoKey] || '';
+            const prod = await window.cartManager.getProductByCodigo(cod);
+            const descItem = (prod && prod.descripcion) ? prod.descripcion : cod;
+            const pvp = (prod && prod.pvp != null) ? prod.pvp : 0;
+            const codEscItem = this.escapeForHtmlAttribute(cod);
+            const descEscItem = this.escapeForHtmlAttribute(descItem);
+            const imgUrlItem = base + codEscItem + '_1.JPG';
+            const priceStr = (pvp * 1.21).toFixed(2);
+            cards.push('<button type="button" class="recambios-vista-card" data-codigo="' + codEscItem + '" data-descripcion="' + descEscItem + '" data-pvp="' + pvp + '" aria-label="' + descEscItem + '">' +
+                '<span class="recambios-vista-card-img-wrap">' +
+                '<img src="' + imgUrlItem + '" alt="" class="recambios-vista-card-img" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';"><span class="recambios-vista-card-placeholder" style="display:none;" aria-hidden="true"></span>' +
+                '</span>' +
+                '<span class="recambios-vista-card-desc">' + descEscItem + '</span>' +
+                '<span class="recambios-vista-card-code">' + codEscItem + '</span>' +
+                '<span class="recambios-vista-card-price">' + priceStr + ' EUR</span>' +
+                '</button>');
+        }
+        gridEl.innerHTML = cards.join('');
     }
 
     /** Base URL imagenes productos (WC Completo y busqueda) */
@@ -3179,21 +3177,15 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Vista Recambios: Volver a Herramientas
+        // Vista Recambios: Volver (a la pantalla desde la que se abrio el detalle)
         const recambiosVistaBackBtn = document.getElementById('recambiosVistaBackBtn');
         if (recambiosVistaBackBtn) {
             recambiosVistaBackBtn.addEventListener('click', () => {
-                this.showScreen('herramientas');
+                this.showScreen(this.recambiosVistaReturnScreen || 'cart');
             });
         }
 
-        // Vista Recambios: Buscar producto
-        const recambiosVistaBuscarBtn = document.getElementById('recambiosVistaBuscarBtn');
-        if (recambiosVistaBuscarBtn) {
-            recambiosVistaBuscarBtn.addEventListener('click', () => this.handleRecambiosVistaBuscar());
-        }
-
-        // Vista Recambios: clic en un item de la lista -> abrir detalle de producto
+        // Vista Recambios: clic en una tarjeta -> abrir detalle de producto
         const recambiosVistaContenido = document.getElementById('recambiosVistaContenido');
         if (recambiosVistaContenido) {
             recambiosVistaContenido.addEventListener('click', (e) => {
@@ -3220,14 +3212,6 @@ class ScanAsYouShopApp {
             herramientaWcCompletoBtn.addEventListener('click', () => {
                 this.showScreen('wcCompleto');
                 this.renderWcCompletoScreen();
-            });
-        }
-
-        // Herramientas: Ver recambios -> pantalla vista recambios
-        const herramientaRecambiosVistaBtn = document.getElementById('herramientaRecambiosVistaBtn');
-        if (herramientaRecambiosVistaBtn) {
-            herramientaRecambiosVistaBtn.addEventListener('click', () => {
-                this.showScreen('recambiosVista');
             });
         }
 
@@ -3778,7 +3762,11 @@ class ScanAsYouShopApp {
             }
 
             if (screenName === 'recambiosVista') {
-                this.initRecambiosVistaScreen();
+                if (this.recambiosVistaProductoCodigo && this.recambiosVistaMode) {
+                    this.renderRecambiosVistaPageFromProduct();
+                } else {
+                    this.initRecambiosVistaScreen();
+                }
             }
 
         }
@@ -4070,11 +4058,6 @@ class ScanAsYouShopApp {
         const recambiosActionsEl = document.getElementById('productDetailRecambiosActions');
         const verRecambiosBtn = document.getElementById('productDetailVerRecambiosBtn');
         const sirveParaBtn = document.getElementById('productDetailSirveParaBtn');
-        const recambiosModal = document.getElementById('productDetailRecambiosModal');
-        const recambiosModalTitle = document.getElementById('productDetailRecambiosModalTitle');
-        const recambiosModalList = document.getElementById('productDetailRecambiosModalList');
-        const recambiosModalClose = document.getElementById('productDetailRecambiosModalClose');
-        const recambiosModalBackdrop = recambiosModal ? recambiosModal.querySelector('.product-detail-recambios-modal-backdrop') : null;
 
         let recambiosData = [];
         let padresData = [];
@@ -4140,56 +4123,19 @@ class ScanAsYouShopApp {
         const controlsRow = document.getElementById('productDetailCarouselControls');
         if (controlsRow) controlsRow.style.display = imageUrls.length > 1 ? 'flex' : 'none';
 
-        const showRecambiosModal = async (title, items, codigoKey) => {
-            if (!recambiosModal || !recambiosModalTitle || !recambiosModalList || !items || items.length === 0) return;
-            recambiosModalTitle.textContent = title;
-            recambiosModalList.innerHTML = '';
-            const fragment = document.createDocumentFragment();
-            for (const item of items) {
-                const cod = item[codigoKey] || '';
-                const p = await window.cartManager.getProductByCodigo(cod);
-                const desc = (p && p.descripcion) ? p.descripcion : cod;
-                const li = document.createElement('li');
-                li.className = 'product-detail-recambios-modal-item';
-                li.dataset.codigo = cod;
-                li.innerHTML = '<strong>' + this.escapeForHtmlAttribute(cod) + '</strong> – ' + this.escapeForHtmlAttribute(desc);
-                fragment.appendChild(li);
-            }
-            recambiosModalList.appendChild(fragment);
-            recambiosModal.style.display = 'flex';
-            recambiosModal.setAttribute('aria-hidden', 'false');
-        };
-
-        const hideRecambiosModal = () => {
-            if (recambiosModal) {
-                recambiosModal.style.display = 'none';
-                recambiosModal.setAttribute('aria-hidden', 'true');
-            }
-        };
-
         const onVerRecambiosClick = () => {
-            showRecambiosModal('Recambios de este producto', recambiosData, 'producto_recambio_codigo');
+            handleClose();
+            this.recambiosVistaReturnScreen = this.currentScreen;
+            this.openRecambiosVistaPage(producto, 'recambios');
         };
         const onSirveParaClick = () => {
-            showRecambiosModal('Sirve para estos productos', padresData, 'producto_padre_codigo');
-        };
-
-        const onRecambiosModalListClick = async (e) => {
-            const li = e.target.closest('.product-detail-recambios-modal-item');
-            if (!li || !li.dataset.codigo) return;
-            const codigo = li.dataset.codigo;
-            hideRecambiosModal();
-            const p = await window.cartManager.getProductByCodigo(codigo);
-            if (p) {
-                this.openProductDetail({ codigo: p.codigo, descripcion: p.descripcion || '', pvp: p.pvp != null ? p.pvp : 0 });
-            }
+            handleClose();
+            this.recambiosVistaReturnScreen = this.currentScreen;
+            this.openRecambiosVistaPage(producto, 'sirvePara');
         };
 
         if (verRecambiosBtn && recambiosData.length > 0) verRecambiosBtn.addEventListener('click', onVerRecambiosClick);
         if (sirveParaBtn && padresData.length > 0) sirveParaBtn.addEventListener('click', onSirveParaClick);
-        if (recambiosModalList) recambiosModalList.addEventListener('click', onRecambiosModalListClick);
-        if (recambiosModalClose) recambiosModalClose.addEventListener('click', hideRecambiosModal);
-        if (recambiosModalBackdrop) recambiosModalBackdrop.addEventListener('click', hideRecambiosModal);
 
         let currentIndex = 0;
         let currentScale = 1;
@@ -4298,16 +4244,12 @@ class ScanAsYouShopApp {
             if (overlayEl.contains(document.activeElement)) {
                 document.activeElement.blur();
             }
-            hideRecambiosModal();
-            if (verRecambiosBtn && recambiosData.length > 0) verRecambiosBtn.removeEventListener('click', onVerRecambiosClick);
-            if (sirveParaBtn && padresData.length > 0) sirveParaBtn.removeEventListener('click', onSirveParaClick);
-            if (recambiosModalList) recambiosModalList.removeEventListener('click', onRecambiosModalListClick);
-            if (recambiosModalClose) recambiosModalClose.removeEventListener('click', hideRecambiosModal);
-            if (recambiosModalBackdrop) recambiosModalBackdrop.removeEventListener('click', hideRecambiosModal);
             overlayEl.style.display = 'none';
             overlayEl.setAttribute('aria-hidden', 'true');
             closeBtn.removeEventListener('click', handleClose);
             if (backdrop) backdrop.removeEventListener('click', handleClose);
+            if (verRecambiosBtn && recambiosData.length > 0) verRecambiosBtn.removeEventListener('click', onVerRecambiosClick);
+            if (sirveParaBtn && padresData.length > 0) sirveParaBtn.removeEventListener('click', onSirveParaClick);
             prevBtn.removeEventListener('click', handlePrev);
             nextBtn.removeEventListener('click', handleNext);
             dotsContainer.querySelectorAll('.product-detail-carousel-dot').forEach(function (dot) {

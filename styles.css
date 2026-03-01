@@ -2667,69 +2667,6 @@ body.gate-visible .app-container {
     min-width: 140px;
 }
 
-.product-detail-recambios-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 10002;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-}
-.product-detail-recambios-modal-backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-}
-.product-detail-recambios-modal-content {
-    position: relative;
-    background: var(--gray-0, #fff);
-    border-radius: 12px;
-    max-width: 400px;
-    width: 100%;
-    max-height: 80vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
-.product-detail-recambios-modal-title {
-    margin: 0;
-    padding: 1rem 1.25rem;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--gray-800);
-    border-bottom: 1px solid var(--gray-200);
-}
-.product-detail-recambios-modal-list {
-    list-style: none;
-    margin: 0;
-    padding: 0.5rem 0;
-    overflow-y: auto;
-    flex: 1;
-}
-.product-detail-recambios-modal-item {
-    padding: 0.75rem 1.25rem;
-    font-size: 0.9rem;
-    color: var(--gray-800);
-    cursor: pointer;
-    border-bottom: 1px solid var(--gray-100);
-    transition: background 0.15s;
-}
-.product-detail-recambios-modal-item:hover,
-.product-detail-recambios-modal-item:focus {
-    background: var(--gray-50);
-    outline: none;
-}
-.product-detail-recambios-modal-item strong {
-    display: inline-block;
-    margin-right: 0.35rem;
-}
-.product-detail-recambios-modal-content .btn {
-    margin: 1rem 1.25rem;
-    align-self: stretch;
-}
-
 .add-to-cart-quantity-section {
     display: flex;
     flex-direction: column;
@@ -3395,13 +3332,6 @@ body.gate-visible .app-container {
     padding-bottom: 2rem;
     max-width: 100%;
 }
-.recambios-vista-intro {
-    font-size: 0.95rem;
-    color: var(--gray-600);
-    margin: 0 1rem 1rem;
-    line-height: 1.45;
-}
-.recambios-vista-buscar { margin: 0 1rem 1.25rem; }
 .recambios-vista-producto-actual { margin: 0 1rem 1.5rem; }
 .recambios-vista-producto-actual .profile-section-title { margin-bottom: 0.75rem; }
 /* Tarjeta destacada del producto seleccionado (imagen + cuerpo en horizontal en escritorio, apilado en movil) */
@@ -3526,14 +3456,6 @@ body.gate-visible .app-container {
     color: var(--red-600, #b91c1c);
     font-size: 0.9rem;
 }
-.recambios-vista-empty {
-    padding: 2rem 1.5rem;
-    text-align: center;
-    color: var(--gray-600);
-    font-size: 0.95rem;
-    line-height: 1.5;
-}
-.recambios-vista-empty p { margin: 0; }
 
 .wc-conjunto-preview {
     margin-top: 0.5rem;
