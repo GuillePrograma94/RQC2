@@ -3301,6 +3301,15 @@ body.gate-visible .app-container {
     color: var(--gray-800);
 }
 .wc-piezas-item button { flex-shrink: 0; }
+.wc-piezas-error { color: var(--red-600, #b91c1c); font-size: 0.9rem; padding: 0.5rem 0; }
+
+/* Recambios (Panel de Control) */
+.recambios-buscar { margin-bottom: 1.5rem; }
+.recambios-label { display: block; font-size: 0.9rem; font-weight: 600; color: var(--gray-700); margin-bottom: 0.5rem; }
+.recambios-producto-actual { margin-top: 0.75rem; padding: 0.75rem; background: var(--gray-50); border-radius: 8px; border: 1px solid var(--gray-200); }
+.recambios-producto-text { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--gray-800); }
+.recambios-contenido { margin-top: 1rem; }
+.recambios-seccion { margin-bottom: 1.5rem; }
 
 .wc-conjunto-preview {
     margin-top: 0.5rem;

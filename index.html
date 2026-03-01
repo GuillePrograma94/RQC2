@@ -659,6 +659,7 @@
                 </div>
                 <div class="herramientas-actions">
                     <button type="button" id="panelControlWcConjuntosBtn" class="btn btn-primary btn-lg">Configurar conjuntos WC</button>
+                    <button type="button" id="panelControlRecambiosBtn" class="btn btn-primary btn-lg">Configurar recambios</button>
                 </div>
             </main>
         </div>
@@ -763,6 +764,54 @@
                         <button type="button" id="wcConjuntoConfirmAddAsientoBtn" class="btn btn-small btn-primary" data-tipo="asiento">Anadir al conjunto</button>
                     </div>
                     <ul id="wcConjuntoAsientosList" class="wc-piezas-list"></ul>
+                </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA RECAMBIOS (Panel de Control, admin)
+             ================================ -->
+        <div id="recambiosScreen" class="screen">
+            <main class="screen-content">
+                <div class="profile-header">
+                    <button type="button" id="recambiosBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title">Recambios de productos</h2>
+                </div>
+                <div class="recambios-buscar">
+                    <label for="recambiosProductoInput" class="recambios-label">Buscar producto (codigo o codigo secundario)</label>
+                    <div class="wc-piezas-row">
+                        <input type="text" id="recambiosProductoInput" placeholder="Codigo producto o EAN" class="wc-piezas-input" autocomplete="off">
+                        <button type="button" id="recambiosBuscarBtn" class="btn btn-small btn-secondary">Buscar</button>
+                    </div>
+                    <div id="recambiosProductoActual" class="recambios-producto-actual" style="display: none;">
+                        <p class="recambios-producto-text" id="recambiosProductoActualText"></p>
+                    </div>
+                </div>
+                <div id="recambiosContenido" class="recambios-contenido" style="display: none;">
+                    <section class="recambios-seccion">
+                        <h3 class="profile-section-title">Este producto tiene estos recambios</h3>
+                        <div class="wc-piezas-row">
+                            <input type="text" id="recambiosAddRecambioInput" placeholder="Codigo del recambio a anadir" class="wc-piezas-input" autocomplete="off">
+                            <button type="button" id="recambiosBuscarRecambioBtn" class="btn btn-small btn-secondary">Buscar</button>
+                        </div>
+                        <div id="recambiosPreviewRecambio" class="wc-conjunto-preview" style="display: none;">
+                            <p class="wc-conjunto-preview-text" id="recambiosPreviewRecambioText"></p>
+                            <button type="button" id="recambiosConfirmAddRecambioBtn" class="btn btn-small btn-primary">Anadir como recambio</button>
+                        </div>
+                        <ul id="recambiosList" class="wc-piezas-list"></ul>
+                    </section>
+                    <section class="recambios-seccion">
+                        <h3 class="profile-section-title">Este producto es recambio de</h3>
+                        <div class="wc-piezas-row">
+                            <input type="text" id="recambiosAddPadreInput" placeholder="Codigo del producto padre" class="wc-piezas-input" autocomplete="off">
+                            <button type="button" id="recambiosBuscarPadreBtn" class="btn btn-small btn-secondary">Buscar</button>
+                        </div>
+                        <div id="recambiosPreviewPadre" class="wc-conjunto-preview" style="display: none;">
+                            <p class="wc-conjunto-preview-text" id="recambiosPreviewPadreText"></p>
+                            <button type="button" id="recambiosConfirmAddPadreBtn" class="btn btn-small btn-primary">Anadir como producto padre</button>
+                        </div>
+                        <ul id="recambiosPadresList" class="wc-piezas-list"></ul>
+                    </section>
                 </div>
             </main>
         </div>

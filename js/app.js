@@ -12,6 +12,9 @@ class ScanAsYouShopApp {
         this.notificationsEnabled = false;
         this.editingWcConjuntoId = null;
         this.wcConjuntoPreviewData = { taza: null, tanque: null, asiento: null };
+        this.recambiosProductoCodigo = null;
+        this.recambiosPreviewRecambio = null;
+        this.recambiosPreviewPadre = null;
         // Stock
         this.stockAlmacenFiltro = null; // null = global; string = almacen especifico
         this.stockIndex = new Map();    // Map<codigo_articulo_upper, {stock_global, por_almacen}>
@@ -1554,6 +1557,217 @@ class ScanAsYouShopApp {
         }
     }
 
+    // --- Recambios (Panel de Control) ---
+
+    /**
+     * Resetea y muestra pantalla Recambios (sin producto seleccionado)
+     */
+    initRecambiosScreen() {
+        this.recambiosProductoCodigo = null;
+        this.recambiosPreviewRecambio = null;
+        this.recambiosPreviewPadre = null;
+        const input = document.getElementById('recambiosProductoInput');
+        const actualEl = document.getElementById('recambiosProductoActual');
+        const contenidoEl = document.getElementById('recambiosContenido');
+        const previewRecambio = document.getElementById('recambiosPreviewRecambio');
+        const previewPadre = document.getElementById('recambiosPreviewPadre');
+        if (input) input.value = '';
+        if (actualEl) actualEl.style.display = 'none';
+        if (contenidoEl) contenidoEl.style.display = 'none';
+        if (previewRecambio) previewRecambio.style.display = 'none';
+        if (previewPadre) previewPadre.style.display = 'none';
+    }
+
+    /**
+     * Busca producto por codigo/secundario y lo selecciona para gestionar recambios
+     */
+    async handleRecambiosBuscarProducto() {
+        const input = document.getElementById('recambiosProductoInput');
+        const codigoInput = (input && input.value || '').trim();
+        if (!codigoInput) {
+            window.ui.showToast('Escribe codigo de producto o codigo secundario', 'error');
+            return;
+        }
+        const details = await window.cartManager.resolveToPrincipalCodeWithDetails(codigoInput);
+        if (!details) {
+            window.ui.showToast('Codigo no encontrado. Usa codigo principal o codigo secundario del catalogo.', 'error');
+            return;
+        }
+        this.recambiosProductoCodigo = details.principalCode;
+        const actualEl = document.getElementById('recambiosProductoActual');
+        const textEl = document.getElementById('recambiosProductoActualText');
+        const contenidoEl = document.getElementById('recambiosContenido');
+        if (textEl) {
+            textEl.textContent = details.principalCode + ' – ' + details.descripcion + (details.matchedSecondary ? ' (' + details.matchedSecondary + ')' : '');
+        }
+        if (actualEl) actualEl.style.display = 'block';
+        if (contenidoEl) contenidoEl.style.display = 'block';
+        this.recambiosPreviewRecambio = null;
+        this.recambiosPreviewPadre = null;
+        const previewRecambio = document.getElementById('recambiosPreviewRecambio');
+        const previewPadre = document.getElementById('recambiosPreviewPadre');
+        if (previewRecambio) previewRecambio.style.display = 'none';
+        if (previewPadre) previewPadre.style.display = 'none';
+        document.getElementById('recambiosAddRecambioInput').value = '';
+        document.getElementById('recambiosAddPadreInput').value = '';
+        await this.renderRecambiosLists();
+    }
+
+    /**
+     * Rellena las listas "Este producto tiene estos recambios" y "Este producto es recambio de"
+     */
+    async renderRecambiosLists() {
+        const codigo = this.recambiosProductoCodigo;
+        if (!codigo) return;
+        const listRecambios = document.getElementById('recambiosList');
+        const listPadres = document.getElementById('recambiosPadresList');
+        try {
+            const [recambios, padres] = await Promise.all([
+                window.supabaseClient.getRecambiosDeProducto(codigo),
+                window.supabaseClient.getPadresDeRecambio(codigo)
+            ]);
+            const renderList = async (listEl, items, codigoKey) => {
+                if (!listEl) return;
+                if (!items || items.length === 0) {
+                    listEl.innerHTML = '';
+                    return;
+                }
+                const lines = [];
+                for (const item of items) {
+                    const cod = item[codigoKey] || '';
+                    const product = await window.cartManager.getProductByCodigo(cod);
+                    const desc = (product && product.descripcion) ? product.descripcion : cod;
+                    const codigoEsc = this.escapeForHtmlAttribute(cod);
+                    const descEsc = this.escapeForHtmlAttribute(desc);
+                    const itemId = this.escapeForHtmlAttribute(item.id);
+                    lines.push('<li class="wc-piezas-item">' +
+                        '<span class="wc-piezas-item-text"><strong>' + codigoEsc + '</strong> – ' + descEsc + '</span>' +
+                        '<button type="button" class="btn btn-small btn-danger" data-recambio-remove-id="' + itemId + '">Quitar</button>' +
+                        '</li>');
+                }
+                listEl.innerHTML = lines.join('');
+            };
+            await renderList(listRecambios, recambios || [], 'producto_recambio_codigo');
+            await renderList(listPadres, padres || [], 'producto_padre_codigo');
+        } catch (e) {
+            console.error('Error renderRecambiosLists:', e);
+            if (listRecambios) listRecambios.innerHTML = '<li class="wc-piezas-error">Error al cargar.</li>';
+            if (listPadres) listPadres.innerHTML = '<li class="wc-piezas-error">Error al cargar.</li>';
+        }
+    }
+
+    /**
+     * Busca recambio (hijo) y muestra vista previa para anadir a "Este producto tiene estos recambios"
+     */
+    async handleRecambiosBuscarRecambio() {
+        const input = document.getElementById('recambiosAddRecambioInput');
+        const codigoInput = (input && input.value || '').trim();
+        if (!codigoInput) {
+            window.ui.showToast('Escribe codigo del recambio', 'error');
+            return;
+        }
+        const details = await window.cartManager.resolveToPrincipalCodeWithDetails(codigoInput);
+        if (!details) {
+            window.ui.showToast('Codigo no encontrado', 'error');
+            return;
+        }
+        this.recambiosPreviewRecambio = details;
+        const previewEl = document.getElementById('recambiosPreviewRecambio');
+        const textEl = document.getElementById('recambiosPreviewRecambioText');
+        if (textEl) textEl.textContent = details.principalCode + ' – ' + details.descripcion + (details.matchedSecondary ? ' (' + details.matchedSecondary + ')' : '');
+        if (previewEl) previewEl.style.display = 'block';
+    }
+
+    /**
+     * Confirma anadir el recambio mostrado en vista previa (como hijo del producto actual)
+     */
+    async handleRecambiosConfirmAddRecambio() {
+        const codigo = this.recambiosProductoCodigo;
+        const details = this.recambiosPreviewRecambio;
+        if (!codigo || !details || !details.principalCode) {
+            window.ui.showToast('Busca primero un recambio para anadir', 'error');
+            return;
+        }
+        if (details.principalCode === codigo) {
+            window.ui.showToast('Un producto no puede ser recambio de si mismo', 'error');
+            return;
+        }
+        try {
+            await window.supabaseClient.addRecambio(codigo, details.principalCode);
+            this.recambiosPreviewRecambio = null;
+            document.getElementById('recambiosPreviewRecambio').style.display = 'none';
+            document.getElementById('recambiosAddRecambioInput').value = '';
+            await this.renderRecambiosLists();
+            window.ui.showToast('Recambio anadido', 'success');
+        } catch (e) {
+            console.error('Error handleRecambiosConfirmAddRecambio:', e);
+            window.ui.showToast('Error: ' + (e.message || 'no se pudo anadir (¿duplicado?)'), 'error');
+        }
+    }
+
+    /**
+     * Busca producto padre y muestra vista previa para anadir a "Este producto es recambio de"
+     */
+    async handleRecambiosBuscarPadre() {
+        const input = document.getElementById('recambiosAddPadreInput');
+        const codigoInput = (input && input.value || '').trim();
+        if (!codigoInput) {
+            window.ui.showToast('Escribe codigo del producto padre', 'error');
+            return;
+        }
+        const details = await window.cartManager.resolveToPrincipalCodeWithDetails(codigoInput);
+        if (!details) {
+            window.ui.showToast('Codigo no encontrado', 'error');
+            return;
+        }
+        this.recambiosPreviewPadre = details;
+        const previewEl = document.getElementById('recambiosPreviewPadre');
+        const textEl = document.getElementById('recambiosPreviewPadreText');
+        if (textEl) textEl.textContent = details.principalCode + ' – ' + details.descripcion + (details.matchedSecondary ? ' (' + details.matchedSecondary + ')' : '');
+        if (previewEl) previewEl.style.display = 'block';
+    }
+
+    /**
+     * Confirma anadir el padre mostrado en vista previa (el producto actual sera recambio de ese padre)
+     */
+    async handleRecambiosConfirmAddPadre() {
+        const codigo = this.recambiosProductoCodigo;
+        const details = this.recambiosPreviewPadre;
+        if (!codigo || !details || !details.principalCode) {
+            window.ui.showToast('Busca primero un producto padre para anadir', 'error');
+            return;
+        }
+        if (details.principalCode === codigo) {
+            window.ui.showToast('Un producto no puede ser recambio de si mismo', 'error');
+            return;
+        }
+        try {
+            await window.supabaseClient.addRecambio(details.principalCode, codigo);
+            this.recambiosPreviewPadre = null;
+            document.getElementById('recambiosPreviewPadre').style.display = 'none';
+            document.getElementById('recambiosAddPadreInput').value = '';
+            await this.renderRecambiosLists();
+            window.ui.showToast('Producto padre anadido', 'success');
+        } catch (e) {
+            console.error('Error handleRecambiosConfirmAddPadre:', e);
+            window.ui.showToast('Error: ' + (e.message || 'no se pudo anadir (¿duplicado?)'), 'error');
+        }
+    }
+
+    /**
+     * Elimina una relacion recambio por id (desde lista de recambios o lista de padres)
+     */
+    async handleRecambiosRemove(recambioId) {
+        try {
+            await window.supabaseClient.removeRecambio(recambioId);
+            await this.renderRecambiosLists();
+            window.ui.showToast('Quitado', 'success');
+        } catch (e) {
+            console.error('Error handleRecambiosRemove:', e);
+            window.ui.showToast('Error al quitar', 'error');
+        }
+    }
+
     /** Base URL imagenes productos (WC Completo y busqueda) */
     _wcProductImageBase() {
         return 'https://www.saneamiento-martinez.com/imagenes/articulos/';
@@ -2740,6 +2954,14 @@ class ScanAsYouShopApp {
             });
         }
 
+        // Panel de Control: Configurar recambios
+        const panelControlRecambiosBtn = document.getElementById('panelControlRecambiosBtn');
+        if (panelControlRecambiosBtn) {
+            panelControlRecambiosBtn.addEventListener('click', () => {
+                this.showScreen('recambios');
+            });
+        }
+
         // Conjuntos WC: Volver al Panel de Control
         const wcConjuntosBackBtn = document.getElementById('wcConjuntosBackBtn');
         if (wcConjuntosBackBtn) {
@@ -2811,6 +3033,44 @@ class ScanAsYouShopApp {
                 const tipo = btn.getAttribute('data-wc-remove-pieza');
                 const id = btn.getAttribute('data-wc-pieza-id');
                 if (tipo && id) this.handleWcConjuntoRemovePieza(tipo, id);
+            });
+        }
+
+        // Recambios: Volver al Panel de Control
+        const recambiosBackBtn = document.getElementById('recambiosBackBtn');
+        if (recambiosBackBtn) {
+            recambiosBackBtn.addEventListener('click', () => {
+                this.showScreen('panelControl');
+            });
+        }
+
+        // Recambios: Buscar producto
+        const recambiosBuscarBtn = document.getElementById('recambiosBuscarBtn');
+        if (recambiosBuscarBtn) {
+            recambiosBuscarBtn.addEventListener('click', () => this.handleRecambiosBuscarProducto());
+        }
+
+        // Recambios: Buscar y anadir recambio (hijo)
+        const recambiosBuscarRecambioBtn = document.getElementById('recambiosBuscarRecambioBtn');
+        if (recambiosBuscarRecambioBtn) recambiosBuscarRecambioBtn.addEventListener('click', () => this.handleRecambiosBuscarRecambio());
+        const recambiosConfirmAddRecambioBtn = document.getElementById('recambiosConfirmAddRecambioBtn');
+        if (recambiosConfirmAddRecambioBtn) recambiosConfirmAddRecambioBtn.addEventListener('click', () => this.handleRecambiosConfirmAddRecambio());
+
+        // Recambios: Buscar y anadir producto padre
+        const recambiosBuscarPadreBtn = document.getElementById('recambiosBuscarPadreBtn');
+        if (recambiosBuscarPadreBtn) recambiosBuscarPadreBtn.addEventListener('click', () => this.handleRecambiosBuscarPadre());
+        const recambiosConfirmAddPadreBtn = document.getElementById('recambiosConfirmAddPadreBtn');
+        if (recambiosConfirmAddPadreBtn) recambiosConfirmAddPadreBtn.addEventListener('click', () => this.handleRecambiosConfirmAddPadre());
+
+        // Delegacion Recambios: Quitar (lista recambios y lista padres)
+        const recambiosContenido = document.getElementById('recambiosContenido');
+        if (recambiosContenido) {
+            recambiosContenido.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-recambio-remove-id]');
+                if (!btn) return;
+                e.preventDefault();
+                const id = btn.getAttribute('data-recambio-remove-id');
+                if (id) this.handleRecambiosRemove(id);
             });
         }
 
@@ -3371,6 +3631,10 @@ class ScanAsYouShopApp {
 
             if (screenName === 'profile') {
                 this.renderProfileScreen();
+            }
+
+            if (screenName === 'recambios') {
+                this.initRecambiosScreen();
             }
 
         }

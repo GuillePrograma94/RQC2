@@ -1839,6 +1839,85 @@ class SupabaseClient {
             throw e;
         }
     }
+
+    // --- Recambios de productos (Panel de Control, solo administrador) ---
+
+    /**
+     * Recambios (hijos) de un producto dado por codigo. "Este producto tiene estos recambios."
+     * @param {string} productoPadreCodigo - codigo del producto padre
+     * @returns {Promise<Array<{id: string, producto_padre_codigo: string, producto_recambio_codigo: string}>>}
+     */
+    async getRecambiosDeProducto(productoPadreCodigo) {
+        try {
+            if (!this.client || !productoPadreCodigo) return [];
+            const codigo = String(productoPadreCodigo).trim();
+            const { data, error } = await this.client
+                .from('producto_recambios')
+                .select('*')
+                .eq('producto_padre_codigo', codigo);
+            if (error) throw error;
+            return data || [];
+        } catch (e) {
+            console.error('Error getRecambiosDeProducto:', e);
+            return [];
+        }
+    }
+
+    /**
+     * Productos (padres) para los que un producto es recambio. "Este recambio sirve para estos productos."
+     * @param {string} productoRecambioCodigo - codigo del producto recambio
+     * @returns {Promise<Array<{id: string, producto_padre_codigo: string, producto_recambio_codigo: string}>>}
+     */
+    async getPadresDeRecambio(productoRecambioCodigo) {
+        try {
+            if (!this.client || !productoRecambioCodigo) return [];
+            const codigo = String(productoRecambioCodigo).trim();
+            const { data, error } = await this.client
+                .from('producto_recambios')
+                .select('*')
+                .eq('producto_recambio_codigo', codigo);
+            if (error) throw error;
+            return data || [];
+        } catch (e) {
+            console.error('Error getPadresDeRecambio:', e);
+            return [];
+        }
+    }
+
+    /**
+     * Anade una relacion recambio: producto_padre_codigo -> producto_recambio_codigo
+     */
+    async addRecambio(productoPadreCodigo, productoRecambioCodigo) {
+        try {
+            if (!this.client) throw new Error('Cliente no inicializado');
+            const padre = String(productoPadreCodigo).trim();
+            const recambio = String(productoRecambioCodigo).trim();
+            if (!padre || !recambio) throw new Error('Codigos obligatorios');
+            const { error } = await this.client.from('producto_recambios').insert([{
+                producto_padre_codigo: padre,
+                producto_recambio_codigo: recambio
+            }]);
+            if (error) throw error;
+        } catch (e) {
+            console.error('Error addRecambio:', e);
+            throw e;
+        }
+    }
+
+    /**
+     * Elimina una relacion recambio por id
+     */
+    async removeRecambio(id) {
+        try {
+            if (!this.client) throw new Error('Cliente no inicializado');
+            const { error } = await this.client.from('producto_recambios').delete().eq('id', id);
+            if (error) throw error;
+        } catch (e) {
+            console.error('Error removeRecambio:', e);
+            throw e;
+        }
+    }
+
     /**
      * Actualiza el alias de un cliente desde la vista del comercial.
      * @param {number} clienteId - ID del cliente (usuarios.id)
