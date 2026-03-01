@@ -1676,6 +1676,12 @@ class ScanAsYouShopApp {
         document.getElementById('wcCompletoStepTaza').classList.remove('wc-completo-step-locked');
         document.getElementById('wcCompletoStepTanque').classList.remove('wc-completo-step-locked');
         document.getElementById('wcCompletoStepAsiento').classList.remove('wc-completo-step-locked');
+        const stepTaza = document.getElementById('wcCompletoStepTaza');
+        if (stepTaza) {
+            requestAnimationFrame(() => {
+                stepTaza.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        }
         const gridTazas = document.getElementById('wcCompletoTazasGrid');
         const gridTanques = document.getElementById('wcCompletoTanquesGrid');
         const gridAsientos = document.getElementById('wcCompletoAsientosGrid');
@@ -2377,11 +2383,10 @@ class ScanAsYouShopApp {
      * @returns {string} HTML del bloque o vacio si no hay dato de stock
      */
     buildStockBreakdownByAlmacenHtml(codigo) {
-        if (!codigo || this.stockIndex.size === 0) return '';
-        const entrada = this.stockIndex.get(codigo.toUpperCase());
-        if (!entrada) return '';
+        if (!codigo) return '';
         const ALMACENES_ORDER = ['ONTINYENT', 'ALZIRA', 'GANDIA', 'REQUENA'];
-        const porAlmacen = entrada.por_almacen || {};
+        const entrada = this.stockIndex.size > 0 ? this.stockIndex.get(codigo.toUpperCase()) : null;
+        const porAlmacen = (entrada && entrada.por_almacen) ? entrada.por_almacen : {};
         const lineas = ALMACENES_ORDER.map(alm => {
             const qty = porAlmacen[alm] ?? 0;
             let clase, texto;
@@ -2410,14 +2415,25 @@ class ScanAsYouShopApp {
      * @returns {string} HTML del badge (puede ser vacio si no hay dato)
      */
     buildStockBadgeHtml(codigo) {
-        if (this.stockIndex.size === 0) return '';
+        if (!codigo) return '';
+
+        const entrada = this.stockIndex.size > 0 ? this.stockIndex.get(codigo.toUpperCase()) : null;
+        const codEsc = this.escapeForHtmlAttribute(codigo.toUpperCase());
+        const badgeConsultar = '<span class="stock-badge stock-rojo" data-stock-codigo="' + codEsc + '">CONSULTAR DISPONIBILIDAD</span>';
+
+        if (this.stockIndex.size === 0 || !entrada) {
+            if (this.stockAlmacenFiltro && this.stockAlmacenFiltro !== 'GLOBAL') {
+                return badgeConsultar;
+            }
+            return this.buildStockBreakdownByAlmacenHtml(codigo);
+        }
 
         if (this.stockAlmacenFiltro && this.stockAlmacenFiltro !== 'GLOBAL') {
             const efectivo = this.getStockEfectivo(codigo);
             let clase, texto;
             if (efectivo === null || efectivo <= 0) {
                 clase = 'stock-rojo';
-                texto = 'Consultar disponibilidad';
+                texto = 'CONSULTAR DISPONIBILIDAD';
             } else if (efectivo <= 3) {
                 clase = 'stock-naranja';
                 texto = 'POCAS UNIDADES';
@@ -2425,7 +2441,7 @@ class ScanAsYouShopApp {
                 clase = 'stock-verde';
                 texto = 'EN STOCK';
             }
-            return `<span class="stock-badge ${clase}" data-stock-codigo="${this.escapeForHtmlAttribute(codigo.toUpperCase())}">${texto}</span>`;
+            return `<span class="stock-badge ${clase}" data-stock-codigo="${codEsc}">${texto}</span>`;
         }
         return this.buildStockBreakdownByAlmacenHtml(codigo);
     }
@@ -2444,12 +2460,20 @@ class ScanAsYouShopApp {
         for (const el of elements) {
             const codigo = el.dataset.stockCodigo;
             const entrada = this.stockIndex.get(codigo);
-            if (!entrada) continue;
+            const setConsultar = (labelEl) => {
+                if (!labelEl) return;
+                labelEl.className = 'stock-almacen-label stock-badge stock-rojo';
+                labelEl.innerHTML = (el.dataset.almacen ? '<strong>' + this.escapeForHtmlAttribute(el.dataset.almacen) + '</strong>: ' : '') + 'CONSULTAR DISPONIBILIDAD';
+            };
 
             if (el.classList.contains('stock-almacen-line')) {
                 const almacen = el.dataset.almacen;
                 const label = el.querySelector('.stock-almacen-label');
-                if (!label || !almacen) continue;
+                if (!label) continue;
+                if (!entrada) {
+                    setConsultar(label);
+                    continue;
+                }
                 const qty = (entrada.por_almacen || {})[almacen] ?? 0;
                 let clase, texto;
                 if (qty <= 0) {
@@ -2465,11 +2489,16 @@ class ScanAsYouShopApp {
                 label.className = 'stock-almacen-label stock-badge ' + clase;
                 label.innerHTML = '<strong>' + this.escapeForHtmlAttribute(almacen) + '</strong>: ' + texto;
             } else {
+                if (!entrada) {
+                    el.className = 'stock-badge stock-rojo';
+                    el.innerHTML = 'CONSULTAR DISPONIBILIDAD';
+                    continue;
+                }
                 const efectivo = this.getStockEfectivo(codigo);
                 el.className = 'stock-badge';
                 if (efectivo === null || efectivo <= 0) {
                     el.classList.add('stock-rojo');
-                    el.innerHTML = 'Consultar disponibilidad';
+                    el.innerHTML = 'CONSULTAR DISPONIBILIDAD';
                 } else if (efectivo <= 3) {
                     el.classList.add('stock-naranja');
                     el.innerHTML = 'POCAS UNIDADES';
