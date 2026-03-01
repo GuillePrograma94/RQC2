@@ -1838,7 +1838,7 @@ class SupabaseClient {
                 .from('stock_meta')
                 .select('hash')
                 .eq('id', 1)
-                .single();
+                .maybeSingle();
             if (error) return null;
             return data?.hash || null;
         } catch (e) {
