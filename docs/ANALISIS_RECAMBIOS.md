@@ -52,12 +52,27 @@ RLS: lectura para autenticados (para poder mostrar recambios en fichas/modales);
 
 ---
 
-## 4. Uso futuro en la app (cliente)
+## 4. Uso en la app (cliente)
 
-- En ventana de producto (modal anadir al carrito o detalle): si el producto tiene recambios, mostrar seccion "Recambios disponibles" con enlaces o botones a los recambios.
-- En ventana de un producto que es recambio: mostrar "Este recambio sirve para: [lista de productos]" con enlaces a los padres.
+### 4.1 Ventana de detalle de producto (carousel)
 
-(La implementacion de estas vistas en cliente se puede anadir en una fase posterior; primero la configuracion en Panel de Control.)
+En la **ventana de detalle de producto** (overlay con carousel de imagenes, que se abre al pulsar la imagen en el modal de anadir al carrito):
+
+- Si el producto **tiene recambios**: se muestra el boton **"Ver Recambios"**. Al pulsarlo se abre un modal con la lista de recambios (codigo y descripcion); al pulsar un recambio se cierra el modal y se abre el detalle de ese producto.
+- Si el producto **es recambio** de otros: se muestra el boton **"Sirve para estos productos"**. Al pulsarlo se abre un modal con la lista de productos para los que sirve; al pulsar uno se cierra el modal y se abre el detalle de ese producto.
+
+Ambos botones pueden mostrarse a la vez si el producto tiene recambios y ademas es recambio de otros.
+
+### 4.2 Vista Recambios (Herramientas)
+
+Desde **Herramientas** el cliente puede pulsar **"Ver recambios"** y acceder a una pantalla dedicada:
+
+- Campo de busqueda por **codigo** o **codigo secundario** (EAN) del producto.
+- Al buscar se muestra el producto seleccionado y dos bloques:
+  - **Recambios de este producto**: articulos que son recambio de ese producto. Clic en una fila abre el detalle del recambio.
+  - **Sirve para estos productos**: productos para los que ese articulo es recambio. Clic en una fila abre el detalle del producto.
+
+Es una vista de solo consulta (sin anadir/quitar relaciones); permite ver de un vistazo recambios y productos relacionados.
 
 ---
 

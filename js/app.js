@@ -1768,6 +1768,92 @@ class ScanAsYouShopApp {
         }
     }
 
+    /**
+     * Vista Recambios (cliente): pantalla de consulta desde Herramientas
+     */
+    initRecambiosVistaScreen() {
+        this.recambiosVistaProductoCodigo = null;
+        const input = document.getElementById('recambiosVistaProductoInput');
+        const productoActualEl = document.getElementById('recambiosVistaProductoActual');
+        const contenidoEl = document.getElementById('recambiosVistaContenido');
+        const emptyEl = document.getElementById('recambiosVistaEmpty');
+        if (input) input.value = '';
+        if (productoActualEl) productoActualEl.style.display = 'none';
+        if (contenidoEl) contenidoEl.style.display = 'none';
+        if (emptyEl) emptyEl.style.display = 'block';
+    }
+
+    /**
+     * Busca producto en Vista Recambios y muestra recambios / productos para los que sirve
+     */
+    async handleRecambiosVistaBuscar() {
+        const input = document.getElementById('recambiosVistaProductoInput');
+        const codigoInput = (input && input.value || '').trim();
+        if (!codigoInput) {
+            window.ui.showToast('Escribe codigo de producto o codigo secundario', 'error');
+            return;
+        }
+        const details = await window.cartManager.resolveToPrincipalCodeWithDetails(codigoInput);
+        if (!details) {
+            window.ui.showToast('Codigo no encontrado. Usa codigo principal o codigo secundario del catalogo.', 'error');
+            return;
+        }
+        this.recambiosVistaProductoCodigo = details.principalCode;
+        const productoActualEl = document.getElementById('recambiosVistaProductoActual');
+        const productCardEl = document.getElementById('recambiosVistaProductoCard');
+        const contenidoEl = document.getElementById('recambiosVistaContenido');
+        const emptyEl = document.getElementById('recambiosVistaEmpty');
+        if (productCardEl) {
+            productCardEl.innerHTML = '<p class="recambios-vista-producto-text"><strong>' + this.escapeForHtmlAttribute(details.principalCode) + '</strong> – ' + this.escapeForHtmlAttribute(details.descripcion) + (details.matchedSecondary ? ' <span class="recambios-vista-codigo-sec">(' + this.escapeForHtmlAttribute(details.matchedSecondary) + ')</span>' : '') + '</p>';
+        }
+        if (productoActualEl) productoActualEl.style.display = 'block';
+        if (contenidoEl) contenidoEl.style.display = 'block';
+        if (emptyEl) emptyEl.style.display = 'none';
+        await this.renderRecambiosVistaLists();
+    }
+
+    /**
+     * Rellena las listas de la Vista Recambios (recambios del producto y productos para los que sirve)
+     */
+    async renderRecambiosVistaLists() {
+        const codigo = this.recambiosVistaProductoCodigo;
+        if (!codigo) return;
+        const listRecambios = document.getElementById('recambiosVistaListRecambios');
+        const listPadres = document.getElementById('recambiosVistaListPadres');
+        try {
+            const [recambios, padres] = await Promise.all([
+                window.supabaseClient.getRecambiosDeProducto(codigo),
+                window.supabaseClient.getPadresDeRecambio(codigo)
+            ]);
+            const renderList = async (listEl, items, codigoKey) => {
+                if (!listEl) return;
+                if (!items || items.length === 0) {
+                    listEl.innerHTML = '<li class="recambios-vista-lista-empty">Ninguno</li>';
+                    return;
+                }
+                const lines = [];
+                for (const item of items) {
+                    const cod = item[codigoKey] || '';
+                    const p = await window.cartManager.getProductByCodigo(cod);
+                    const desc = (p && p.descripcion) ? p.descripcion : cod;
+                    const codigoEsc = this.escapeForHtmlAttribute(cod);
+                    const descEsc = this.escapeForHtmlAttribute(desc);
+                    lines.push('<li class="recambios-vista-item" data-codigo="' + codigoEsc + '" data-descripcion="' + descEsc + '" data-pvp="' + (p && p.pvp != null ? p.pvp : 0) + '">' +
+                        '<span class="recambios-vista-item-text"><strong>' + codigoEsc + '</strong> – ' + descEsc + '</span>' +
+                        '<span class="recambios-vista-item-arrow" aria-hidden="true">&rarr;</span>' +
+                        '</li>');
+                }
+                listEl.innerHTML = lines.join('');
+            };
+            await renderList(listRecambios, recambios || [], 'producto_recambio_codigo');
+            await renderList(listPadres, padres || [], 'producto_padre_codigo');
+        } catch (e) {
+            console.error('Error renderRecambiosVistaLists:', e);
+            if (listRecambios) listRecambios.innerHTML = '<li class="recambios-vista-lista-error">Error al cargar.</li>';
+            if (listPadres) listPadres.innerHTML = '<li class="recambios-vista-lista-error">Error al cargar.</li>';
+        }
+    }
+
     /** Base URL imagenes productos (WC Completo y busqueda) */
     _wcProductImageBase() {
         return 'https://www.saneamiento-martinez.com/imagenes/articulos/';
@@ -3074,6 +3160,33 @@ class ScanAsYouShopApp {
             });
         }
 
+        // Vista Recambios: Volver a Herramientas
+        const recambiosVistaBackBtn = document.getElementById('recambiosVistaBackBtn');
+        if (recambiosVistaBackBtn) {
+            recambiosVistaBackBtn.addEventListener('click', () => {
+                this.showScreen('herramientas');
+            });
+        }
+
+        // Vista Recambios: Buscar producto
+        const recambiosVistaBuscarBtn = document.getElementById('recambiosVistaBuscarBtn');
+        if (recambiosVistaBuscarBtn) {
+            recambiosVistaBuscarBtn.addEventListener('click', () => this.handleRecambiosVistaBuscar());
+        }
+
+        // Vista Recambios: clic en un item de la lista -> abrir detalle de producto
+        const recambiosVistaContenido = document.getElementById('recambiosVistaContenido');
+        if (recambiosVistaContenido) {
+            recambiosVistaContenido.addEventListener('click', (e) => {
+                const item = e.target.closest('.recambios-vista-item');
+                if (!item || !item.dataset.codigo) return;
+                const codigo = item.dataset.codigo;
+                const descripcion = item.dataset.descripcion || '';
+                const pvp = parseFloat(item.dataset.pvp) || 0;
+                this.openProductDetail({ codigo: codigo, descripcion: descripcion, pvp: pvp });
+            });
+        }
+
         // Herramientas: Volver
         const herramientasBackBtn = document.getElementById('herramientasBackBtn');
         if (herramientasBackBtn) {
@@ -3088,6 +3201,14 @@ class ScanAsYouShopApp {
             herramientaWcCompletoBtn.addEventListener('click', () => {
                 this.showScreen('wcCompleto');
                 this.renderWcCompletoScreen();
+            });
+        }
+
+        // Herramientas: Ver recambios -> pantalla vista recambios
+        const herramientaRecambiosVistaBtn = document.getElementById('herramientaRecambiosVistaBtn');
+        if (herramientaRecambiosVistaBtn) {
+            herramientaRecambiosVistaBtn.addEventListener('click', () => {
+                this.showScreen('recambiosVista');
             });
         }
 
@@ -3637,6 +3758,10 @@ class ScanAsYouShopApp {
                 this.initRecambiosScreen();
             }
 
+            if (screenName === 'recambiosVista') {
+                this.initRecambiosVistaScreen();
+            }
+
         }
     }
 
@@ -3923,6 +4048,36 @@ class ScanAsYouShopApp {
         codeEl.textContent = producto.codigo;
         descEl.textContent = producto.descripcion || '';
 
+        const recambiosActionsEl = document.getElementById('productDetailRecambiosActions');
+        const verRecambiosBtn = document.getElementById('productDetailVerRecambiosBtn');
+        const sirveParaBtn = document.getElementById('productDetailSirveParaBtn');
+        const recambiosModal = document.getElementById('productDetailRecambiosModal');
+        const recambiosModalTitle = document.getElementById('productDetailRecambiosModalTitle');
+        const recambiosModalList = document.getElementById('productDetailRecambiosModalList');
+        const recambiosModalClose = document.getElementById('productDetailRecambiosModalClose');
+        const recambiosModalBackdrop = recambiosModal ? recambiosModal.querySelector('.product-detail-recambios-modal-backdrop') : null;
+
+        let recambiosData = [];
+        let padresData = [];
+        try {
+            const [recambios, padres] = await Promise.all([
+                window.supabaseClient.getRecambiosDeProducto(producto.codigo),
+                window.supabaseClient.getPadresDeRecambio(producto.codigo)
+            ]);
+            recambiosData = recambios || [];
+            padresData = padres || [];
+        } catch (e) {
+            console.error('Error cargando recambios/padres:', e);
+        }
+
+        if (recambiosActionsEl && (recambiosData.length > 0 || padresData.length > 0)) {
+            recambiosActionsEl.style.display = 'flex';
+            if (verRecambiosBtn) verRecambiosBtn.style.display = recambiosData.length > 0 ? 'inline-block' : 'none';
+            if (sirveParaBtn) sirveParaBtn.style.display = padresData.length > 0 ? 'inline-block' : 'none';
+        } else if (recambiosActionsEl) {
+            recambiosActionsEl.style.display = 'none';
+        }
+
         const imageUrls = await this.getAvailableProductImageUrls(producto.codigo);
         carouselInner.innerHTML = '';
         prevBtn.style.display = 'none';
@@ -3963,14 +4118,65 @@ class ScanAsYouShopApp {
         overlayEl.style.display = 'flex';
         overlayEl.setAttribute('aria-hidden', 'false');
 
+        const controlsRow = document.getElementById('productDetailCarouselControls');
+        if (controlsRow) controlsRow.style.display = imageUrls.length > 1 ? 'flex' : 'none';
+
+        const showRecambiosModal = async (title, items, codigoKey) => {
+            if (!recambiosModal || !recambiosModalTitle || !recambiosModalList || !items || items.length === 0) return;
+            recambiosModalTitle.textContent = title;
+            recambiosModalList.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            for (const item of items) {
+                const cod = item[codigoKey] || '';
+                const p = await window.cartManager.getProductByCodigo(cod);
+                const desc = (p && p.descripcion) ? p.descripcion : cod;
+                const li = document.createElement('li');
+                li.className = 'product-detail-recambios-modal-item';
+                li.dataset.codigo = cod;
+                li.innerHTML = '<strong>' + this.escapeForHtmlAttribute(cod) + '</strong> – ' + this.escapeForHtmlAttribute(desc);
+                fragment.appendChild(li);
+            }
+            recambiosModalList.appendChild(fragment);
+            recambiosModal.style.display = 'flex';
+            recambiosModal.setAttribute('aria-hidden', 'false');
+        };
+
+        const hideRecambiosModal = () => {
+            if (recambiosModal) {
+                recambiosModal.style.display = 'none';
+                recambiosModal.setAttribute('aria-hidden', 'true');
+            }
+        };
+
+        const onVerRecambiosClick = () => {
+            showRecambiosModal('Recambios de este producto', recambiosData, 'producto_recambio_codigo');
+        };
+        const onSirveParaClick = () => {
+            showRecambiosModal('Sirve para estos productos', padresData, 'producto_padre_codigo');
+        };
+
+        const onRecambiosModalListClick = async (e) => {
+            const li = e.target.closest('.product-detail-recambios-modal-item');
+            if (!li || !li.dataset.codigo) return;
+            const codigo = li.dataset.codigo;
+            hideRecambiosModal();
+            const p = await window.cartManager.getProductByCodigo(codigo);
+            if (p) {
+                this.openProductDetail({ codigo: p.codigo, descripcion: p.descripcion || '', pvp: p.pvp != null ? p.pvp : 0 });
+            }
+        };
+
+        if (verRecambiosBtn && recambiosData.length > 0) verRecambiosBtn.addEventListener('click', onVerRecambiosClick);
+        if (sirveParaBtn && padresData.length > 0) sirveParaBtn.addEventListener('click', onSirveParaClick);
+        if (recambiosModalList) recambiosModalList.addEventListener('click', onRecambiosModalListClick);
+        if (recambiosModalClose) recambiosModalClose.addEventListener('click', hideRecambiosModal);
+        if (recambiosModalBackdrop) recambiosModalBackdrop.addEventListener('click', hideRecambiosModal);
+
         let currentIndex = 0;
         let currentScale = 1;
         const total = imageUrls.length;
         const MIN_ZOOM = 1;
         const MAX_ZOOM = 4;
-
-        const controlsRow = document.getElementById('productDetailCarouselControls');
-        if (controlsRow) controlsRow.style.display = imageUrls.length > 1 ? 'flex' : 'none';
 
         const getActiveSlide = () => carouselInner.querySelector('.product-detail-carousel-slide.active');
         const getActiveImg = () => {
@@ -4073,6 +4279,12 @@ class ScanAsYouShopApp {
             if (overlayEl.contains(document.activeElement)) {
                 document.activeElement.blur();
             }
+            hideRecambiosModal();
+            if (verRecambiosBtn && recambiosData.length > 0) verRecambiosBtn.removeEventListener('click', onVerRecambiosClick);
+            if (sirveParaBtn && padresData.length > 0) sirveParaBtn.removeEventListener('click', onSirveParaClick);
+            if (recambiosModalList) recambiosModalList.removeEventListener('click', onRecambiosModalListClick);
+            if (recambiosModalClose) recambiosModalClose.removeEventListener('click', hideRecambiosModal);
+            if (recambiosModalBackdrop) recambiosModalBackdrop.removeEventListener('click', hideRecambiosModal);
             overlayEl.style.display = 'none';
             overlayEl.setAttribute('aria-hidden', 'true');
             closeBtn.removeEventListener('click', handleClose);

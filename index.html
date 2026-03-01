@@ -581,6 +581,7 @@
                 </div>
                 <div class="herramientas-actions">
                     <button type="button" id="herramientaWcCompletoBtn" class="btn btn-primary btn-lg">WC Completo</button>
+                    <button type="button" id="herramientaRecambiosVistaBtn" class="btn btn-primary btn-lg">Ver recambios</button>
                 </div>
             </main>
         </div>
@@ -644,6 +645,45 @@
                     <div class="wc-completo-summary-items" id="wcCompletoSummaryItems"></div>
                     <div class="wc-completo-summary-total" id="wcCompletoSummaryTotal"></div>
                     <button type="button" id="wcCompletoAddBtn" class="btn btn-primary btn-lg wc-completo-add-btn" disabled>Añadir artículos al carrito</button>
+                </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA VER RECAMBIOS (Herramientas - consulta cliente)
+             ================================ -->
+        <div id="recambiosVistaScreen" class="screen">
+            <main class="screen-content">
+                <div class="profile-header">
+                    <button type="button" id="recambiosVistaBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title">Recambios</h2>
+                </div>
+                <p class="recambios-vista-intro">Busca un producto para ver sus recambios y los productos para los que sirve como recambio.</p>
+                <div class="recambios-vista-buscar">
+                    <label for="recambiosVistaProductoInput" class="recambios-label">Codigo o codigo secundario</label>
+                    <div class="wc-piezas-row">
+                        <input type="text" id="recambiosVistaProductoInput" placeholder="Codigo producto o EAN" class="wc-piezas-input" autocomplete="off">
+                        <button type="button" id="recambiosVistaBuscarBtn" class="btn btn-small btn-secondary">Buscar</button>
+                    </div>
+                </div>
+                <div id="recambiosVistaProductoActual" class="recambios-vista-producto-actual" style="display: none;">
+                    <h3 class="profile-section-title">Producto seleccionado</h3>
+                    <div class="recambios-vista-producto-card" id="recambiosVistaProductoCard"></div>
+                </div>
+                <div id="recambiosVistaContenido" class="recambios-vista-contenido" style="display: none;">
+                    <section class="recambios-vista-seccion">
+                        <h3 class="profile-section-title">Recambios de este producto</h3>
+                        <p class="recambios-vista-seccion-desc">Articulos que son recambio de este producto.</p>
+                        <ul id="recambiosVistaListRecambios" class="recambios-vista-lista"></ul>
+                    </section>
+                    <section class="recambios-vista-seccion">
+                        <h3 class="profile-section-title">Sirve para estos productos</h3>
+                        <p class="recambios-vista-seccion-desc">Productos para los que este articulo es recambio.</p>
+                        <ul id="recambiosVistaListPadres" class="recambios-vista-lista"></ul>
+                    </section>
+                </div>
+                <div id="recambiosVistaEmpty" class="recambios-vista-empty" style="display: none;">
+                    <p>Busca un producto para ver sus recambios y los productos para los que sirve.</p>
                 </div>
             </main>
         </div>
@@ -1071,6 +1111,18 @@
                     <button type="button" class="product-detail-carousel-prev" id="productDetailCarouselPrev" aria-label="Imagen anterior" style="display: none;">&#9664;</button>
                     <div class="product-detail-carousel-dots" id="productDetailCarouselDots"></div>
                     <button type="button" class="product-detail-carousel-next" id="productDetailCarouselNext" aria-label="Imagen siguiente" style="display: none;">&#9654;</button>
+                </div>
+            </div>
+            <div class="product-detail-recambios-actions" id="productDetailRecambiosActions" style="display: none;">
+                <button type="button" class="btn btn-secondary product-detail-recambio-btn" id="productDetailVerRecambiosBtn">Ver Recambios</button>
+                <button type="button" class="btn btn-outline-secondary product-detail-recambio-btn" id="productDetailSirveParaBtn">Sirve para estos productos</button>
+            </div>
+            <div id="productDetailRecambiosModal" class="product-detail-recambios-modal" style="display: none;" aria-hidden="true">
+                <div class="product-detail-recambios-modal-backdrop"></div>
+                <div class="product-detail-recambios-modal-content">
+                    <h3 class="product-detail-recambios-modal-title" id="productDetailRecambiosModalTitle"></h3>
+                    <ul id="productDetailRecambiosModalList" class="product-detail-recambios-modal-list"></ul>
+                    <button type="button" id="productDetailRecambiosModalClose" class="btn btn-secondary">Cerrar</button>
                 </div>
             </div>
         </div>
