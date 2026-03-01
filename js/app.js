@@ -1258,18 +1258,33 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Lista de conjuntos WC (Panel de Control, admin)
+     * Lista de conjuntos WC (Panel de Control, admin). Si refresh=true recarga desde Supabase; si false usa cache y solo reaplica filtro.
      */
-    async renderWcConjuntosList() {
+    async renderWcConjuntosList(refresh = true) {
         const listEl = document.getElementById('wcConjuntosList');
         if (!listEl) return;
         try {
-            const conjuntos = await window.supabaseClient.getWcConjuntos();
-            if (!conjuntos || conjuntos.length === 0) {
-                listEl.innerHTML = '<p class="wc-conjuntos-empty">No hay conjuntos. Pulsa "Nuevo conjunto" para crear uno.</p>';
+            if (refresh) {
+                const conjuntos = await window.supabaseClient.getWcConjuntos();
+                this.wcConjuntosAllForPanel = conjuntos || [];
+            }
+            const conjuntos = this.wcConjuntosAllForPanel || [];
+            const filterInput = document.getElementById('wcConjuntosFilterNombre');
+            const filterVal = (filterInput && filterInput.value || '').trim().toLowerCase();
+            const filtered = filterVal
+                ? conjuntos.filter(c => {
+                    const nombre = (c.nombre || '').toLowerCase();
+                    const codigo = (c.codigo || '').toLowerCase();
+                    return nombre.includes(filterVal) || codigo.includes(filterVal);
+                })
+                : conjuntos;
+            if (filtered.length === 0) {
+                listEl.innerHTML = conjuntos.length === 0
+                    ? '<p class="wc-conjuntos-empty">No hay conjuntos. Pulsa "Nuevo conjunto" para crear uno.</p>'
+                    : '<p class="wc-conjuntos-empty">Ningun conjunto coincide con el filtro.</p>';
                 return;
             }
-            listEl.innerHTML = conjuntos.map(c => {
+            listEl.innerHTML = filtered.map(c => {
                 const nombre = this.escapeForHtmlAttribute(c.nombre || '');
                 const codigo = this.escapeForHtmlAttribute(c.codigo || '');
                 const activo = c.activo !== false ? 'Activo' : 'Inactivo';
@@ -2619,6 +2634,12 @@ class ScanAsYouShopApp {
             wcConjuntosNuevoBtn.addEventListener('click', () => {
                 this.openWcConjuntoDetail(null);
             });
+        }
+
+        // Conjuntos WC: filtrar por nombre (re-renderiza sin volver a cargar)
+        const wcConjuntosFilterNombre = document.getElementById('wcConjuntosFilterNombre');
+        if (wcConjuntosFilterNombre) {
+            wcConjuntosFilterNombre.addEventListener('input', () => this.renderWcConjuntosList(false));
         }
 
         // Conjunto WC detalle: Volver a lista

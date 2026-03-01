@@ -3098,6 +3098,27 @@ body.gate-visible .app-container {
 /* Panel de Control: Conjuntos WC */
 .wc-conjuntos-toolbar {
     padding: 0 1rem 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+}
+.wc-conjuntos-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.wc-conjuntos-filter-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--gray-600);
+}
+.wc-conjuntos-filter-input {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 1rem;
+    min-width: 200px;
 }
 .wc-conjuntos-list {
     padding: 0 1rem 1rem;
