@@ -1420,6 +1420,33 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Comprueba si la imagen del conjunto esta subida (ruta assets/wc-conjuntos/{codigo}.jpg)
+     */
+    handleWcConjuntoComprobarImagen() {
+        const codigoInput = document.getElementById('wcConjuntoCodigo');
+        const resultEl = document.getElementById('wcConjuntoImagenCheckResult');
+        const codigo = (codigoInput && codigoInput.value || '').trim();
+        if (!resultEl) return;
+        if (!codigo) {
+            resultEl.innerHTML = '<span class="wc-conjunto-imagen-check-msg wc-conjunto-imagen-check-error">Indica el codigo del conjunto (ej. wc_carmen_roca) para comprobar la imagen.</span>';
+            return;
+        }
+        const base = this._wcConjuntoImageBase();
+        const imageUrl = base + codigo + '.jpg';
+        resultEl.innerHTML = '<span class="wc-conjunto-imagen-check-msg wc-conjunto-imagen-check-loading">Comprobando...</span>';
+        const img = new Image();
+        img.onload = () => {
+            resultEl.innerHTML =
+                '<span class="wc-conjunto-imagen-check-msg wc-conjunto-imagen-check-ok">Imagen encontrada.</span>' +
+                '<img src="' + this.escapeForHtmlAttribute(imageUrl) + '" alt="" class="wc-conjunto-imagen-check-preview">';
+        };
+        img.onerror = () => {
+            resultEl.innerHTML = '<span class="wc-conjunto-imagen-check-msg wc-conjunto-imagen-check-error">Imagen no encontrada. Ruta: ' + this.escapeForHtmlAttribute(imageUrl) + '</span>';
+        };
+        img.src = imageUrl;
+    }
+
+    /**
      * Busca por codigo o codigo secundario y muestra vista previa (codigo + descripcion) antes de anadir
      */
     async handleWcConjuntoBuscarPieza(tipo) {
@@ -1517,6 +1544,11 @@ class ScanAsYouShopApp {
         return 'https://www.saneamiento-martinez.com/imagenes/articulos/';
     }
 
+    /** Base URL imagenes conjuntos WC (carpeta local assets/wc-conjuntos) */
+    _wcConjuntoImageBase() {
+        return 'assets/wc-conjuntos/';
+    }
+
     /**
      * Pantalla WC Completo: carga conjuntos activos como cards (con filtros y grid de 2 columnas)
      */
@@ -1565,8 +1597,13 @@ class ScanAsYouShopApp {
             const id = this.escapeForHtmlAttribute(c.id);
             const nombre = this.escapeForHtmlAttribute(c.nombre || '');
             const desc = this.escapeForHtmlAttribute((c.descripcion || '').substring(0, 80));
+            const imageFilename = (c.codigo || c.id || '').toString().trim() || id;
+            const imageUrl = this._wcConjuntoImageBase() + this.escapeForHtmlAttribute(imageFilename) + '.jpg';
             return '<button type="button" class="wc-completo-card wc-completo-card-conjunto" data-conjunto-id="' + id + '" aria-label="Elegir ' + nombre + '">' +
-                '<span class="wc-completo-card-conjunto-icon" aria-hidden="true"></span>' +
+                '<span class="wc-completo-card-conjunto-img-wrap">' +
+                '<img src="' + imageUrl + '" alt="" class="wc-completo-card-conjunto-img" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'block\'">' +
+                '<span class="wc-completo-card-conjunto-icon" style="display:none;" aria-hidden="true"></span>' +
+                '</span>' +
                 '<span class="wc-completo-card-conjunto-name">' + nombre + '</span>' +
                 (desc ? '<span class="wc-completo-card-conjunto-desc">' + desc + (c.descripcion && c.descripcion.length > 80 ? '...' : '') + '</span>' : '') +
                 '</button>';
@@ -2599,6 +2636,12 @@ class ScanAsYouShopApp {
                 e.preventDefault();
                 this.handleWcConjuntoDetailSave();
             });
+        }
+
+        // Conjunto WC detalle: Comprobar imagen
+        const wcConjuntoComprobarImagenBtn = document.getElementById('wcConjuntoComprobarImagenBtn');
+        if (wcConjuntoComprobarImagenBtn) {
+            wcConjuntoComprobarImagenBtn.addEventListener('click', () => this.handleWcConjuntoComprobarImagen());
         }
 
         // Conjunto WC: Buscar taza / tanque / asiento (muestra codigo y descripcion antes de anadir)
