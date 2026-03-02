@@ -3334,11 +3334,11 @@ body.gate-visible .app-container {
 }
 .recambios-vista-producto-actual { margin: 0 1rem 1.5rem; }
 .recambios-vista-producto-actual .profile-section-title { margin-bottom: 0.75rem; }
-/* Tarjeta destacada del producto seleccionado (imagen + cuerpo en horizontal en escritorio, apilado en movil) */
+/* Tarjeta destacada del producto seleccionado (imagen pequena + texto en movil, imagen grande en escritorio) */
 .recambios-vista-card-destacada {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 1rem;
+    grid-template-columns: 80px 1fr;
+    gap: 0.75rem;
     padding: 0;
     background: var(--gray-50);
     border-radius: 12px;
@@ -3348,6 +3348,7 @@ body.gate-visible .app-container {
 @media (min-width: 480px) {
     .recambios-vista-card-destacada {
         grid-template-columns: 200px 1fr;
+        gap: 1rem;
     }
 }
 .recambios-vista-card-destacada .recambios-vista-card-img-wrap {
@@ -3376,11 +3377,16 @@ body.gate-visible .app-container {
     color: var(--gray-600);
     margin: 0 0 0.75rem 0;
 }
-/* Grid de tarjetas (2 columnas como WC Completo) */
+/* Grid de tarjetas: 2 columnas en movil, 4 columnas en escritorio */
 .recambios-vista-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem 1rem;
+}
+@media (min-width: 768px) {
+    .recambios-vista-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
 }
 .recambios-vista-card {
     display: flex;

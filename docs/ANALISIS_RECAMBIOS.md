@@ -72,10 +72,21 @@ Ambos botones pueden mostrarse a la vez si el producto tiene recambios y ademas 
 
 Desde la **ventana de detalle de producto** (overlay con carousel), al pulsar **"Ver Recambios"** o **"Sirve para estos productos"** se cierra el overlay y se abre una **pagina** dedicada:
 
-- **Ver Recambios**: titulo "Recambios de este producto". Se muestra la tarjeta del producto actual (imagen, codigo, descripcion) y un grid de tarjetas con imagen, descripcion, codigo y precio de cada recambio. Clic en una tarjeta abre el detalle de ese producto.
-- **Sirve para estos productos**: titulo "Sirve para estos productos". Se muestra la tarjeta del producto actual y un grid de los productos que se pueden reparar o completar con ese articulo (imagen, descripcion, codigo, precio). Clic en una tarjeta abre el detalle de ese producto.
+- **Ver Recambios**: titulo "Recambios de este producto". Se muestra la tarjeta del producto actual (imagen, codigo, descripcion, mas pequena en movil) y un grid de tarjetas con imagen, descripcion, codigo y precio de cada recambio. **Clic en una tarjeta abre el modal de cantidad y anade el recambio al carrito directamente.**
+- **Sirve para estos productos**: titulo "Sirve para estos productos". Se muestra la tarjeta del producto actual y un grid de los productos que se pueden reparar o completar con ese articulo. **Clic en una tarjeta abre el modal de cantidad y anade el producto al carrito directamente.**
+
+**Layout del grid**: 2 columnas en movil, 4 columnas en escritorio (>=768px). La tarjeta del producto actual usa layout horizontal compacto (80px imagen + texto) en movil, y layout horizontal amplio (200px imagen + texto) en escritorio (>=480px).
 
 El boton **Volver** devuelve a la pantalla desde la que se habia abierto el detalle (busqueda, carrito, etc.). No hay boton "Recambios" en Herramientas; la unica forma de llegar a esta pagina es desde los botones del overlay de detalle.
+
+### 4.3 Gestion de listeners (comportamiento tecnico)
+
+Tanto `showAddToCartModal` como `openProductDetail` utilizan un patron de limpieza externa para evitar la acumulacion de event listeners entre invocaciones:
+
+- `this._addToCartModalCleanup`: referencia al `handleClose` de la ultima invocacion de `showAddToCartModal`. Al inicio de cada nueva llamada se ejecuta (cancela el modal anterior, limpia sus listeners) antes de registrar los nuevos.
+- `this._productDetailCleanup`: referencia al `handleClose` de la ultima invocacion de `openProductDetail`. Al inicio de cada nueva llamada se ejecuta (cierra el overlay anterior, limpia sus listeners) antes de registrar los nuevos.
+
+Este patron garantiza que nunca haya listeners huerfanos acumulados, lo que prevenia: anadir el articulo principal en vez del recambio, el boton "Volver" quedarse en la misma pantalla, y la imagen del overlay quedarse en cache.
 
 ---
 

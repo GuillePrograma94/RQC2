@@ -3185,16 +3185,16 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Vista Recambios: clic en una tarjeta -> abrir detalle de producto
+        // Vista Recambios: clic en una tarjeta -> anadir recambio al carrito
         const recambiosVistaContenido = document.getElementById('recambiosVistaContenido');
         if (recambiosVistaContenido) {
-            recambiosVistaContenido.addEventListener('click', (e) => {
+            recambiosVistaContenido.addEventListener('click', async (e) => {
                 const item = e.target.closest('.recambios-vista-card');
                 if (!item || !item.dataset.codigo) return;
                 const codigo = item.dataset.codigo;
                 const descripcion = item.dataset.descripcion || '';
                 const pvp = parseFloat(item.dataset.pvp) || 0;
-                this.showAddToCartModal({ codigo: codigo, descripcion: descripcion, pvp: pvp });
+                await this.addProductToCart(codigo, descripcion, pvp);
             });
         }
 
@@ -4040,6 +4040,10 @@ class ScanAsYouShopApp {
      * Abre el overlay de detalle de producto (carousel 1-4 imágenes)
      */
     async openProductDetail(producto) {
+        if (this._productDetailCleanup) {
+            this._productDetailCleanup();
+            this._productDetailCleanup = null;
+        }
         const overlayEl = document.getElementById('productDetailOverlay');
         const carouselInner = document.getElementById('productDetailCarouselInner');
         const prevBtn = document.getElementById('productDetailCarouselPrev');
@@ -4250,6 +4254,7 @@ class ScanAsYouShopApp {
             }
             overlayEl.style.display = 'none';
             overlayEl.setAttribute('aria-hidden', 'true');
+            this._productDetailCleanup = null;
             closeBtn.removeEventListener('click', handleClose);
             if (backdrop) backdrop.removeEventListener('click', handleClose);
             if (verRecambiosBtn && recambiosData.length > 0) verRecambiosBtn.removeEventListener('click', onVerRecambiosClick);
@@ -4271,12 +4276,19 @@ class ScanAsYouShopApp {
         dotsContainer.querySelectorAll('.product-detail-carousel-dot').forEach(function (dot) {
             dot.addEventListener('click', handleDotClick);
         });
+
+        // Guardar referencia para que la proxima llamada pueda cerrar esta invocacion
+        this._productDetailCleanup = handleClose;
     }
 
     /**
      * Muestra el modal de añadir al carrito con selección de cantidad
      */
     async showAddToCartModal(producto) {
+        if (this._addToCartModalCleanup) {
+            this._addToCartModalCleanup();
+            this._addToCartModalCleanup = null;
+        }
         return new Promise(async (resolve) => {
             const modal = document.getElementById('addToCartModal');
             const overlay = modal.querySelector('.add-to-cart-overlay');
@@ -4384,6 +4396,7 @@ class ScanAsYouShopApp {
             const handleClose = () => {
                 modal.style.display = 'none';
                 cleanup();
+                this._addToCartModalCleanup = null;
                 resolve(null);
             };
 
@@ -4391,6 +4404,7 @@ class ScanAsYouShopApp {
                 const cantidad = parseInt(qtyInput.value) || 1;
                 modal.style.display = 'none';
                 cleanup();
+                this._addToCartModalCleanup = null;
                 resolve(cantidad);
             };
 
@@ -4454,10 +4468,7 @@ class ScanAsYouShopApp {
                 qtyInput.removeEventListener('keypress', handleKeyPress);
             };
 
-            // Limpiar listeners previos antes de añadir nuevos (por si el modal se abrió antes sin limpiarse)
-            cleanup();
-
-            // Añadir listeners - usar { once: false } explícitamente
+            // Añadir listeners
             closeBtn.addEventListener('click', handleClose);
             overlay.addEventListener('click', handleClose);
             if (imageContainer) imageContainer.addEventListener('click', handleImageClick);
@@ -4468,6 +4479,9 @@ class ScanAsYouShopApp {
             qtyInput.addEventListener('input', handleInputChange);
             qtyInput.addEventListener('focus', handleFocus);
             qtyInput.addEventListener('keypress', handleKeyPress);
+
+            // Guardar referencia para que la proxima llamada pueda limpiar esta invocacion
+            this._addToCartModalCleanup = handleClose;
         });
     }
 
