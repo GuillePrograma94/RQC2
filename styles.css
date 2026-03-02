@@ -3352,14 +3352,23 @@ body.gate-visible .app-container {
     }
 }
 .recambios-vista-card-destacada .recambios-vista-card-img-wrap {
+    width: 100%;
     aspect-ratio: 1;
     background: var(--gray-100);
+    align-self: center;
+    max-height: 100%;
+    overflow: hidden;
 }
 .recambios-vista-card-destacada .recambios-vista-card-body {
-    padding: 1rem;
+    padding: 0.75rem;
     display: flex;
     flex-direction: column;
     justify-content: center;
+}
+@media (min-width: 480px) {
+    .recambios-vista-card-destacada .recambios-vista-card-body {
+        padding: 1rem;
+    }
 }
 .recambios-vista-producto-text { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--gray-800); }
 .recambios-vista-codigo-sec { font-size: 0.85rem; color: var(--gray-600); font-weight: normal; }
@@ -3385,7 +3394,7 @@ body.gate-visible .app-container {
 }
 @media (min-width: 768px) {
     .recambios-vista-grid {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(6, 1fr);
     }
 }
 .recambios-vista-card {

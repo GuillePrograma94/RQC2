@@ -4619,10 +4619,10 @@ class ScanAsYouShopApp {
             await window.cartManager.uploadCartToCheckout(code);
             window.ui.showToast('Compra confirmada ✓', 'success');
             
-            // Invalidar cache de historial si hay usuario logueado (Phase 2 - Cache)
+            // Invalidar cache de historial para el usuario efectivo (puede ser cliente representado por comercial)
             if (this.currentUser && window.purchaseCache) {
-                console.log('🔄 Invalidando cache de historial tras compra...');
-                window.purchaseCache.invalidateUser(this.currentUser.user_id);
+                const effectiveId = this.getEffectiveUserId() || this.currentUser.user_id;
+                window.purchaseCache.invalidateUser(effectiveId);
             }
             
             // Limpiar carrito y volver
@@ -6160,7 +6160,7 @@ class ScanAsYouShopApp {
                         payload: erpPayload,
                         referencia: referencia,
                         almacen: almacen,
-                        usuario_id: this.currentUser.user_id
+                        usuario_id: effectiveUserId || this.currentUser.user_id
                     });
                     erpEnqueued = true;
                 } catch (queueErr) {
@@ -6174,7 +6174,7 @@ class ScanAsYouShopApp {
                     ? 'Pedido guardado. Se enviara al ERP cuando haya conexion.'
                     : 'Pedido guardado en el servidor. Si el ERP no lo recibe, contacta con soporte.', erpEnqueued ? 'success' : 'warning');
                 if (window.purchaseCache) {
-                    window.purchaseCache.invalidateUser(this.currentUser.user_id);
+                    window.purchaseCache.invalidateUser(effectiveUserId || this.currentUser.user_id);
                 }
                 await window.cartManager.clearCart();
                 window.ui.updateCartBadge();
@@ -6219,7 +6219,7 @@ class ScanAsYouShopApp {
             );
 
             if (window.purchaseCache) {
-                window.purchaseCache.invalidateUser(this.currentUser.user_id);
+                window.purchaseCache.invalidateUser(effectiveUserId || this.currentUser.user_id);
             }
             await window.cartManager.clearCart();
             window.ui.updateCartBadge();
