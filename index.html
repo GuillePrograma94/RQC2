@@ -539,10 +539,13 @@
 
                 <!-- Bloque superior: solo visible cuando ya hay un cliente representado -->
                 <div id="selectorClienteRepresentando" class="selector-cliente-representando" style="display: none;">
-                    <p class="selector-cliente-representando-texto">
-                        Estas representando a <strong id="selectorClienteRepresentandoNombre"></strong>.
-                        <button type="button" id="selectorClienteAñadirAliasBtn" class="selector-cliente-alias-link">Añadir alias</button>
-                    </p>
+                    <div class="selector-cliente-representando-row">
+                        <p class="selector-cliente-representando-texto">
+                            Estas representando a <strong id="selectorClienteRepresentandoNombre"></strong>.
+                            <button type="button" id="selectorClienteAñadirAliasBtn" class="selector-cliente-alias-link">Añadir alias</button>
+                        </p>
+                        <button type="button" id="selectorClienteDejarRepresentarBtn" class="selector-cliente-dejar-btn" aria-label="Dejar de representar cliente">&#x2715;</button>
+                    </div>
                 </div>
 
                 <h3 class="selector-cliente-otro-titulo">Representar a otro cliente</h3>
@@ -566,6 +569,10 @@
                 </div>
                 <div id="selectorClienteNoMatch" class="profile-operarios-empty" style="display: none;">
                     <span class="profile-operarios-empty-text">Ningun cliente coincide con el filtro.</span>
+                </div>
+
+                <div class="selector-cliente-footer">
+                    <button type="button" id="selectorClienteCambiarPasswordBtn" class="selector-cliente-password-btn">Cambiar mi contrasena</button>
                 </div>
             </main>
         </div>
@@ -944,6 +951,34 @@
                     </div>
                     <p id="editAliasClienteMessage" class="profile-message" style="display: none;"></p>
                     <button type="submit" id="editAliasClienteSubmit" class="btn btn-primary">Guardar alias</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal cambiar contraseña del comercial -->
+        <div id="cambiarPasswordComercialModal" class="profile-modal" style="display: none;">
+            <div class="profile-modal-overlay"></div>
+            <div class="profile-modal-content">
+                <div class="profile-modal-header">
+                    <h3>Cambiar contrasena</h3>
+                    <button type="button" id="cambiarPasswordComercialClose" class="profile-modal-close">&#x2715;</button>
+                </div>
+                <form id="cambiarPasswordComercialForm" class="profile-form">
+                    <input type="text" name="username" autocomplete="username" class="profile-input-hidden" tabindex="-1" aria-hidden="true">
+                    <div class="profile-form-group">
+                        <label for="comercialCurrentPassword" class="profile-label">Contrasena actual</label>
+                        <input type="password" id="comercialCurrentPassword" class="profile-input" placeholder="Contrasena actual" minlength="4" autocomplete="current-password">
+                    </div>
+                    <div class="profile-form-group">
+                        <label for="comercialNewPassword" class="profile-label">Nueva contrasena</label>
+                        <input type="password" id="comercialNewPassword" class="profile-input" placeholder="Minimo 4 caracteres" minlength="4" autocomplete="new-password">
+                    </div>
+                    <div class="profile-form-group">
+                        <label for="comercialConfirmPassword" class="profile-label">Repetir nueva contrasena</label>
+                        <input type="password" id="comercialConfirmPassword" class="profile-input" placeholder="Repetir contrasena" minlength="4" autocomplete="new-password">
+                    </div>
+                    <p id="cambiarPasswordComercialMessage" class="profile-message" style="display: none;"></p>
+                    <button type="submit" id="cambiarPasswordComercialSubmit" class="btn btn-primary">Guardar contrasena</button>
                 </form>
             </div>
         </div>

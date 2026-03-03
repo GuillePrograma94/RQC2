@@ -913,6 +913,7 @@ class ScanAsYouShopApp {
         const block = document.getElementById('selectorClienteRepresentando');
         const nameEl = document.getElementById('selectorClienteRepresentandoNombre');
         const aliasBtn = document.getElementById('selectorClienteAñadirAliasBtn');
+        const dejarBtn = document.getElementById('selectorClienteDejarRepresentarBtn');
         if (!block || !nameEl || !aliasBtn) return;
         const id = this.currentUser && this.currentUser.cliente_representado_id;
         if (!id) {
@@ -927,7 +928,29 @@ class ScanAsYouShopApp {
         nameEl.textContent = cliente.nombre || this.currentUser.cliente_representado_nombre || '';
         aliasBtn.textContent = cliente.alias ? 'Editar alias' : 'Añadir alias';
         aliasBtn.onclick = () => this.openEditAliasModal(cliente);
+        if (dejarBtn) {
+            dejarBtn.onclick = () => this._dejarDeRepresentarCliente();
+        }
         block.style.display = 'block';
+    }
+
+    /**
+     * Limpia el cliente representado actualmente por el comercial.
+     * Elimina los campos de representacion del currentUser, guarda la sesion y actualiza la UI.
+     */
+    _dejarDeRepresentarCliente() {
+        if (!this.currentUser) return;
+        const nombre = this.currentUser.cliente_representado_nombre || '';
+        delete this.currentUser.cliente_representado_id;
+        delete this.currentUser.cliente_representado_nombre;
+        delete this.currentUser.cliente_representado_almacen_habitual;
+        delete this.currentUser.cliente_representado_grupo_cliente;
+        this.saveUserSession(this.currentUser, this.currentSession);
+        this.updateUserUI();
+        this._updateSelectorClienteRepresentandoBlock();
+        if (window.ui && nombre) {
+            window.ui.showToast('Has dejado de representar a ' + nombre, 'info');
+        }
     }
 
     /**
@@ -1218,6 +1241,29 @@ class ScanAsYouShopApp {
         const modal = document.getElementById('editAliasClienteModal');
         if (modal) modal.style.display = 'none';
         this._editAliasClienteActual = null;
+    }
+
+    /**
+     * Abre el modal para que el comercial cambie su propia contrasena.
+     */
+    openCambiarPasswordComercialModal() {
+        const modal = document.getElementById('cambiarPasswordComercialModal');
+        if (!modal) return;
+        const form = document.getElementById('cambiarPasswordComercialForm');
+        const msgEl = document.getElementById('cambiarPasswordComercialMessage');
+        if (form) form.reset();
+        if (msgEl) { msgEl.style.display = 'none'; msgEl.textContent = ''; msgEl.className = 'profile-message'; }
+        modal.style.display = 'flex';
+        const firstInput = document.getElementById('comercialCurrentPassword');
+        if (firstInput) firstInput.focus();
+    }
+
+    /**
+     * Cierra el modal de cambio de contrasena del comercial.
+     */
+    closeCambiarPasswordComercialModal() {
+        const modal = document.getElementById('cambiarPasswordComercialModal');
+        if (modal) modal.style.display = 'none';
     }
 
     /**
@@ -3467,6 +3513,77 @@ class ScanAsYouShopApp {
             if (overlay) {
                 overlay.addEventListener('click', () => this.closeEditAliasModal());
             }
+        }
+
+        // Comercial: abrir modal cambiar contrasena
+        const selectorClienteCambiarPasswordBtn = document.getElementById('selectorClienteCambiarPasswordBtn');
+        if (selectorClienteCambiarPasswordBtn) {
+            selectorClienteCambiarPasswordBtn.addEventListener('click', () => this.openCambiarPasswordComercialModal());
+        }
+
+        // Comercial: cerrar modal cambiar contrasena (X y overlay)
+        const cambiarPasswordComercialClose = document.getElementById('cambiarPasswordComercialClose');
+        if (cambiarPasswordComercialClose) {
+            cambiarPasswordComercialClose.addEventListener('click', () => this.closeCambiarPasswordComercialModal());
+        }
+        const cambiarPasswordComercialModal = document.getElementById('cambiarPasswordComercialModal');
+        if (cambiarPasswordComercialModal) {
+            const overlay = cambiarPasswordComercialModal.querySelector('.profile-modal-overlay');
+            if (overlay) {
+                overlay.addEventListener('click', () => this.closeCambiarPasswordComercialModal());
+            }
+        }
+
+        // Comercial: submit formulario cambiar contrasena
+        const cambiarPasswordComercialForm = document.getElementById('cambiarPasswordComercialForm');
+        if (cambiarPasswordComercialForm) {
+            cambiarPasswordComercialForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (!this.currentUser || !this.currentUser.is_comercial || !this.currentUser.comercial_id) return;
+                const current = document.getElementById('comercialCurrentPassword');
+                const newP = document.getElementById('comercialNewPassword');
+                const confirmP = document.getElementById('comercialConfirmPassword');
+                const msgEl = document.getElementById('cambiarPasswordComercialMessage');
+                const submitBtn = document.getElementById('cambiarPasswordComercialSubmit');
+                if (!current || !newP || !confirmP || !msgEl) return;
+                const newVal = newP.value;
+                const confirmVal = confirmP.value;
+                if (newVal.length < 4) {
+                    msgEl.textContent = 'La nueva contrasena debe tener al menos 4 caracteres';
+                    msgEl.className = 'profile-message error';
+                    msgEl.style.display = 'block';
+                    return;
+                }
+                if (newVal !== confirmVal) {
+                    msgEl.textContent = 'La nueva contrasena y la repeticion no coinciden';
+                    msgEl.className = 'profile-message error';
+                    msgEl.style.display = 'block';
+                    return;
+                }
+                if (submitBtn) submitBtn.disabled = true;
+                window.supabaseClient.cambiarPasswordComercial(this.currentUser.comercial_id, current.value, newVal)
+                    .then((result) => {
+                        if (result.success) {
+                            msgEl.textContent = 'Contrasena actualizada correctamente';
+                            msgEl.className = 'profile-message success';
+                            msgEl.style.display = 'block';
+                            cambiarPasswordComercialForm.reset();
+                            window.ui.showToast('Contrasena actualizada', 'success');
+                        } else {
+                            msgEl.textContent = result.message || 'Error al cambiar contrasena';
+                            msgEl.className = 'profile-message error';
+                            msgEl.style.display = 'block';
+                        }
+                    })
+                    .catch(() => {
+                        msgEl.textContent = 'Error de conexion';
+                        msgEl.className = 'profile-message error';
+                        msgEl.style.display = 'block';
+                    })
+                    .finally(() => {
+                        if (submitBtn) submitBtn.disabled = false;
+                    });
+            });
         }
 
         // Perfil: Enviar formulario nuevo operario

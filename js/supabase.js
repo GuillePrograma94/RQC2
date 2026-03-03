@@ -763,6 +763,37 @@ class SupabaseClient {
     }
 
     /**
+     * Cambia la contrasena de un comercial verificando la actual.
+     * Utiliza la RPC cambiar_password_comercial que actua sobre usuarios_comerciales.
+     * @param {number} comercialId - ID del comercial (usuarios_comerciales.id)
+     * @param {string} passwordActual - Contrasena actual en texto plano
+     * @param {string} passwordNueva - Nueva contrasena en texto plano
+     */
+    async cambiarPasswordComercial(comercialId, passwordActual, passwordNueva) {
+        try {
+            if (!this.client || !comercialId) {
+                throw new Error('Cliente no inicializado o comercial no indicado');
+            }
+            const hashActual = await this._hashPassword(passwordActual);
+            const hashNueva = await this._hashPassword(passwordNueva);
+            const { data, error } = await this.client.rpc('cambiar_password_comercial', {
+                p_comercial_id: comercialId,
+                p_password_actual_hash: hashActual,
+                p_password_nueva_hash: hashNueva
+            });
+            if (error) throw error;
+            if (data && data.length > 0) {
+                const r = data[0];
+                return { success: !!r.success, message: r.message || null };
+            }
+            return { success: false, message: 'Error desconocido' };
+        } catch (err) {
+            console.error('cambiarPasswordComercial:', err);
+            return { success: false, message: (err && err.message) || 'Error al cambiar contrasena' };
+        }
+    }
+
+    /**
      * Lista los operarios del usuario titular
      * @param {number} usuarioId - ID del usuario (titular)
      * @returns {Promise<Array<{id: number, codigo_operario: string, nombre_operario: string, activo: boolean}>>}

@@ -3996,11 +3996,68 @@ body.gate-visible .app-container {
     color: var(--primary-dark, #0d47a1);
 }
 
+.selector-cliente-representando-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.selector-cliente-representando-row .selector-cliente-representando-texto {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+}
+
+.selector-cliente-dejar-btn {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    background: var(--danger);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.selector-cliente-dejar-btn:hover {
+    background: #dc2626;
+}
+
 .selector-cliente-otro-titulo {
     margin: 0 1rem 0.75rem;
     font-size: 1rem;
     font-weight: 600;
     color: var(--gray-700);
+}
+
+.selector-cliente-footer {
+    margin: 1.5rem 1rem 1rem;
+    display: flex;
+    justify-content: center;
+}
+
+.selector-cliente-password-btn {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: none;
+    border: 1px solid var(--gray-300);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    cursor: pointer;
+    text-align: center;
+}
+
+.selector-cliente-password-btn:hover {
+    background: var(--gray-50);
+    border-color: var(--gray-400);
+    color: var(--gray-800);
 }
 
 .profile-operario-info {
