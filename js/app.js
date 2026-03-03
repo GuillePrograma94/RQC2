@@ -99,6 +99,20 @@ class ScanAsYouShopApp {
                 return;
             }
 
+            // Verificar que la sesion de Supabase Auth sigue activa.
+            // Si el JWT expiro y el refresh token ya no es valido, forzar re-login
+            // para garantizar que las operaciones de escritura con RLS funcionen.
+            const { data: authSessionData } = await window.supabaseClient.client.auth.getSession();
+            if (!authSessionData?.session) {
+                console.log('Sesion de Supabase Auth expirada. Requiere nuevo login.');
+                localStorage.removeItem('current_user');
+                localStorage.removeItem('current_session');
+                await window.supabaseClient.client.auth.signOut().catch(() => {});
+                this.showLanding();
+                window.ui.hideLoading();
+                return;
+            }
+
             console.log('Sesion de usuario encontrada:', savedUser.user_name);
             this.currentUser = savedUser;
             this.updateUserUI();

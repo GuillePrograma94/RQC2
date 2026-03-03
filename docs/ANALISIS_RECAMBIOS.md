@@ -90,13 +90,55 @@ Este patron garantiza que nunca haya listeners huerfanos acumulados, lo que prev
 
 ---
 
-## 5. Archivos
+## 5. Seguridad y RLS
+
+### Modelo de autenticacion del proyecto
+
+El proyecto usa autenticacion propia (tabla `usuarios` con campo `tipo = 'ADMINISTRADOR'`), no el sistema de email/password nativo de Supabase Auth. Sin embargo, la API de Vercel (`api/auth/login.js`) crea o actualiza el usuario correspondiente en Supabase Auth en cada login, escribiendo en su `app_metadata`:
+
+```json
+{ "usuario_id": 42, "es_administrador": true }
+```
+
+A continuacion, el frontend llama a `supabase.auth.signInWithPassword()` para obtener un JWT de Supabase Auth que contiene ese `app_metadata`. Este JWT se envia automaticamente en todas las peticiones al cliente Supabase del navegador.
+
+### Sesion de Supabase Auth vs. sesion de la app
+
+El cliente de la app guarda su propia sesion en `localStorage['current_user']` (sin expiry). La sesion de Supabase Auth (JWT) se guarda por separado por el cliente Supabase y tiene un tiempo de vida limitado (access token ~1h, refresh token ~7 dias). Si el usuario vuelve despues de que ambos tokens hayan expirado, el JWT es nulo y las operaciones escritura con RLS fallan con `42501`.
+
+**Solucion implementada en `initialize()`** (desde marzo 2026): al restaurar la sesion de la app desde `localStorage`, se verifica inmediatamente si el JWT de Supabase Auth sigue activo con `auth.getSession()`. Si la sesion JWT ha expirado, se limpia el `localStorage` de la app y se fuerza al usuario a hacer login de nuevo. Esto garantiza que la sesion de la app y el JWT siempre esten sincronizados.
+
+### Politicas RLS de producto_recambios
+
+| Operacion | Quién puede | Condicion SQL |
+|---|---|---|
+| SELECT | Cualquier usuario (anon o autenticado) | `USING (true)` |
+| INSERT | Solo administradores | `WITH CHECK (((auth.jwt() -> 'app_metadata') ->> 'es_administrador')::boolean IS TRUE)` |
+| DELETE | Solo administradores | `USING (((auth.jwt() -> 'app_metadata') ->> 'es_administrador')::boolean IS TRUE)` |
+
+**Lectura abierta** porque los recambios se muestran en fichas de producto para cualquier usuario, incluso invitados.
+
+**Escritura restringida por JWT claim**: el RLS comprueba `app_metadata.es_administrador` del JWT emitido por Supabase Auth. Como ese claim solo lo escribe el servidor Vercel (con `service_role_key`) y solo cuando `usuarios.tipo = 'ADMINISTRADOR'` en la BD, no es falsificable desde el navegador.
+
+### Como aplicar el RLS
+
+Ejecutar `migration_rls_producto_recambios.sql` en el SQL Editor de Supabase. El script:
+1. Habilita RLS en la tabla (si no estaba habilitado)
+2. Elimina cualquier politica previa conflictiva
+3. Crea las tres politicas descritas arriba
+4. Devuelve un SELECT de verificacion de las politicas activas
+
+No requiere cambios en el codigo frontend ni en las API routes.
+
+---
+
+## 6. Archivos
 
 
 | Archivo                                | Uso                                                                                                                                 |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `migration_producto_recambios.sql`     | Crear tabla e indices (ejecutar en Supabase).                                                                                       |
-| `migration_rls_producto_recambios.sql` | RLS (ejecutar despues de la migracion de tabla).                                                                                    |
+| `migration_rls_producto_recambios.sql` | RLS definitivo: lectura abierta, escritura solo para JWT con es_administrador=true (ejecutar en Supabase SQL Editor).               |
 | `supabase.js`                          | Metodos: getRecambiosDeProducto(codigo), getPadresDeRecambio(codigo), addRecambio(padreCodigo, recambioCodigo), removeRecambio(id). |
 | `index.html`                           | Boton en Panel de Control + pantalla recambios (buscar producto + dos listas).                                                      |
 | `app.js`                               | showScreen('recambios'), renderRecambios, anadir/quitar recambios y padres.                                                         |
