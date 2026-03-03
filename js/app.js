@@ -6451,15 +6451,15 @@ class ScanAsYouShopApp {
             }
         }
 
-        // Comercial sin cliente representado: pedidos de todos sus clientes, ordenados (COMPLETADO abajo), con nombre en tarjeta
+        // Comercial sin cliente representado: pedidos de todos sus clientes en una sola consulta (RPC get_pedidos_comercial)
         if (this.currentUser && this.currentUser.is_comercial && !this.currentUser.cliente_representado_id) {
             // Mismo fallback que renderSelectorClienteScreen para obtener el numero del comercial
             const comercialNumero = this.currentUser.comercial_numero != null
                 ? this.currentUser.comercial_numero
                 : parseInt(this.currentUser.codigo_usuario, 10);
-            console.log('[loadMyOrders] Comercial sin cliente - comercial_numero:', this.currentUser.comercial_numero, '| codigo_usuario:', this.currentUser.codigo_usuario, '| numero usado:', comercialNumero);
+            console.log('[loadMyOrders] Comercial sin cliente - numero:', comercialNumero);
             if (!comercialNumero || isNaN(comercialNumero)) {
-                console.warn('[loadMyOrders] No se pudo determinar el numero del comercial');
+                console.warn('[loadMyOrders] No se pudo determinar el numero del comercial. comercial_numero:', this.currentUser.comercial_numero, '| codigo_usuario:', this.currentUser.codigo_usuario);
                 if (ordersLoading) ordersLoading.style.display = 'none';
                 if (ordersEmpty) ordersEmpty.style.display = 'flex';
                 if (ordersList) ordersList.style.display = 'none';
@@ -6469,34 +6469,11 @@ class ScanAsYouShopApp {
             if (ordersEmpty) ordersEmpty.style.display = 'none';
             if (ordersList) ordersList.style.display = 'none';
             try {
-                const clientes = await window.supabaseClient.getClientesAsignadosComercial(comercialNumero);
-                console.log('[loadMyOrders] Clientes asignados encontrados:', clientes ? clientes.length : 0, clientes);
-                if (!clientes || clientes.length === 0) {
-                    console.warn('[loadMyOrders] Ningún cliente asignado a este comercial (numero:', comercialNumero, ')');
-                    if (ordersLoading) ordersLoading.style.display = 'none';
-                    if (ordersEmpty) ordersEmpty.style.display = 'flex';
-                    if (ordersList) ordersList.style.display = 'none';
-                    return;
-                }
-                const allPedidos = [];
-                for (const c of clientes) {
-                    console.log('[loadMyOrders] Cargando pedidos del cliente id:', c.id, c.nombre);
-                    const list = await window.supabaseClient.getUserRemoteOrders(c.id);
-                    console.log('[loadMyOrders]   -> pedidos encontrados:', list ? list.length : 0);
-                    (list || []).forEach(function (p) {
-                        allPedidos.push(Object.assign({}, p, { cliente_nombre: c.nombre }));
-                    });
-                }
-                console.log('[loadMyOrders] Total pedidos de todos los clientes:', allPedidos.length);
-                // Ordenar: mas recientes primero; COMPLETADO siempre abajo
-                allPedidos.sort(function (a, b) {
-                    const aCompletado = (a.estado_procesamiento === 'completado') ? 1 : 0;
-                    const bCompletado = (b.estado_procesamiento === 'completado') ? 1 : 0;
-                    if (aCompletado !== bCompletado) return aCompletado - bCompletado;
-                    return new Date(b.fecha_creacion || 0) - new Date(a.fecha_creacion || 0);
-                });
+                // Una sola llamada a Supabase (JOIN en servidor, orden aplicado en SQL)
+                const allPedidos = await window.supabaseClient.getPedidosComercial(comercialNumero);
+                console.log('[loadMyOrders] Pedidos obtenidos para comercial', comercialNumero, ':', allPedidos.length);
                 if (ordersLoading) ordersLoading.style.display = 'none';
-                if (allPedidos.length === 0) {
+                if (!allPedidos || allPedidos.length === 0) {
                     if (ordersEmpty) ordersEmpty.style.display = 'flex';
                     if (ordersList) ordersList.style.display = 'none';
                     return;
@@ -6511,7 +6488,7 @@ class ScanAsYouShopApp {
                     }
                 }
             } catch (err) {
-                console.error('[loadMyOrders] Error al cargar pedidos de clientes (comercial):', err);
+                console.error('[loadMyOrders] Error al cargar pedidos del comercial:', err);
                 if (ordersLoading) ordersLoading.style.display = 'none';
                 if (ordersEmpty) ordersEmpty.style.display = 'flex';
                 if (ordersList) ordersList.style.display = 'none';
