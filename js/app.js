@@ -3065,15 +3065,12 @@ class ScanAsYouShopApp {
             });
         }
 
-        // My Orders: cliente carga sus pedidos; comercial carga pedidos del cliente representado (si hay uno seleccionado)
         const myOrdersBtn = document.getElementById('myOrdersBtn');
         if (myOrdersBtn) {
             myOrdersBtn.addEventListener('click', () => {
                 if (this.currentUser && this.currentUser.is_comercial) {
-                    if (!this.currentUser.cliente_representado_id) {
-                        window.ui.showToast('Selecciona un cliente (pulsa en tu nombre)', 'info');
-                        return;
-                    }
+                    // Comercial puede ver Mis pedidos siempre: sin cliente = pedidos de todos; con cliente = pedidos del representado
+                    // (ya no se exige seleccionar cliente para entrar)
                 }
                 this.closeMenu();
                 this.showScreen('myOrders');
@@ -6441,6 +6438,70 @@ class ScanAsYouShopApp {
         const ordersLoading = document.getElementById('ordersLoading');
         const ordersEmpty = document.getElementById('ordersEmpty');
         const ordersList = document.getElementById('ordersList');
+        const myOrdersRepresentandoBlock = document.getElementById('myOrdersRepresentandoBlock');
+        const myOrdersRepresentandoNombre = document.getElementById('myOrdersRepresentandoNombre');
+
+        // Bloque "Representando a X": visible solo para comercial con cliente representado
+        if (myOrdersRepresentandoBlock && myOrdersRepresentandoNombre) {
+            if (this.currentUser && this.currentUser.is_comercial && this.currentUser.cliente_representado_id && this.currentUser.cliente_representado_nombre) {
+                myOrdersRepresentandoBlock.style.display = 'block';
+                myOrdersRepresentandoNombre.textContent = this.currentUser.cliente_representado_nombre;
+            } else {
+                myOrdersRepresentandoBlock.style.display = 'none';
+            }
+        }
+
+        // Comercial sin cliente representado: pedidos de todos sus clientes, ordenados (COMPLETADO abajo), con nombre en tarjeta
+        if (this.currentUser && this.currentUser.is_comercial && !this.currentUser.cliente_representado_id) {
+            if (ordersLoading) ordersLoading.style.display = 'flex';
+            if (ordersEmpty) ordersEmpty.style.display = 'none';
+            if (ordersList) ordersList.style.display = 'none';
+            try {
+                const clientes = await window.supabaseClient.getClientesAsignadosComercial(this.currentUser.comercial_numero);
+                if (!clientes || clientes.length === 0) {
+                    if (ordersLoading) ordersLoading.style.display = 'none';
+                    if (ordersEmpty) ordersEmpty.style.display = 'flex';
+                    if (ordersList) ordersList.style.display = 'none';
+                    return;
+                }
+                const allPedidos = [];
+                for (const c of clientes) {
+                    const list = await window.supabaseClient.getUserRemoteOrders(c.id);
+                    (list || []).forEach(function (p) {
+                        allPedidos.push(Object.assign({}, p, { cliente_nombre: c.nombre }));
+                    });
+                }
+                // Ordenar: mas recientes primero; COMPLETADO siempre abajo
+                allPedidos.sort(function (a, b) {
+                    const aCompletado = (a.estado_procesamiento === 'completado') ? 1 : 0;
+                    const bCompletado = (b.estado_procesamiento === 'completado') ? 1 : 0;
+                    if (aCompletado !== bCompletado) return aCompletado - bCompletado;
+                    return new Date(b.fecha_creacion || 0) - new Date(a.fecha_creacion || 0);
+                });
+                if (ordersLoading) ordersLoading.style.display = 'none';
+                if (allPedidos.length === 0) {
+                    if (ordersEmpty) ordersEmpty.style.display = 'flex';
+                    if (ordersList) ordersList.style.display = 'none';
+                    return;
+                }
+                if (ordersEmpty) ordersEmpty.style.display = 'none';
+                if (ordersList) {
+                    ordersList.style.display = 'block';
+                    ordersList.innerHTML = '';
+                    for (let i = 0; i < allPedidos.length; i++) {
+                        const orderCard = await this.createOrderCard(allPedidos[i]);
+                        ordersList.appendChild(orderCard);
+                    }
+                }
+            } catch (err) {
+                console.error('Error al cargar pedidos de clientes (comercial):', err);
+                if (ordersLoading) ordersLoading.style.display = 'none';
+                if (ordersEmpty) ordersEmpty.style.display = 'flex';
+                if (ordersList) ordersList.style.display = 'none';
+                window.ui.showToast('Error al cargar pedidos', 'error');
+            }
+            return;
+        }
 
         const userId = this.getEffectiveUserId();
         if (!this.currentUser || !userId) {
@@ -6497,7 +6558,7 @@ class ScanAsYouShopApp {
                 }
             } else {
                 // Si no hay caché, mostrar loading
-                console.log('⚠️ No hay pedidos en caché');
+                console.log('No hay pedidos en cache');
                 ordersLoading.style.display = 'flex';
                 ordersEmpty.style.display = 'none';
                 ordersList.style.display = 'none';
@@ -6537,7 +6598,7 @@ class ScanAsYouShopApp {
                 if (offlineSynthetics.length === 0 && pedidosFromCache.length === 0) {
                     ordersLoading.style.display = 'none';
                     ordersEmpty.style.display = 'flex';
-                    window.ui.showToast('Sin conexión. No hay pedidos guardados.', 'warning');
+                    window.ui.showToast('Sin conexion. No hay pedidos guardados.', 'warning');
                 }
             }
 
@@ -6598,6 +6659,9 @@ class ScanAsYouShopApp {
         const badgeHtml = pedido.estado_procesamiento === 'pendiente_erp'
             ? `<button type="button" class="order-badge order-badge-${estadoInfo.class} order-badge-erp-retry" data-carrito-id="${this.escapeForHtmlAttribute(orderIdAttr)}" title="Pulsar para enviar de nuevo al ERP" onclick="event.stopPropagation(); window.app.retryEnvioErp(this.getAttribute('data-carrito-id'));">${estadoInfo.icon} ${estadoInfo.text}</button>`
             : `<span class="order-badge order-badge-${estadoInfo.class}">${estadoInfo.icon} ${estadoInfo.text}</span>`;
+        const clienteNombreHtml = (pedido.cliente_nombre && String(pedido.cliente_nombre).trim() !== '')
+            ? `<div class="order-card-cliente">Cliente: ${this.escapeForHtmlContentPreservingNewlines(String(pedido.cliente_nombre).trim())}</div>`
+            : '';
         card.innerHTML = `
             <div class="order-card-header" onclick="window.app.toggleOrderDetails(${orderIdForClick})">
                 <div class="order-card-main">
@@ -6606,6 +6670,7 @@ class ScanAsYouShopApp {
                         <span class="order-type order-type-${tipoClass}">${tipoPedido}</span>
                         ${badgeHtml}
                     </div>
+                    ${clienteNombreHtml}
                     <div class="order-card-meta">
                         <span class="order-date">${fechaFormateada}</span>
                         <span class="order-code">Código: ${this.escapeForHtmlAttribute(pedido.codigo_qr || '-')}</span>

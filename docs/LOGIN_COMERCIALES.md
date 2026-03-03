@@ -62,6 +62,16 @@ El comercial puede cambiar su contrasena desde `selectorClienteScreen` usando el
 
 Cuando la sesion es de un comercial, `renderProfileScreen()` muestra el nombre y numero del comercial pero **oculta** la seccion de cambio de contrasena del perfil y la seccion de operarios (esas secciones son exclusivas de clientes titulares). El cambio de contrasena del comercial se hace desde `selectorClienteScreen` tal como se describe arriba.
 
+## Pantalla Mis pedidos (myOrders) para comerciales
+
+El comercial puede abrir **Mis pedidos** siempre (con o sin cliente representado).
+
+- **Sin cliente representado:** Se muestran los pedidos de **todos sus clientes** (los asignados al comercial via `comercial_asignado`). Orden: de mas recientes a mas antiguos, con los pedidos en estado **COMPLETADO** siempre al final. En cada tarjeta aparece el **nombre del cliente** para identificar a quien pertenece el pedido.
+
+- **Con cliente representado:** Se muestran solo los pedidos de ese cliente. En la parte superior de la pantalla se muestra el bloque **"Representando a [Nombre del cliente]"** para que el comercial sepa en todo momento a quien esta representando al revisar los pedidos. Las tarjetas no repiten el nombre del cliente (ya visible arriba).
+
+La carga de pedidos sin cliente representado usa `getClientesAsignadosComercial(comercial_numero)` y luego `getUserRemoteOrders(usuario_id)` por cada cliente; no se usa cache local en esa vista.
+
 ## Nota sobre comerciales legacy
 
 En la base de datos pueden existir referencias antiguas a un sistema de comerciales legacy que fue eliminado. Todos los comerciales actuales se crean nuevos en `usuarios_comerciales` y tienen su entrada en `usuarios` con `tipo = 'COMERCIAL'`. No hay comerciales del sistema antiguo activos.

@@ -4783,6 +4783,19 @@ body.gate-visible .app-container {
    MIS PEDIDOS ENVIADOS - ORDERS SCREEN
    ======================================== */
 
+.my-orders-representando {
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    background: var(--gray-100, #f3f4f6);
+    border-radius: 12px;
+    border-left: 4px solid var(--primary, #2563eb);
+}
+.my-orders-representando-texto {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--gray-800, #1f2937);
+}
+
 .orders-list {
     padding: 1rem;
     display: flex;
@@ -4832,6 +4845,12 @@ body.gate-visible .app-container {
     gap: 0.4rem 0.5rem;
     margin-bottom: 0.4rem;
     min-width: 0;
+}
+
+.order-card-cliente {
+    font-size: 0.85rem;
+    color: var(--gray-700);
+    margin-bottom: 0.35rem;
 }
 
 .order-almacen {
