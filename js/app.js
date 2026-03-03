@@ -6453,12 +6453,26 @@ class ScanAsYouShopApp {
 
         // Comercial sin cliente representado: pedidos de todos sus clientes, ordenados (COMPLETADO abajo), con nombre en tarjeta
         if (this.currentUser && this.currentUser.is_comercial && !this.currentUser.cliente_representado_id) {
+            // Mismo fallback que renderSelectorClienteScreen para obtener el numero del comercial
+            const comercialNumero = this.currentUser.comercial_numero != null
+                ? this.currentUser.comercial_numero
+                : parseInt(this.currentUser.codigo_usuario, 10);
+            console.log('[loadMyOrders] Comercial sin cliente - comercial_numero:', this.currentUser.comercial_numero, '| codigo_usuario:', this.currentUser.codigo_usuario, '| numero usado:', comercialNumero);
+            if (!comercialNumero || isNaN(comercialNumero)) {
+                console.warn('[loadMyOrders] No se pudo determinar el numero del comercial');
+                if (ordersLoading) ordersLoading.style.display = 'none';
+                if (ordersEmpty) ordersEmpty.style.display = 'flex';
+                if (ordersList) ordersList.style.display = 'none';
+                return;
+            }
             if (ordersLoading) ordersLoading.style.display = 'flex';
             if (ordersEmpty) ordersEmpty.style.display = 'none';
             if (ordersList) ordersList.style.display = 'none';
             try {
-                const clientes = await window.supabaseClient.getClientesAsignadosComercial(this.currentUser.comercial_numero);
+                const clientes = await window.supabaseClient.getClientesAsignadosComercial(comercialNumero);
+                console.log('[loadMyOrders] Clientes asignados encontrados:', clientes ? clientes.length : 0, clientes);
                 if (!clientes || clientes.length === 0) {
+                    console.warn('[loadMyOrders] Ningún cliente asignado a este comercial (numero:', comercialNumero, ')');
                     if (ordersLoading) ordersLoading.style.display = 'none';
                     if (ordersEmpty) ordersEmpty.style.display = 'flex';
                     if (ordersList) ordersList.style.display = 'none';
@@ -6466,11 +6480,14 @@ class ScanAsYouShopApp {
                 }
                 const allPedidos = [];
                 for (const c of clientes) {
+                    console.log('[loadMyOrders] Cargando pedidos del cliente id:', c.id, c.nombre);
                     const list = await window.supabaseClient.getUserRemoteOrders(c.id);
+                    console.log('[loadMyOrders]   -> pedidos encontrados:', list ? list.length : 0);
                     (list || []).forEach(function (p) {
                         allPedidos.push(Object.assign({}, p, { cliente_nombre: c.nombre }));
                     });
                 }
+                console.log('[loadMyOrders] Total pedidos de todos los clientes:', allPedidos.length);
                 // Ordenar: mas recientes primero; COMPLETADO siempre abajo
                 allPedidos.sort(function (a, b) {
                     const aCompletado = (a.estado_procesamiento === 'completado') ? 1 : 0;
@@ -6494,7 +6511,7 @@ class ScanAsYouShopApp {
                     }
                 }
             } catch (err) {
-                console.error('Error al cargar pedidos de clientes (comercial):', err);
+                console.error('[loadMyOrders] Error al cargar pedidos de clientes (comercial):', err);
                 if (ordersLoading) ordersLoading.style.display = 'none';
                 if (ordersEmpty) ordersEmpty.style.display = 'flex';
                 if (ordersList) ordersList.style.display = 'none';
