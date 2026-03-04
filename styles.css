@@ -2708,27 +2708,116 @@ body.gate-visible .app-container {
 .add-to-cart-content .add-to-cart-wc-conjuntos {
     margin-top: 0.5rem;
     flex-shrink: 0;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--gray-200);
 }
 
-.add-to-cart-wc-compat-link {
+.add-to-cart-wc-compat-toggle {
     width: 100%;
-    border: none;
-    background: transparent;
-    color: var(--primary);
-    font-size: 0.92rem;
+    border: 1px solid rgba(120, 81, 169, 0.14);
+    background: rgba(120, 81, 169, 0.03);
+    color: var(--gray-600);
+    border-radius: 10px;
+    padding: 0.55rem 0.65rem;
+    font-size: 0.78rem;
     font-weight: 600;
-    text-align: left;
-    text-decoration: underline;
-    text-underline-offset: 2px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
     cursor: pointer;
-    padding: 0;
-    line-height: 1.35;
+    line-height: 1.3;
+    box-shadow: 0 1px 6px rgba(120, 81, 169, 0.08);
 }
 
-.add-to-cart-wc-compat-link:focus {
+.add-to-cart-wc-compat-toggle-text {
+    text-align: left;
+}
+
+.add-to-cart-wc-compat-toggle-chevron {
+    color: var(--gray-600);
+    font-size: 0.72rem;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+
+.add-to-cart-wc-conjuntos.is-open .add-to-cart-wc-compat-toggle-chevron {
+    transform: rotate(180deg);
+}
+
+.add-to-cart-wc-compat-toggle:focus {
     outline: 2px solid rgba(120, 81, 169, 0.35);
     outline-offset: 2px;
     border-radius: 4px;
+}
+
+.add-to-cart-wc-compat-list {
+    margin-top: 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    max-height: 220px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.add-to-cart-wc-compat-item {
+    width: 100%;
+    border: 1px solid rgba(120, 81, 169, 0.16);
+    border-radius: 10px;
+    background: var(--white);
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 0.6rem;
+    align-items: center;
+    padding: 0.45rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.add-to-cart-wc-compat-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    background: var(--gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.add-to-cart-wc-compat-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.add-to-cart-wc-compat-thumb-fallback {
+    display: none;
+    color: var(--gray-400);
+    font-size: 1.1rem;
+}
+
+.add-to-cart-wc-compat-meta {
+    min-width: 0;
+}
+
+.add-to-cart-wc-compat-name {
+    display: block;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    line-height: 1.25;
+}
+
+.add-to-cart-wc-compat-desc {
+    display: block;
+    margin-top: 0.1rem;
+    font-size: 0.78rem;
+    color: var(--gray-600);
+    line-height: 1.3;
 }
 
 .quantity-section-label {

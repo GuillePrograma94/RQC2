@@ -200,11 +200,14 @@ Impacto funcional:
 
 Se simplificó el bloque de conjuntos en `addToCartModal` para priorizar velocidad de apertura:
 
-- Se eliminó el patrón de labels múltiples + `Ver todos`.
-- Se reemplazó por un único texto clicable:
-  - `Este artículo es compatible con los siguientes WC`
+- Se mantiene una cabecera minimalista en mayúsculas (gris) con cuña de desplegable.
+- Al pulsar la cabecera, se despliega una lista interna dentro del modal (sin salir de la vista actual).
+- Cada opción de conjunto muestra:
+  - imagen del conjunto (izquierda)
+  - nombre y descripción (derecha)
+- Al elegir un conjunto concreto de la lista, entonces sí se navega a `openWcCompletoWithConjunto(conjuntoId)`.
 - La consulta `getWcConjuntosByProductoCodigo(codigo)` pasa a ejecutarse **en segundo plano** tras mostrar el modal.
 - El modal ya no espera ese fetch para abrir:
   - imagen, precio, cantidad y CTA aparecen al instante.
-- Si hay compatibilidades, se muestra el texto clicable y redirige a `openWcCompletoWithConjunto()` con el primer conjunto disponible.
+- Si hay compatibilidades, se muestra la cabecera desplegable y su lista de conjuntos.
 - Si no hay compatibilidades, el bloque no se muestra.

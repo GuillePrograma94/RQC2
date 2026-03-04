@@ -4514,7 +4514,8 @@ class ScanAsYouShopApp {
             const confirmBtn = document.getElementById('confirmAddToCartBtn');
             const modalBody = modal.querySelector('.add-to-cart-body');
             const wcConjuntosBlock = document.getElementById('addToCartWcConjuntos');
-            const wcConjuntosLink = document.getElementById('addToCartWcCompatLink');
+            const wcConjuntosToggle = document.getElementById('addToCartWcCompatToggle');
+            const wcConjuntosList = document.getElementById('addToCartWcCompatList');
 
             if (!modal) {
                 console.error('Modal de añadir al carrito no encontrado');
@@ -4577,10 +4578,16 @@ class ScanAsYouShopApp {
             }
 
             let conjuntos = [];
-            let selectedConjuntoId = null;
             let modalIsActive = true;
-            if (wcConjuntosBlock) wcConjuntosBlock.style.display = 'none';
-            if (wcConjuntosLink) wcConjuntosLink.textContent = 'Este artículo es compatible con los siguientes WC';
+            if (wcConjuntosBlock) {
+                wcConjuntosBlock.style.display = 'none';
+                wcConjuntosBlock.classList.remove('is-open');
+            }
+            if (wcConjuntosToggle) wcConjuntosToggle.setAttribute('aria-expanded', 'false');
+            if (wcConjuntosList) {
+                wcConjuntosList.style.display = 'none';
+                wcConjuntosList.innerHTML = '';
+            }
 
             // Resetear cantidad a 1
             qtyInput.value = 1;
@@ -4598,17 +4605,34 @@ class ScanAsYouShopApp {
                     conjuntos = [];
                 }
 
-                if (!modalIsActive || modal.style.display === 'none' || !wcConjuntosBlock || !wcConjuntosLink) return;
+                if (!modalIsActive || modal.style.display === 'none' || !wcConjuntosBlock || !wcConjuntosList) return;
 
                 if (conjuntos.length > 0 && conjuntos[0] && conjuntos[0].id) {
-                    selectedConjuntoId = conjuntos[0].id;
-                    wcConjuntosLink.textContent = conjuntos.length > 1
-                        ? 'Este artículo es compatible con los siguientes WC (' + conjuntos.length + ')'
-                        : 'Este artículo es compatible con los siguientes WC';
+                    const imageBase = this._wcConjuntosImageBase();
+                    wcConjuntosList.innerHTML = conjuntos.map((c) => {
+                        const id = this.escapeForHtmlAttribute(c.id);
+                        const nombre = this.escapeForHtmlAttribute((c.nombre || '').trim() || c.id);
+                        const descRaw = (c.descripcion || '').trim();
+                        const desc = this.escapeForHtmlAttribute(descRaw.length > 110 ? descRaw.slice(0, 110) + '...' : descRaw);
+                        const codigo = this.escapeForHtmlAttribute((c.codigo || '').trim());
+                        const imageUrl = codigo ? (imageBase + codigo + '.jpg') : '';
+                        return '<button type="button" class="add-to-cart-wc-compat-item" data-conjunto-id="' + id + '">' +
+                            '<span class="add-to-cart-wc-compat-thumb">' +
+                                (imageUrl
+                                    ? '<img src="' + imageUrl + '" alt="" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'block\';">'
+                                    : '') +
+                                '<span class="add-to-cart-wc-compat-thumb-fallback" style="' + (imageUrl ? '' : 'display:block;') + '" aria-hidden="true">&#9635;</span>' +
+                            '</span>' +
+                            '<span class="add-to-cart-wc-compat-meta">' +
+                                '<span class="add-to-cart-wc-compat-name">' + nombre + '</span>' +
+                                (desc ? '<span class="add-to-cart-wc-compat-desc">' + desc + '</span>' : '') +
+                            '</span>' +
+                        '</button>';
+                    }).join('');
                     wcConjuntosBlock.style.display = 'block';
                 } else {
-                    selectedConjuntoId = null;
                     wcConjuntosBlock.style.display = 'none';
+                    wcConjuntosList.innerHTML = '';
                 }
             })();
 
@@ -4667,20 +4691,31 @@ class ScanAsYouShopApp {
                 this.openProductDetail(producto);
             };
 
-            const handleWcCompatClick = () => {
-                if (!selectedConjuntoId) return;
+            const handleWcToggleClick = () => {
+                if (!wcConjuntosBlock || !wcConjuntosList) return;
+                const open = wcConjuntosBlock.classList.toggle('is-open');
+                wcConjuntosList.style.display = open ? 'flex' : 'none';
+                if (wcConjuntosToggle) wcConjuntosToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            };
+
+            const handleWcConjuntoItemClick = (e) => {
+                const btn = e.target.closest('.add-to-cart-wc-compat-item[data-conjunto-id]');
+                if (!btn) return;
+                const conjuntoId = btn.getAttribute('data-conjunto-id');
+                if (!conjuntoId) return;
                 modal.style.display = 'none';
                 modalIsActive = false;
                 cleanup();
                 resolve(null);
-                this.openWcCompletoWithConjunto(selectedConjuntoId);
+                this.openWcCompletoWithConjunto(conjuntoId);
             };
 
             const cleanup = () => {
                 closeBtn.removeEventListener('click', handleClose);
                 overlay.removeEventListener('click', handleClose);
                 if (imageContainer) imageContainer.removeEventListener('click', handleImageClick);
-                if (wcConjuntosLink) wcConjuntosLink.removeEventListener('click', handleWcCompatClick);
+                if (wcConjuntosToggle) wcConjuntosToggle.removeEventListener('click', handleWcToggleClick);
+                if (wcConjuntosList) wcConjuntosList.removeEventListener('click', handleWcConjuntoItemClick);
                 confirmBtn.removeEventListener('click', handleConfirm);
                 decreaseBtn.removeEventListener('click', handleDecrease);
                 increaseBtn.removeEventListener('click', handleIncrease);
@@ -4693,7 +4728,8 @@ class ScanAsYouShopApp {
             closeBtn.addEventListener('click', handleClose);
             overlay.addEventListener('click', handleClose);
             if (imageContainer) imageContainer.addEventListener('click', handleImageClick);
-            if (wcConjuntosLink) wcConjuntosLink.addEventListener('click', handleWcCompatClick);
+            if (wcConjuntosToggle) wcConjuntosToggle.addEventListener('click', handleWcToggleClick);
+            if (wcConjuntosList) wcConjuntosList.addEventListener('click', handleWcConjuntoItemClick);
             confirmBtn.addEventListener('click', handleConfirm);
             decreaseBtn.addEventListener('click', handleDecrease);
             increaseBtn.addEventListener('click', handleIncrease);
