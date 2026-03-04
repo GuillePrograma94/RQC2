@@ -1089,31 +1089,38 @@
         <div class="add-to-cart-overlay"></div>
         <div class="add-to-cart-content">
             <button id="closeAddToCartModal" class="close-add-to-cart-btn">✕</button>
-            <div class="add-to-cart-image-container">
-                <img id="addToCartImg" src="" alt="Producto">
-                <div class="add-to-cart-placeholder" style="display: none;">📦</div>
-            </div>
-            <div class="add-to-cart-info">
-                <div class="add-to-cart-code" id="addToCartCode"></div>
-                <div class="add-to-cart-description" id="addToCartDescription"></div>
-                <div class="add-to-cart-price" id="addToCartPrice"></div>
-                <div class="add-to-cart-oferta-badge" id="addToCartOfertaBadge" style="display: none;">
-                    ¡🎉 Este producto es parte de una oferta!
+            <div class="add-to-cart-body">
+                <div class="add-to-cart-image-container">
+                    <img id="addToCartImg" src="" alt="Producto">
+                    <div class="add-to-cart-placeholder" style="display: none;">📦</div>
+                </div>
+                <div class="add-to-cart-info">
+                    <div class="add-to-cart-code" id="addToCartCode"></div>
+                    <div class="add-to-cart-description" id="addToCartDescription"></div>
+                    <div class="add-to-cart-price" id="addToCartPrice"></div>
+                    <div class="add-to-cart-oferta-badge" id="addToCartOfertaBadge" style="display: none;">
+                        ¡🎉 Este producto es parte de una oferta!
+                    </div>
+                </div>
+                <div class="product-detail-wc-conjuntos add-to-cart-wc-conjuntos" id="addToCartWcConjuntos" style="display: none;">
+                    <div class="add-to-cart-wc-header">
+                        <div class="product-detail-wc-conjuntos-title">Parte de conjunto completo</div>
+                        <button type="button" id="addToCartWcConjuntosToggle" class="add-to-cart-wc-toggle" style="display: none;" aria-expanded="false" aria-controls="addToCartWcConjuntosLabels">Ver todos</button>
+                    </div>
+                    <div class="product-detail-wc-conjuntos-labels" id="addToCartWcConjuntosLabels"></div>
                 </div>
             </div>
-            <div class="product-detail-wc-conjuntos add-to-cart-wc-conjuntos" id="addToCartWcConjuntos" style="display: none;">
-                <div class="product-detail-wc-conjuntos-title">Parte de conjunto completo</div>
-                <div class="product-detail-wc-conjuntos-labels" id="addToCartWcConjuntosLabels"></div>
-            </div>
-            <div class="add-to-cart-quantity-section">
-                <label class="quantity-section-label">¿Cuántas unidades?</label>
-                <div class="quantity-controls-modal">
-                    <button class="qty-btn-modal" id="decreaseQtyModal">−</button>
-                    <input type="number" class="qty-input-modal" id="qtyInputModal" value="1" min="1" max="999">
-                    <button class="qty-btn-modal" id="increaseQtyModal">+</button>
+            <div class="add-to-cart-footer">
+                <div class="add-to-cart-quantity-section">
+                    <label class="quantity-section-label">¿Cuántas unidades?</label>
+                    <div class="quantity-controls-modal">
+                        <button class="qty-btn-modal" id="decreaseQtyModal">−</button>
+                        <input type="number" class="qty-input-modal" id="qtyInputModal" value="1" min="1" max="999">
+                        <button class="qty-btn-modal" id="increaseQtyModal">+</button>
+                    </div>
                 </div>
+                <button id="confirmAddToCartBtn" class="btn btn-primary btn-lg">Añadir al Carrito</button>
             </div>
-            <button id="confirmAddToCartBtn" class="btn btn-primary btn-lg">Añadir al Carrito</button>
         </div>
     </div>
 

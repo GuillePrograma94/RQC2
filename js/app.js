@@ -4499,6 +4499,7 @@ class ScanAsYouShopApp {
             const decreaseBtn = document.getElementById('decreaseQtyModal');
             const increaseBtn = document.getElementById('increaseQtyModal');
             const confirmBtn = document.getElementById('confirmAddToCartBtn');
+            const modalBody = modal.querySelector('.add-to-cart-body');
 
             if (!modal) {
                 console.error('Modal de añadir al carrito no encontrado');
@@ -4562,6 +4563,7 @@ class ScanAsYouShopApp {
 
             const wcConjuntosBlock = document.getElementById('addToCartWcConjuntos');
             const wcConjuntosLabels = document.getElementById('addToCartWcConjuntosLabels');
+            const wcConjuntosToggle = document.getElementById('addToCartWcConjuntosToggle');
             let conjuntos = [];
             try {
                 conjuntos = await window.supabaseClient.getWcConjuntosByProductoCodigo(producto.codigo) || [];
@@ -4571,6 +4573,12 @@ class ScanAsYouShopApp {
             if (wcConjuntosBlock && wcConjuntosLabels) {
                 if (conjuntos.length === 0) {
                     wcConjuntosBlock.style.display = 'none';
+                    wcConjuntosBlock.classList.remove('is-collapsed');
+                    if (wcConjuntosToggle) {
+                        wcConjuntosToggle.style.display = 'none';
+                        wcConjuntosToggle.textContent = 'Ver todos';
+                        wcConjuntosToggle.setAttribute('aria-expanded', 'false');
+                    }
                 } else {
                     wcConjuntosBlock.style.display = 'block';
                     wcConjuntosLabels.innerHTML = conjuntos.map(function (c) {
@@ -4578,6 +4586,19 @@ class ScanAsYouShopApp {
                         const nombre = this.escapeForHtmlAttribute((c.nombre || '').trim() || c.id);
                         return '<button type="button" class="product-detail-wc-conjunto-label" data-conjunto-id="' + id + '">' + nombre + '</button>';
                     }.bind(this)).join('');
+                    const useCollapsedView = conjuntos.length > 2;
+                    wcConjuntosBlock.classList.toggle('is-collapsed', useCollapsedView);
+                    if (wcConjuntosToggle) {
+                        if (useCollapsedView) {
+                            wcConjuntosToggle.style.display = 'inline-flex';
+                            wcConjuntosToggle.textContent = 'Ver todos';
+                            wcConjuntosToggle.setAttribute('aria-expanded', 'false');
+                        } else {
+                            wcConjuntosToggle.style.display = 'none';
+                            wcConjuntosToggle.textContent = 'Ver todos';
+                            wcConjuntosToggle.setAttribute('aria-expanded', 'false');
+                        }
+                    }
                 }
             }
 
@@ -4586,6 +4607,7 @@ class ScanAsYouShopApp {
 
             // Mostrar modal
             modal.style.display = 'flex';
+            if (modalBody) modalBody.scrollTop = 0;
 
             // Manejadores de eventos
             const handleClose = () => {
@@ -4650,11 +4672,20 @@ class ScanAsYouShopApp {
                 if (conjuntoId) this.openWcCompletoWithConjunto(conjuntoId);
             };
 
+            const handleWcConjuntosToggle = () => {
+                if (!wcConjuntosBlock || !wcConjuntosToggle) return;
+                const willExpand = wcConjuntosBlock.classList.contains('is-collapsed');
+                wcConjuntosBlock.classList.toggle('is-collapsed', !willExpand);
+                wcConjuntosToggle.textContent = willExpand ? 'Mostrar menos' : 'Ver todos';
+                wcConjuntosToggle.setAttribute('aria-expanded', willExpand ? 'true' : 'false');
+            };
+
             const cleanup = () => {
                 closeBtn.removeEventListener('click', handleClose);
                 overlay.removeEventListener('click', handleClose);
                 if (imageContainer) imageContainer.removeEventListener('click', handleImageClick);
                 if (wcConjuntosLabels && conjuntos.length > 0) wcConjuntosLabels.removeEventListener('click', handleWcConjuntoLabelClick);
+                if (wcConjuntosToggle) wcConjuntosToggle.removeEventListener('click', handleWcConjuntosToggle);
                 confirmBtn.removeEventListener('click', handleConfirm);
                 decreaseBtn.removeEventListener('click', handleDecrease);
                 increaseBtn.removeEventListener('click', handleIncrease);
@@ -4668,6 +4699,7 @@ class ScanAsYouShopApp {
             overlay.addEventListener('click', handleClose);
             if (imageContainer) imageContainer.addEventListener('click', handleImageClick);
             if (wcConjuntosLabels && conjuntos.length > 0) wcConjuntosLabels.addEventListener('click', handleWcConjuntoLabelClick);
+            if (wcConjuntosToggle && conjuntos.length > 2) wcConjuntosToggle.addEventListener('click', handleWcConjuntosToggle);
             confirmBtn.addEventListener('click', handleConfirm);
             decreaseBtn.addEventListener('click', handleDecrease);
             increaseBtn.addEventListener('click', handleIncrease);

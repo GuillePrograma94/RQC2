@@ -172,3 +172,26 @@ Con esto se cumple la mejora de experiencia sin tocar el flujo actual del modal 
 - **JS** (`app.js`): `getAvailableProductImageUrls(codigo)` (comprueba _1 a _4 con `Image()` onload/onerror), `openProductDetail(producto)` (renderiza carousel 1–4, cierra con botón/backdrop). En `showAddToCartModal` se asigna clic en `.add-to-cart-image-container` a `openProductDetail(producto)`.
 - Al cerrar el overlay se vuelve al modal de añadir al carrito sin perder estado.
 - **Ficha técnica PDF**: Se eliminó. La comprobación con `fetch(..., { method: 'HEAD' })` desde el cliente queda bloqueada por CORS en el dominio del PDF; mostrar el enlace sin poder comprobar existencia generaba mala experiencia si el PDF no existía, por lo que se optó por no incluir el enlace.
+
+---
+
+## 10. Ajuste UX en `addToCartModal` (footer fijo + contenido scrolleable)
+
+Se ha aplicado un ajuste específico en móvil para evitar que el selector de cantidad y el CTA "Añadir al Carrito" desaparezcan cuando un producto pertenece a muchos conjuntos WC:
+
+- **Layout del modal**:
+  - `add-to-cart-content` ahora se divide en:
+    - `add-to-cart-body` (scrolleable): imagen, datos y bloque WC.
+    - `add-to-cart-footer` (fijo): selector de cantidad y botón principal.
+- **Imagen del producto**:
+  - Se mantiene con altura fija dentro del body para no degradar la visual al crecer otros bloques.
+- **Bloque "Parte de conjunto completo"**:
+  - Si hay más de 2 conjuntos, se inicia colapsado (`is-collapsed`) y muestra botón `Ver todos`.
+  - El usuario puede alternar entre `Ver todos` y `Mostrar menos`.
+  - Si hay 1 o 2 conjuntos, no se muestra toggle.
+
+Impacto funcional:
+
+- No cambia el flujo de negocio: sigue abriendo `showAddToCartModal(producto)` desde búsqueda/escáner/historial.
+- El clic en imagen sigue abriendo `openProductDetail(producto)`.
+- Las acciones de cantidad y confirmación quedan siempre visibles y accesibles en la parte inferior del modal.
