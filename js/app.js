@@ -117,6 +117,9 @@ class ScanAsYouShopApp {
             this.currentUser = savedUser;
             this.updateUserUI();
 
+            // Refresco periodico del JWT para evitar 42501 tras ~1h trabajando
+            this.startAuthRefreshTimer();
+
             // Precargar historial de compras en segundo plano (solo clientes, no comerciales)
             if (window.purchaseCache && savedUser.user_id && !savedUser.is_comercial) {
                 console.log('Precargando historial para sesion guardada...');
@@ -283,6 +286,9 @@ class ScanAsYouShopApp {
 
                 // Guardar sesión en localStorage
                 this.saveUserSession(this.currentUser, sessionId);
+
+                // Refresco periodico del JWT para evitar 42501 tras ~1h trabajando
+                this.startAuthRefreshTimer();
 
                 // Actualizar UI con nombre del usuario
                 this.updateUserUI();
@@ -1761,6 +1767,10 @@ class ScanAsYouShopApp {
             window.ui.showToast('Recambio anadido', 'success');
         } catch (e) {
             console.error('Error handleRecambiosConfirmAddRecambio:', e);
+            if (e && (e.code === 'SESSION_EXPIRED' || e.message === 'SESSION_EXPIRED')) {
+                await this.handleSessionExpired();
+                return;
+            }
             window.ui.showToast('Error: ' + (e.message || 'no se pudo anadir (¿duplicado?)'), 'error');
         }
     }
@@ -1810,6 +1820,10 @@ class ScanAsYouShopApp {
             window.ui.showToast('Producto padre anadido', 'success');
         } catch (e) {
             console.error('Error handleRecambiosConfirmAddPadre:', e);
+            if (e && (e.code === 'SESSION_EXPIRED' || e.message === 'SESSION_EXPIRED')) {
+                await this.handleSessionExpired();
+                return;
+            }
             window.ui.showToast('Error: ' + (e.message || 'no se pudo anadir (¿duplicado?)'), 'error');
         }
     }
@@ -1824,6 +1838,10 @@ class ScanAsYouShopApp {
             window.ui.showToast('Quitado', 'success');
         } catch (e) {
             console.error('Error handleRecambiosRemove:', e);
+            if (e && (e.code === 'SESSION_EXPIRED' || e.message === 'SESSION_EXPIRED')) {
+                await this.handleSessionExpired();
+                return;
+            }
             window.ui.showToast('Error al quitar', 'error');
         }
     }
@@ -2231,6 +2249,9 @@ class ScanAsYouShopApp {
             this.currentUser = null;
             this.currentSession = null;
 
+            // Detener refresco periodico del JWT
+            this.stopAuthRefreshTimer();
+
             // Resetear chips de filtro de búsqueda al cerrar sesión
             this.filterChips.misCompras = false;
             this.filterChips.oferta     = false;
@@ -2256,6 +2277,52 @@ class ScanAsYouShopApp {
 
         } catch (error) {
             console.error('Error al cerrar sesion:', error);
+        }
+    }
+
+    /**
+     * Limpia la sesion y muestra la pantalla de login cuando el JWT de Supabase ha expirado.
+     * Se llama desde operaciones que requieren admin (ej. recambios) al detectar SESSION_EXPIRED.
+     */
+    async handleSessionExpired() {
+        this.stopAuthRefreshTimer();
+        this.unsubscribeFromOrderStatus();
+        if (this.currentSession && window.supabaseClient) {
+            await window.supabaseClient.closeUserSession(this.currentSession).catch(() => {});
+        }
+        await window.supabaseClient.signOutAuth();
+        localStorage.removeItem('current_user');
+        localStorage.removeItem('current_session');
+        this.currentUser = null;
+        this.currentSession = null;
+        this.updateUserUI();
+        this.showLanding();
+        window.ui.showToast('Sesion expirada. Por favor, inicia sesion de nuevo.', 'error');
+    }
+
+    /**
+     * Inicia el refresco periodico del JWT de Supabase para evitar 42501 tras ~1h de uso.
+     */
+    startAuthRefreshTimer() {
+        this.stopAuthRefreshTimer();
+        const REFRESH_MINUTES = 50;
+        this._authRefreshTimer = setInterval(async () => {
+            if (!window.supabaseClient?.client?.auth) return;
+            const { error } = await window.supabaseClient.client.auth.refreshSession();
+            if (error) {
+                this.stopAuthRefreshTimer();
+                await this.handleSessionExpired();
+            }
+        }, REFRESH_MINUTES * 60 * 1000);
+    }
+
+    /**
+     * Detiene el timer de refresco del JWT.
+     */
+    stopAuthRefreshTimer() {
+        if (this._authRefreshTimer) {
+            clearInterval(this._authRefreshTimer);
+            this._authRefreshTimer = null;
         }
     }
 

@@ -964,6 +964,25 @@ class SupabaseClient {
     }
 
     /**
+     * Asegura que la sesion de Supabase Auth sea valida para escrituras (RLS).
+     * Refresca el JWT si hace falta. Si no hay sesion o el refresh falla, devuelve ok: false.
+     * @returns {Promise<{ok: boolean}>}
+     */
+    async ensureAuthSessionForWrite() {
+        try {
+            if (!this.client || !this.client.auth) return { ok: false };
+            const { data: sessionData } = await this.client.auth.getSession();
+            if (!sessionData?.session) return { ok: false };
+            const { data: refreshData, error } = await this.client.auth.refreshSession();
+            if (error || !refreshData?.session) return { ok: false };
+            return { ok: true };
+        } catch (e) {
+            console.warn('ensureAuthSessionForWrite:', e);
+            return { ok: false };
+        }
+    }
+
+    /**
      * Asocia un carrito a una sesión de usuario
      */
     async associateCartToSession(sessionId, carritoCode) {
@@ -1951,12 +1970,35 @@ class SupabaseClient {
             const padre = String(productoPadreCodigo).trim();
             const recambio = String(productoRecambioCodigo).trim();
             if (!padre || !recambio) throw new Error('Codigos obligatorios');
-            const { error } = await this.client.from('producto_recambios').insert([{
+
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) {
+                const err = new Error('SESSION_EXPIRED');
+                err.code = 'SESSION_EXPIRED';
+                throw err;
+            }
+
+            let result = await this.client.from('producto_recambios').insert([{
                 producto_padre_codigo: padre,
                 producto_recambio_codigo: recambio
             }]);
-            if (error) throw error;
+            if (result.error && result.error.code === '42501') {
+                const refresh = await this.client.auth.refreshSession();
+                if (!refresh.error && refresh.data?.session) {
+                    result = await this.client.from('producto_recambios').insert([{
+                        producto_padre_codigo: padre,
+                        producto_recambio_codigo: recambio
+                    }]);
+                }
+                if (result.error && result.error.code === '42501') {
+                    const err = new Error('SESSION_EXPIRED');
+                    err.code = 'SESSION_EXPIRED';
+                    throw err;
+                }
+            }
+            if (result.error) throw result.error;
         } catch (e) {
+            if (e && (e.code === 'SESSION_EXPIRED' || e.message === 'SESSION_EXPIRED')) throw e;
             console.error('Error addRecambio:', e);
             throw e;
         }
@@ -1968,9 +2010,29 @@ class SupabaseClient {
     async removeRecambio(id) {
         try {
             if (!this.client) throw new Error('Cliente no inicializado');
-            const { error } = await this.client.from('producto_recambios').delete().eq('id', id);
-            if (error) throw error;
+
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) {
+                const err = new Error('SESSION_EXPIRED');
+                err.code = 'SESSION_EXPIRED';
+                throw err;
+            }
+
+            let result = await this.client.from('producto_recambios').delete().eq('id', id);
+            if (result.error && result.error.code === '42501') {
+                const refresh = await this.client.auth.refreshSession();
+                if (!refresh.error && refresh.data?.session) {
+                    result = await this.client.from('producto_recambios').delete().eq('id', id);
+                }
+                if (result.error && result.error.code === '42501') {
+                    const err = new Error('SESSION_EXPIRED');
+                    err.code = 'SESSION_EXPIRED';
+                    throw err;
+                }
+            }
+            if (result.error) throw result.error;
         } catch (e) {
+            if (e && (e.code === 'SESSION_EXPIRED' || e.message === 'SESSION_EXPIRED')) throw e;
             console.error('Error removeRecambio:', e);
             throw e;
         }

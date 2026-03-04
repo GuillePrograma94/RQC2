@@ -108,6 +108,8 @@ El cliente de la app guarda su propia sesion en `localStorage['current_user']` (
 
 **Solucion implementada en `initialize()`** (desde marzo 2026): al restaurar la sesion de la app desde `localStorage`, se verifica inmediatamente si el JWT de Supabase Auth sigue activo con `auth.getSession()`. Si la sesion JWT ha expirado, se limpia el `localStorage` de la app y se fuerza al usuario a hacer login de nuevo. Esto garantiza que la sesion de la app y el JWT siempre esten sincronizados.
 
+**Evitar 42501 tras rato trabajando** (acceso caduca ~1h): para que el admin no vea el error de golpe tras llevar un rato logueado, se ha implementado: (1) Refresco periodico del JWT cada 50 min con `auth.refreshSession()` al tener sesion; (2) Antes de cada escritura en recambios, `ensureAuthSessionForWrite()`; (3) Reintento en 42501 (refresh + repetir operacion); (4) Si sigue fallando o no hay sesion valida, error `SESSION_EXPIRED` y la app muestra "Sesion expirada. Por favor, inicia sesion de nuevo." y lleva a la pantalla de login. El timer de refresco se detiene al cerrar sesion o al detectar sesion expirada.
+
 ### Politicas RLS de producto_recambios
 
 | Operacion | Quién puede | Condicion SQL |
