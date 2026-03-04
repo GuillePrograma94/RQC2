@@ -185,13 +185,26 @@ Se ha aplicado un ajuste específico en móvil para evitar que el selector de ca
     - `add-to-cart-footer` (fijo): selector de cantidad y botón principal.
 - **Imagen del producto**:
   - Se mantiene con altura fija dentro del body para no degradar la visual al crecer otros bloques.
-- **Bloque "Parte de conjunto completo"**:
-  - Si hay más de 2 conjuntos, se inicia colapsado (`is-collapsed`) y muestra botón `Ver todos`.
-  - El usuario puede alternar entre `Ver todos` y `Mostrar menos`.
-  - Si hay 1 o 2 conjuntos, no se muestra toggle.
+- **Bloque de compatibilidad WC**:
+  - Se reemplaza el listado de labels por un texto clicable único para mantener el modal limpio en móvil.
 
 Impacto funcional:
 
 - No cambia el flujo de negocio: sigue abriendo `showAddToCartModal(producto)` desde búsqueda/escáner/historial.
 - El clic en imagen sigue abriendo `openProductDetail(producto)`.
 - Las acciones de cantidad y confirmación quedan siempre visibles y accesibles en la parte inferior del modal.
+
+---
+
+## 11. Optimización de apertura del modal (compatibilidad WC no bloqueante)
+
+Se simplificó el bloque de conjuntos en `addToCartModal` para priorizar velocidad de apertura:
+
+- Se eliminó el patrón de labels múltiples + `Ver todos`.
+- Se reemplazó por un único texto clicable:
+  - `Este artículo es compatible con los siguientes WC`
+- La consulta `getWcConjuntosByProductoCodigo(codigo)` pasa a ejecutarse **en segundo plano** tras mostrar el modal.
+- El modal ya no espera ese fetch para abrir:
+  - imagen, precio, cantidad y CTA aparecen al instante.
+- Si hay compatibilidades, se muestra el texto clicable y redirige a `openWcCompletoWithConjunto()` con el primer conjunto disponible.
+- Si no hay compatibilidades, el bloque no se muestra.

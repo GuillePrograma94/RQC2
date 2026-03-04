@@ -233,6 +233,7 @@ Si no existe en principales:
 - **Solo descripción**: Búsqueda por todas las palabras
 - **Código + descripción**: Búsqueda combinada (descripción → filtro por código)
 - **Con filtro**: Búsqueda en historial personal del usuario
+- **Refresco inmediato de chips**: al pulsar `Solo mis compras` o `Solo en oferta`, la búsqueda se relanza automáticamente (sin pulsar `Buscar`) cuando ya hay criterio o resultados en pantalla
 
 ---
 

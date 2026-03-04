@@ -26,6 +26,14 @@
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     --shadow-purple: 0 4px 15px 0 rgba(120, 81, 169, 0.3);
     --footer-height: 80px;
+    --ios-header-touch-offset: 0px;
+}
+
+/* iPhone/iOS: pequeño margen extra para que el botón menú no quede bajo iconos del sistema */
+@supports (-webkit-touch-callout: none) {
+    :root {
+        --ios-header-touch-offset: 4px;
+    }
 }
 
 /* Reset y Base */
@@ -61,7 +69,7 @@ body {
 /* Justo debajo del header */
 .app-container {
     position: fixed;
-    top: calc(52px + 0.5rem + min(env(safe-area-inset-top, 0px), 32px));
+    top: calc(52px + 0.5rem + min(env(safe-area-inset-top, 0px), 32px) + var(--ios-header-touch-offset));
     bottom: var(--footer-height);
     left: 0;
     right: 0;
@@ -341,7 +349,7 @@ body.gate-visible .app-container {
     z-index: 1;
     gap: 0.75rem;
     padding: 0.5rem 1rem;
-    padding-top: calc(0.5rem + min(env(safe-area-inset-top, 0px), 32px));
+    padding-top: calc(0.5rem + min(env(safe-area-inset-top, 0px), 32px) + var(--ios-header-touch-offset));
     padding-bottom: 0.5rem;
 }
 
@@ -391,10 +399,10 @@ body.gate-visible .app-container {
         top: -24px;
     }
     .header-content {
-        padding-top: calc(24px + min(env(safe-area-inset-top, 0px), 24px));
+        padding-top: calc(24px + min(env(safe-area-inset-top, 0px), 24px) + var(--ios-header-touch-offset));
     }
     .app-container {
-        top: calc(52px + 0.5rem + min(env(safe-area-inset-top, 0px), 32px) - 24px);
+        top: calc(52px + 0.5rem + min(env(safe-area-inset-top, 0px), 32px) - 24px + var(--ios-header-touch-offset));
     }
 }
 
@@ -2702,34 +2710,25 @@ body.gate-visible .app-container {
     flex-shrink: 0;
 }
 
-.add-to-cart-wc-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-}
-
-.add-to-cart-wc-toggle {
-    border: 1px solid rgba(120, 81, 169, 0.35);
-    background: rgba(120, 81, 169, 0.08);
+.add-to-cart-wc-compat-link {
+    width: 100%;
+    border: none;
+    background: transparent;
     color: var(--primary);
-    border-radius: 999px;
-    padding: 0.3rem 0.65rem;
-    font-size: 0.8rem;
+    font-size: 0.92rem;
     font-weight: 600;
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 2px;
     cursor: pointer;
+    padding: 0;
+    line-height: 1.35;
 }
 
-.add-to-cart-content .add-to-cart-wc-conjuntos.is-collapsed .product-detail-wc-conjuntos-labels {
-    max-height: 74px;
-    overflow: hidden;
-}
-
-.add-to-cart-content .product-detail-wc-conjuntos-labels {
-    max-height: 150px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
+.add-to-cart-wc-compat-link:focus {
+    outline: 2px solid rgba(120, 81, 169, 0.35);
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
 .quantity-section-label {
