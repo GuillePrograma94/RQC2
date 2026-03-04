@@ -4608,7 +4608,7 @@ class ScanAsYouShopApp {
                 if (!modalIsActive || modal.style.display === 'none' || !wcConjuntosBlock || !wcConjuntosList) return;
 
                 if (conjuntos.length > 0 && conjuntos[0] && conjuntos[0].id) {
-                    const imageBase = this._wcConjuntosImageBase();
+                    const imageBase = this._wcConjuntoImageBase();
                     wcConjuntosList.innerHTML = conjuntos.map((c) => {
                         const id = this.escapeForHtmlAttribute(c.id);
                         const nombre = this.escapeForHtmlAttribute((c.nombre || '').trim() || c.id);
