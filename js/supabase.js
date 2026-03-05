@@ -785,6 +785,87 @@ class SupabaseClient {
     }
 
     /**
+     * Lista clientes del dependiente ordenados por frecuencia de uso (mas representados primero).
+     * Para rellenar la lista local del selector.
+     * @param {number} dependienteUserId - ID del dependiente (usuarios.id)
+     * @param {number} [limit=200] - Maximo de clientes a devolver
+     * @returns {Promise<Array<{id: number, nombre: string, codigo_usuario: string, alias?: string, poblacion?: string}>>}
+     */
+    async getClientesDependientePorFrecuencia(dependienteUserId, limit) {
+        try {
+            if (!this.client || dependienteUserId == null) return [];
+            const id = typeof dependienteUserId === 'string' ? parseInt(dependienteUserId, 10) : dependienteUserId;
+            if (isNaN(id)) return [];
+            const lim = (limit != null && !isNaN(limit)) ? Math.min(500, Math.max(1, parseInt(limit, 10))) : 200;
+            const { data, error } = await this.client.rpc('get_clientes_dependiente_por_frecuencia', {
+                p_dependiente_user_id: id,
+                p_limit: lim
+            });
+            if (error) {
+                console.error('Error getClientesDependientePorFrecuencia:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getClientesDependientePorFrecuencia:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Busca clientes del dependiente por texto (nombre, codigo, alias, poblacion).
+     * Orden: frecuencia luego nombre.
+     * @param {number} dependienteUserId - ID del dependiente (usuarios.id)
+     * @param {string} query - Texto a buscar (puede ser vacio para devolver todos hasta limit)
+     * @param {number} [limit=100] - Maximo de resultados
+     * @returns {Promise<Array<{id: number, nombre: string, codigo_usuario: string, alias?: string, poblacion?: string}>>}
+     */
+    async buscarClientesDependiente(dependienteUserId, query, limit) {
+        try {
+            if (!this.client || dependienteUserId == null) return [];
+            const id = typeof dependienteUserId === 'string' ? parseInt(dependienteUserId, 10) : dependienteUserId;
+            if (isNaN(id)) return [];
+            const q = (query != null && typeof query === 'string') ? query.trim() : '';
+            const lim = (limit != null && !isNaN(limit)) ? Math.min(200, Math.max(1, parseInt(limit, 10))) : 100;
+            const { data, error } = await this.client.rpc('buscar_clientes_dependiente', {
+                p_dependiente_user_id: id,
+                p_query: q,
+                p_limit: lim
+            });
+            if (error) {
+                console.error('Error buscarClientesDependiente:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('buscarClientesDependiente:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Registra que el dependiente ha elegido representar a un cliente (incrementa ranking).
+     * Llamar en segundo plano al seleccionar cliente; no bloquea.
+     * @param {number} dependienteUserId - ID del dependiente (usuarios.id)
+     * @param {number} clienteUserId - ID del cliente representado (usuarios.id)
+     * @returns {Promise<void>}
+     */
+    async registrarRepresentacionDependiente(dependienteUserId, clienteUserId) {
+        try {
+            if (!this.client || dependienteUserId == null || clienteUserId == null) return;
+            const depId = typeof dependienteUserId === 'string' ? parseInt(dependienteUserId, 10) : dependienteUserId;
+            const cliId = typeof clienteUserId === 'string' ? parseInt(clienteUserId, 10) : clienteUserId;
+            if (isNaN(depId) || isNaN(cliId)) return;
+            await this.client.rpc('registrar_representacion_dependiente', {
+                p_dependiente_user_id: depId,
+                p_cliente_user_id: cliId
+            });
+        } catch (err) {
+            console.warn('registrarRepresentacionDependiente (no critico):', err);
+        }
+    }
+
+    /**
      * Obtiene pedidos de clientes atendibles por el dependiente (vista agregada por tienda).
      * @param {number} dependienteUserId - ID del dependiente (usuarios.id)
      * @returns {Promise<Array>}

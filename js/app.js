@@ -915,7 +915,8 @@ class ScanAsYouShopApp {
             const numero = this.currentUser.comercial_numero != null ? this.currentUser.comercial_numero : parseInt(this.currentUser.codigo_usuario, 10);
             clientes = await window.supabaseClient.getClientesAsignadosComercial(numero);
         } else if (this.currentUser.is_dependiente) {
-            clientes = await window.supabaseClient.getClientesDependiente(this.currentUser.user_id);
+            clientes = await window.supabaseClient.getClientesDependientePorFrecuencia(this.currentUser.user_id, 200);
+            this._clientesFrecuentesDependiente = Array.isArray(clientes) ? clientes : [];
         }
         this._clientesAsignadosComercial = Array.isArray(clientes) ? clientes : [];
 
@@ -931,7 +932,7 @@ class ScanAsYouShopApp {
 
     /**
      * Actualiza el bloque superior "Estas representando a X. [Añadir alias]"
-     * cuando el comercial tiene un cliente seleccionado.
+     * cuando el comercial/dependiente tiene un cliente seleccionado.
      */
     _updateSelectorClienteRepresentandoBlock() {
         const block = document.getElementById('selectorClienteRepresentando');
@@ -945,13 +946,16 @@ class ScanAsYouShopApp {
             return;
         }
         const cliente = this._clientesAsignadosComercial && this._clientesAsignadosComercial.find(function (c) { return c.id === id; });
-        if (!cliente) {
-            block.style.display = 'none';
-            return;
+        const nombre = (cliente && cliente.nombre) ? cliente.nombre : (this.currentUser.cliente_representado_nombre || '');
+        nameEl.textContent = nombre;
+        if (cliente) {
+            aliasBtn.textContent = cliente.alias ? 'Editar alias' : 'Añadir alias';
+            aliasBtn.onclick = () => this.openEditAliasModal(cliente);
+            aliasBtn.style.display = '';
+        } else {
+            aliasBtn.onclick = null;
+            aliasBtn.style.display = 'none';
         }
-        nameEl.textContent = cliente.nombre || this.currentUser.cliente_representado_nombre || '';
-        aliasBtn.textContent = cliente.alias ? 'Editar alias' : 'Añadir alias';
-        aliasBtn.onclick = () => this.openEditAliasModal(cliente);
         if (dejarBtn) {
             dejarBtn.onclick = () => this._dejarDeRepresentarCliente();
         }
@@ -979,36 +983,62 @@ class ScanAsYouShopApp {
 
     /**
      * Filtra la lista de clientes asignados por numero y/o nombre y vuelve a renderizar.
+     * Para dependientes: busqueda remota (debounced); para comerciales: filtro en memoria.
      */
     _applySelectorClienteFilter() {
-        if (!this._clientesAsignadosComercial || !this._clientesAsignadosComercial.length) return;
         const filterNum = document.getElementById('selectorClienteFilterNumero');
         const filterNombre = document.getElementById('selectorClienteFilterNombre');
         const filterPoblacion = document.getElementById('selectorClienteFilterPoblacion');
-        const num = (filterNum && filterNum.value) ? filterNum.value.trim().toLowerCase() : '';
-        const nom = (filterNombre && filterNombre.value) ? filterNombre.value.trim().toLowerCase() : '';
-        const pob = (filterPoblacion && filterPoblacion.value) ? filterPoblacion.value.trim().toLowerCase() : '';
+        const num = (filterNum && filterNum.value) ? filterNum.value.trim() : '';
+        const nom = (filterNombre && filterNombre.value) ? filterNombre.value.trim() : '';
+        const pob = (filterPoblacion && filterPoblacion.value) ? filterPoblacion.value.trim() : '';
+        const hasFilter = !!num || !!nom || !!pob;
+
+        if (this.currentUser && this.currentUser.is_dependiente) {
+            if (this._selectorClienteSearchTimeout) clearTimeout(this._selectorClienteSearchTimeout);
+            if (!hasFilter) {
+                this._clientesAsignadosComercial = this._clientesFrecuentesDependiente || [];
+                this._renderSelectorClienteList(this._clientesAsignadosComercial);
+                return;
+            }
+            const self = this;
+            const query = [num, nom, pob].filter(Boolean).join(' ').trim();
+            this._selectorClienteSearchTimeout = setTimeout(function () {
+                self._selectorClienteSearchTimeout = null;
+                window.supabaseClient.buscarClientesDependiente(self.currentUser.user_id, query, 100)
+                    .then(function (data) {
+                        self._clientesAsignadosComercial = Array.isArray(data) ? data : [];
+                        self._renderSelectorClienteList(self._clientesAsignadosComercial, true);
+                    });
+            }, 300);
+            return;
+        }
+
+        if (!this._clientesAsignadosComercial || !this._clientesAsignadosComercial.length) return;
+        const numLower = num.toLowerCase();
+        const nomLower = nom.toLowerCase();
+        const pobLower = pob.toLowerCase();
         let filtered = this._clientesAsignadosComercial;
         if (num) {
             filtered = filtered.filter(function (c) {
                 const codigo = (c.codigo_usuario || '').toString().toLowerCase();
-                return codigo.indexOf(num) !== -1;
+                return codigo.indexOf(numLower) !== -1;
             });
         }
         if (nom) {
             filtered = filtered.filter(function (c) {
                 const nombre = (c.nombre || '').toString().toLowerCase();
                 const alias = (c.alias || '').toString().toLowerCase();
-                return nombre.indexOf(nom) !== -1 || alias.indexOf(nom) !== -1;
+                return nombre.indexOf(nomLower) !== -1 || alias.indexOf(nomLower) !== -1;
             });
         }
         if (pob) {
             filtered = filtered.filter(function (c) {
                 const poblacion = (c.poblacion || '').toString().toLowerCase();
-                return poblacion.indexOf(pob) !== -1;
+                return poblacion.indexOf(pobLower) !== -1;
             });
         }
-        this._renderSelectorClienteList(filtered, !!num || !!nom || !!pob);
+        this._renderSelectorClienteList(filtered, hasFilter);
     }
 
     /**
@@ -1073,6 +1103,9 @@ class ScanAsYouShopApp {
                 self.currentUser.cliente_representado_grupo_cliente = c.grupo_cliente != null ? c.grupo_cliente : null;
                 self.saveUserSession(self.currentUser, self.currentSession);
                 self.updateUserUI();
+                if (self.currentUser.is_dependiente && window.supabaseClient) {
+                    window.supabaseClient.registrarRepresentacionDependiente(self.currentUser.user_id, c.id);
+                }
                 if (window.purchaseCache && c.id) {
                     window.purchaseCache.preload(c.id);
                 }
