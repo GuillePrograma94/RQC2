@@ -808,6 +808,13 @@ class ScanAsYouShopApp {
             const panelControlBtnGuest = document.getElementById('panelControlBtn');
             if (panelControlBtnGuest) panelControlBtnGuest.style.display = 'none';
         }
+        // Header: mostrar cliente representado junto a BATMAR para comercial/dependiente
+        const headerTitle = document.getElementById('headerTitle');
+        if (headerTitle) {
+            headerTitle.textContent = (this.currentUser && this.canRepresentClientes() && this.currentUser.cliente_representado_nombre)
+                ? ('BATMAR - ' + this.currentUser.cliente_representado_nombre)
+                : 'BATMAR';
+        }
     }
 
     /**
