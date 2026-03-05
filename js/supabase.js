@@ -664,6 +664,8 @@ class SupabaseClient {
                 nombre_titular: data.nombre_titular || null,
                 tipo: tipo,
                 es_comercial: tipo === 'COMERCIAL' || !!data.es_comercial,
+                es_dependiente: tipo === 'DEPENDIENTE' || !!data.es_dependiente,
+                almacen_tienda: data.almacen_tienda ?? null,
                 es_administrador: !!data.es_administrador,
                 comercial_id: data.comercial_id ?? null,
                 comercial_numero: data.comercial_numero ?? null
@@ -754,6 +756,54 @@ class SupabaseClient {
             return Array.isArray(data) ? data : [];
         } catch (err) {
             console.error('getPedidosComercial:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Lista los clientes que puede atender un dependiente (segun su tienda).
+     * @param {number} dependienteUserId - ID del dependiente (usuarios.id)
+     * @returns {Promise<Array<{id: number, nombre: string, codigo_usuario: string}>>}
+     */
+    async getClientesDependiente(dependienteUserId) {
+        try {
+            if (!this.client || dependienteUserId == null) return [];
+            const id = typeof dependienteUserId === 'string' ? parseInt(dependienteUserId, 10) : dependienteUserId;
+            if (isNaN(id)) return [];
+            const { data, error } = await this.client.rpc('get_clientes_dependiente', {
+                p_dependiente_user_id: id
+            });
+            if (error) {
+                console.error('Error getClientesDependiente:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getClientesDependiente:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Obtiene pedidos de clientes atendibles por el dependiente (vista agregada por tienda).
+     * @param {number} dependienteUserId - ID del dependiente (usuarios.id)
+     * @returns {Promise<Array>}
+     */
+    async getPedidosDependiente(dependienteUserId) {
+        try {
+            if (!this.client || dependienteUserId == null) return [];
+            const id = typeof dependienteUserId === 'string' ? parseInt(dependienteUserId, 10) : dependienteUserId;
+            if (isNaN(id)) return [];
+            const { data, error } = await this.client.rpc('get_pedidos_dependiente', {
+                p_dependiente_user_id: id
+            });
+            if (error) {
+                console.error('Error getPedidosDependiente:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getPedidosDependiente:', err);
             return [];
         }
     }

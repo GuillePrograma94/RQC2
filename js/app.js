@@ -120,14 +120,16 @@ class ScanAsYouShopApp {
             // Refresco periodico del JWT para evitar 42501 tras ~1h trabajando
             this.startAuthRefreshTimer();
 
-            // Precargar historial de compras en segundo plano (solo clientes, no comerciales)
-            if (window.purchaseCache && savedUser.user_id && !savedUser.is_comercial) {
+            const savedEsRepresentante = !!savedUser.is_comercial || !!savedUser.is_dependiente;
+
+            // Precargar historial de compras en segundo plano (solo clientes, no representantes)
+            if (window.purchaseCache && savedUser.user_id && !savedEsRepresentante) {
                 console.log('Precargando historial para sesion guardada...');
                 window.purchaseCache.preload(savedUser.user_id);
             }
 
             // Configurar listener de cambios de estado de pedidos (solo clientes)
-            if (!savedUser.is_comercial) {
+            if (!savedEsRepresentante) {
                 this.setupOrderStatusListener();
             }
 
@@ -259,6 +261,7 @@ class ScanAsYouShopApp {
             if (loginResult.success) {
                 const tipo = (loginResult.tipo && String(loginResult.tipo).toUpperCase()) || 'CLIENTE';
                 const isComercial = tipo === 'COMERCIAL' || !!loginResult.es_comercial;
+                const isDependiente = tipo === 'DEPENDIENTE' || !!loginResult.es_dependiente;
 
                 this.currentUser = {
                     user_id: loginResult.user_id ?? null,
@@ -272,14 +275,17 @@ class ScanAsYouShopApp {
                     nombre_titular: loginResult.nombre_titular || null,
                     tipo: tipo,
                     is_comercial: isComercial,
+                    is_dependiente: isDependiente,
                     is_administrador: !!loginResult.es_administrador,
+                    almacen_tienda: loginResult.almacen_tienda ?? null,
                     comercial_id: loginResult.comercial_id ?? null,
                     comercial_numero: loginResult.comercial_numero ?? null
                 };
 
-                // Crear sesion en sesiones_usuario solo para clientes (titular/operario); comerciales no usan sesiones_usuario
+                // Crear sesion en sesiones_usuario solo para clientes (titular/operario).
+                // Comerciales y dependientes actuan como representantes y no usan sesiones_usuario.
                 let sessionId = null;
-                if (!isComercial) {
+                if (!isComercial && !isDependiente) {
                     sessionId = await window.supabaseClient.createUserSession(codigo);
                     if (sessionId) this.currentSession = sessionId;
                 }
@@ -308,12 +314,14 @@ class ScanAsYouShopApp {
                 // Mostrar mensaje de bienvenida
                 window.ui.showToast(`Bienvenido, ${this.currentUser.user_name}`, 'success');
 
-                // Precargar historial y listener de pedidos solo para clientes (no comerciales)
-                if (!this.currentUser.is_comercial && window.purchaseCache && this.currentUser.user_id) {
+                const esRepresentante = this.currentUser.is_comercial || this.currentUser.is_dependiente;
+
+                // Precargar historial y listener de pedidos solo para clientes (no representantes)
+                if (!esRepresentante && window.purchaseCache && this.currentUser.user_id) {
                     console.log('Precargando historial de compras...');
                     window.purchaseCache.preload(this.currentUser.user_id);
                 }
-                if (!this.currentUser.is_comercial) {
+                if (!esRepresentante) {
                     this.setupOrderStatusListener();
                 }
 
@@ -692,19 +700,24 @@ class ScanAsYouShopApp {
             // Usuario logueado
             if (menuGuest) menuGuest.style.display = 'none';
             if (menuUser) menuUser.style.display = 'block';
-            if (this.currentUser.is_comercial) {
+            if (this.currentUser.is_comercial || this.currentUser.is_dependiente) {
+                const esDependiente = !!this.currentUser.is_dependiente;
                 if (menuUserName) {
-                    menuUserName.textContent = this.currentUser.user_name || 'Comercial';
+                    menuUserName.textContent = this.currentUser.user_name || (esDependiente ? 'Dependiente' : 'Comercial');
                 }
                 if (menuUserCode) {
-                    menuUserCode.textContent = 'Nº ' + (this.currentUser.comercial_numero || this.currentUser.codigo_usuario || '');
+                    if (esDependiente) {
+                        menuUserCode.textContent = 'Tienda: ' + (this.currentUser.almacen_tienda || '--');
+                    } else {
+                        menuUserCode.textContent = 'Nº ' + (this.currentUser.comercial_numero || this.currentUser.codigo_usuario || '');
+                    }
                     menuUserCode.style.display = 'block';
                 }
                 if (menuUserSubtitle) {
                     menuUserSubtitle.style.display = 'block';
                     menuUserSubtitle.textContent = this.currentUser.cliente_representado_nombre
                         ? ('Representando a: ' + this.currentUser.cliente_representado_nombre)
-                        : 'Toca para seleccionar cliente';
+                        : (esDependiente ? 'Selecciona cliente de tu tienda' : 'Toca para seleccionar cliente');
                 }
                 if (menuUserInfo) {
                     menuUserInfo.classList.remove('user-info-view-only');
@@ -890,15 +903,20 @@ class ScanAsYouShopApp {
         const filterNum = document.getElementById('selectorClienteFilterNumero');
         const filterNombre = document.getElementById('selectorClienteFilterNombre');
         if (!listEl || !emptyEl) return;
-        if (!this.currentUser || !this.currentUser.is_comercial) return;
+        if (!this.currentUser || !this.canRepresentClientes()) return;
 
         if (filterNum) filterNum.value = '';
         if (filterNombre) filterNombre.value = '';
         const filterPoblacion = document.getElementById('selectorClienteFilterPoblacion');
         if (filterPoblacion) filterPoblacion.value = '';
 
-        const numero = this.currentUser.comercial_numero != null ? this.currentUser.comercial_numero : parseInt(this.currentUser.codigo_usuario, 10);
-        const clientes = await window.supabaseClient.getClientesAsignadosComercial(numero);
+        let clientes = [];
+        if (this.currentUser.is_comercial) {
+            const numero = this.currentUser.comercial_numero != null ? this.currentUser.comercial_numero : parseInt(this.currentUser.codigo_usuario, 10);
+            clientes = await window.supabaseClient.getClientesAsignadosComercial(numero);
+        } else if (this.currentUser.is_dependiente) {
+            clientes = await window.supabaseClient.getClientesDependiente(this.currentUser.user_id);
+        }
         this._clientesAsignadosComercial = Array.isArray(clientes) ? clientes : [];
 
         if (!this._clientesAsignadosComercial.length) {
@@ -1066,33 +1084,40 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Devuelve el user_id a usar para pedidos/historial: el del cliente o el cliente representado (comercial)
+     * Devuelve true si el usuario actual representa clientes (comercial/dependiente).
+     */
+    canRepresentClientes() {
+        return !!(this.currentUser && (this.currentUser.is_comercial || this.currentUser.is_dependiente));
+    }
+
+    /**
+     * Devuelve el user_id a usar para pedidos/historial: el del cliente o el cliente representado (representante)
      */
     getEffectiveUserId() {
         if (!this.currentUser) return null;
-        if (this.currentUser.is_comercial && this.currentUser.cliente_representado_id) {
+        if (this.canRepresentClientes() && this.currentUser.cliente_representado_id) {
             return this.currentUser.cliente_representado_id;
         }
         return this.currentUser.user_id || null;
     }
 
     /**
-     * Devuelve el almacén habitual a usar: el del cliente representado (comercial) o el del usuario.
+     * Devuelve el almacén habitual a usar: el del cliente representado (representante) o el del usuario.
      */
     getEffectiveAlmacenHabitual() {
         if (!this.currentUser) return null;
-        if (this.currentUser.is_comercial && this.currentUser.cliente_representado_id && this.currentUser.cliente_representado_almacen_habitual != null) {
+        if (this.canRepresentClientes() && this.currentUser.cliente_representado_id && this.currentUser.cliente_representado_almacen_habitual != null) {
             return this.currentUser.cliente_representado_almacen_habitual;
         }
         return this.currentUser.almacen_habitual != null ? this.currentUser.almacen_habitual : null;
     }
 
     /**
-     * Devuelve el grupo_cliente a usar: el del cliente representado (comercial) o el del usuario (ofertas, precios).
+     * Devuelve el grupo_cliente a usar: el del cliente representado (representante) o el del usuario (ofertas, precios).
      */
     getEffectiveGrupoCliente() {
         if (!this.currentUser) return null;
-        if (this.currentUser.is_comercial && this.currentUser.cliente_representado_id && this.currentUser.cliente_representado_grupo_cliente != null) {
+        if (this.canRepresentClientes() && this.currentUser.cliente_representado_id && this.currentUser.cliente_representado_grupo_cliente != null) {
             return this.currentUser.cliente_representado_grupo_cliente;
         }
         return this.currentUser.grupo_cliente != null ? this.currentUser.grupo_cliente : null;
@@ -1103,11 +1128,15 @@ class ScanAsYouShopApp {
      */
     async renderProfileScreen() {
         if (!this.currentUser) return;
-        if (this.currentUser.is_comercial) {
+        if (this.currentUser.is_comercial || this.currentUser.is_dependiente) {
             const nameEl = document.getElementById('profileUserName');
             const codeEl = document.getElementById('profileUserCode');
-            if (nameEl) nameEl.textContent = this.currentUser.user_name || 'Comercial';
-            if (codeEl) codeEl.textContent = 'Nº ' + (this.currentUser.comercial_numero || this.currentUser.codigo_usuario || '--');
+            if (nameEl) nameEl.textContent = this.currentUser.user_name || (this.currentUser.is_dependiente ? 'Dependiente' : 'Comercial');
+            if (codeEl) {
+                codeEl.textContent = this.currentUser.is_dependiente
+                    ? ('Tienda: ' + (this.currentUser.almacen_tienda || '--'))
+                    : ('Nº ' + (this.currentUser.comercial_numero || this.currentUser.codigo_usuario || '--'));
+            }
             const passwordSection = document.getElementById('profilePasswordSection');
             const operariosSection = document.getElementById('profileOperariosSection');
             if (passwordSection) passwordSection.style.display = 'none';
@@ -3128,12 +3157,12 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Clic en datos de usuario: titular -> Mi perfil; operario -> nada; comercial -> seleccionar cliente
+        // Clic en datos de usuario: titular -> Mi perfil; operario -> nada; representante -> seleccionar cliente
         const menuUserInfo = document.getElementById('menuUserInfo');
         if (menuUserInfo) {
             menuUserInfo.addEventListener('click', () => {
                 if (this.currentUser && this.currentUser.is_operario) return;
-                if (this.currentUser && this.currentUser.is_comercial) {
+                if (this.currentUser && this.canRepresentClientes()) {
                     this.closeMenu();
                     this.showScreen('selectorCliente');
                     this.renderSelectorClienteScreen();
@@ -3148,8 +3177,8 @@ class ScanAsYouShopApp {
         const myOrdersBtn = document.getElementById('myOrdersBtn');
         if (myOrdersBtn) {
             myOrdersBtn.addEventListener('click', () => {
-                if (this.currentUser && this.currentUser.is_comercial) {
-                    // Comercial puede ver Mis pedidos siempre: sin cliente = pedidos de todos; con cliente = pedidos del representado
+                if (this.currentUser && this.canRepresentClientes()) {
+                    // Representante puede ver Mis pedidos siempre: sin cliente = vista agregada; con cliente = pedidos del representado
                     // (ya no se exige seleccionar cliente para entrar)
                 }
                 this.closeMenu();
@@ -6051,7 +6080,7 @@ class ScanAsYouShopApp {
             return;
         }
 
-        if (this.currentUser.is_comercial && !this.currentUser.cliente_representado_id) {
+        if (this.canRepresentClientes() && !this.currentUser.cliente_representado_id) {
             window.ui.showToast('Selecciona el cliente al que representas para poder enviar el pedido', 'warning');
             this.showScreen('selectorCliente');
             this.renderSelectorClienteScreen();
@@ -6174,7 +6203,7 @@ class ScanAsYouShopApp {
             window.ui.showToast('El carrito esta vacio', 'warning');
             return;
         }
-        if (this.currentUser.is_comercial && !this.currentUser.cliente_representado_id) {
+        if (this.canRepresentClientes() && !this.currentUser.cliente_representado_id) {
             window.ui.showToast('Selecciona el cliente al que representas para poder enviar el pedido', 'warning');
             this.showScreen('selectorCliente');
             this.renderSelectorClienteScreen();
@@ -6281,7 +6310,7 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            if (this.currentUser.is_comercial && !this.currentUser.cliente_representado_id) {
+            if (this.canRepresentClientes() && !this.currentUser.cliente_representado_id) {
                 this.hideAlmacenModal();
                 this.hideEnviarEnRutaModal();
                 window.ui.showToast('Selecciona el cliente al que representas para poder enviar el pedido', 'warning');
@@ -6306,7 +6335,7 @@ class ScanAsYouShopApp {
             this.hideEnviarEnRutaModal();
 
             let observacionesFinal = observaciones != null ? String(observaciones) : '';
-            if (this.currentUser.is_comercial && this.currentUser.user_name) {
+            if (this.canRepresentClientes() && this.currentUser.user_name) {
                 observacionesFinal += (observacionesFinal ? '\n\n' : '') + 'Pedido enviado por: ' + this.currentUser.user_name;
             }
 
@@ -6493,7 +6522,7 @@ class ScanAsYouShopApp {
                 if (cart && cart.productos && cart.productos.length > 0) {
                     const effectiveUserIdCatch = this.getEffectiveUserId();
                     let observacionesFinalCatch = observaciones != null ? String(observaciones) : '';
-                    if (this.currentUser.is_comercial && this.currentUser.user_name) {
+                    if (this.canRepresentClientes() && this.currentUser.user_name) {
                         observacionesFinalCatch += (observacionesFinalCatch ? '\n\n' : '') + 'Pedido enviado por: ' + this.currentUser.user_name;
                     }
                     const offlineItem = {
@@ -6570,9 +6599,9 @@ class ScanAsYouShopApp {
         const myOrdersRepresentandoBlock = document.getElementById('myOrdersRepresentandoBlock');
         const myOrdersRepresentandoNombre = document.getElementById('myOrdersRepresentandoNombre');
 
-        // Bloque "Representando a X": visible solo para comercial con cliente representado
+        // Bloque "Representando a X": visible para representante con cliente representado
         if (myOrdersRepresentandoBlock && myOrdersRepresentandoNombre) {
-            if (this.currentUser && this.currentUser.is_comercial && this.currentUser.cliente_representado_id && this.currentUser.cliente_representado_nombre) {
+            if (this.currentUser && this.canRepresentClientes() && this.currentUser.cliente_representado_id && this.currentUser.cliente_representado_nombre) {
                 myOrdersRepresentandoBlock.style.display = 'block';
                 myOrdersRepresentandoNombre.textContent = this.currentUser.cliente_representado_nombre;
             } else {
@@ -6580,27 +6609,37 @@ class ScanAsYouShopApp {
             }
         }
 
-        // Comercial sin cliente representado: pedidos de todos sus clientes en una sola consulta (RPC get_pedidos_comercial)
-        if (this.currentUser && this.currentUser.is_comercial && !this.currentUser.cliente_representado_id) {
-            // Mismo fallback que renderSelectorClienteScreen para obtener el numero del comercial
-            const comercialNumero = this.currentUser.comercial_numero != null
-                ? this.currentUser.comercial_numero
-                : parseInt(this.currentUser.codigo_usuario, 10);
-            console.log('[loadMyOrders] Comercial sin cliente - numero:', comercialNumero);
-            if (!comercialNumero || isNaN(comercialNumero)) {
-                console.warn('[loadMyOrders] No se pudo determinar el numero del comercial. comercial_numero:', this.currentUser.comercial_numero, '| codigo_usuario:', this.currentUser.codigo_usuario);
-                if (ordersLoading) ordersLoading.style.display = 'none';
-                if (ordersEmpty) ordersEmpty.style.display = 'flex';
-                if (ordersList) ordersList.style.display = 'none';
-                return;
-            }
+        // Representante sin cliente representado: cargar pedidos agregados segun rol
+        if (this.currentUser && this.canRepresentClientes() && !this.currentUser.cliente_representado_id) {
             if (ordersLoading) ordersLoading.style.display = 'flex';
             if (ordersEmpty) ordersEmpty.style.display = 'none';
             if (ordersList) ordersList.style.display = 'none';
             try {
-                // Una sola llamada a Supabase (JOIN en servidor, orden aplicado en SQL)
-                const allPedidos = await window.supabaseClient.getPedidosComercial(comercialNumero);
-                console.log('[loadMyOrders] Pedidos obtenidos para comercial', comercialNumero, ':', allPedidos.length);
+                let allPedidos = [];
+                if (this.currentUser.is_comercial) {
+                    const comercialNumero = this.currentUser.comercial_numero != null
+                        ? this.currentUser.comercial_numero
+                        : parseInt(this.currentUser.codigo_usuario, 10);
+                    console.log('[loadMyOrders] Comercial sin cliente - numero:', comercialNumero);
+                    if (!comercialNumero || isNaN(comercialNumero)) {
+                        console.warn('[loadMyOrders] No se pudo determinar el numero del comercial. comercial_numero:', this.currentUser.comercial_numero, '| codigo_usuario:', this.currentUser.codigo_usuario);
+                        if (ordersLoading) ordersLoading.style.display = 'none';
+                        if (ordersEmpty) ordersEmpty.style.display = 'flex';
+                        if (ordersList) ordersList.style.display = 'none';
+                        return;
+                    }
+                    allPedidos = await window.supabaseClient.getPedidosComercial(comercialNumero);
+                    console.log('[loadMyOrders] Pedidos obtenidos para comercial', comercialNumero, ':', allPedidos.length);
+                } else {
+                    if (!this.currentUser.user_id) {
+                        if (ordersLoading) ordersLoading.style.display = 'none';
+                        if (ordersEmpty) ordersEmpty.style.display = 'flex';
+                        if (ordersList) ordersList.style.display = 'none';
+                        return;
+                    }
+                    allPedidos = await window.supabaseClient.getPedidosDependiente(this.currentUser.user_id);
+                    console.log('[loadMyOrders] Pedidos obtenidos para dependiente', this.currentUser.user_id, ':', allPedidos.length);
+                }
                 if (ordersLoading) ordersLoading.style.display = 'none';
                 if (!allPedidos || allPedidos.length === 0) {
                     if (ordersEmpty) ordersEmpty.style.display = 'flex';
@@ -6617,7 +6656,7 @@ class ScanAsYouShopApp {
                     }
                 }
             } catch (err) {
-                console.error('[loadMyOrders] Error al cargar pedidos del comercial:', err);
+                console.error('[loadMyOrders] Error al cargar pedidos agregados del representante:', err);
                 if (ordersLoading) ordersLoading.style.display = 'none';
                 if (ordersEmpty) ordersEmpty.style.display = 'flex';
                 if (ordersList) ordersList.style.display = 'none';

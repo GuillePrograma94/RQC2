@@ -143,7 +143,10 @@ module.exports = async (req, res) => {
             nombre_operario: null,
             codigo_usuario_titular: null,
             nombre_titular: null,
+            tipo: 'COMERCIAL',
             es_comercial: true,
+            es_dependiente: false,
+            almacen_tienda: null,
             comercial_id: com.comercial_id,
             comercial_numero: com.numero
         });
@@ -272,6 +275,7 @@ module.exports = async (req, res) => {
     }
 
     const tipo = (row.tipo && String(row.tipo).toUpperCase()) || 'CLIENTE';
+    const esDependiente = tipo === 'DEPENDIENTE';
 
     res.status(200).json({
         success: true,
@@ -287,6 +291,8 @@ module.exports = async (req, res) => {
         nombre_titular: row.nombre_titular || null,
         tipo: tipo,
         es_comercial: tipo === 'COMERCIAL',
+        es_dependiente: esDependiente,
+        almacen_tienda: row.almacen_tienda || null,
         es_administrador: tipo === 'ADMINISTRADOR'
     });
 };
