@@ -28,6 +28,9 @@ CREATE INDEX IF NOT EXISTS idx_dependiente_cliente_uso_ultima ON dependiente_cli
 ALTER TABLE dependiente_cliente_uso ENABLE ROW LEVEL SECURITY;
 
 -- RLS: solo lectura via RPC SECURITY DEFINER; no exponer tabla directa a cliente si no aplica
+DROP POLICY IF EXISTS dependiente_cliente_uso_select ON dependiente_cliente_uso;
+DROP POLICY IF EXISTS dependiente_cliente_uso_insert ON dependiente_cliente_uso;
+DROP POLICY IF EXISTS dependiente_cliente_uso_update ON dependiente_cliente_uso;
 CREATE POLICY dependiente_cliente_uso_select ON dependiente_cliente_uso FOR SELECT USING (true);
 CREATE POLICY dependiente_cliente_uso_insert ON dependiente_cliente_uso FOR INSERT WITH CHECK (true);
 CREATE POLICY dependiente_cliente_uso_update ON dependiente_cliente_uso FOR UPDATE USING (true);
@@ -81,6 +84,8 @@ COMMENT ON FUNCTION get_clientes_dependiente_por_frecuencia(INTEGER, INTEGER) IS
 
 -- ============================================
 -- 3. RPC: BUSCAR CLIENTES POR TEXTO
+-- Cada palabra del query debe coincidir en al menos un campo (nombre, codigo, alias, poblacion).
+-- Ej: "rafa olcina" o "olci rafa" encuentran "JOSE RAFAEL OLCINA LLIN".
 -- ============================================
 DROP FUNCTION IF EXISTS buscar_clientes_dependiente(INTEGER, TEXT, INTEGER);
 
@@ -121,11 +126,21 @@ AS $$
           AND (u.activo IS NULL OR u.activo = TRUE)
           AND COALESCE(u.tipo, 'CLIENTE') IN ('CLIENTE', 'ADMINISTRADOR')
           AND (
-              COALESCE(trim(p_query), '') = ''
-              OR u.nombre ILIKE '%' || trim(p_query) || '%'
-              OR u.codigo_usuario ILIKE '%' || trim(p_query) || '%'
-              OR COALESCE(u.alias, '') ILIKE '%' || trim(p_query) || '%'
-              OR COALESCE(u.poblacion, '') ILIKE '%' || trim(p_query) || '%'
+              NOT EXISTS (
+                  SELECT 1
+                  FROM unnest(regexp_split_to_array(trim(COALESCE(p_query, '')), '\s+')) AS w
+                  WHERE length(trim(w)) > 0
+              )
+              OR (
+                  SELECT bool_and(
+                      u.nombre ILIKE '%' || trim(w) || '%'
+                      OR u.codigo_usuario ILIKE '%' || trim(w) || '%'
+                      OR COALESCE(u.alias, '') ILIKE '%' || trim(w) || '%'
+                      OR COALESCE(u.poblacion, '') ILIKE '%' || trim(w) || '%'
+                  )
+                  FROM unnest(regexp_split_to_array(trim(COALESCE(p_query, '')), '\s+')) AS w
+                  WHERE length(trim(w)) > 0
+              ) = true
           )
     )
     SELECT b.id, b.nombre, b.codigo_usuario, b.almacen_habitual, b.grupo_cliente, b.alias, b.poblacion
@@ -135,7 +150,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION buscar_clientes_dependiente(INTEGER, TEXT, INTEGER) IS
-'Busca clientes del dependiente por nombre/codigo/alias/poblacion. Orden: frecuencia luego nombre.';
+'Busca clientes del dependiente: cada palabra del query debe coincidir en nombre, codigo, alias o poblacion. Orden: frecuencia luego nombre.';
 
 -- ============================================
 -- 4. RPC: REGISTRAR REPRESENTACION (upsert uso)

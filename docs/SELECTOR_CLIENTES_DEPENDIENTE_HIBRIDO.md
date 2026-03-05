@@ -35,7 +35,7 @@ En scan_client_mobile, el dependiente puede representar a cualquier cliente de s
 
 - **RPC 2 – Búsqueda por texto**  
   `buscar_clientes_dependiente(p_dependiente_user_id, p_query, p_limit)`.  
-  Mismos clientes elegibles, filtro por coincidencia en nombre/código/alias/población (ILIKE), mismo orden por frecuencia y luego nombre, LIMIT (ej. 100).  
+  Mismos clientes elegibles. **Cada palabra** de `p_query` (separada por espacios) debe aparecer en al menos uno de: nombre, código, alias, población (ILIKE por palabra). Ejemplos: "rafa olcina", "olci rafa" o "ol lli rafa" encuentran "JOSE RAFAEL OLCINA LLIN". Mismo orden por frecuencia y nombre, LIMIT (ej. 100).  
   Uso: cuando el usuario escribe en el buscador, consultar solo contra Supabase.
 
 - **RPC 3 – Registrar representación**  
