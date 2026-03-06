@@ -141,6 +141,18 @@
         </div>
     </div>
 
+    <!-- Modal Enviar Pedido (contenido de Caja: Recoger en Almacén, Enviar en Ruta, Escanear en Mostrador) -->
+    <div id="enviarPedidoModal" class="login-modal enviar-pedido-modal" style="display: none;">
+        <div class="login-modal-overlay" id="enviarPedidoModalOverlay"></div>
+        <div class="login-modal-content enviar-pedido-modal-content">
+            <div class="enviar-pedido-modal-header">
+                <h2>Enviar Pedido</h2>
+                <button type="button" id="closeEnviarPedidoModalBtn" class="close-login-btn" aria-label="Cerrar">×</button>
+            </div>
+            <div id="enviarPedidoModalContent" class="enviar-pedido-modal-body"></div>
+        </div>
+    </div>
+
     <!-- Fixed Header -->
     <header class="app-header-fixed">
         <div class="header-content">
@@ -233,6 +245,23 @@
 
                 <!-- Cart Items -->
                 <div id="cartItems" class="cart-items" style="display: none;"></div>
+
+                <!-- Footer carrito: botón Enviar Pedido (visible cuando hay productos) -->
+                <div id="cartFooter" class="cart-footer" style="display: none;">
+                    <button type="button" id="enviarPedidoBtn" class="btn btn-primary btn-lg btn-enviar-pedido">Enviar Pedido</button>
+                </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA INICIO
+             ================================ -->
+        <div id="inicioScreen" class="screen">
+            <main class="screen-content inicio-content">
+                <div class="inicio-welcome">
+                    <h1 class="inicio-title">Bienvenido</h1>
+                    <p class="inicio-text">Servicio RQC de BATMAR. Escanea productos mientras compras.</p>
+                </div>
             </main>
         </div>
 
@@ -431,7 +460,7 @@
         <div id="mostradorScreen" class="screen">
             <main class="screen-content checkout-content">
                 <div class="mostrador-header">
-                    <button type="button" id="mostradorBackBtn" class="btn-back-mostrador" aria-label="Volver a Caja">← Volver</button>
+                    <button type="button" id="mostradorBackBtn" class="btn-back-mostrador" aria-label="Volver">← Volver</button>
                     <h2 class="section-title">Escanear en Mostrador</h2>
                 </div>
 
@@ -992,15 +1021,14 @@
              FOOTER DE NAVEGACIÓN
              ================================ -->
         <nav class="bottom-nav">
-            <button id="navCheckout" class="nav-item nav-checkout">
+            <button id="navInicio" class="nav-item">
                 <span class="nav-icon">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 3h18v18H3z"/>
-                        <path d="M3 9h18"/>
-                        <path d="M9 21V9"/>
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                        <polyline points="9 22 9 12 15 12 15 22"/>
                     </svg>
                 </span>
-                <span class="nav-label">Caja</span>
+                <span class="nav-label">Inicio</span>
             </button>
             <button id="navSearch" class="nav-item">
                 <span class="nav-icon">

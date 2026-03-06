@@ -3055,7 +3055,7 @@ class ScanAsYouShopApp {
         // Footer Navigation
         const navCart = document.getElementById('navCart');
         const navSearch = document.getElementById('navSearch');
-        const navCheckout = document.getElementById('navCheckout');
+        const navInicio = document.getElementById('navInicio');
         const navScan = document.getElementById('navScan');
 
         if (navCart) {
@@ -3072,10 +3072,10 @@ class ScanAsYouShopApp {
             });
         }
 
-        if (navCheckout) {
-            navCheckout.addEventListener('click', () => {
-                this.showScreen('checkout');
-                this.updateActiveNav('checkout');
+        if (navInicio) {
+            navInicio.addEventListener('click', () => {
+                this.showScreen('inicio');
+                this.updateActiveNav('inicio');
             });
         }
 
@@ -3383,11 +3383,15 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Vista Recambios: Volver (a la pantalla desde la que se abrio el detalle)
+        // Vista Recambios: Volver (a la pantalla desde la que se abrio: search, cart, scan, etc.)
         const recambiosVistaBackBtn = document.getElementById('recambiosVistaBackBtn');
         if (recambiosVistaBackBtn) {
             recambiosVistaBackBtn.addEventListener('click', () => {
-                this.showScreen(this.recambiosVistaReturnScreen || 'cart');
+                let target = this.recambiosVistaReturnScreen || 'cart';
+                if (target === 'checkout') target = 'cart';
+                if (target === 'recambiosVista') target = 'cart';
+                this.showScreen(target);
+                this.updateActiveNav(target);
             });
         }
 
@@ -3515,6 +3519,7 @@ class ScanAsYouShopApp {
         const recogerEnAlmacenBtn = document.getElementById('recogerEnAlmacenBtn');
         if (recogerEnAlmacenBtn) {
             recogerEnAlmacenBtn.addEventListener('click', () => {
+                if (this.isEnviarPedidoModalOpen()) this.closeEnviarPedidoModal();
                 this.showAlmacenSelectionModal();
             });
         }
@@ -3523,23 +3528,48 @@ class ScanAsYouShopApp {
         const enviarEnRutaBtn = document.getElementById('enviarEnRutaBtn');
         if (enviarEnRutaBtn) {
             enviarEnRutaBtn.addEventListener('click', () => {
+                if (this.isEnviarPedidoModalOpen()) this.closeEnviarPedidoModal();
                 this.showEnviarEnRutaModal();
             });
         }
 
-        // Escanear en Mostrador: abre pantalla con QR y código manual
+        // Escanear en Mostrador: cierra modal Enviar Pedido si está abierto y abre pantalla con QR y código manual
         const escanearEnMostradorBtn = document.getElementById('escanearEnMostradorBtn');
         if (escanearEnMostradorBtn) {
             escanearEnMostradorBtn.addEventListener('click', () => {
+                if (this.isEnviarPedidoModalOpen()) {
+                    this.closeEnviarPedidoModal();
+                }
                 this.showScreen('mostrador');
             });
         }
 
-        // Volver desde Mostrador a Caja
+        // Volver desde Mostrador al Carrito (ya no a Caja)
         const mostradorBackBtn = document.getElementById('mostradorBackBtn');
         if (mostradorBackBtn) {
             mostradorBackBtn.addEventListener('click', () => {
-                this.showScreen('checkout');
+                this.showScreen('cart');
+            });
+        }
+
+        // Botón Enviar Pedido (carrito): abre modal con contenido de Caja
+        const enviarPedidoBtn = document.getElementById('enviarPedidoBtn');
+        if (enviarPedidoBtn) {
+            enviarPedidoBtn.addEventListener('click', () => {
+                this.openEnviarPedidoModal();
+            });
+        }
+
+        const closeEnviarPedidoModalBtn = document.getElementById('closeEnviarPedidoModalBtn');
+        if (closeEnviarPedidoModalBtn) {
+            closeEnviarPedidoModalBtn.addEventListener('click', () => {
+                this.closeEnviarPedidoModal();
+            });
+        }
+        const enviarPedidoModalOverlay = document.getElementById('enviarPedidoModalOverlay');
+        if (enviarPedidoModalOverlay) {
+            enviarPedidoModalOverlay.addEventListener('click', () => {
+                this.closeEnviarPedidoModal();
             });
         }
 
@@ -3914,14 +3944,16 @@ class ScanAsYouShopApp {
         navItems.forEach(item => item.classList.remove('active'));
 
         // Marcar como activo el botón correspondiente
-        if (screen === 'cart') {
+        if (screen === 'inicio') {
+            document.getElementById('navInicio')?.classList.add('active');
+        } else if (screen === 'cart') {
             document.getElementById('navCart')?.classList.add('active');
         } else if (screen === 'search') {
             document.getElementById('navSearch')?.classList.add('active');
         } else if (screen === 'scan') {
             document.getElementById('navScan')?.classList.add('active');
         } else if (screen === 'checkout') {
-            document.getElementById('navCheckout')?.classList.add('active');
+            document.getElementById('navInicio')?.classList.add('active');
         }
     }
 
@@ -4405,17 +4437,17 @@ class ScanAsYouShopApp {
         if (controlsRow) controlsRow.style.display = imageUrls.length > 1 ? 'flex' : 'none';
 
         const onVerRecambiosClick = () => {
+            this.recambiosVistaReturnScreen = this.currentScreen;
             handleClose();
             const addToCartModal = document.getElementById('addToCartModal');
             if (addToCartModal) addToCartModal.style.display = 'none';
-            this.recambiosVistaReturnScreen = this.currentScreen;
             this.openRecambiosVistaPage(producto, 'recambios');
         };
         const onSirveParaClick = () => {
+            this.recambiosVistaReturnScreen = this.currentScreen;
             handleClose();
             const addToCartModal = document.getElementById('addToCartModal');
             if (addToCartModal) addToCartModal.style.display = 'none';
-            this.recambiosVistaReturnScreen = this.currentScreen;
             this.openRecambiosVistaPage(producto, 'sirvePara');
         };
 
@@ -4991,16 +5023,20 @@ class ScanAsYouShopApp {
             emptyState.style.display = 'flex';
             container.style.display = 'none';
             container.innerHTML = '';
-            
+            const cartFooter = document.getElementById('cartFooter');
+            if (cartFooter) cartFooter.style.display = 'none';
+
             // Actualizar header
             this.updateCartHeader(0, 0);
-            
+
             return;
         }
 
         // Ocultar estado vacío y mostrar productos
         emptyState.style.display = 'none';
         container.style.display = 'block';
+        const cartFooter = document.getElementById('cartFooter');
+        if (cartFooter) cartFooter.style.display = 'block';
 
         // Asegurar indice de stock para mostrar desglose por almacen en las tarjetas
         if (this.stockIndex.size === 0 && window.cartManager && window.cartManager.db) {
@@ -5735,6 +5771,49 @@ class ScanAsYouShopApp {
             console.error('Error al eliminar producto:', error);
             window.ui.showToast('Error al eliminar producto', 'error');
         }
+    }
+
+    /**
+     * Abre el modal Enviar Pedido (contenido de Caja: Recoger en Almacén, Enviar en Ruta, Escanear en Mostrador).
+     * Mueve checkoutGreenBox al modal para reutilizar el mismo DOM y eventos.
+     */
+    openEnviarPedidoModal() {
+        const cart = window.cartManager.getCart();
+        if (!cart.productos || cart.productos.length === 0) {
+            window.ui.showToast('El carrito esta vacio', 'warning');
+            return;
+        }
+        const modal = document.getElementById('enviarPedidoModal');
+        const content = document.getElementById('enviarPedidoModalContent');
+        const box = document.getElementById('checkoutGreenBox');
+        const checkoutMain = document.querySelector('#checkoutScreen main');
+        if (!modal || !content || !box || !checkoutMain) return;
+        content.appendChild(box);
+        const remoteOrderSection = document.getElementById('remoteOrderSection');
+        if (remoteOrderSection) {
+            remoteOrderSection.style.display = this.currentUser ? 'block' : 'none';
+        }
+        modal.style.display = 'flex';
+    }
+
+    /**
+     * Cierra el modal Enviar Pedido y devuelve el contenido a la pantalla de checkout.
+     */
+    closeEnviarPedidoModal() {
+        const modal = document.getElementById('enviarPedidoModal');
+        const content = document.getElementById('enviarPedidoModalContent');
+        const box = document.getElementById('checkoutGreenBox');
+        const checkoutMain = document.querySelector('#checkoutScreen main');
+        if (!modal || !content || !box || !checkoutMain) return;
+        if (box.parentElement === content) {
+            checkoutMain.appendChild(box);
+        }
+        modal.style.display = 'none';
+    }
+
+    isEnviarPedidoModalOpen() {
+        const modal = document.getElementById('enviarPedidoModal');
+        return modal && modal.style.display === 'flex';
     }
 
     /**
