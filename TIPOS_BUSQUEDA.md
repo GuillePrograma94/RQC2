@@ -6,14 +6,15 @@ El sistema de búsqueda de `scan_client_mobile` ofrece **6 tipos diferentes de b
 
 ---
 
-## 🎯 1. BÚSQUEDA POR CÓDIGO (Smart Code Search)
+## 1. BÚSQUEDA POR CÓDIGO (Smart Code Search)
 
-### **Método**: `searchByCodeSmart(code)`
-### **Cuándo se usa**: Solo cuando se introduce código (SKU/EAN)
+### **Método**: `searchByCodeUnified(code)` (unifica `searchByCodeSmart`, `searchProductsExact` y `searchByManufacturerCode`)
+### **Cuándo se usa**: Cuando se introduce código en el campo "Código (SKU / EAN / Ref. fabricante)"
 ### **Lógica**:
-1. **Match exacto primero**: Si encuentra el código exacto, devuelve solo ese resultado
-2. **Match parcial**: Si no hay exacto, busca códigos que contengan el término
-3. **Sin límites**: Muestra TODOS los resultados encontrados
+1. **Match exacto** en código principal o en cualquier código secundario (EAN o ref. fabricante): si hay resultado, se incluye.
+2. **Match en código principal**: exacto primero; si no hay exacto, códigos que contengan el término.
+3. **Match en referencia de fabricante**: códigos secundarios que no son EAN y contienen el término (parcial).
+4. Resultados deduplicados por código principal; sin límite de cantidad.
 
 ### **Ejemplo Práctico**:
 ```
@@ -224,12 +225,12 @@ Si no existe en principales:
 ## 🎨 Interfaz de Usuario
 
 ### **Campos de Búsqueda**
-- **📋 Código (SKU/EAN)**: Para búsquedas por código
-- **📝 Descripción**: Para búsquedas por texto
-- **📦 Solo comprados**: Filtro de historial (requiere login)
+- **Código (SKU / EAN / Ref. fabricante)**: Un solo campo para código principal, EAN u otro código secundario, o referencia de fabricante (p. ej. BM-300). No hace falta usar el chip "Ref. fabricante" para buscar por ref.
+- **Descripción**: Para búsquedas por texto
+- **Solo comprados**: Filtro de historial (requiere login)
 
 ### **Comportamiento Inteligente**
-- **Solo código**: Búsqueda por código con prioridad exacta
+- **Solo código**: Búsqueda unificada por código principal (exacto/parcial), por EAN/código secundario exacto, o por referencia de fabricante (parcial en códigos secundarios no EAN). Un solo campo cubre los tres casos.
 - **Solo descripción**: Búsqueda por todas las palabras
 - **Código + descripción**: Búsqueda combinada (descripción → filtro por código)
 - **Con filtro**: Búsqueda en historial personal del usuario

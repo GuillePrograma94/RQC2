@@ -4117,7 +4117,7 @@ class ScanAsYouShopApp {
                     );
                     console.log(`Resultados: ${productosPorDescripcion.length} por descripcion, ${productos.length} con codigo`);
                 } else if (code) {
-                    productos = await window.cartManager.searchByCodeSmart(code);
+                    productos = await window.cartManager.searchByCodeUnified(code);
                 } else if (description) {
                     productos = await window.cartManager.searchByDescriptionAllWords(description);
                 }

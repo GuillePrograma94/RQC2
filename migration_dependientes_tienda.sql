@@ -70,7 +70,7 @@ AS $$
 DECLARE
     v_user RECORD;
     v_operario RECORD;
-    v_dependiente RECORD;
+    v_almacen_tienda TEXT;
     v_codigo_titular TEXT;
     v_codigo_op TEXT;
 BEGIN
@@ -102,9 +102,10 @@ BEGIN
         UPDATE usuarios SET ultimo_acceso = NOW() WHERE id = v_user.id;
 
         IF COALESCE(v_user.tipo, 'CLIENTE') = 'DEPENDIENTE' THEN
-            SELECT *
-            INTO v_dependiente
+            SELECT ud.almacen_tienda
+            INTO v_almacen_tienda
             FROM usuarios_dependientes
+            AS ud
             WHERE usuario_id = v_user.id
               AND activo = TRUE
             LIMIT 1;
@@ -123,7 +124,7 @@ BEGIN
             v_user.nombre,
             COALESCE(v_user.tipo, 'CLIENTE')::TEXT,
             CASE
-                WHEN COALESCE(v_user.tipo, 'CLIENTE') = 'DEPENDIENTE' THEN v_dependiente.almacen_tienda::TEXT
+                WHEN COALESCE(v_user.tipo, 'CLIENTE') = 'DEPENDIENTE' THEN v_almacen_tienda::TEXT
                 ELSE NULL::TEXT
             END;
         RETURN;

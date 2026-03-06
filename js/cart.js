@@ -807,6 +807,40 @@ class CartManager {
     }
 
     /**
+     * Búsqueda unificada por código: SKU principal, EAN/códigos secundarios y referencia de fabricante.
+     * Un solo campo (Código SKU/EAN) sirve para los tres tipos.
+     * - Código principal: exacto y parcial (searchByCodeSmart)
+     * - Código secundario exacto (EAN o ref.): searchProductsExact
+     * - Ref. fabricante parcial (no EAN): searchByManufacturerCode
+     * Devuelve productos deduplicados por codigo principal.
+     */
+    async searchByCodeUnified(code) {
+        if (!code || !code.trim()) return [];
+        const seen = new Set();
+        const results = [];
+
+        const addUnique = (p) => {
+            if (!p || !p.codigo) return;
+            const key = p.codigo.toUpperCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+            results.push(p);
+        };
+
+        const [exactList, smartList, manufacturerList] = await Promise.all([
+            this.searchProductsExact(code),
+            this.searchByCodeSmart(code),
+            this.searchByManufacturerCode(code)
+        ]);
+
+        (exactList || []).forEach(addUnique);
+        (smartList || []).forEach(addUnique);
+        (manufacturerList || []).forEach(addUnique);
+
+        return results;
+    }
+
+    /**
      * Búsqueda inteligente por código: Prioriza match exacto
      * Si existe match exacto, solo muestra ese. Si no, muestra parciales
      */
