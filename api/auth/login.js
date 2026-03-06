@@ -24,6 +24,41 @@ function authEmailComercial(numero) {
     return `comercial_${safe}@labels.auth`;
 }
 
+function logError(label, err) {
+    const msg = err && (err.message || err.code || String(err));
+    console.error('[login] ' + label + ':', msg || err);
+}
+
+function safeErrorDetail(err) {
+    if (!err) return null;
+    const m = err.message || err.code || (typeof err === 'string' ? err : null);
+    return m ? String(m).substring(0, 200) : null;
+}
+
+async function findAuthUserIdByEmail(supabase, email) {
+    try {
+        const target = String(email || '').trim().toLowerCase();
+        if (!target) return null;
+        const perPage = 1000;
+        const maxPages = 25; // 25k usuarios auth como techo de seguridad
+        for (let page = 1; page <= maxPages; page++) {
+            const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+            if (error) {
+                logError('auth.admin.listUsers', error);
+                return null;
+            }
+            const users = data && Array.isArray(data.users) ? data.users : [];
+            const existing = users.find(u => (u.email || '').toString().trim().toLowerCase() === target);
+            if (existing && existing.id) return existing.id;
+            if (users.length < perPage) break;
+        }
+        return null;
+    } catch (e) {
+        logError('findAuthUserIdByEmail', e);
+        return null;
+    }
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -71,7 +106,12 @@ module.exports = async (req, res) => {
     });
 
     if (rpcError) {
-        res.status(500).json({ success: false, message: 'Error al verificar credenciales' });
+        logError('verificar_login_usuario RPC', rpcError);
+        res.status(500).json({
+            success: false,
+            message: 'Error al verificar credenciales',
+            detail: safeErrorDetail(rpcError)
+        });
         return;
     }
 
@@ -96,7 +136,12 @@ module.exports = async (req, res) => {
             .single();
 
         if (comAuthError && comAuthError.code !== 'PGRST116') {
-            res.status(500).json({ success: false, message: 'Error al obtener comercial' });
+            logError('usuarios_comerciales select', comAuthError);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener comercial',
+                detail: safeErrorDetail(comAuthError)
+            });
             return;
         }
         const authUserIdCom = comRow && comRow.auth_user_id ? comRow.auth_user_id : null;
@@ -109,15 +154,20 @@ module.exports = async (req, res) => {
             });
             if (createError) {
                 if (createError.message && createError.message.includes('already been registered')) {
-                    const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-                    const existing = listData?.users?.find(u => u.email === emailComercial);
+                    const existingId = await findAuthUserIdByEmail(supabase, emailComercial);
+                    const existing = existingId ? { id: existingId } : null;
                     if (existing) {
                         await supabase.from('usuarios_comerciales')
                             .update({ auth_user_id: existing.id })
                             .eq('id', com.comercial_id);
                     }
                 } else {
-                    res.status(500).json({ success: false, message: 'Error al crear sesion de auth' });
+                    logError('auth.admin.createUser comercial', createError);
+                    res.status(500).json({
+                        success: false,
+                        message: 'Error al crear sesion de auth',
+                        detail: safeErrorDetail(createError)
+                    });
                     return;
                 }
             } else if (created && (created.user ? created.user.id : created.id)) {
@@ -176,7 +226,12 @@ module.exports = async (req, res) => {
             .maybeSingle();
 
         if (opError) {
-            res.status(500).json({ success: false, message: 'Error al obtener operario' });
+            logError('usuarios_operarios select', opError);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener operario',
+                detail: safeErrorDetail(opError)
+            });
             return;
         }
 
@@ -192,8 +247,8 @@ module.exports = async (req, res) => {
 
             if (createError) {
                 if (createError.message && createError.message.includes('already been registered')) {
-                    const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-                    const existing = listData?.users?.find(u => u.email === email);
+                    const existingId = await findAuthUserIdByEmail(supabase, email);
+                    const existing = existingId ? { id: existingId } : null;
                     if (existing) {
                         await supabase.from('usuarios_operarios')
                             .update({ auth_user_id: existing.id })
@@ -201,7 +256,12 @@ module.exports = async (req, res) => {
                             .eq('codigo_operario', codigoOperario);
                     }
                 } else {
-                    res.status(500).json({ success: false, message: 'Error al crear sesion de auth' });
+                    logError('auth.admin.createUser operario', createError);
+                    res.status(500).json({
+                        success: false,
+                        message: 'Error al crear sesion de auth',
+                        detail: safeErrorDetail(createError)
+                    });
                     return;
                 }
             } else if (created && (created.user ? created.user.id : created.id)) {
@@ -233,7 +293,12 @@ module.exports = async (req, res) => {
             .single();
 
         if (userError && userError.code !== 'PGRST116') {
-            res.status(500).json({ success: false, message: 'Error al obtener usuario' });
+            logError('usuarios select auth_user_id', userError);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener usuario',
+                detail: safeErrorDetail(userError)
+            });
             return;
         }
 
@@ -249,13 +314,18 @@ module.exports = async (req, res) => {
 
             if (createError) {
                 if (createError.message && createError.message.includes('already been registered')) {
-                    const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-                    const existing = listData?.users?.find(u => u.email === email);
+                    const existingId = await findAuthUserIdByEmail(supabase, email);
+                    const existing = existingId ? { id: existingId } : null;
                     if (existing) {
                         await supabase.from('usuarios').update({ auth_user_id: existing.id }).eq('id', userId);
                     }
                 } else {
-                    res.status(500).json({ success: false, message: 'Error al crear sesion de auth' });
+                    logError('auth.admin.createUser titular', createError);
+                    res.status(500).json({
+                        success: false,
+                        message: 'Error al crear sesion de auth',
+                        detail: safeErrorDetail(createError)
+                    });
                     return;
                 }
             } else if (created && (created.user ? created.user.id : created.id)) {
