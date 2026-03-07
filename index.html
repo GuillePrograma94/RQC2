@@ -622,6 +622,7 @@
                 </div>
                 <div class="herramientas-actions">
                     <button type="button" id="herramientaWcCompletoBtn" class="btn btn-primary btn-lg">WC Completo</button>
+                    <button type="button" id="herramientaSolicitudArticuloBtn" class="btn btn-primary btn-lg" style="display: none;">Solicitar artículo nuevo</button>
                 </div>
             </main>
         </div>
@@ -686,6 +687,53 @@
                     <div class="wc-completo-summary-total" id="wcCompletoSummaryTotal"></div>
                     <button type="button" id="wcCompletoAddBtn" class="btn btn-primary btn-lg wc-completo-add-btn" disabled>Añadir artículos al carrito</button>
                 </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA SOLICITUD ARTICULO NUEVO (solo Dependiente / Comercial)
+             ================================ -->
+        <div id="solicitudArticuloScreen" class="screen">
+            <main class="screen-content">
+                <div class="profile-header">
+                    <button type="button" id="solicitudArticuloBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title">Solicitar artículo nuevo</h2>
+                </div>
+                <div id="solicitudArticuloSinProveedores" class="profile-message" style="display: none;">No hay proveedores configurados. Contacte con administracion.</div>
+                <form id="solicitudArticuloForm" class="profile-form solicitud-articulo-form" style="display: none;">
+                    <div class="form-group">
+                        <label for="solicitudArticuloProveedor">Proveedor <span class="required">*</span></label>
+                        <select id="solicitudArticuloProveedor" required>
+                            <option value="">Seleccione proveedor</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudArticuloDescripcion">Descripcion <span class="required">*</span></label>
+                        <textarea id="solicitudArticuloDescripcion" rows="3" placeholder="Pilar infinity 30x182 roble caledonia" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudArticuloRefProveedor">Referencia del proveedor</label>
+                        <input type="text" id="solicitudArticuloRefProveedor" placeholder="97768">
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudArticuloTarifa">Tarifa</label>
+                        <input type="text" id="solicitudArticuloTarifa" placeholder="SUPER OFERTAS">
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudArticuloPagina">Pagina</label>
+                        <input type="number" id="solicitudArticuloPagina" min="1" placeholder="25">
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudArticuloPrecio">Precio <span class="required">*</span></label>
+                        <input type="number" id="solicitudArticuloPrecio" step="0.01" min="0.01" placeholder="209" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudArticuloFoto">Fotografia adjunta</label>
+                        <input type="file" id="solicitudArticuloFoto" accept="image/*">
+                    </div>
+                    <p id="solicitudArticuloMessage" class="profile-message" style="display: none;"></p>
+                    <button type="submit" id="solicitudArticuloSubmit" class="btn btn-primary">Enviar solicitud</button>
+                </form>
             </main>
         </div>
 

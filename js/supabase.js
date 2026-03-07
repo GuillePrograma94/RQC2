@@ -2192,6 +2192,109 @@ class SupabaseClient {
     }
 
     /**
+     * Lista proveedores para el desplegable de Solicitar articulo nuevo.
+     * @returns {Promise<Array<{codigo_proveedor: string, nombre_proveedor: string}>>}
+     */
+    async getProveedores() {
+        try {
+            if (!this.client) return [];
+            const { data, error } = await this.client
+                .from('proveedores')
+                .select('codigo_proveedor, nombre_proveedor')
+                .order('nombre_proveedor', { ascending: true });
+            if (error) {
+                console.error('Error getProveedores:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getProveedores:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Crea una solicitud de articulo nuevo (solo Dependiente/Comercial; RLS aplica).
+     * @param {Object} payload - { codigo_proveedor, descripcion, ref_proveedor?, tarifa?, pagina?, precio, auth_uid, user_id?, comercial_id? }
+     * @returns {Promise<{id: string, ...}|null>} Fila insertada con id, o null si error
+     */
+    async crearSolicitudArticuloNuevo(payload) {
+        try {
+            if (!this.client) throw new Error('Cliente no inicializado');
+            const { data, error } = await this.client
+                .from('solicitudes_articulos_nuevos')
+                .insert([{
+                    codigo_proveedor: payload.codigo_proveedor,
+                    descripcion: String(payload.descripcion || '').trim(),
+                    ref_proveedor: payload.ref_proveedor ? String(payload.ref_proveedor).trim() : null,
+                    tarifa: payload.tarifa ? String(payload.tarifa).trim() : null,
+                    pagina: payload.pagina != null && payload.pagina !== '' ? parseInt(payload.pagina, 10) : null,
+                    precio: parseFloat(payload.precio),
+                    auth_uid: payload.auth_uid,
+                    user_id: payload.user_id != null ? payload.user_id : null,
+                    comercial_id: payload.comercial_id != null ? payload.comercial_id : null
+                }])
+                .select()
+                .single();
+            if (error) throw error;
+            return data;
+        } catch (err) {
+            console.error('crearSolicitudArticuloNuevo:', err);
+            throw err;
+        }
+    }
+
+    /**
+     * Sube una foto para una solicitud de articulo nuevo al bucket solicitudes-articulos-fotos.
+     * Ruta: {solicitudId}/{nombre_archivo}. Devuelve la URL publica (o la ruta para construirla).
+     * @param {string} solicitudId - UUID de la solicitud
+     * @param {File} file - Archivo de imagen
+     * @returns {Promise<string|null>} URL publica o null si error
+     */
+    async subirFotoSolicitudArticulo(solicitudId, file) {
+        try {
+            if (!this.client || !solicitudId || !file) return null;
+            const bucket = 'solicitudes-articulos-fotos';
+            const ext = (file.name && file.name.split('.').pop()) ? file.name.split('.').pop().toLowerCase() : 'jpg';
+            const safeName = file.name && file.name.replace(/[^a-zA-Z0-9._-]/g, '_') ? file.name.replace(/[^a-zA-Z0-9._-]/g, '_') : 'foto.' + ext;
+            const path = solicitudId + '/' + safeName;
+            const { data, error } = await this.client.storage
+                .from(bucket)
+                .upload(path, file, { upsert: true });
+            if (error) {
+                console.error('Error subirFotoSolicitudArticulo:', error);
+                return null;
+            }
+            const { data: urlData } = this.client.storage.from(bucket).getPublicUrl(path);
+            return urlData && urlData.publicUrl ? urlData.publicUrl : null;
+        } catch (err) {
+            console.error('subirFotoSolicitudArticulo:', err);
+            return null;
+        }
+    }
+
+    /**
+     * Actualiza la URL de la foto en una solicitud de articulo nuevo (solo el creador por RLS).
+     * @param {string} solicitudId - UUID de la solicitud
+     * @param {string} fotoUrl - URL publica de la imagen
+     * @returns {Promise<boolean>}
+     */
+    async updateSolicitudArticuloFotoUrl(solicitudId, fotoUrl) {
+        try {
+            if (!this.client || !solicitudId) return false;
+            const { error } = await this.client
+                .from('solicitudes_articulos_nuevos')
+                .update({ foto_url: fotoUrl })
+                .eq('id', solicitudId);
+            if (error) throw error;
+            return true;
+        } catch (err) {
+            console.error('updateSolicitudArticuloFotoUrl:', err);
+            return false;
+        }
+    }
+
+    /**
      * Descarga la tabla stock_almacen_articulo completa y la agrupa por codigo_articulo.
      * Devuelve un array listo para guardar en IndexedDB con saveStockToStorage():
      *   [ { codigo_articulo, stock_global, por_almacen: { ALMX: N, ... } }, ... ]

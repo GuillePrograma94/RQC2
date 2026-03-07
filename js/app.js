@@ -2287,6 +2287,123 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Inicializa la pantalla Solicitar articulo nuevo: carga proveedores y muestra formulario o mensaje sin proveedores.
+     */
+    async initSolicitudArticuloScreen() {
+        const formEl = document.getElementById('solicitudArticuloForm');
+        const sinProveedoresEl = document.getElementById('solicitudArticuloSinProveedores');
+        const selectEl = document.getElementById('solicitudArticuloProveedor');
+        const msgEl = document.getElementById('solicitudArticuloMessage');
+        if (msgEl) msgEl.style.display = 'none';
+        if (!selectEl) return;
+        selectEl.innerHTML = '<option value="">Seleccione proveedor</option>';
+        try {
+            const proveedores = await window.supabaseClient.getProveedores();
+            if (!proveedores || proveedores.length === 0) {
+                if (formEl) formEl.style.display = 'none';
+                if (sinProveedoresEl) sinProveedoresEl.style.display = 'block';
+                return;
+            }
+            if (sinProveedoresEl) sinProveedoresEl.style.display = 'none';
+            if (formEl) formEl.style.display = 'block';
+            proveedores.forEach(function (p) {
+                const opt = document.createElement('option');
+                opt.value = p.codigo_proveedor;
+                opt.textContent = p.nombre_proveedor || p.codigo_proveedor;
+                selectEl.appendChild(opt);
+            });
+            if (document.getElementById('solicitudArticuloDescripcion')) document.getElementById('solicitudArticuloDescripcion').value = '';
+            if (document.getElementById('solicitudArticuloRefProveedor')) document.getElementById('solicitudArticuloRefProveedor').value = '';
+            if (document.getElementById('solicitudArticuloTarifa')) document.getElementById('solicitudArticuloTarifa').value = '';
+            if (document.getElementById('solicitudArticuloPagina')) document.getElementById('solicitudArticuloPagina').value = '';
+            if (document.getElementById('solicitudArticuloPrecio')) document.getElementById('solicitudArticuloPrecio').value = '';
+            if (document.getElementById('solicitudArticuloFoto')) document.getElementById('solicitudArticuloFoto').value = '';
+        } catch (e) {
+            console.error('initSolicitudArticuloScreen:', e);
+            if (formEl) formEl.style.display = 'none';
+            if (sinProveedoresEl) {
+                sinProveedoresEl.textContent = 'Error al cargar proveedores. Intenta de nuevo.';
+                sinProveedoresEl.style.display = 'block';
+            }
+        }
+    }
+
+    /**
+     * Envia el formulario de solicitud de articulo nuevo (solo Dependiente/Comercial).
+     */
+    async handleSolicitudArticuloSubmit() {
+        const codigoProveedor = document.getElementById('solicitudArticuloProveedor');
+        const descripcion = document.getElementById('solicitudArticuloDescripcion');
+        const precio = document.getElementById('solicitudArticuloPrecio');
+        const msgEl = document.getElementById('solicitudArticuloMessage');
+        const submitBtn = document.getElementById('solicitudArticuloSubmit');
+        if (msgEl) msgEl.style.display = 'none';
+        const codigo = (codigoProveedor && codigoProveedor.value || '').trim();
+        const desc = (descripcion && descripcion.value || '').trim();
+        const p = parseFloat(precio && precio.value || '');
+        if (!codigo) {
+            window.ui.showToast('Selecciona un proveedor', 'warning');
+            return;
+        }
+        if (!desc) {
+            window.ui.showToast('La descripcion es obligatoria', 'warning');
+            return;
+        }
+        if (isNaN(p) || p <= 0) {
+            window.ui.showToast('El precio debe ser un numero mayor que 0', 'warning');
+            return;
+        }
+        if (!this.currentUser || (!this.currentUser.is_dependiente && !this.currentUser.is_comercial)) {
+            window.ui.showToast('Solo Dependiente o Comercial pueden enviar solicitudes', 'error');
+            return;
+        }
+        const session = window.supabaseClient.client && window.supabaseClient.client.auth ? (await window.supabaseClient.client.auth.getSession()).data?.session : null;
+        if (!session || !session.user || !session.user.id) {
+            window.ui.showToast('Sesion expirada. Vuelve a iniciar sesion.', 'error');
+            return;
+        }
+        const authUid = session.user.id;
+        if (submitBtn) submitBtn.disabled = true;
+        try {
+            const payload = {
+                codigo_proveedor: codigo,
+                descripcion: desc,
+                ref_proveedor: (document.getElementById('solicitudArticuloRefProveedor') && document.getElementById('solicitudArticuloRefProveedor').value || '').trim() || null,
+                tarifa: (document.getElementById('solicitudArticuloTarifa') && document.getElementById('solicitudArticuloTarifa').value || '').trim() || null,
+                pagina: (document.getElementById('solicitudArticuloPagina') && document.getElementById('solicitudArticuloPagina').value) !== '' ? parseInt(document.getElementById('solicitudArticuloPagina').value, 10) : null,
+                precio: p,
+                auth_uid: authUid,
+                user_id: this.currentUser.is_dependiente && this.currentUser.user_id != null ? this.currentUser.user_id : null,
+                comercial_id: this.currentUser.is_comercial && this.currentUser.comercial_id != null ? this.currentUser.comercial_id : null
+            };
+            const row = await window.supabaseClient.crearSolicitudArticuloNuevo(payload);
+            if (!row || !row.id) {
+                window.ui.showToast('Error al crear la solicitud', 'error');
+                return;
+            }
+            const fileInput = document.getElementById('solicitudArticuloFoto');
+            if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const fotoUrl = await window.supabaseClient.subirFotoSolicitudArticulo(row.id, file);
+                if (fotoUrl) {
+                    await window.supabaseClient.updateSolicitudArticuloFotoUrl(row.id, fotoUrl);
+                }
+            }
+            window.ui.showToast('Solicitud enviada correctamente', 'success');
+            this.showScreen('herramientas');
+        } catch (e) {
+            console.error('handleSolicitudArticuloSubmit:', e);
+            window.ui.showToast((e && e.message) || 'Error al enviar la solicitud', 'error');
+            if (msgEl) {
+                msgEl.textContent = (e && e.message) || 'Error al enviar la solicitud';
+                msgEl.style.display = 'block';
+            }
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    }
+
+    /**
      * Normaliza teléfono para WhatsApp: solo dígitos, con prefijo de país si no lo lleva
      */
     normalizePhoneForWhatsApp(telefono) {
@@ -3425,6 +3542,31 @@ class ScanAsYouShopApp {
             });
         }
 
+        // Herramientas: Solicitar articulo nuevo -> pantalla formulario (solo Dependiente/Comercial)
+        const herramientaSolicitudArticuloBtn = document.getElementById('herramientaSolicitudArticuloBtn');
+        if (herramientaSolicitudArticuloBtn) {
+            herramientaSolicitudArticuloBtn.addEventListener('click', () => {
+                this.showScreen('solicitudArticulo');
+            });
+        }
+
+        // Solicitud Articulo: Volver a Herramientas
+        const solicitudArticuloBackBtn = document.getElementById('solicitudArticuloBackBtn');
+        if (solicitudArticuloBackBtn) {
+            solicitudArticuloBackBtn.addEventListener('click', () => {
+                this.showScreen('herramientas');
+            });
+        }
+
+        // Solicitud Articulo: enviar formulario
+        const solicitudArticuloForm = document.getElementById('solicitudArticuloForm');
+        if (solicitudArticuloForm) {
+            solicitudArticuloForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleSolicitudArticuloSubmit();
+            });
+        }
+
         // WC Completo: Volver a Herramientas
         const wcCompletoBackBtn = document.getElementById('wcCompletoBackBtn');
         if (wcCompletoBackBtn) {
@@ -4076,6 +4218,17 @@ class ScanAsYouShopApp {
                 } else {
                     this.initRecambiosVistaScreen();
                 }
+            }
+
+            if (screenName === 'herramientas') {
+                const solicitudBtn = document.getElementById('herramientaSolicitudArticuloBtn');
+                if (solicitudBtn) {
+                    solicitudBtn.style.display = (this.currentUser && (this.currentUser.is_dependiente || this.currentUser.is_comercial)) ? '' : 'none';
+                }
+            }
+
+            if (screenName === 'solicitudArticulo') {
+                this.initSolicitudArticuloScreen();
             }
 
         }
