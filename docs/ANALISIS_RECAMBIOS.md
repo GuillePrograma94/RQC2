@@ -32,6 +32,7 @@ Una sola tabla: `producto_recambios`.
 
 
 - **UNIQUE(producto_padre_codigo, producto_recambio_codigo)** para no duplicar la misma relacion.
+- **Claves foraneas**: `producto_padre_codigo` y `producto_recambio_codigo` referencian `productos(codigo)` (ver `migration_producto_recambios_fk.sql`). Así la base de datos garantiza que solo se relacionen códigos que existan en el catálogo. ON UPDATE CASCADE, ON DELETE RESTRICT.
 - Indices: por `producto_padre_codigo` (recambios de un producto) y por `producto_recambio_codigo` (para que productos sirve un recambio).
 
 Consultas tipicas:
@@ -140,7 +141,8 @@ No requiere cambios en el codigo frontend ni en las API routes.
 | Archivo                                | Uso                                                                                                                                 |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `migration_producto_recambios.sql`     | Crear tabla e indices (ejecutar en Supabase).                                                                                       |
-| `migration_rls_producto_recambios.sql` | RLS definitivo: lectura abierta, escritura solo para JWT con es_administrador=true (ejecutar en Supabase SQL Editor).               |
+| `migration_producto_recambios_fk.sql`  | Anadir FK a productos(codigo) para integridad referencial (ejecutar despues de migration_producto_recambios.sql).                  |
+| `migration_rls_producto_recambios.sql` | RLS definitivo: lectura abierta, escritura solo para JWT con es_administrador=true (ejecutar en Supabase SQL Editor).              |
 | `supabase.js`                          | Metodos: getRecambiosDeProducto(codigo), getPadresDeRecambio(codigo), addRecambio(padreCodigo, recambioCodigo), removeRecambio(id). |
 | `index.html`                           | Boton en Panel de Control + pantalla recambios (buscar producto + dos listas).                                                      |
 | `app.js`                               | showScreen('recambios'), renderRecambios, anadir/quitar recambios y padres.                                                         |
