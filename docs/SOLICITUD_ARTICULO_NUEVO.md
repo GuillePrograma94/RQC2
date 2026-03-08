@@ -48,8 +48,12 @@ Los productos pueden asignarse a un proveedor mediante la columna `productos.cod
 ### Politicas RLS
 
 - **INSERT**: solo si `(auth.jwt() -> 'app_metadata' ->> 'usuario_id')::int` esta en `(SELECT id FROM public.usuarios WHERE tipo IN ('DEPENDIENTE', 'COMERCIAL'))`.
-- **UPDATE**: solo filas donde `auth_uid = auth.uid()` (permite al creador actualizar `foto_url` tras subir la foto).
-- **SELECT**: solo filas donde `auth_uid = auth.uid()`.
+- **UPDATE**: solo filas donde `auth_uid = auth.uid()` (permite al creador actualizar `foto_url` tras subir la foto). Los usuarios **ADMINISTRACION** tienen ademas una politica que les permite actualizar el `estado` (aprobado/rechazado) de cualquier solicitud (ver `migration_solicitudes_rls_administracion.sql` y [PANEL_ADMINISTRACION.md](PANEL_ADMINISTRACION.md)).
+- **SELECT**: solo filas donde `auth_uid = auth.uid()`. Los usuarios con rol **ADMINISTRACION** tienen ademas una politica que les permite SELECT de todas las filas (ver `migration_solicitudes_rls_administracion.sql` y [PANEL_ADMINISTRACION.md](PANEL_ADMINISTRACION.md)).
+
+## Gestion de las solicitudes
+
+Las solicitudes creadas por Dependientes y Comerciales son gestionadas por usuarios con rol **ADMINISTRACION**. Estos usuarios ven un panel exclusivo en la misma app (vista distinta con Inicio, listado de solicitudes y detalle) donde pueden ver todas las solicitudes, el conteo de pendientes y aprobar o rechazar. Ver [PANEL_ADMINISTRACION.md](PANEL_ADMINISTRACION.md).
 
 ## Storage (fotografia)
 
@@ -61,6 +65,7 @@ Los productos pueden asignarse a un proveedor mediante la columna `productos.cod
 
 1. **migration_proveedores_productos.sql**: crea la tabla `proveedores`, anade `productos.codigo_proveedor` con FK e inserta al menos un proveedor de ejemplo (SALGAR).
 2. **migration_solicitudes_articulos_nuevos.sql**: crea la tabla `solicitudes_articulos_nuevos` y las politicas RLS. Debe ejecutarse despues de la migracion de proveedores.
+3. **migration_solicitudes_rls_administracion.sql**: anade politicas SELECT y UPDATE para usuarios con rol ADMINISTRACION (panel de gestion). Ver [PANEL_ADMINISTRACION.md](PANEL_ADMINISTRACION.md).
 
 ## Flujo en la app
 

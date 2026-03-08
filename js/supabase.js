@@ -667,6 +667,7 @@ class SupabaseClient {
                 es_dependiente: tipo === 'DEPENDIENTE' || !!data.es_dependiente,
                 almacen_tienda: data.almacen_tienda ?? null,
                 es_administrador: !!data.es_administrador,
+                es_administracion: tipo === 'ADMINISTRACION' || !!data.es_administracion,
                 comercial_id: data.comercial_id ?? null,
                 comercial_numero: data.comercial_numero ?? null
             };
@@ -2291,6 +2292,95 @@ class SupabaseClient {
         } catch (err) {
             console.error('updateSolicitudArticuloFotoUrl:', err);
             return false;
+        }
+    }
+
+    /**
+     * Conteo de solicitudes de articulos nuevos con estado pendiente (para panel ADMINISTRACION).
+     * Requiere JWT con app_metadata.es_administracion = true.
+     * @returns {Promise<number>}
+     */
+    async getSolicitudesPendientesCount() {
+        try {
+            if (!this.client) return 0;
+            const { count, error } = await this.client
+                .from('solicitudes_articulos_nuevos')
+                .select('id', { count: 'exact', head: true })
+                .eq('estado', 'pendiente');
+            if (error) {
+                console.error('getSolicitudesPendientesCount:', error);
+                return 0;
+            }
+            return count != null ? count : 0;
+        } catch (err) {
+            console.error('getSolicitudesPendientesCount:', err);
+            return 0;
+        }
+    }
+
+    /**
+     * Lista solicitudes de articulos nuevos (para panel ADMINISTRACION).
+     * @param {string|null} filtroEstado - opcional: 'pendiente', 'aprobado', 'rechazado' o null para todas
+     * @returns {Promise<Array>}
+     */
+    async getSolicitudesArticulosNuevos(filtroEstado = null) {
+        try {
+            if (!this.client) return [];
+            let query = this.client
+                .from('solicitudes_articulos_nuevos')
+                .select('id, codigo_proveedor, descripcion, ref_proveedor, tarifa, pagina, precio, foto_url, created_at, estado')
+                .order('created_at', { ascending: false });
+            if (filtroEstado) {
+                query = query.eq('estado', filtroEstado);
+            }
+            const { data, error } = await query;
+            if (error) throw error;
+            return data || [];
+        } catch (err) {
+            console.error('getSolicitudesArticulosNuevos:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Actualiza el estado de una solicitud de articulo nuevo (panel ADMINISTRACION).
+     * @param {string} id - UUID de la solicitud
+     * @param {string} estado - 'aprobado' o 'rechazado'
+     * @returns {Promise<boolean>}
+     */
+    async updateSolicitudArticuloEstado(id, estado) {
+        try {
+            if (!this.client || !id || !estado) return false;
+            const { error } = await this.client
+                .from('solicitudes_articulos_nuevos')
+                .update({ estado: estado })
+                .eq('id', id);
+            if (error) throw error;
+            return true;
+        } catch (err) {
+            console.error('updateSolicitudArticuloEstado:', err);
+            return false;
+        }
+    }
+
+    /**
+     * Obtiene una solicitud de articulo nuevo por id (panel ADMINISTRACION).
+     * @param {string} id - UUID de la solicitud
+     * @returns {Promise<object|null>}
+     */
+    async getSolicitudArticuloNuevoById(id) {
+        try {
+            if (!this.client || !id) return null;
+            const { data, error } = await this.client
+                .from('solicitudes_articulos_nuevos')
+                .select('*')
+                .eq('id', id)
+                .single();
+            if (error) return null;
+            return data;
+        } catch (err) {
+            console.error('getSolicitudArticuloNuevoById:', err);
+            return null;
         }
     }
 

@@ -115,12 +115,34 @@ class ScanAsYouShopApp {
 
             console.log('Sesion de usuario encontrada:', savedUser.user_name);
             this.currentUser = savedUser;
+            // Compatibilidad sesion antigua: derivar is_administracion si no existe
+            if (this.currentUser.is_administracion === undefined && this.currentUser.tipo) {
+                this.currentUser.is_administracion = String(this.currentUser.tipo).toUpperCase() === 'ADMINISTRACION';
+            }
             this.updateUserUI();
 
             // Refresco periodico del JWT para evitar 42501 tras ~1h trabajando
             this.startAuthRefreshTimer();
 
             const savedEsRepresentante = !!savedUser.is_comercial || !!savedUser.is_dependiente;
+
+            // Usuario ADMINISTRACION: mostrar contenedor administracion e inicializar solo esa parte
+            const savedEsAdministracion = this.currentUser.is_administracion === true;
+            if (savedEsAdministracion) {
+                const tiendaEl = document.getElementById('appContainerTienda');
+                const adminEl = document.getElementById('appContainerAdministracion');
+                if (tiendaEl) tiendaEl.style.display = 'none';
+                if (adminEl) adminEl.style.display = '';
+                await this.initializeAppAdministracion();
+                window.ui.hideLoading();
+                return;
+            }
+
+            // Asegurar que se ve el contenedor tienda y no el de administracion
+            const tiendaEl = document.getElementById('appContainerTienda');
+            const adminEl = document.getElementById('appContainerAdministracion');
+            if (tiendaEl) tiendaEl.style.display = '';
+            if (adminEl) adminEl.style.display = 'none';
 
             // Precargar historial de compras en segundo plano (solo clientes, no representantes)
             if (window.purchaseCache && savedUser.user_id && !savedEsRepresentante) {
@@ -277,6 +299,7 @@ class ScanAsYouShopApp {
                     is_comercial: isComercial,
                     is_dependiente: isDependiente,
                     is_administrador: !!loginResult.es_administrador,
+                    is_administracion: tipo === 'ADMINISTRACION' || !!loginResult.es_administracion,
                     almacen_tienda: loginResult.almacen_tienda ?? null,
                     comercial_id: loginResult.comercial_id ?? null,
                     comercial_numero: loginResult.comercial_numero ?? null
@@ -308,7 +331,20 @@ class ScanAsYouShopApp {
 
                 // Inicializar app si aun no se ha hecho (primer login desde la landing)
                 if (!this.isInitialized) {
-                    await this.initializeApp();
+                    const esAdministracion = this.currentUser.is_administracion === true || (this.currentUser.tipo && String(this.currentUser.tipo).toUpperCase() === 'ADMINISTRACION');
+                    if (esAdministracion) {
+                        const tiendaEl = document.getElementById('appContainerTienda');
+                        const adminEl = document.getElementById('appContainerAdministracion');
+                        if (tiendaEl) tiendaEl.style.display = 'none';
+                        if (adminEl) adminEl.style.display = '';
+                        await this.initializeAppAdministracion();
+                    } else {
+                        const tiendaEl = document.getElementById('appContainerTienda');
+                        const adminEl = document.getElementById('appContainerAdministracion');
+                        if (tiendaEl) tiendaEl.style.display = '';
+                        if (adminEl) adminEl.style.display = 'none';
+                        await this.initializeApp();
+                    }
                 }
 
                 // Mostrar mensaje de bienvenida
@@ -2434,6 +2470,7 @@ class ScanAsYouShopApp {
             localStorage.removeItem('current_session');
             this.currentUser = null;
             this.currentSession = null;
+            this.isInitialized = false;
 
             // Detener refresco periodico del JWT
             this.stopAuthRefreshTimer();
@@ -2553,6 +2590,196 @@ class ScanAsYouShopApp {
                 'error'
             );
         }
+    }
+
+    /**
+     * Inicializa la aplicacion para usuarios con rol ADMINISTRACION (panel gestion solicitudes).
+     */
+    async initializeAppAdministracion() {
+        try {
+            window.ui.hideLoading();
+            this.setupScreensAdministracion();
+            this.showScreenAdmin('inicio');
+            this.updateActiveNavAdmin('inicio');
+            this.isInitialized = true;
+            console.log('Panel Administracion inicializado');
+        } catch (error) {
+            console.error('Error al inicializar panel administracion:', error);
+            window.ui.hideLoading();
+            window.ui.showToast('Error al iniciar el panel.', 'error');
+        }
+    }
+
+    /**
+     * Configura event listeners del panel administracion (bottom nav, botones, listado, detalle, logout).
+     */
+    setupScreensAdministracion() {
+        const self = this;
+
+        document.getElementById('navAdminInicio')?.addEventListener('click', () => {
+            self.showScreenAdmin('inicio');
+            self.updateActiveNavAdmin('inicio');
+        });
+        document.getElementById('navAdminSolicitudes')?.addEventListener('click', () => {
+            self.showScreenAdmin('solicitudesList');
+            self.updateActiveNavAdmin('solicitudesList');
+        });
+        document.getElementById('navAdminProfile')?.addEventListener('click', () => {
+            self.showScreenAdmin('profile');
+            self.updateActiveNavAdmin('profile');
+        });
+
+        document.getElementById('adminVerSolicitudesBtn')?.addEventListener('click', () => {
+            self.showScreenAdmin('solicitudesList');
+            self.updateActiveNavAdmin('solicitudesList');
+        });
+
+        document.getElementById('adminSolicitudesBackBtn')?.addEventListener('click', () => {
+            self.showScreenAdmin('inicio');
+            self.updateActiveNavAdmin('inicio');
+        });
+
+        document.getElementById('adminSolicitudDetailBackBtn')?.addEventListener('click', () => {
+            self.showScreenAdmin('solicitudesList');
+            self.updateActiveNavAdmin('solicitudesList');
+        });
+
+        document.getElementById('adminLogoutBtn')?.addEventListener('click', () => {
+            self.logout();
+        });
+    }
+
+    /**
+     * Muestra una pantalla del panel administracion y actualiza contenido si aplica.
+     * @param {string} screenName - 'inicio' | 'solicitudesList' | 'solicitudDetail' | 'profile'
+     * @param {string} [id] - UUID de solicitud para pantalla detalle
+     */
+    async showScreenAdmin(screenName, id) {
+        const container = document.getElementById('appContainerAdministracion');
+        if (!container) return;
+
+        const screens = container.querySelectorAll('.screen-admin');
+        screens.forEach(el => el.classList.remove('screen-active'));
+
+        if (screenName === 'inicio') {
+            const el = document.getElementById('adminInicioScreen');
+            if (el) el.classList.add('screen-active');
+            this.loadAdminPendientesCount();
+        } else if (screenName === 'solicitudesList') {
+            const el = document.getElementById('adminSolicitudesListScreen');
+            if (el) el.classList.add('screen-active');
+            this.renderAdminSolicitudesList();
+        } else if (screenName === 'solicitudDetail' && id) {
+            const el = document.getElementById('adminSolicitudDetailScreen');
+            if (el) el.classList.add('screen-active');
+            this.renderAdminSolicitudDetail(id);
+        } else if (screenName === 'profile') {
+            const el = document.getElementById('adminProfileScreen');
+            if (el) el.classList.add('screen-active');
+        }
+    }
+
+    /**
+     * Marca el item activo del bottom nav del panel administracion.
+     */
+    updateActiveNavAdmin(screenName) {
+        ['navAdminInicio', 'navAdminSolicitudes', 'navAdminProfile'].forEach(navId => {
+            const el = document.getElementById(navId);
+            if (el) el.classList.toggle('active', false);
+        });
+        if (screenName === 'inicio') document.getElementById('navAdminInicio')?.classList.add('active');
+        else if (screenName === 'solicitudesList' || screenName === 'solicitudDetail') document.getElementById('navAdminSolicitudes')?.classList.add('active');
+        else if (screenName === 'profile') document.getElementById('navAdminProfile')?.classList.add('active');
+    }
+
+    /**
+     * Carga el conteo de solicitudes pendientes y lo muestra en la Inicio administracion.
+     */
+    async loadAdminPendientesCount() {
+        const el = document.getElementById('adminPendientesCount');
+        if (!el) return;
+        el.textContent = '...';
+        const count = await window.supabaseClient.getSolicitudesPendientesCount();
+        el.textContent = String(count);
+    }
+
+    /**
+     * Rellena el listado de solicitudes en la pantalla administracion.
+     */
+    async renderAdminSolicitudesList() {
+        const listEl = document.getElementById('adminSolicitudesList');
+        if (!listEl) return;
+        listEl.innerHTML = '<p>Cargando...</p>';
+        const list = await window.supabaseClient.getSolicitudesArticulosNuevos(null);
+        if (list.length === 0) {
+            listEl.innerHTML = '<p>No hay solicitudes.</p>';
+            return;
+        }
+        listEl.innerHTML = list.map(s => {
+            const fecha = s.created_at ? new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+            const desc = this.escapeForHtmlContentPreservingNewlines(s.descripcion || '').substring(0, 60);
+            return '<button type="button" class="admin-solicitud-card" data-id="' + this.escapeForHtmlAttribute(s.id) + '">' +
+                '<span class="admin-solicitud-estado">' + (s.estado || 'pendiente') + '</span>' +
+                '<span class="admin-solicitud-fecha">' + fecha + '</span>' +
+                '<span class="admin-solicitud-desc">' + desc + (s.descripcion && s.descripcion.length > 60 ? '...' : '') + '</span>' +
+                '</button>';
+        }).join('');
+        listEl.querySelectorAll('.admin-solicitud-card').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                if (id) this.showScreenAdmin('solicitudDetail', id);
+                this.updateActiveNavAdmin('solicitudDetail');
+            });
+        });
+    }
+
+    /**
+     * Rellena la pantalla de detalle de una solicitud y botones Aprobar/Rechazar.
+     * @param {string} id - UUID de la solicitud
+     */
+    async renderAdminSolicitudDetail(id) {
+        const contentEl = document.getElementById('adminSolicitudDetailContent');
+        if (!contentEl) return;
+        contentEl.innerHTML = '<p>Cargando...</p>';
+        const s = await window.supabaseClient.getSolicitudArticuloNuevoById(id);
+        if (!s) {
+            contentEl.innerHTML = '<p>No se encontro la solicitud.</p>';
+            return;
+        }
+        const fecha = s.created_at ? new Date(s.created_at).toLocaleString('es-ES') : '';
+        let html = '<div class="admin-detail-block">';
+        html += '<p><strong>Proveedor:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.codigo_proveedor || '') + '</p>';
+        html += '<p><strong>Descripcion:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.descripcion || '') + '</p>';
+        html += '<p><strong>Ref. proveedor:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.ref_proveedor || '-') + '</p>';
+        html += '<p><strong>Tarifa:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.tarifa || '-') + '</p>';
+        html += '<p><strong>Pagina:</strong> ' + (s.pagina != null ? s.pagina : '-') + '</p>';
+        html += '<p><strong>Precio:</strong> ' + (s.precio != null ? s.precio : '-') + ' EUR</p>';
+        html += '<p><strong>Fecha:</strong> ' + fecha + '</p>';
+        html += '<p><strong>Estado:</strong> ' + (s.estado || 'pendiente') + '</p>';
+        if (s.foto_url) html += '<p><img src="' + this.escapeForHtmlAttribute(s.foto_url) + '" alt="Foto" class="admin-detail-foto" /></p>';
+        html += '</div>';
+        if (s.estado === 'pendiente') {
+            html += '<div class="admin-detail-actions">';
+            html += '<button type="button" class="btn btn-primary" data-admin-action="aprobado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Aprobar</button> ';
+            html += '<button type="button" class="btn btn-danger" data-admin-action="rechazado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Rechazar</button>';
+            html += '</div>';
+        }
+        contentEl.innerHTML = html;
+        contentEl.querySelectorAll('[data-admin-action]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const action = btn.getAttribute('data-admin-action');
+                const sid = btn.getAttribute('data-id');
+                if (!sid || !action) return;
+                const ok = await window.supabaseClient.updateSolicitudArticuloEstado(sid, action);
+                if (ok) {
+                    window.ui.showToast(action === 'aprobado' ? 'Solicitud aprobada' : 'Solicitud rechazada', 'success');
+                    this.showScreenAdmin('solicitudesList');
+                    this.updateActiveNavAdmin('solicitudesList');
+                } else {
+                    window.ui.showToast('Error al actualizar', 'error');
+                }
+            });
+        });
     }
 
     /**

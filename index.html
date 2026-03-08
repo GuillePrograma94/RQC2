@@ -222,7 +222,7 @@
     <div id="menuOverlay" class="menu-overlay"></div>
 
     <!-- App Container -->
-    <div class="app-container">
+    <div id="appContainerTienda" class="app-container">
         
         <!-- ================================
              PANTALLA PRINCIPAL: MI CARRITO
@@ -1113,6 +1113,45 @@
             </button>
         </nav>
 
+    </div>
+
+    <!-- Contenedor App Administracion (solo rol ADMINISTRACION) -->
+    <div id="appContainerAdministracion" class="app-container app-container-administracion" style="display: none;">
+        <div id="adminInicioScreen" class="screen screen-admin screen-active">
+            <main class="screen-content">
+                <h1 class="admin-inicio-title">Administracion</h1>
+                <p class="admin-inicio-subtitle">Solicitudes de creacion de articulos pendientes</p>
+                <div id="adminPendientesCount" class="admin-stat-number">-</div>
+                <button type="button" id="adminVerSolicitudesBtn" class="btn btn-primary btn-lg">Ver solicitudes</button>
+            </main>
+        </div>
+        <div id="adminSolicitudesListScreen" class="screen screen-admin">
+            <header class="screen-header">
+                <button type="button" id="adminSolicitudesBackBtn" class="profile-back-btn">Volver</button>
+                <h2>Solicitudes</h2>
+            </header>
+            <main class="screen-content">
+                <div id="adminSolicitudesList" class="admin-list"></div>
+            </main>
+        </div>
+        <div id="adminSolicitudDetailScreen" class="screen screen-admin">
+            <header class="screen-header">
+                <button type="button" id="adminSolicitudDetailBackBtn" class="profile-back-btn">Volver</button>
+                <h2>Detalle</h2>
+            </header>
+            <main class="screen-content" id="adminSolicitudDetailContent"></main>
+        </div>
+        <div id="adminProfileScreen" class="screen screen-admin">
+            <main class="screen-content">
+                <p>Perfil administracion</p>
+                <button type="button" id="adminLogoutBtn" class="btn">Cerrar sesion</button>
+            </main>
+        </div>
+        <nav class="bottom-nav bottom-nav-admin" aria-label="Administracion">
+            <button type="button" id="navAdminInicio" class="nav-item nav-item-admin active">Inicio</button>
+            <button type="button" id="navAdminSolicitudes" class="nav-item nav-item-admin">Solicitudes</button>
+            <button type="button" id="navAdminProfile" class="nav-item nav-item-admin">Perfil</button>
+        </nav>
     </div>
 
     <!-- Toast Container -->

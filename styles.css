@@ -5614,3 +5614,25 @@ body.gate-visible .app-container {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
 }
+
+/* Panel Administracion (rol ADMINISTRACION) */
+.app-container-administracion { display: none; }
+.app-container-administracion .screen-admin { display: none; flex-direction: column; height: 100%; overflow: hidden; background-color: var(--gray-50); }
+.app-container-administracion .screen-admin.screen-active { display: flex; }
+.app-container-administracion .screen-content { flex: 1; padding: 1rem; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.app-container-administracion .screen-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; background: var(--white); border-bottom: 1px solid var(--gray-200); }
+.app-container-administracion .admin-inicio-title { font-size: 1.5rem; margin-bottom: 0.5rem; }
+.app-container-administracion .admin-inicio-subtitle { color: var(--gray-600); margin-bottom: 1rem; }
+.app-container-administracion .admin-stat-number { font-size: 2.5rem; font-weight: 700; color: var(--primary); margin-bottom: 1.5rem; }
+.app-container-administracion .bottom-nav-admin { position: fixed; bottom: 0; left: 0; right: 0; background: var(--white); border-top: 1px solid var(--gray-200); display: flex; justify-content: space-around; align-items: center; height: var(--footer-height); padding: 0.75rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom)); z-index: 999; }
+.app-container-administracion .nav-item-admin { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5rem; background: none; border: none; cursor: pointer; color: var(--gray-600); border-radius: 12px; }
+.app-container-administracion .nav-item-admin.active { color: var(--primary); background: rgba(120, 81, 169, 0.1); }
+.app-container-administracion .admin-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.app-container-administracion .admin-solicitud-card { display: block; width: 100%; text-align: left; padding: 1rem; background: var(--white); border: 1px solid var(--gray-200); border-radius: 8px; cursor: pointer; }
+.app-container-administracion .admin-solicitud-estado { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; background: var(--gray-200); margin-right: 0.5rem; }
+.app-container-administracion .admin-solicitud-fecha { font-size: 0.85rem; color: var(--gray-600); }
+.app-container-administracion .admin-solicitud-desc { display: block; margin-top: 0.25rem; font-size: 0.9rem; }
+.app-container-administracion .admin-detail-block { margin-bottom: 1rem; }
+.app-container-administracion .admin-detail-block p { margin: 0.5rem 0; }
+.app-container-administracion .admin-detail-foto { max-width: 100%; height: auto; border-radius: 8px; }
+.app-container-administracion .admin-detail-actions { margin-top: 1rem; display: flex; gap: 0.5rem; }
