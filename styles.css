@@ -5961,6 +5961,10 @@ body.gate-visible .app-container {
 
 /* Panel Administracion (rol ADMINISTRACION) */
 .app-container-administracion { display: none; }
+body.admin-panel-visible .app-container-administracion { display: block !important; top: 0; bottom: 0; }
+body.admin-panel-visible .app-header-fixed,
+body.admin-panel-visible .menu-sidebar,
+body.admin-panel-visible .menu-overlay { display: none !important; }
 .app-container-administracion .screen-admin { display: none; flex-direction: column; height: 100%; overflow: hidden; background-color: var(--gray-50); }
 .app-container-administracion .screen-admin.screen-active { display: flex; }
 .app-container-administracion .screen-content { flex: 1; padding: 1rem; overflow-y: auto; -webkit-overflow-scrolling: touch; }

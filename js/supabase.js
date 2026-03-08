@@ -2485,6 +2485,36 @@ class SupabaseClient {
     }
 
     /**
+     * Crea el producto en el catalogo desde una solicitud completada (solo ADMINISTRACION; RPC).
+     * @param {string} codigo - Codigo del producto (SKU)
+     * @param {string} descripcion - Descripcion del producto
+     * @param {number} pvp - PVP (IVA no incluido)
+     * @param {string|null} codigoProveedor - Codigo del fabricante/proveedor (opcional)
+     * @returns {Promise<{ success: boolean, message?: string }>}
+     */
+    async crearProductoDesdeSolicitud(codigo, descripcion, pvp, codigoProveedor) {
+        try {
+            if (!this.client || !codigo || descripcion == null) {
+                return { success: false, message: 'Datos insuficientes' };
+            }
+            const { data, error } = await this.client.rpc('crear_producto_desde_solicitud', {
+                p_codigo: String(codigo).trim(),
+                p_descripcion: String(descripcion).trim(),
+                p_pvp: Number(pvp),
+                p_codigo_proveedor: codigoProveedor ? String(codigoProveedor).trim() : null
+            });
+            if (error) {
+                const msg = (error.message || '').trim();
+                return { success: false, message: msg || 'Error al crear el producto' };
+            }
+            return (data && data.success) ? { success: true } : { success: false, message: 'Error desconocido' };
+        } catch (err) {
+            console.error('crearProductoDesdeSolicitud:', err);
+            return { success: false, message: (err && err.message) || 'Error al crear el producto' };
+        }
+    }
+
+    /**
      * Actualiza la respuesta de Administracion: estado (completo | articulo_ya_existente), codigo_producto y opcionalmente foto_url (null).
      * Usado al completar la solicitud con el codigo del producto o al marcar "articulo ya existente".
      * @param {string} id - UUID de la solicitud

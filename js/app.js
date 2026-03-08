@@ -129,16 +129,19 @@ class ScanAsYouShopApp {
             // Usuario ADMINISTRACION: mostrar contenedor administracion e inicializar solo esa parte
             const savedEsAdministracion = this.currentUser.is_administracion === true;
             if (savedEsAdministracion) {
+                document.body.classList.remove('gate-visible');
                 const tiendaEl = document.getElementById('appContainerTienda');
                 const adminEl = document.getElementById('appContainerAdministracion');
                 if (tiendaEl) tiendaEl.style.display = 'none';
-                if (adminEl) adminEl.style.display = '';
+                if (adminEl) adminEl.style.display = 'block';
+                document.body.classList.add('admin-panel-visible');
                 await this.initializeAppAdministracion();
                 window.ui.hideLoading();
                 return;
             }
 
             // Asegurar que se ve el contenedor tienda y no el de administracion
+            document.body.classList.remove('admin-panel-visible');
             const tiendaEl = document.getElementById('appContainerTienda');
             const adminEl = document.getElementById('appContainerAdministracion');
             if (tiendaEl) tiendaEl.style.display = '';
@@ -336,9 +339,11 @@ class ScanAsYouShopApp {
                         const tiendaEl = document.getElementById('appContainerTienda');
                         const adminEl = document.getElementById('appContainerAdministracion');
                         if (tiendaEl) tiendaEl.style.display = 'none';
-                        if (adminEl) adminEl.style.display = '';
+                        if (adminEl) adminEl.style.display = 'block';
+                        document.body.classList.add('admin-panel-visible');
                         await this.initializeAppAdministracion();
                     } else {
+                        document.body.classList.remove('admin-panel-visible');
                         const tiendaEl = document.getElementById('appContainerTienda');
                         const adminEl = document.getElementById('appContainerAdministracion');
                         if (tiendaEl) tiendaEl.style.display = '';
@@ -2698,6 +2703,13 @@ class ScanAsYouShopApp {
             // Actualizar UI
             this.updateUserUI();
 
+            // Quitar vista administracion si estaba activa
+            document.body.classList.remove('admin-panel-visible');
+            const adminEl = document.getElementById('appContainerAdministracion');
+            if (adminEl) adminEl.style.display = 'none';
+            const tiendaEl = document.getElementById('appContainerTienda');
+            if (tiendaEl) tiendaEl.style.display = '';
+
             // Mostrar pantalla de acceso (solo usuarios logueados pueden usar la app)
             this.showLanding();
 
@@ -2727,6 +2739,7 @@ class ScanAsYouShopApp {
         this.currentUser = null;
         this.currentSession = null;
         this.updateUserUI();
+        document.body.classList.remove('admin-panel-visible');
         this.showLanding();
         window.ui.showToast('Sesion expirada. Por favor, inicia sesion de nuevo.', 'error');
     }
@@ -3088,7 +3101,7 @@ class ScanAsYouShopApp {
         html += '<p><strong>Ref. proveedor:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.ref_proveedor || '-') + '</p>';
         html += '<p><strong>Tarifa:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.tarifa || '-') + '</p>';
         html += '<p><strong>Pagina:</strong> ' + (s.pagina != null ? s.pagina : '-') + '</p>';
-        html += '<p><strong>Precio:</strong> ' + (s.precio != null ? s.precio : '-') + ' EUR</p>';
+        html += '<p><strong>Precio:</strong> ' + (s.precio != null ? Number(s.precio).toFixed(2) : '-') + ' EUR</p>';
         if (s.observaciones) html += '<p><strong>Observaciones:</strong><br><span class="admin-detail-observaciones">' + this.escapeForHtmlContentPreservingNewlines(s.observaciones) + '</span></p>';
         html += '<p><strong>Fecha:</strong> ' + fecha + '</p>';
         html += '<p><strong>Estado:</strong> ' + estadoLabel + '</p>';
@@ -3098,15 +3111,30 @@ class ScanAsYouShopApp {
         if (s.foto_url) html += '<p><img src="' + this.escapeForHtmlAttribute(s.foto_url) + '" alt="Foto" class="admin-detail-foto" /></p>';
         html += '</div>';
         if (s.estado === 'pendiente') {
+            const proveedores = await window.supabaseClient.getProveedores();
             html += '<div class="admin-detail-actions">';
             html += '<button type="button" class="btn btn-primary" data-admin-action="aprobado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Aprobar</button> ';
             html += '<button type="button" class="btn btn-danger" data-admin-action="rechazado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Rechazar</button>';
             html += '</div>';
             html += '<div class="admin-detail-completar">';
             html += '<h3 class="admin-detail-completar-title">Completar solicitud</h3>';
-            html += '<p class="admin-detail-completar-hint">Indica el codigo del producto una vez creado el articulo o si ya existia.</p>';
+            html += '<p class="admin-detail-completar-hint">Indica el codigo del producto una vez creado el articulo o si ya existia. Al marcar como completado se creara el producto en el catalogo con codigo, descripcion, PVP y fabricante indicados.</p>';
             html += '<label class="admin-detail-completar-check"><input type="checkbox" id="adminSolicitudArticuloYaExistente" /> Articulo ya existente (el trabajador podra anadirlo al carrito con este codigo)</label>';
             html += '<div class="admin-detail-completar-row"><label for="adminSolicitudCodigoProducto">Codigo del producto</label><input type="text" id="adminSolicitudCodigoProducto" placeholder="Ej. PILAR30" /></div>';
+            html += '<div class="admin-detail-completar-row"><label for="adminSolicitudFabricante">Fabricante (proveedor)</label><select id="adminSolicitudFabricante">';
+            html += '<option value="">-- Sin asignar --</option>';
+            const codigoProvSolicitud = (s.codigo_proveedor || '').trim();
+            const existeEnLista = Array.isArray(proveedores) && proveedores.some(function(pr) { return (pr.codigo_proveedor || '') === codigoProvSolicitud; });
+            if (codigoProvSolicitud && !existeEnLista) {
+                html += '<option value="' + this.escapeForHtmlAttribute(codigoProvSolicitud) + '" selected>' + this.escapeForHtmlContentPreservingNewlines(codigoProvSolicitud) + ' (solicitado)</option>';
+            }
+            (proveedores || []).forEach(function(pr) {
+                const cod = pr.codigo_proveedor || '';
+                const nom = pr.nombre_proveedor || cod;
+                const sel = cod === codigoProvSolicitud ? ' selected' : '';
+                html += '<option value="' + this.escapeForHtmlAttribute(cod) + '"' + sel + '>' + this.escapeForHtmlContentPreservingNewlines(nom) + '</option>';
+            }.bind(this));
+            html += '</select></div>';
             html += '<button type="button" id="adminSolicitudGuardarRespuestaBtn" class="btn btn-primary" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Guardar respuesta</button>';
             html += '</div>';
         }
@@ -3131,6 +3159,7 @@ class ScanAsYouShopApp {
             guardarRespuestaBtn.addEventListener('click', async () => {
                 const codigoInput = document.getElementById('adminSolicitudCodigoProducto');
                 const articuloYaExistente = document.getElementById('adminSolicitudArticuloYaExistente');
+                const fabricanteSelect = document.getElementById('adminSolicitudFabricante');
                 const codigo = codigoInput && codigoInput.value ? codigoInput.value.trim() : '';
                 if (!codigo) {
                     window.ui.showToast('Indica el codigo del producto', 'warning');
@@ -3140,14 +3169,27 @@ class ScanAsYouShopApp {
                 if (!sid) return;
                 const estado = articuloYaExistente && articuloYaExistente.checked ? 'articulo_ya_existente' : 'completo';
                 const hadPhoto = !!(s.foto_url);
-                if (estado === 'completo' && hadPhoto) {
-                    await window.supabaseClient.eliminarFotoSolicitudArticulo(s.foto_url);
+                if (estado === 'completo') {
+                    const codigoProveedor = fabricanteSelect && fabricanteSelect.value ? fabricanteSelect.value.trim() : null;
+                    const crearResult = await window.supabaseClient.crearProductoDesdeSolicitud(
+                        codigo,
+                        s.descripcion || '',
+                        s.precio != null ? Number(s.precio) : 0,
+                        codigoProveedor || null
+                    );
+                    if (!crearResult.success) {
+                        window.ui.showToast(crearResult.message || 'Error al crear el producto', 'error');
+                        return;
+                    }
+                    if (hadPhoto) {
+                        await window.supabaseClient.eliminarFotoSolicitudArticulo(s.foto_url);
+                    }
                 }
                 const payload = { estado: estado, codigo_producto: codigo };
                 if (estado === 'completo' && hadPhoto) payload.foto_url = null;
                 const ok = await window.supabaseClient.updateSolicitudArticuloRespuesta(sid, payload);
                 if (ok) {
-                    window.ui.showToast(estado === 'completo' ? 'Solicitud completada. Imagen eliminada.' : 'Respuesta guardada (articulo ya existente).', 'success');
+                    window.ui.showToast(estado === 'completo' ? 'Producto creado y solicitud completada.' : 'Respuesta guardada (articulo ya existente).', 'success');
                     this.showScreenAdmin('solicitudesList');
                     this.updateActiveNavAdmin('solicitudesList');
                 } else {
