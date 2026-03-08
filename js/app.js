@@ -3112,13 +3112,16 @@ class ScanAsYouShopApp {
         }
         html += '</div>';
         html += '<div class="admin-solicitud-info">';
-        html += '<p class="admin-solicitud-meta"><strong>Estado:</strong> ' + this.escapeForHtmlContentPreservingNewlines(estadoLabel) + ' &middot; <strong>Fecha:</strong> ' + this.escapeForHtmlContentPreservingNewlines(fecha) + '</p>';
+        html += '<div class="admin-solicitud-meta">';
+        html += '<span class="admin-solicitud-meta-badge">' + this.escapeForHtmlContentPreservingNewlines(estadoLabel) + '</span>';
+        html += '<span class="admin-solicitud-meta-fecha">' + this.escapeForHtmlContentPreservingNewlines(fecha) + '</span>';
         if (s.codigo_producto) {
-            html += '<p class="admin-solicitud-codigo-asignado"><strong>Codigo producto:</strong> <code class="admin-detail-codigo">' + this.escapeForHtmlContentPreservingNewlines(s.codigo_producto) + '</code></p>';
+            html += '<span class="admin-solicitud-meta-codigo">SKU: <code>' + this.escapeForHtmlContentPreservingNewlines(s.codigo_producto) + '</code></span>';
         }
+        html += '</div>';
         if (isPendiente) {
-            html += '<p class="admin-solicitud-hint">Confirma o edita los datos. El fabricante de arriba se usara para el producto al completar.</p>';
-            html += '<div class="admin-solicitud-fields">';
+            html += '<p class="admin-solicitud-hint">Confirma o edita los datos. El fabricante se usara para el producto al completar.</p>';
+            html += '<div class="admin-solicitud-fields admin-solicitud-card">';
             html += '<div class="admin-solicitud-field"><label for="adminSolicitudProveedor">Fabricante (proveedor)</label><select id="adminSolicitudProveedor">';
             html += '<option value="">-- Sin asignar --</option>';
             if (codigoProvSolicitud && !existeEnLista) {
@@ -3140,7 +3143,7 @@ class ScanAsYouShopApp {
             html += '<div class="admin-solicitud-field"><label for="adminSolicitudPrecio">Precio (EUR, sin IVA)</label><input type="number" id="adminSolicitudPrecio" step="0.001" min="0" placeholder="0" value="' + (s.precio != null ? s.precio : '') + '" /></div>';
             html += '<div class="admin-solicitud-field"><label for="adminSolicitudObservaciones">Observaciones</label><textarea id="adminSolicitudObservaciones" rows="2" placeholder="Detalles adicionales">' + this.escapeForHtmlContentPreservingNewlines(s.observaciones || '') + '</textarea></div>';
             html += '</div>';
-            html += '<div class="admin-detail-completar">';
+            html += '<div class="admin-detail-completar admin-solicitud-card">';
             html += '<h3 class="admin-detail-completar-title">Respuesta</h3>';
             html += '<p class="admin-detail-completar-hint">Indica el codigo del producto (SKU). Si el articulo ya existia en catalogo, marcalo; si es nuevo, al completar se creara con los datos de arriba.</p>';
             html += '<div class="admin-detail-completar-row"><label for="adminSolicitudCodigoProducto">Codigo del producto (SKU)</label><input type="text" id="adminSolicitudCodigoProducto" placeholder="Ej. PILAR30" /></div>';
@@ -3148,10 +3151,7 @@ class ScanAsYouShopApp {
             html += '</div>';
             html += '<div class="admin-detail-actions">';
             html += '<button type="button" class="btn btn-outline-secondary admin-detail-btn-volver" id="adminSolicitudVolverBtn">Volver</button>';
-            html += '<button type="button" class="btn btn-primary" data-admin-action="aprobado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Aprobar</button>';
-            html += '<button type="button" class="btn btn-danger" data-admin-action="rechazado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Rechazar</button>';
-            html += '<button type="button" id="adminSolicitudGuardarCambiosBtn" class="btn btn-secondary" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Guardar cambios</button>';
-            html += '<button type="button" id="adminSolicitudGuardarRespuestaBtn" class="btn btn-primary" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Completar</button>';
+            html += '<button type="button" id="adminSolicitudGuardarRespuestaBtn" class="btn btn-primary admin-detail-btn-completar" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Completar</button>';
             html += '</div>';
         } else {
             html += '<div class="admin-detail-block">';
@@ -3187,44 +3187,6 @@ class ScanAsYouShopApp {
             }
         }
 
-        contentEl.querySelectorAll('[data-admin-action]').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const action = btn.getAttribute('data-admin-action');
-                const sid = btn.getAttribute('data-id');
-                if (!sid || !action) return;
-                const ok = await window.supabaseClient.updateSolicitudArticuloEstado(sid, action);
-                if (ok) {
-                    window.ui.showToast(action === 'aprobado' ? 'Solicitud aprobada' : 'Solicitud rechazada', 'success');
-                    this.showScreenAdmin('solicitudesList');
-                    this.updateActiveNavAdmin('solicitudesList');
-                } else {
-                    window.ui.showToast('Error al actualizar', 'error');
-                }
-            });
-        });
-        const guardarCambiosBtn = document.getElementById('adminSolicitudGuardarCambiosBtn');
-        if (guardarCambiosBtn) {
-            guardarCambiosBtn.addEventListener('click', async () => {
-                const sid = guardarCambiosBtn.getAttribute('data-id');
-                if (!sid) return;
-                const precioEl = document.getElementById('adminSolicitudPrecio');
-                const payload = {
-                    codigo_proveedor: document.getElementById('adminSolicitudProveedor')?.value?.trim() || null,
-                    descripcion: document.getElementById('adminSolicitudDescripcion')?.value?.trim() || '',
-                    ref_proveedor: document.getElementById('adminSolicitudRefProveedor')?.value?.trim() || null,
-                    tarifa: document.getElementById('adminSolicitudTarifa')?.value?.trim() || null,
-                    pagina: document.getElementById('adminSolicitudPagina')?.value !== '' ? document.getElementById('adminSolicitudPagina')?.value : null,
-                    precio: precioEl && precioEl.value !== '' ? parseFloat(precioEl.value) : null,
-                    observaciones: document.getElementById('adminSolicitudObservaciones')?.value?.trim() || null
-                };
-                const ok = await window.supabaseClient.updateSolicitudArticuloRespuesta(sid, payload);
-                if (ok) {
-                    window.ui.showToast('Cambios guardados', 'success');
-                } else {
-                    window.ui.showToast('Error al guardar', 'error');
-                }
-            });
-        }
         const guardarRespuestaBtn = document.getElementById('adminSolicitudGuardarRespuestaBtn');
         if (guardarRespuestaBtn) {
             guardarRespuestaBtn.addEventListener('click', async () => {
