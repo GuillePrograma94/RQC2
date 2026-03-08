@@ -3099,6 +3099,7 @@ class ScanAsYouShopApp {
         const isPendiente = s.estado === 'pendiente';
         const proveedores = isPendiente ? await window.supabaseClient.getProveedores() : [];
         const codigoProvSolicitud = (s.codigo_proveedor || '').trim();
+        const existeEnLista = Array.isArray(proveedores) && proveedores.some(function(pr) { return (pr.codigo_proveedor || '') === codigoProvSolicitud; });
 
         let html = '<div class="admin-solicitud-detail">';
         html += '<div class="admin-solicitud-product-page">';
@@ -3120,7 +3121,6 @@ class ScanAsYouShopApp {
             html += '<div class="admin-solicitud-fields">';
             html += '<div class="admin-solicitud-field"><label for="adminSolicitudProveedor">Proveedor (fabricante)</label><select id="adminSolicitudProveedor">';
             html += '<option value="">-- Sin asignar --</option>';
-            const existeEnLista = Array.isArray(proveedores) && proveedores.some(function(pr) { return (pr.codigo_proveedor || '') === codigoProvSolicitud; });
             if (codigoProvSolicitud && !existeEnLista) {
                 html += '<option value="' + this.escapeForHtmlAttribute(codigoProvSolicitud) + '" selected>' + this.escapeForHtmlContentPreservingNewlines(codigoProvSolicitud) + ' (solicitado)</option>';
             }
