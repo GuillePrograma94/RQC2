@@ -3089,6 +3089,8 @@ class ScanAsYouShopApp {
         const contentEl = document.getElementById('adminSolicitudDetailContent');
         if (!contentEl) return;
         contentEl.innerHTML = '<p>Cargando...</p>';
+        const headerMetaEl = document.getElementById('adminSolicitudDetailHeaderMeta');
+        if (headerMetaEl) headerMetaEl.textContent = '';
         const s = await window.supabaseClient.getSolicitudArticuloNuevoById(id);
         if (!s) {
             contentEl.innerHTML = '<p>No se encontro la solicitud.</p>';
@@ -3096,19 +3098,13 @@ class ScanAsYouShopApp {
         }
         const fecha = s.created_at ? new Date(s.created_at).toLocaleString('es-ES') : '';
         const estadoLabel = this.getAdminSolicitudEstadoLabel(s.estado);
+        if (headerMetaEl) headerMetaEl.textContent = estadoLabel + ' - ' + fecha;
         const isPendiente = s.estado === 'pendiente';
         const proveedores = isPendiente ? await window.supabaseClient.getProveedores() : [];
         const codigoProvSolicitud = (s.codigo_proveedor || '').trim();
         const existeEnLista = Array.isArray(proveedores) && proveedores.some(function(pr) { return (pr.codigo_proveedor || '') === codigoProvSolicitud; });
 
         let html = '<div class="admin-solicitud-detail">';
-        html += '<div class="admin-solicitud-meta">';
-        html += '<span class="admin-solicitud-meta-badge">' + this.escapeForHtmlContentPreservingNewlines(estadoLabel) + '</span>';
-        html += '<span class="admin-solicitud-meta-fecha">' + this.escapeForHtmlContentPreservingNewlines(fecha) + '</span>';
-        if (s.codigo_producto) {
-            html += '<span class="admin-solicitud-meta-codigo">SKU: <code>' + this.escapeForHtmlContentPreservingNewlines(s.codigo_producto) + '</code></span>';
-        }
-        html += '</div>';
         html += '<div class="admin-solicitud-product-page">';
         html += '<div class="admin-solicitud-gallery">';
         if (s.foto_url) {
