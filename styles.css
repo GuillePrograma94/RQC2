@@ -2998,15 +2998,17 @@ body.gate-visible .app-container {
 /* Pantalla Inicio */
 .inicio-content {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     min-height: 100%;
-    padding: 2rem;
+    padding: 2rem 1rem;
 }
 
 .inicio-welcome {
     text-align: center;
     max-width: 320px;
+    margin-bottom: 1.5rem;
 }
 
 .inicio-title {
@@ -3021,6 +3023,56 @@ body.gate-visible .app-container {
     color: var(--gray-600);
     line-height: 1.5;
     margin: 0;
+}
+
+/* Tarjeta solicitudes de articulos en Inicio (Dependiente / Comercial) */
+.inicio-creaciones-card-wrap {
+    width: 100%;
+    max-width: 340px;
+    padding: 1.25rem;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+.inicio-creaciones-card-wrap:hover,
+.inicio-creaciones-card-wrap:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(120, 81, 169, 0.2);
+}
+.inicio-creaciones-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin: 0 0 1rem 0;
+}
+.inicio-creaciones-card-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.5rem;
+}
+.inicio-creaciones-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.inicio-creaciones-stat-label {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+.inicio-creaciones-stat-num {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+.inicio-creaciones-card-hint {
+    margin: 0.75rem 0 0;
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    line-height: 1.35;
 }
 
 .login-form {
@@ -3538,6 +3590,63 @@ body.gate-visible .app-container {
     background: var(--gray-100);
     border-radius: 10px;
     border: 1px solid var(--gray-200);
+}
+
+/* Mis solicitudes de articulos (Dependiente / Comercial) */
+.mis-solicitudes-hint {
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+}
+.mis-solicitudes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.mis-solicitudes-card {
+    padding: 1rem;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    box-shadow: var(--shadow-sm);
+}
+.mis-solicitudes-estado {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--gray-200);
+    margin-right: 0.5rem;
+}
+.mis-solicitudes-fecha {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+.mis-solicitudes-desc {
+    margin: 0.5rem 0 0;
+    font-size: 0.95rem;
+    color: var(--gray-800);
+    line-height: 1.35;
+}
+.mis-solicitudes-codigo {
+    margin: 0.35rem 0 0;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+}
+.mis-solicitudes-codigo code {
+    font-family: monospace;
+    background: var(--gray-100);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+}
+.mis-solicitudes-add-cart {
+    margin-top: 0.75rem;
+}
+.mis-solicitudes-empty {
+    padding: 1rem;
+    color: var(--gray-600);
+    font-size: 0.95rem;
 }
 
 /* Solicitud articulo: 2 columnas en tablets y PC */

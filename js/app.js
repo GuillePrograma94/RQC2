@@ -2551,6 +2551,103 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Inicializa la pantalla Mis solicitudes de articulos: lista las solicitudes del usuario (pendientes y completadas)
+     * y permite anadir al carrito las que tienen codigo_producto (estado completo o articulo_ya_existente).
+     */
+    async initMisSolicitudesScreen() {
+        const listEl = document.getElementById('misSolicitudesList');
+        if (!listEl) return;
+        listEl.innerHTML = '<p>Cargando...</p>';
+        try {
+            const list = await window.supabaseClient.getSolicitudesArticulosNuevos(null);
+            if (!list || list.length === 0) {
+                listEl.innerHTML = '<p class="mis-solicitudes-empty">No tienes ninguna solicitud. Puedes crear una desde Herramientas > Solicitar articulo nuevo.</p>';
+                return;
+            }
+            const self = this;
+            listEl.innerHTML = list.map(function (s) {
+                const fecha = s.created_at ? new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+                const estadoLabel = self.getAdminSolicitudEstadoLabel(s.estado || 'pendiente');
+                const desc = (s.descripcion || '').substring(0, 80) + ((s.descripcion && s.descripcion.length > 80) ? '...' : '');
+                const codigo = s.codigo_producto ? self.escapeForHtmlAttribute(s.codigo_producto) : '';
+                const puedeAnadir = (s.estado === 'completo' || s.estado === 'articulo_ya_existente') && codigo;
+                let html = '<div class="mis-solicitudes-card">';
+                html += '<span class="mis-solicitudes-estado">' + estadoLabel + '</span>';
+                html += '<span class="mis-solicitudes-fecha">' + fecha + '</span>';
+                html += '<p class="mis-solicitudes-desc">' + self.escapeForHtmlContentPreservingNewlines(desc) + '</p>';
+                if (codigo) {
+                    html += '<p class="mis-solicitudes-codigo">Codigo: <code>' + self.escapeForHtmlContentPreservingNewlines(s.codigo_producto) + '</code></p>';
+                }
+                if (puedeAnadir) {
+                    html += '<button type="button" class="btn btn-primary btn-small mis-solicitudes-add-cart" data-codigo="' + codigo + '">Anadir al carrito</button>';
+                }
+                html += '</div>';
+                return html;
+            }).join('');
+            listEl.querySelectorAll('.mis-solicitudes-add-cart').forEach(function (btn) {
+                btn.addEventListener('click', async function () {
+                    const codigo = btn.getAttribute('data-codigo');
+                    if (!codigo) return;
+                    btn.disabled = true;
+                    try {
+                        const productoBD = await window.supabaseClient.searchProductByCode(codigo);
+                        if (!productoBD) {
+                            window.ui.showToast('Producto no encontrado con codigo ' + codigo, 'error');
+                            btn.disabled = false;
+                            return;
+                        }
+                        const producto = {
+                            codigo: productoBD.codigo || productoBD.codigo_producto || codigo,
+                            descripcion: productoBD.descripcion || codigo,
+                            pvp: productoBD.pvp != null ? productoBD.pvp : (productoBD.precio_unitario != null ? productoBD.precio_unitario : 0)
+                        };
+                        await window.cartManager.addProduct(producto, 1);
+                        window.ui.updateCartBadge();
+                        self.updateCartView();
+                        window.ui.showToast(producto.descripcion + ' anadido al carrito', 'success');
+                    } catch (e) {
+                        console.error('initMisSolicitudesScreen add to cart:', e);
+                        window.ui.showToast('Error al anadir al carrito', 'error');
+                    }
+                    btn.disabled = false;
+                });
+            });
+        } catch (e) {
+            console.error('initMisSolicitudesScreen:', e);
+            listEl.innerHTML = '<p class="mis-solicitudes-empty">Error al cargar solicitudes. Intenta de nuevo.</p>';
+        }
+    }
+
+    /**
+     * Carga en la pantalla Inicio la tarjeta de solicitudes de articulos (solo Dependiente/Comercial):
+     * muestra Creaciones pendientes y Creaciones completadas y al pulsar lleva a Mis solicitudes.
+     */
+    async loadInicioCreacionesCard() {
+        const wrap = document.getElementById('inicioCreacionesCardWrap');
+        const elPendientes = document.getElementById('inicioCreacionesPendientes');
+        const elCompletadas = document.getElementById('inicioCreacionesCompletadas');
+        if (!wrap) return;
+        if (!this.currentUser || (!this.currentUser.is_dependiente && !this.currentUser.is_comercial)) {
+            wrap.style.display = 'none';
+            return;
+        }
+        wrap.style.display = 'block';
+        if (elPendientes) elPendientes.textContent = '...';
+        if (elCompletadas) elCompletadas.textContent = '...';
+        try {
+            const list = await window.supabaseClient.getSolicitudesArticulosNuevos(null);
+            const pendientes = list ? list.filter(function (s) { return s.estado === 'pendiente'; }).length : 0;
+            const completadas = list ? list.filter(function (s) { return s.estado === 'completo' || s.estado === 'articulo_ya_existente'; }).length : 0;
+            if (elPendientes) elPendientes.textContent = String(pendientes);
+            if (elCompletadas) elCompletadas.textContent = String(completadas);
+        } catch (e) {
+            console.error('loadInicioCreacionesCard:', e);
+            if (elPendientes) elPendientes.textContent = '0';
+            if (elCompletadas) elCompletadas.textContent = '0';
+        }
+    }
+
+    /**
      * Normaliza teléfono para WhatsApp: solo dígitos, con prefijo de país si no lo lleva
      */
     normalizePhoneForWhatsApp(telefono) {
@@ -3717,6 +3814,20 @@ class ScanAsYouShopApp {
             });
         }
 
+        // Inicio: tarjeta de solicitudes de articulos -> Mis solicitudes (solo Dependiente/Comercial)
+        const inicioCreacionesCardWrap = document.getElementById('inicioCreacionesCardWrap');
+        if (inicioCreacionesCardWrap) {
+            inicioCreacionesCardWrap.addEventListener('click', () => {
+                this.showScreen('misSolicitudesArticulos');
+            });
+            inicioCreacionesCardWrap.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.showScreen('misSolicitudesArticulos');
+                }
+            });
+        }
+
         if (navScan) {
             navScan.addEventListener('click', () => {
                 this.showScreen('scan');
@@ -4071,10 +4182,26 @@ class ScanAsYouShopApp {
             });
         }
 
+        // Herramientas: Mis solicitudes de articulos -> pantalla listado (solo Dependiente/Comercial)
+        const herramientaMisSolicitudesBtn = document.getElementById('herramientaMisSolicitudesBtn');
+        if (herramientaMisSolicitudesBtn) {
+            herramientaMisSolicitudesBtn.addEventListener('click', () => {
+                this.showScreen('misSolicitudesArticulos');
+            });
+        }
+
         // Solicitud Articulo: Volver a Herramientas
         const solicitudArticuloBackBtn = document.getElementById('solicitudArticuloBackBtn');
         if (solicitudArticuloBackBtn) {
             solicitudArticuloBackBtn.addEventListener('click', () => {
+                this.showScreen('herramientas');
+            });
+        }
+
+        // Mis solicitudes: Volver a Herramientas
+        const misSolicitudesBackBtn = document.getElementById('misSolicitudesBackBtn');
+        if (misSolicitudesBackBtn) {
+            misSolicitudesBackBtn.addEventListener('click', () => {
                 this.showScreen('herramientas');
             });
         }
@@ -4721,6 +4848,10 @@ class ScanAsYouShopApp {
                 console.log('Vista del carrito actualizada');
             }
 
+            if (screenName === 'inicio') {
+                this.loadInicioCreacionesCard();
+            }
+
             if (screenName === 'commercial') {
                 this.renderCommercialScreen();
             }
@@ -4746,10 +4877,18 @@ class ScanAsYouShopApp {
                 if (solicitudBtn) {
                     solicitudBtn.style.display = (this.currentUser && (this.currentUser.is_dependiente || this.currentUser.is_comercial)) ? '' : 'none';
                 }
+                const misSolicitudesBtn = document.getElementById('herramientaMisSolicitudesBtn');
+                if (misSolicitudesBtn) {
+                    misSolicitudesBtn.style.display = (this.currentUser && (this.currentUser.is_dependiente || this.currentUser.is_comercial)) ? '' : 'none';
+                }
             }
 
             if (screenName === 'solicitudArticulo') {
                 this.initSolicitudArticuloScreen();
+            }
+
+            if (screenName === 'misSolicitudesArticulos') {
+                this.initMisSolicitudesScreen();
             }
 
         }

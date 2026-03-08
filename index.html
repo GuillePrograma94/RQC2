@@ -262,6 +262,20 @@
                     <h1 class="inicio-title">Bienvenido</h1>
                     <p class="inicio-text">Servicio RQC de BATMAR. Escanea productos mientras compras.</p>
                 </div>
+                <div id="inicioCreacionesCardWrap" class="inicio-creaciones-card-wrap" style="display: none;" role="button" tabindex="0">
+                    <h2 class="inicio-creaciones-card-title">Solicitudes de artículos</h2>
+                    <div class="inicio-creaciones-card-stats">
+                        <div class="inicio-creaciones-stat">
+                            <span class="inicio-creaciones-stat-label">Creaciones pendientes</span>
+                            <span id="inicioCreacionesPendientes" class="inicio-creaciones-stat-num">0</span>
+                        </div>
+                        <div class="inicio-creaciones-stat">
+                            <span class="inicio-creaciones-stat-label">Creaciones completadas</span>
+                            <span id="inicioCreacionesCompletadas" class="inicio-creaciones-stat-num">0</span>
+                        </div>
+                    </div>
+                    <p class="inicio-creaciones-card-hint">Pulsa para ver el listado y añadir al carrito los ya creados.</p>
+                </div>
             </main>
         </div>
 
@@ -623,7 +637,22 @@
                 <div class="herramientas-actions">
                     <button type="button" id="herramientaWcCompletoBtn" class="btn btn-primary btn-lg">WC Completo</button>
                     <button type="button" id="herramientaSolicitudArticuloBtn" class="btn btn-primary btn-lg" style="display: none;">Solicitar artículo nuevo</button>
+                    <button type="button" id="herramientaMisSolicitudesBtn" class="btn btn-secondary btn-lg" style="display: none;">Mis solicitudes de artículos</button>
                 </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA MIS SOLICITUDES DE ARTICULOS (Dependiente / Comercial)
+             ================================ -->
+        <div id="misSolicitudesArticulosScreen" class="screen">
+            <main class="screen-content">
+                <div class="profile-header">
+                    <button type="button" id="misSolicitudesBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title">Mis solicitudes de artículos</h2>
+                </div>
+                <p class="mis-solicitudes-hint">Solicitudes que has enviado para crear artículos nuevos. Las pendientes están en tramitación; las completadas incluyen el código para añadirlas al carrito.</p>
+                <div id="misSolicitudesList" class="mis-solicitudes-list"></div>
             </main>
         </div>
 
