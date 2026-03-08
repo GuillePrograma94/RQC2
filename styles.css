@@ -3610,6 +3610,20 @@ body.gate-visible .app-container {
     border-radius: 10px;
     box-shadow: var(--shadow-sm);
 }
+.mis-solicitudes-card-completo {
+    cursor: pointer;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.mis-solicitudes-card-completo:hover {
+    background: var(--gray-50);
+    box-shadow: var(--shadow-md);
+}
+.mis-solicitudes-add-hint {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--primary);
+}
 .mis-solicitudes-estado {
     display: inline-block;
     padding: 0.2rem 0.5rem;

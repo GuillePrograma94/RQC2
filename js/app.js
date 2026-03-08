@@ -2569,6 +2569,8 @@ class ScanAsYouShopApp {
                 listEl.innerHTML = '<p class="mis-solicitudes-empty">No tienes ninguna solicitud. Puedes crear una desde Herramientas > Solicitar articulo nuevo.</p>';
                 return;
             }
+            const esCompleto = function (s) { return s.estado === 'completo' || s.estado === 'articulo_ya_existente'; };
+            list.sort(function (a, b) { return (esCompleto(a) ? 1 : 0) - (esCompleto(b) ? 1 : 0); });
             const self = this;
             listEl.innerHTML = list.map(function (s) {
                 const fecha = s.created_at ? new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
@@ -2576,7 +2578,7 @@ class ScanAsYouShopApp {
                 const desc = (s.descripcion || '').substring(0, 80) + ((s.descripcion && s.descripcion.length > 80) ? '...' : '');
                 const codigo = s.codigo_producto ? self.escapeForHtmlAttribute(s.codigo_producto) : '';
                 const puedeAnadir = (s.estado === 'completo' || s.estado === 'articulo_ya_existente') && codigo;
-                let html = '<div class="mis-solicitudes-card">';
+                let html = '<div class="mis-solicitudes-card' + (puedeAnadir ? ' mis-solicitudes-card-completo" data-codigo="' + codigo + '"' : '"') + '>';
                 html += '<span class="mis-solicitudes-estado">' + estadoLabel + '</span>';
                 html += '<span class="mis-solicitudes-fecha">' + fecha + '</span>';
                 html += '<p class="mis-solicitudes-desc">' + self.escapeForHtmlContentPreservingNewlines(desc) + '</p>';
@@ -2584,21 +2586,20 @@ class ScanAsYouShopApp {
                     html += '<p class="mis-solicitudes-codigo">Codigo: <code>' + self.escapeForHtmlContentPreservingNewlines(s.codigo_producto) + '</code></p>';
                 }
                 if (puedeAnadir) {
-                    html += '<button type="button" class="btn btn-primary btn-small mis-solicitudes-add-cart" data-codigo="' + codigo + '">Anadir al carrito</button>';
+                    html += '<span class="mis-solicitudes-add-hint">Pulsa para anadir al carrito</span>';
                 }
                 html += '</div>';
                 return html;
             }).join('');
-            listEl.querySelectorAll('.mis-solicitudes-add-cart').forEach(function (btn) {
-                btn.addEventListener('click', async function () {
-                    const codigo = btn.getAttribute('data-codigo');
+            listEl.querySelectorAll('.mis-solicitudes-card-completo').forEach(function (card) {
+                card.addEventListener('click', async function () {
+                    const codigo = card.getAttribute('data-codigo');
                     if (!codigo) return;
-                    btn.disabled = true;
+                    card.style.pointerEvents = 'none';
                     try {
                         const productoBD = await window.supabaseClient.searchProductByCode(codigo);
                         if (!productoBD) {
                             window.ui.showToast('Producto no encontrado con codigo ' + codigo, 'error');
-                            btn.disabled = false;
                             return;
                         }
                         const producto = {
@@ -2606,15 +2607,12 @@ class ScanAsYouShopApp {
                             descripcion: productoBD.descripcion || codigo,
                             pvp: productoBD.pvp != null ? productoBD.pvp : (productoBD.precio_unitario != null ? productoBD.precio_unitario : 0)
                         };
-                        await window.cartManager.addProduct(producto, 1);
-                        window.ui.updateCartBadge();
-                        self.updateCartView();
-                        window.ui.showToast(producto.descripcion + ' anadido al carrito', 'success');
+                        await self.showAddToCartModal(producto);
                     } catch (e) {
                         console.error('initMisSolicitudesScreen add to cart:', e);
-                        window.ui.showToast('Error al anadir al carrito', 'error');
+                        window.ui.showToast('Error al abrir el producto', 'error');
                     }
-                    btn.disabled = false;
+                    card.style.pointerEvents = '';
                 });
             });
         } catch (e) {
