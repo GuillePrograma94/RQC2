@@ -3117,9 +3117,9 @@ class ScanAsYouShopApp {
             html += '<p class="admin-solicitud-codigo-asignado"><strong>Codigo producto:</strong> <code class="admin-detail-codigo">' + this.escapeForHtmlContentPreservingNewlines(s.codigo_producto) + '</code></p>';
         }
         if (isPendiente) {
-            html += '<p class="admin-solicitud-hint">Confirma o edita los datos introducidos por el solicitante y luego indica el codigo SKU y si el articulo es nuevo o ya existia.</p>';
+            html += '<p class="admin-solicitud-hint">Confirma o edita los datos. El fabricante de arriba se usara para el producto al completar.</p>';
             html += '<div class="admin-solicitud-fields">';
-            html += '<div class="admin-solicitud-field"><label for="adminSolicitudProveedor">Proveedor (fabricante)</label><select id="adminSolicitudProveedor">';
+            html += '<div class="admin-solicitud-field"><label for="adminSolicitudProveedor">Fabricante (proveedor)</label><select id="adminSolicitudProveedor">';
             html += '<option value="">-- Sin asignar --</option>';
             if (codigoProvSolicitud && !existeEnLista) {
                 html += '<option value="' + this.escapeForHtmlAttribute(codigoProvSolicitud) + '" selected>' + this.escapeForHtmlContentPreservingNewlines(codigoProvSolicitud) + ' (solicitado)</option>';
@@ -3140,6 +3140,19 @@ class ScanAsYouShopApp {
             html += '<div class="admin-solicitud-field"><label for="adminSolicitudPrecio">Precio (EUR, sin IVA)</label><input type="number" id="adminSolicitudPrecio" step="0.001" min="0" placeholder="0" value="' + (s.precio != null ? s.precio : '') + '" /></div>';
             html += '<div class="admin-solicitud-field"><label for="adminSolicitudObservaciones">Observaciones</label><textarea id="adminSolicitudObservaciones" rows="2" placeholder="Detalles adicionales">' + this.escapeForHtmlContentPreservingNewlines(s.observaciones || '') + '</textarea></div>';
             html += '</div>';
+            html += '<div class="admin-detail-completar">';
+            html += '<h3 class="admin-detail-completar-title">Respuesta</h3>';
+            html += '<p class="admin-detail-completar-hint">Indica el codigo del producto (SKU). Si el articulo ya existia en catalogo, marcalo; si es nuevo, al completar se creara con los datos de arriba.</p>';
+            html += '<div class="admin-detail-completar-row"><label for="adminSolicitudCodigoProducto">Codigo del producto (SKU)</label><input type="text" id="adminSolicitudCodigoProducto" placeholder="Ej. PILAR30" /></div>';
+            html += '<label class="admin-detail-completar-check"><input type="checkbox" id="adminSolicitudArticuloYaExistente" /> Articulo ya existente (solo asignar codigo; no se crea producto)</label>';
+            html += '</div>';
+            html += '<div class="admin-detail-actions">';
+            html += '<button type="button" class="btn btn-outline-secondary admin-detail-btn-volver" id="adminSolicitudVolverBtn">Volver</button>';
+            html += '<button type="button" class="btn btn-primary" data-admin-action="aprobado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Aprobar</button>';
+            html += '<button type="button" class="btn btn-danger" data-admin-action="rechazado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Rechazar</button>';
+            html += '<button type="button" id="adminSolicitudGuardarCambiosBtn" class="btn btn-secondary" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Guardar cambios</button>';
+            html += '<button type="button" id="adminSolicitudGuardarRespuestaBtn" class="btn btn-primary" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Completar</button>';
+            html += '</div>';
         } else {
             html += '<div class="admin-detail-block">';
             html += '<p><strong>Proveedor:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.codigo_proveedor || '') + '</p>';
@@ -3152,33 +3165,6 @@ class ScanAsYouShopApp {
             html += '</div>';
         }
         html += '</div></div>';
-
-        if (isPendiente) {
-            html += '<div class="admin-detail-actions">';
-            html += '<button type="button" class="btn btn-primary" data-admin-action="aprobado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Aprobar</button> ';
-            html += '<button type="button" class="btn btn-danger" data-admin-action="rechazado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Rechazar</button>';
-            html += '<button type="button" id="adminSolicitudGuardarCambiosBtn" class="btn btn-secondary" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Guardar cambios</button>';
-            html += '</div>';
-            html += '<div class="admin-detail-completar">';
-            html += '<h3 class="admin-detail-completar-title">Completar solicitud</h3>';
-            html += '<p class="admin-detail-completar-hint">Indica el codigo del producto (SKU) una vez creado el articulo o si ya existia. Al marcar como completado se creara el producto en el catalogo con los datos confirmados arriba.</p>';
-            html += '<label class="admin-detail-completar-check"><input type="checkbox" id="adminSolicitudArticuloYaExistente" /> Articulo ya existente (el trabajador podra anadirlo al carrito con este codigo)</label>';
-            html += '<div class="admin-detail-completar-row"><label for="adminSolicitudCodigoProducto">Codigo del producto (SKU)</label><input type="text" id="adminSolicitudCodigoProducto" placeholder="Ej. PILAR30" /></div>';
-            html += '<div class="admin-detail-completar-row"><label for="adminSolicitudFabricante">Fabricante para el producto</label><select id="adminSolicitudFabricante">';
-            html += '<option value="">-- Sin asignar --</option>';
-            if (codigoProvSolicitud && !existeEnLista) {
-                html += '<option value="' + this.escapeForHtmlAttribute(codigoProvSolicitud) + '" selected>' + this.escapeForHtmlContentPreservingNewlines(codigoProvSolicitud) + ' (solicitado)</option>';
-            }
-            (proveedores || []).forEach(function(pr) {
-                const cod = pr.codigo_proveedor || '';
-                const nom = pr.nombre_proveedor || cod;
-                const sel = cod === codigoProvSolicitud ? ' selected' : '';
-                html += '<option value="' + this.escapeForHtmlAttribute(cod) + '"' + sel + '>' + this.escapeForHtmlContentPreservingNewlines(nom) + '</option>';
-            }.bind(this));
-            html += '</select></div>';
-            html += '<button type="button" id="adminSolicitudGuardarRespuestaBtn" class="btn btn-primary" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Guardar respuesta</button>';
-            html += '</div>';
-        }
         html += '</div>';
         contentEl.innerHTML = html;
 
@@ -3244,7 +3230,6 @@ class ScanAsYouShopApp {
             guardarRespuestaBtn.addEventListener('click', async () => {
                 const codigoInput = document.getElementById('adminSolicitudCodigoProducto');
                 const articuloYaExistente = document.getElementById('adminSolicitudArticuloYaExistente');
-                const fabricanteSelect = document.getElementById('adminSolicitudFabricante');
                 const codigo = codigoInput && codigoInput.value ? codigoInput.value.trim() : '';
                 if (!codigo) {
                     window.ui.showToast('Indica el codigo del producto (SKU)', 'warning');
@@ -3255,11 +3240,13 @@ class ScanAsYouShopApp {
                 const estado = articuloYaExistente && articuloYaExistente.checked ? 'articulo_ya_existente' : 'completo';
                 const descripcionEl = document.getElementById('adminSolicitudDescripcion');
                 const precioEl = document.getElementById('adminSolicitudPrecio');
+                const proveedorEl = document.getElementById('adminSolicitudProveedor');
                 const descripcion = descripcionEl ? descripcionEl.value.trim() : (s.descripcion || '');
                 const precioVal = precioEl && precioEl.value !== '' ? parseFloat(precioEl.value) : (s.precio != null ? Number(s.precio) : 0);
+                const codigoProveedor = proveedorEl && proveedorEl.value ? proveedorEl.value.trim() : null;
                 const hadPhoto = !!(s.foto_url);
                 const payload = {
-                    codigo_proveedor: document.getElementById('adminSolicitudProveedor')?.value?.trim() || null,
+                    codigo_proveedor: codigoProveedor,
                     descripcion: descripcion,
                     ref_proveedor: document.getElementById('adminSolicitudRefProveedor')?.value?.trim() || null,
                     tarifa: document.getElementById('adminSolicitudTarifa')?.value?.trim() || null,
@@ -3270,7 +3257,6 @@ class ScanAsYouShopApp {
                     codigo_producto: codigo
                 };
                 if (estado === 'completo') {
-                    const codigoProveedor = fabricanteSelect && fabricanteSelect.value ? fabricanteSelect.value.trim() : null;
                     const crearResult = await window.supabaseClient.crearProductoDesdeSolicitud(
                         codigo,
                         descripcion,
@@ -3294,6 +3280,13 @@ class ScanAsYouShopApp {
                 } else {
                     window.ui.showToast('Error al guardar la respuesta', 'error');
                 }
+            });
+        }
+        const volverBtn = document.getElementById('adminSolicitudVolverBtn');
+        if (volverBtn) {
+            volverBtn.addEventListener('click', () => {
+                this.showScreenAdmin('solicitudesList');
+                this.updateActiveNavAdmin('solicitudesList');
             });
         }
     }
