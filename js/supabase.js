@@ -2349,6 +2349,37 @@ class SupabaseClient {
     }
 
     /**
+     * Obtiene una URL firmada para mostrar la foto de una solicitud (bucket publico o privado).
+     * Si el bucket es privado, getPublicUrl no funciona; esta funcion devuelve una URL valida por 1 hora.
+     * Algunas versiones del API devuelven la URL base y el token por separado; se construye la URL completa.
+     * @param {string} fotoUrl - URL publica almacenada (ej. .../object/public/solicitudes-articulos-fotos/UUID/nombre.jpg)
+     * @returns {Promise<string|null>} URL firmada con token o null si error
+     */
+    async getSolicitudFotoSignedUrl(fotoUrl) {
+        try {
+            if (!this.client || !fotoUrl || typeof fotoUrl !== 'string') return null;
+            const bucket = 'solicitudes-articulos-fotos';
+            const idx = fotoUrl.indexOf('solicitudes-articulos-fotos/');
+            if (idx === -1) return null;
+            const path = fotoUrl.substring(idx + bucket.length + 1).split('?')[0];
+            if (!path) return null;
+            const { data, error } = await this.client.storage.from(bucket).createSignedUrl(path, 3600);
+            if (error || !data) return null;
+            let url = data.signedUrl || data.signedURL;
+            if (!url) return null;
+            if (url.indexOf('token=') === -1 && (data.token || data.signedUrlToken)) {
+                const token = data.token || data.signedUrlToken;
+                url = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'token=' + encodeURIComponent(token);
+            }
+            if (url.indexOf('token=') === -1) return null;
+            return url;
+        } catch (err) {
+            console.error('getSolicitudFotoSignedUrl:', err);
+            return null;
+        }
+    }
+
+    /**
      * Actualiza la URL de la foto en una solicitud de articulo nuevo (solo el creador por RLS).
      * @param {string} solicitudId - UUID de la solicitud
      * @param {string} fotoUrl - URL publica de la imagen
@@ -2515,20 +2546,27 @@ class SupabaseClient {
     }
 
     /**
-     * Actualiza la respuesta de Administracion: estado (completo | articulo_ya_existente), codigo_producto y opcionalmente foto_url (null).
-     * Usado al completar la solicitud con el codigo del producto o al marcar "articulo ya existente".
+     * Actualiza la respuesta de Administracion: estado, codigo_producto, foto_url y opcionalmente los campos editables.
+     * Usado al completar la solicitud o al guardar cambios de los datos confirmados por administracion.
      * @param {string} id - UUID de la solicitud
-     * @param {Object} payload - { estado, codigo_producto, foto_url? }
+     * @param {Object} payload - { estado?, codigo_producto?, foto_url?, codigo_proveedor?, descripcion?, ref_proveedor?, tarifa?, pagina?, precio?, observaciones? }
      * @returns {Promise<boolean>}
      */
     async updateSolicitudArticuloRespuesta(id, payload) {
         try {
             if (!this.client || !id || !payload) return false;
-            const update = {
-                estado: payload.estado,
-                codigo_producto: payload.codigo_producto != null ? String(payload.codigo_producto).trim() : null
-            };
+            const update = {};
+            if (payload.estado !== undefined) update.estado = payload.estado;
+            if (payload.codigo_producto !== undefined) update.codigo_producto = payload.codigo_producto != null ? String(payload.codigo_producto).trim() : null;
             if (payload.hasOwnProperty('foto_url')) update.foto_url = payload.foto_url;
+            if (payload.hasOwnProperty('codigo_proveedor')) update.codigo_proveedor = payload.codigo_proveedor != null ? String(payload.codigo_proveedor).trim() : null;
+            if (payload.hasOwnProperty('descripcion')) update.descripcion = payload.descripcion != null ? String(payload.descripcion).trim() : '';
+            if (payload.hasOwnProperty('ref_proveedor')) update.ref_proveedor = payload.ref_proveedor != null ? String(payload.ref_proveedor).trim() : null;
+            if (payload.hasOwnProperty('tarifa')) update.tarifa = payload.tarifa != null ? String(payload.tarifa).trim() : null;
+            if (payload.hasOwnProperty('pagina')) update.pagina = payload.pagina !== '' && payload.pagina != null ? (typeof payload.pagina === 'number' ? payload.pagina : parseInt(payload.pagina, 10)) : null;
+            if (payload.hasOwnProperty('precio')) update.precio = payload.precio !== '' && payload.precio != null ? (typeof payload.precio === 'number' ? payload.precio : parseFloat(payload.precio)) : null;
+            if (payload.hasOwnProperty('observaciones')) update.observaciones = payload.observaciones != null ? String(payload.observaciones).trim() : null;
+            if (Object.keys(update).length === 0) return true;
             const { error } = await this.client
                 .from('solicitudes_articulos_nuevos')
                 .update(update)

@@ -71,6 +71,7 @@ Las solicitudes creadas por Dependientes y Comerciales son gestionadas por usuar
 - **Ruta**: `{solicitud_id}/{nombre_archivo}`.
 - En el formulario se muestra un texto aclaratorio: "La imagen se sube a Supabase Storage (bucket solicitudes-articulos-fotos). Opcional."
 - La subida en `subirFotoSolicitudArticulo` usa `contentType: file.type` cuando el archivo es imagen para que Supabase guarde el tipo MIME correcto.
+- **Visualizacion en panel Administracion**: las fotos se muestran mediante URL firmada (`getSolicitudFotoSignedUrl`), que funciona con bucket publico o privado. Si ves "Bucket not found" (404) al abrir la URL publica, el bucket aun no existe: crealo en Dashboard > Storage con el nombre exacto `solicitudes-articulos-fotos`. Para la URL firmada, el token debe ir en la query; si tu version del API devuelve el token por separado, la app lo anade automaticamente.
 
 ### Crear el bucket en Supabase
 

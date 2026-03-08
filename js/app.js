@@ -3080,8 +3080,9 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Rellena la pantalla de detalle de una solicitud: datos, estado, codigo (si completado), botones Aprobar/Rechazar
-     * y bloque para completar con codigo del producto y checkbox "Articulo ya existente".
+     * Rellena la pantalla de detalle de una solicitud: layout tipo pagina de producto (PC),
+     * foto con URL firmada, campos editables para que administracion confirme o corrija,
+     * botones Aprobar/Rechazar y bloque Completar solicitud (SKU, articulo ya existente, fabricante).
      * @param {string} id - UUID de la solicitud
      */
     async renderAdminSolicitudDetail(id) {
@@ -3095,36 +3096,76 @@ class ScanAsYouShopApp {
         }
         const fecha = s.created_at ? new Date(s.created_at).toLocaleString('es-ES') : '';
         const estadoLabel = this.getAdminSolicitudEstadoLabel(s.estado);
-        let html = '<div class="admin-detail-block">';
-        html += '<p><strong>Proveedor:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.codigo_proveedor || '') + '</p>';
-        html += '<p><strong>Descripcion:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.descripcion || '') + '</p>';
-        html += '<p><strong>Ref. proveedor:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.ref_proveedor || '-') + '</p>';
-        html += '<p><strong>Tarifa:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.tarifa || '-') + '</p>';
-        html += '<p><strong>Pagina:</strong> ' + (s.pagina != null ? s.pagina : '-') + '</p>';
-        html += '<p><strong>Precio:</strong> ' + (s.precio != null ? Number(s.precio).toFixed(2) : '-') + ' EUR</p>';
-        if (s.observaciones) html += '<p><strong>Observaciones:</strong><br><span class="admin-detail-observaciones">' + this.escapeForHtmlContentPreservingNewlines(s.observaciones) + '</span></p>';
-        html += '<p><strong>Fecha:</strong> ' + fecha + '</p>';
-        html += '<p><strong>Estado:</strong> ' + estadoLabel + '</p>';
-        if (s.codigo_producto) {
-            html += '<p><strong>Codigo producto:</strong> <code class="admin-detail-codigo">' + this.escapeForHtmlContentPreservingNewlines(s.codigo_producto) + '</code></p>';
+        const isPendiente = s.estado === 'pendiente';
+        const proveedores = isPendiente ? await window.supabaseClient.getProveedores() : [];
+        const codigoProvSolicitud = (s.codigo_proveedor || '').trim();
+
+        let html = '<div class="admin-solicitud-detail">';
+        html += '<div class="admin-solicitud-product-page">';
+        html += '<div class="admin-solicitud-gallery">';
+        if (s.foto_url) {
+            html += '<img id="adminSolicitudFotoImg" class="admin-solicitud-foto" data-foto-url="' + this.escapeForHtmlAttribute(s.foto_url) + '" src="" alt="Foto del articulo" />';
+            html += '<div id="adminSolicitudFotoPlaceholder" class="admin-solicitud-foto-placeholder" style="display: none;"><span class="admin-solicitud-foto-placeholder-icon" aria-hidden="true">&#128247;</span><span>Foto no disponible</span></div>';
+        } else {
+            html += '<div class="admin-solicitud-foto-placeholder"><span class="admin-solicitud-foto-placeholder-icon" aria-hidden="true">&#128247;</span><span>Sin foto</span></div>';
         }
-        if (s.foto_url) html += '<p><img src="' + this.escapeForHtmlAttribute(s.foto_url) + '" alt="Foto" class="admin-detail-foto" /></p>';
         html += '</div>';
-        if (s.estado === 'pendiente') {
-            const proveedores = await window.supabaseClient.getProveedores();
+        html += '<div class="admin-solicitud-info">';
+        html += '<p class="admin-solicitud-meta"><strong>Estado:</strong> ' + this.escapeForHtmlContentPreservingNewlines(estadoLabel) + ' &middot; <strong>Fecha:</strong> ' + this.escapeForHtmlContentPreservingNewlines(fecha) + '</p>';
+        if (s.codigo_producto) {
+            html += '<p class="admin-solicitud-codigo-asignado"><strong>Codigo producto:</strong> <code class="admin-detail-codigo">' + this.escapeForHtmlContentPreservingNewlines(s.codigo_producto) + '</code></p>';
+        }
+        if (isPendiente) {
+            html += '<p class="admin-solicitud-hint">Confirma o edita los datos introducidos por el solicitante y luego indica el codigo SKU y si el articulo es nuevo o ya existia.</p>';
+            html += '<div class="admin-solicitud-fields">';
+            html += '<div class="admin-solicitud-field"><label for="adminSolicitudProveedor">Proveedor (fabricante)</label><select id="adminSolicitudProveedor">';
+            html += '<option value="">-- Sin asignar --</option>';
+            const existeEnLista = Array.isArray(proveedores) && proveedores.some(function(pr) { return (pr.codigo_proveedor || '') === codigoProvSolicitud; });
+            if (codigoProvSolicitud && !existeEnLista) {
+                html += '<option value="' + this.escapeForHtmlAttribute(codigoProvSolicitud) + '" selected>' + this.escapeForHtmlContentPreservingNewlines(codigoProvSolicitud) + ' (solicitado)</option>';
+            }
+            (proveedores || []).forEach(function(pr) {
+                const cod = pr.codigo_proveedor || '';
+                const nom = pr.nombre_proveedor || cod;
+                const sel = cod === codigoProvSolicitud ? ' selected' : '';
+                html += '<option value="' + this.escapeForHtmlAttribute(cod) + '"' + sel + '>' + this.escapeForHtmlContentPreservingNewlines(nom) + '</option>';
+            }.bind(this));
+            html += '</select></div>';
+            html += '<div class="admin-solicitud-field"><label for="adminSolicitudDescripcion">Descripcion</label><textarea id="adminSolicitudDescripcion" rows="3" placeholder="Descripcion del articulo">' + this.escapeForHtmlContentPreservingNewlines(s.descripcion || '') + '</textarea></div>';
+            html += '<div class="admin-solicitud-field admin-solicitud-field-row">';
+            html += '<div class="admin-solicitud-field"><label for="adminSolicitudRefProveedor">Ref. proveedor</label><input type="text" id="adminSolicitudRefProveedor" placeholder="Ej. 97768" value="' + this.escapeForHtmlAttribute(s.ref_proveedor || '') + '" /></div>';
+            html += '<div class="admin-solicitud-field"><label for="adminSolicitudTarifa">Tarifa</label><input type="text" id="adminSolicitudTarifa" placeholder="Ej. SUPER OFERTAS" value="' + this.escapeForHtmlAttribute(s.tarifa || '') + '" /></div>';
+            html += '<div class="admin-solicitud-field"><label for="adminSolicitudPagina">Pagina</label><input type="number" id="adminSolicitudPagina" min="0" placeholder="-" value="' + (s.pagina != null ? s.pagina : '') + '" /></div>';
+            html += '</div>';
+            html += '<div class="admin-solicitud-field"><label for="adminSolicitudPrecio">Precio (EUR, sin IVA)</label><input type="number" id="adminSolicitudPrecio" step="0.001" min="0" placeholder="0" value="' + (s.precio != null ? s.precio : '') + '" /></div>';
+            html += '<div class="admin-solicitud-field"><label for="adminSolicitudObservaciones">Observaciones</label><textarea id="adminSolicitudObservaciones" rows="2" placeholder="Detalles adicionales">' + this.escapeForHtmlContentPreservingNewlines(s.observaciones || '') + '</textarea></div>';
+            html += '</div>';
+        } else {
+            html += '<div class="admin-detail-block">';
+            html += '<p><strong>Proveedor:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.codigo_proveedor || '') + '</p>';
+            html += '<p><strong>Descripcion:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.descripcion || '') + '</p>';
+            html += '<p><strong>Ref. proveedor:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.ref_proveedor || '-') + '</p>';
+            html += '<p><strong>Tarifa:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.tarifa || '-') + '</p>';
+            html += '<p><strong>Pagina:</strong> ' + (s.pagina != null ? s.pagina : '-') + '</p>';
+            html += '<p><strong>Precio:</strong> ' + (s.precio != null ? Number(s.precio).toFixed(2) : '-') + ' EUR</p>';
+            if (s.observaciones) html += '<p><strong>Observaciones:</strong><br><span class="admin-detail-observaciones">' + this.escapeForHtmlContentPreservingNewlines(s.observaciones) + '</span></p>';
+            html += '</div>';
+        }
+        html += '</div></div>';
+
+        if (isPendiente) {
             html += '<div class="admin-detail-actions">';
             html += '<button type="button" class="btn btn-primary" data-admin-action="aprobado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Aprobar</button> ';
             html += '<button type="button" class="btn btn-danger" data-admin-action="rechazado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Rechazar</button>';
+            html += '<button type="button" id="adminSolicitudGuardarCambiosBtn" class="btn btn-secondary" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Guardar cambios</button>';
             html += '</div>';
             html += '<div class="admin-detail-completar">';
             html += '<h3 class="admin-detail-completar-title">Completar solicitud</h3>';
-            html += '<p class="admin-detail-completar-hint">Indica el codigo del producto una vez creado el articulo o si ya existia. Al marcar como completado se creara el producto en el catalogo con codigo, descripcion, PVP y fabricante indicados.</p>';
+            html += '<p class="admin-detail-completar-hint">Indica el codigo del producto (SKU) una vez creado el articulo o si ya existia. Al marcar como completado se creara el producto en el catalogo con los datos confirmados arriba.</p>';
             html += '<label class="admin-detail-completar-check"><input type="checkbox" id="adminSolicitudArticuloYaExistente" /> Articulo ya existente (el trabajador podra anadirlo al carrito con este codigo)</label>';
-            html += '<div class="admin-detail-completar-row"><label for="adminSolicitudCodigoProducto">Codigo del producto</label><input type="text" id="adminSolicitudCodigoProducto" placeholder="Ej. PILAR30" /></div>';
-            html += '<div class="admin-detail-completar-row"><label for="adminSolicitudFabricante">Fabricante (proveedor)</label><select id="adminSolicitudFabricante">';
+            html += '<div class="admin-detail-completar-row"><label for="adminSolicitudCodigoProducto">Codigo del producto (SKU)</label><input type="text" id="adminSolicitudCodigoProducto" placeholder="Ej. PILAR30" /></div>';
+            html += '<div class="admin-detail-completar-row"><label for="adminSolicitudFabricante">Fabricante para el producto</label><select id="adminSolicitudFabricante">';
             html += '<option value="">-- Sin asignar --</option>';
-            const codigoProvSolicitud = (s.codigo_proveedor || '').trim();
-            const existeEnLista = Array.isArray(proveedores) && proveedores.some(function(pr) { return (pr.codigo_proveedor || '') === codigoProvSolicitud; });
             if (codigoProvSolicitud && !existeEnLista) {
                 html += '<option value="' + this.escapeForHtmlAttribute(codigoProvSolicitud) + '" selected>' + this.escapeForHtmlContentPreservingNewlines(codigoProvSolicitud) + ' (solicitado)</option>';
             }
@@ -3138,7 +3179,28 @@ class ScanAsYouShopApp {
             html += '<button type="button" id="adminSolicitudGuardarRespuestaBtn" class="btn btn-primary" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Guardar respuesta</button>';
             html += '</div>';
         }
+        html += '</div>';
         contentEl.innerHTML = html;
+
+        if (s.foto_url) {
+            const imgEl = document.getElementById('adminSolicitudFotoImg');
+            const placeholderEl = document.getElementById('adminSolicitudFotoPlaceholder');
+            if (imgEl) {
+                const rawUrl = imgEl.getAttribute('data-foto-url');
+                const signedUrl = await window.supabaseClient.getSolicitudFotoSignedUrl(rawUrl);
+                if (signedUrl) {
+                    imgEl.src = signedUrl;
+                    imgEl.onerror = function() {
+                        imgEl.style.display = 'none';
+                        if (placeholderEl) placeholderEl.style.display = 'flex';
+                    };
+                } else {
+                    imgEl.style.display = 'none';
+                    if (placeholderEl) placeholderEl.style.display = 'flex';
+                }
+            }
+        }
+
         contentEl.querySelectorAll('[data-admin-action]').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const action = btn.getAttribute('data-admin-action');
@@ -3154,6 +3216,29 @@ class ScanAsYouShopApp {
                 }
             });
         });
+        const guardarCambiosBtn = document.getElementById('adminSolicitudGuardarCambiosBtn');
+        if (guardarCambiosBtn) {
+            guardarCambiosBtn.addEventListener('click', async () => {
+                const sid = guardarCambiosBtn.getAttribute('data-id');
+                if (!sid) return;
+                const precioEl = document.getElementById('adminSolicitudPrecio');
+                const payload = {
+                    codigo_proveedor: document.getElementById('adminSolicitudProveedor')?.value?.trim() || null,
+                    descripcion: document.getElementById('adminSolicitudDescripcion')?.value?.trim() || '',
+                    ref_proveedor: document.getElementById('adminSolicitudRefProveedor')?.value?.trim() || null,
+                    tarifa: document.getElementById('adminSolicitudTarifa')?.value?.trim() || null,
+                    pagina: document.getElementById('adminSolicitudPagina')?.value !== '' ? document.getElementById('adminSolicitudPagina')?.value : null,
+                    precio: precioEl && precioEl.value !== '' ? parseFloat(precioEl.value) : null,
+                    observaciones: document.getElementById('adminSolicitudObservaciones')?.value?.trim() || null
+                };
+                const ok = await window.supabaseClient.updateSolicitudArticuloRespuesta(sid, payload);
+                if (ok) {
+                    window.ui.showToast('Cambios guardados', 'success');
+                } else {
+                    window.ui.showToast('Error al guardar', 'error');
+                }
+            });
+        }
         const guardarRespuestaBtn = document.getElementById('adminSolicitudGuardarRespuestaBtn');
         if (guardarRespuestaBtn) {
             guardarRespuestaBtn.addEventListener('click', async () => {
@@ -3162,19 +3247,34 @@ class ScanAsYouShopApp {
                 const fabricanteSelect = document.getElementById('adminSolicitudFabricante');
                 const codigo = codigoInput && codigoInput.value ? codigoInput.value.trim() : '';
                 if (!codigo) {
-                    window.ui.showToast('Indica el codigo del producto', 'warning');
+                    window.ui.showToast('Indica el codigo del producto (SKU)', 'warning');
                     return;
                 }
                 const sid = guardarRespuestaBtn.getAttribute('data-id');
                 if (!sid) return;
                 const estado = articuloYaExistente && articuloYaExistente.checked ? 'articulo_ya_existente' : 'completo';
+                const descripcionEl = document.getElementById('adminSolicitudDescripcion');
+                const precioEl = document.getElementById('adminSolicitudPrecio');
+                const descripcion = descripcionEl ? descripcionEl.value.trim() : (s.descripcion || '');
+                const precioVal = precioEl && precioEl.value !== '' ? parseFloat(precioEl.value) : (s.precio != null ? Number(s.precio) : 0);
                 const hadPhoto = !!(s.foto_url);
+                const payload = {
+                    codigo_proveedor: document.getElementById('adminSolicitudProveedor')?.value?.trim() || null,
+                    descripcion: descripcion,
+                    ref_proveedor: document.getElementById('adminSolicitudRefProveedor')?.value?.trim() || null,
+                    tarifa: document.getElementById('adminSolicitudTarifa')?.value?.trim() || null,
+                    pagina: document.getElementById('adminSolicitudPagina')?.value !== '' ? document.getElementById('adminSolicitudPagina')?.value : null,
+                    precio: precioVal,
+                    observaciones: document.getElementById('adminSolicitudObservaciones')?.value?.trim() || null,
+                    estado: estado,
+                    codigo_producto: codigo
+                };
                 if (estado === 'completo') {
                     const codigoProveedor = fabricanteSelect && fabricanteSelect.value ? fabricanteSelect.value.trim() : null;
                     const crearResult = await window.supabaseClient.crearProductoDesdeSolicitud(
                         codigo,
-                        s.descripcion || '',
-                        s.precio != null ? Number(s.precio) : 0,
+                        descripcion,
+                        precioVal,
                         codigoProveedor || null
                     );
                     if (!crearResult.success) {
@@ -3184,9 +3284,8 @@ class ScanAsYouShopApp {
                     if (hadPhoto) {
                         await window.supabaseClient.eliminarFotoSolicitudArticulo(s.foto_url);
                     }
+                    payload.foto_url = hadPhoto ? null : undefined;
                 }
-                const payload = { estado: estado, codigo_producto: codigo };
-                if (estado === 'completo' && hadPhoto) payload.foto_url = null;
                 const ok = await window.supabaseClient.updateSolicitudArticuloRespuesta(sid, payload);
                 if (ok) {
                     window.ui.showToast(estado === 'completo' ? 'Producto creado y solicitud completada.' : 'Respuesta guardada (articulo ya existente).', 'success');
