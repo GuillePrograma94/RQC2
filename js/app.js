@@ -4182,14 +4182,6 @@ class ScanAsYouShopApp {
             });
         }
 
-        // Herramientas: Mis solicitudes de articulos -> pantalla listado (solo Dependiente/Comercial)
-        const herramientaMisSolicitudesBtn = document.getElementById('herramientaMisSolicitudesBtn');
-        if (herramientaMisSolicitudesBtn) {
-            herramientaMisSolicitudesBtn.addEventListener('click', () => {
-                this.showScreen('misSolicitudesArticulos');
-            });
-        }
-
         // Solicitud Articulo: Volver a Herramientas
         const solicitudArticuloBackBtn = document.getElementById('solicitudArticuloBackBtn');
         if (solicitudArticuloBackBtn) {
@@ -4876,10 +4868,6 @@ class ScanAsYouShopApp {
                 const solicitudBtn = document.getElementById('herramientaSolicitudArticuloBtn');
                 if (solicitudBtn) {
                     solicitudBtn.style.display = (this.currentUser && (this.currentUser.is_dependiente || this.currentUser.is_comercial)) ? '' : 'none';
-                }
-                const misSolicitudesBtn = document.getElementById('herramientaMisSolicitudesBtn');
-                if (misSolicitudesBtn) {
-                    misSolicitudesBtn.style.display = (this.currentUser && (this.currentUser.is_dependiente || this.currentUser.is_comercial)) ? '' : 'none';
                 }
             }
 
