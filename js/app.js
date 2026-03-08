@@ -2323,31 +2323,50 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Inicializa la pantalla Solicitar articulo nuevo: carga proveedores y muestra formulario o mensaje sin proveedores.
+     * Inicializa la pantalla Solicitar articulo nuevo: carga proveedores con alias y muestra formulario o mensaje sin proveedores.
+     * El proveedor es un combobox con busqueda flexible (palabras en cualquier orden, coincidencia parcial).
      */
     async initSolicitudArticuloScreen() {
         const formEl = document.getElementById('solicitudArticuloForm');
         const sinProveedoresEl = document.getElementById('solicitudArticuloSinProveedores');
-        const selectEl = document.getElementById('solicitudArticuloProveedor');
         const msgEl = document.getElementById('solicitudArticuloMessage');
+        const inputEl = document.getElementById('solicitudArticuloProveedorInput');
+        const hiddenEl = document.getElementById('solicitudArticuloProveedor');
+        const dropdownEl = document.getElementById('solicitudArticuloProveedorDropdown');
         if (msgEl) msgEl.style.display = 'none';
-        if (!selectEl) return;
-        selectEl.innerHTML = '<option value="">Seleccione proveedor</option>';
+        if (!inputEl || !hiddenEl || !dropdownEl) return;
         try {
-            const proveedores = await window.supabaseClient.getProveedores();
+            const [proveedores, aliasRows] = await Promise.all([
+                window.supabaseClient.getProveedores(),
+                window.supabaseClient.getProveedoresAlias()
+            ]);
             if (!proveedores || proveedores.length === 0) {
                 if (formEl) formEl.style.display = 'none';
                 if (sinProveedoresEl) sinProveedoresEl.style.display = 'block';
                 return;
             }
+            const aliasByCodigo = {};
+            if (Array.isArray(aliasRows)) {
+                aliasRows.forEach(function (r) {
+                    if (!aliasByCodigo[r.codigo_proveedor]) aliasByCodigo[r.codigo_proveedor] = [];
+                    aliasByCodigo[r.codigo_proveedor].push(r.alias || '');
+                });
+            }
+            const proveedoresConAlias = proveedores.map(function (p) {
+                return {
+                    codigo_proveedor: p.codigo_proveedor,
+                    nombre_proveedor: p.nombre_proveedor || p.codigo_proveedor,
+                    aliases: aliasByCodigo[p.codigo_proveedor] || []
+                };
+            });
+            this._proveedoresConAlias = proveedoresConAlias;
             if (sinProveedoresEl) sinProveedoresEl.style.display = 'none';
             if (formEl) formEl.style.display = 'block';
-            proveedores.forEach(function (p) {
-                const opt = document.createElement('option');
-                opt.value = p.codigo_proveedor;
-                opt.textContent = p.nombre_proveedor || p.codigo_proveedor;
-                selectEl.appendChild(opt);
-            });
+            inputEl.value = '';
+            hiddenEl.value = '';
+            dropdownEl.innerHTML = '';
+            dropdownEl.setAttribute('aria-expanded', 'false');
+            this._setupProveedorCombobox();
             if (document.getElementById('solicitudArticuloDescripcion')) document.getElementById('solicitudArticuloDescripcion').value = '';
             if (document.getElementById('solicitudArticuloRefProveedor')) document.getElementById('solicitudArticuloRefProveedor').value = '';
             if (document.getElementById('solicitudArticuloTarifa')) document.getElementById('solicitudArticuloTarifa').value = '';
@@ -2362,6 +2381,96 @@ class ScanAsYouShopApp {
                 sinProveedoresEl.style.display = 'block';
             }
         }
+    }
+
+    /**
+     * Filtra proveedores por texto: cada palabra del query debe aparecer (como subcadena) en codigo, nombre o algun alias.
+     * Orden de palabras indiferente; coincidencia parcial (ej. "roc" coincide con "roca", "san" con "sanitario").
+     * @param {Array<{codigo_proveedor: string, nombre_proveedor: string, aliases: string[]}>} proveedoresConAlias
+     * @param {string} query
+     * @returns {Array}
+     */
+    filterProveedores(proveedoresConAlias, query) {
+        if (!proveedoresConAlias || !proveedoresConAlias.length) return [];
+        const q = (query || '').trim().toLowerCase();
+        if (!q) return proveedoresConAlias.slice();
+        const words = q.split(/\s+/).filter(Boolean);
+        if (!words.length) return proveedoresConAlias.slice();
+        return proveedoresConAlias.filter(function (p) {
+            const searchable = [p.codigo_proveedor || '', p.nombre_proveedor || ''].concat(p.aliases || []).join(' ').toLowerCase();
+            return words.every(function (w) { return searchable.indexOf(w) >= 0; });
+        });
+    }
+
+    /**
+     * Configura eventos del combobox de proveedor (input + dropdown).
+     */
+    _setupProveedorCombobox() {
+        const self = this;
+        const inputEl = document.getElementById('solicitudArticuloProveedorInput');
+        const hiddenEl = document.getElementById('solicitudArticuloProveedor');
+        const dropdownEl = document.getElementById('solicitudArticuloProveedorDropdown');
+        if (!inputEl || !hiddenEl || !dropdownEl) return;
+        let blurTimer = null;
+        function renderDropdown(items) {
+            dropdownEl.innerHTML = '';
+            if (!items || items.length === 0) {
+                dropdownEl.setAttribute('aria-expanded', 'false');
+                return;
+            }
+            items.forEach(function (p) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'solicitud-articulo-proveedor-option';
+                btn.setAttribute('role', 'option');
+                btn.textContent = p.nombre_proveedor || p.codigo_proveedor;
+                btn.dataset.codigo = p.codigo_proveedor;
+                btn.dataset.nombre = p.nombre_proveedor || p.codigo_proveedor;
+                dropdownEl.appendChild(btn);
+            });
+            dropdownEl.setAttribute('aria-expanded', 'true');
+        }
+        function closeDropdown() {
+            blurTimer = null;
+            dropdownEl.innerHTML = '';
+            dropdownEl.setAttribute('aria-expanded', 'false');
+        }
+        function selectProveedor(codigo, nombre) {
+            hiddenEl.value = codigo || '';
+            inputEl.value = nombre || '';
+            closeDropdown();
+        }
+        inputEl.addEventListener('input', function () {
+            const query = inputEl.value.trim();
+            if (!query) hiddenEl.value = '';
+            const list = self._proveedoresConAlias ? self.filterProveedores(self._proveedoresConAlias, query) : [];
+            renderDropdown(list);
+        });
+        inputEl.addEventListener('focus', function () {
+            if (blurTimer) clearTimeout(blurTimer);
+            const query = inputEl.value.trim();
+            const list = self._proveedoresConAlias ? self.filterProveedores(self._proveedoresConAlias, query) : self._proveedoresConAlias.slice();
+            renderDropdown(list);
+        });
+        inputEl.addEventListener('blur', function () {
+            blurTimer = setTimeout(closeDropdown, 200);
+        });
+        dropdownEl.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            const btn = e.target.closest('.solicitud-articulo-proveedor-option');
+            if (btn && btn.dataset.codigo) {
+                selectProveedor(btn.dataset.codigo, btn.dataset.nombre);
+            }
+        });
+        dropdownEl.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeDropdown();
+        });
+        inputEl.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { inputEl.blur(); closeDropdown(); }
+        });
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('#solicitudArticuloProveedorWrap')) closeDropdown();
+        });
     }
 
     /**
@@ -2624,6 +2733,10 @@ class ScanAsYouShopApp {
             self.showScreenAdmin('solicitudesList');
             self.updateActiveNavAdmin('solicitudesList');
         });
+        document.getElementById('navAdminProveedores')?.addEventListener('click', () => {
+            self.showScreenAdmin('proveedores');
+            self.updateActiveNavAdmin('proveedores');
+        });
         document.getElementById('navAdminProfile')?.addEventListener('click', () => {
             self.showScreenAdmin('profile');
             self.updateActiveNavAdmin('profile');
@@ -2644,6 +2757,11 @@ class ScanAsYouShopApp {
             self.updateActiveNavAdmin('solicitudesList');
         });
 
+        document.getElementById('adminProveedoresBackBtn')?.addEventListener('click', () => {
+            self.showScreenAdmin('inicio');
+            self.updateActiveNavAdmin('inicio');
+        });
+
         document.getElementById('adminLogoutBtn')?.addEventListener('click', () => {
             self.logout();
         });
@@ -2651,7 +2769,7 @@ class ScanAsYouShopApp {
 
     /**
      * Muestra una pantalla del panel administracion y actualiza contenido si aplica.
-     * @param {string} screenName - 'inicio' | 'solicitudesList' | 'solicitudDetail' | 'profile'
+     * @param {string} screenName - 'inicio' | 'solicitudesList' | 'solicitudDetail' | 'proveedores' | 'profile'
      * @param {string} [id] - UUID de solicitud para pantalla detalle
      */
     async showScreenAdmin(screenName, id) {
@@ -2673,6 +2791,10 @@ class ScanAsYouShopApp {
             const el = document.getElementById('adminSolicitudDetailScreen');
             if (el) el.classList.add('screen-active');
             this.renderAdminSolicitudDetail(id);
+        } else if (screenName === 'proveedores') {
+            const el = document.getElementById('adminProveedoresScreen');
+            if (el) el.classList.add('screen-active');
+            this.loadAdminProveedores();
         } else if (screenName === 'profile') {
             const el = document.getElementById('adminProfileScreen');
             if (el) el.classList.add('screen-active');
@@ -2683,12 +2805,13 @@ class ScanAsYouShopApp {
      * Marca el item activo del bottom nav del panel administracion.
      */
     updateActiveNavAdmin(screenName) {
-        ['navAdminInicio', 'navAdminSolicitudes', 'navAdminProfile'].forEach(navId => {
+        ['navAdminInicio', 'navAdminSolicitudes', 'navAdminProveedores', 'navAdminProfile'].forEach(navId => {
             const el = document.getElementById(navId);
             if (el) el.classList.toggle('active', false);
         });
         if (screenName === 'inicio') document.getElementById('navAdminInicio')?.classList.add('active');
         else if (screenName === 'solicitudesList' || screenName === 'solicitudDetail') document.getElementById('navAdminSolicitudes')?.classList.add('active');
+        else if (screenName === 'proveedores') document.getElementById('navAdminProveedores')?.classList.add('active');
         else if (screenName === 'profile') document.getElementById('navAdminProfile')?.classList.add('active');
     }
 
@@ -2719,7 +2842,7 @@ class ScanAsYouShopApp {
             const fecha = s.created_at ? new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
             const desc = this.escapeForHtmlContentPreservingNewlines(s.descripcion || '').substring(0, 60);
             return '<button type="button" class="admin-solicitud-card" data-id="' + this.escapeForHtmlAttribute(s.id) + '">' +
-                '<span class="admin-solicitud-estado">' + (s.estado || 'pendiente') + '</span>' +
+                '<span class="admin-solicitud-estado">' + this.getAdminSolicitudEstadoLabel(s.estado || 'pendiente') + '</span>' +
                 '<span class="admin-solicitud-fecha">' + fecha + '</span>' +
                 '<span class="admin-solicitud-desc">' + desc + (s.descripcion && s.descripcion.length > 60 ? '...' : '') + '</span>' +
                 '</button>';
@@ -2734,7 +2857,119 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Rellena la pantalla de detalle de una solicitud y botones Aprobar/Rechazar.
+     * Carga la pantalla Proveedores / Alias: listado de proveedores y al hacer clic se muestran sus alias para anadir/eliminar.
+     */
+    async loadAdminProveedores() {
+        const listEl = document.getElementById('adminProveedoresList');
+        const blockEl = document.getElementById('adminProveedorAliasBlock');
+        if (!listEl) return;
+        listEl.innerHTML = '<p>Cargando...</p>';
+        if (blockEl) blockEl.style.display = 'none';
+        try {
+            const [proveedores, aliasRows] = await Promise.all([
+                window.supabaseClient.getProveedores(),
+                window.supabaseClient.getProveedoresAlias()
+            ]);
+            if (!proveedores || proveedores.length === 0) {
+                listEl.innerHTML = '<p>No hay proveedores.</p>';
+                return;
+            }
+            const aliasByCodigo = {};
+            if (Array.isArray(aliasRows)) {
+                aliasRows.forEach(function (r) {
+                    if (!aliasByCodigo[r.codigo_proveedor]) aliasByCodigo[r.codigo_proveedor] = [];
+                    aliasByCodigo[r.codigo_proveedor].push(r.alias || '');
+                });
+            }
+            listEl.innerHTML = proveedores.map(p => {
+                const codigo = this.escapeForHtmlAttribute(p.codigo_proveedor);
+                const nombre = this.escapeForHtmlContentPreservingNewlines(p.nombre_proveedor || p.codigo_proveedor);
+                const n = (aliasByCodigo[p.codigo_proveedor] || []).length;
+                return '<button type="button" class="admin-solicitud-card admin-proveedor-card" data-codigo="' + codigo + '" data-nombre="' + nombre + '">' +
+                    '<span class="admin-solicitud-desc">' + nombre + ' <code>' + codigo + '</code></span>' +
+                    (n > 0 ? '<span class="admin-proveedor-alias-count">' + n + ' alias</span>' : '') +
+                    '</button>';
+            }).join('');
+            listEl.querySelectorAll('.admin-proveedor-card').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const codigo = btn.getAttribute('data-codigo');
+                    const nombre = btn.getAttribute('data-nombre');
+                    if (codigo) this.renderAdminProveedorAliasBlock(codigo, nombre, aliasByCodigo[codigo] || []);
+                });
+            });
+        } catch (e) {
+            console.error('loadAdminProveedores:', e);
+            listEl.innerHTML = '<p>Error al cargar proveedores.</p>';
+        }
+    }
+
+    /**
+     * Muestra el bloque de alias de un proveedor y configura anadir/eliminar.
+     */
+    async renderAdminProveedorAliasBlock(codigo, nombre, aliases) {
+        const blockEl = document.getElementById('adminProveedorAliasBlock');
+        const titleEl = document.getElementById('adminProveedorAliasTitle');
+        const listEl = document.getElementById('adminProveedorAliasList');
+        const inputEl = document.getElementById('adminProveedorAliasInput');
+        const addBtn = document.getElementById('adminProveedorAliasAddBtn');
+        if (!blockEl || !titleEl || !listEl) return;
+        blockEl.style.display = 'block';
+        blockEl.dataset.codigo = codigo;
+        titleEl.textContent = nombre + ' (' + codigo + ')';
+        listEl.innerHTML = (aliases || []).length === 0
+            ? '<li class="admin-proveedor-alias-empty">Sin alias. Anade uno para facilitar la busqueda.</li>'
+            : (aliases || []).map(a => '<li class="admin-proveedor-alias-item">' +
+                this.escapeForHtmlContentPreservingNewlines(a) +
+                ' <button type="button" class="btn btn-small admin-proveedor-alias-del" data-alias="' + this.escapeForHtmlAttribute(a) + '" aria-label="Eliminar alias">Eliminar</button></li>').join('');
+        if (inputEl) inputEl.value = '';
+        listEl.querySelectorAll('.admin-proveedor-alias-del').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const alias = btn.getAttribute('data-alias');
+                if (!alias || !codigo) return;
+                const ok = await window.supabaseClient.removeProveedorAlias(codigo, alias);
+                if (ok) {
+                    window.ui.showToast('Alias eliminado', 'success');
+                    const aliasRows = await window.supabaseClient.getProveedoresAlias();
+                    const aliasByCodigo = {};
+                    if (Array.isArray(aliasRows)) aliasRows.forEach(r => {
+                        if (!aliasByCodigo[r.codigo_proveedor]) aliasByCodigo[r.codigo_proveedor] = [];
+                        aliasByCodigo[r.codigo_proveedor].push(r.alias || '');
+                    });
+                    this.renderAdminProveedorAliasBlock(codigo, nombre, aliasByCodigo[codigo] || []);
+                } else {
+                    window.ui.showToast('Error al eliminar alias', 'error');
+                }
+            });
+        });
+        if (addBtn && inputEl) {
+            addBtn.onclick = null;
+            addBtn.addEventListener('click', async () => {
+                const alias = inputEl.value.trim();
+                if (!alias) {
+                    window.ui.showToast('Escribe un alias', 'warning');
+                    return;
+                }
+                const ok = await window.supabaseClient.addProveedorAlias(codigo, alias);
+                if (ok) {
+                    window.ui.showToast('Alias anadido', 'success');
+                    inputEl.value = '';
+                    const aliasRows = await window.supabaseClient.getProveedoresAlias();
+                    const aliasByCodigo = {};
+                    if (Array.isArray(aliasRows)) aliasRows.forEach(r => {
+                        if (!aliasByCodigo[r.codigo_proveedor]) aliasByCodigo[r.codigo_proveedor] = [];
+                        aliasByCodigo[r.codigo_proveedor].push(r.alias || '');
+                    });
+                    this.renderAdminProveedorAliasBlock(codigo, nombre, aliasByCodigo[codigo] || []);
+                } else {
+                    window.ui.showToast('Error al anadir alias (puede que ya exista)', 'error');
+                }
+            });
+        }
+    }
+
+    /**
+     * Rellena la pantalla de detalle de una solicitud: datos, estado, codigo (si completado), botones Aprobar/Rechazar
+     * y bloque para completar con codigo del producto y checkbox "Articulo ya existente".
      * @param {string} id - UUID de la solicitud
      */
     async renderAdminSolicitudDetail(id) {
@@ -2747,6 +2982,7 @@ class ScanAsYouShopApp {
             return;
         }
         const fecha = s.created_at ? new Date(s.created_at).toLocaleString('es-ES') : '';
+        const estadoLabel = this.getAdminSolicitudEstadoLabel(s.estado);
         let html = '<div class="admin-detail-block">';
         html += '<p><strong>Proveedor:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.codigo_proveedor || '') + '</p>';
         html += '<p><strong>Descripcion:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.descripcion || '') + '</p>';
@@ -2755,13 +2991,23 @@ class ScanAsYouShopApp {
         html += '<p><strong>Pagina:</strong> ' + (s.pagina != null ? s.pagina : '-') + '</p>';
         html += '<p><strong>Precio:</strong> ' + (s.precio != null ? s.precio : '-') + ' EUR</p>';
         html += '<p><strong>Fecha:</strong> ' + fecha + '</p>';
-        html += '<p><strong>Estado:</strong> ' + (s.estado || 'pendiente') + '</p>';
+        html += '<p><strong>Estado:</strong> ' + estadoLabel + '</p>';
+        if (s.codigo_producto) {
+            html += '<p><strong>Codigo producto:</strong> <code class="admin-detail-codigo">' + this.escapeForHtmlContentPreservingNewlines(s.codigo_producto) + '</code></p>';
+        }
         if (s.foto_url) html += '<p><img src="' + this.escapeForHtmlAttribute(s.foto_url) + '" alt="Foto" class="admin-detail-foto" /></p>';
         html += '</div>';
         if (s.estado === 'pendiente') {
             html += '<div class="admin-detail-actions">';
             html += '<button type="button" class="btn btn-primary" data-admin-action="aprobado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Aprobar</button> ';
             html += '<button type="button" class="btn btn-danger" data-admin-action="rechazado" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Rechazar</button>';
+            html += '</div>';
+            html += '<div class="admin-detail-completar">';
+            html += '<h3 class="admin-detail-completar-title">Completar solicitud</h3>';
+            html += '<p class="admin-detail-completar-hint">Indica el codigo del producto una vez creado el articulo o si ya existia.</p>';
+            html += '<label class="admin-detail-completar-check"><input type="checkbox" id="adminSolicitudArticuloYaExistente" /> Articulo ya existente (el trabajador podra anadirlo al carrito con este codigo)</label>';
+            html += '<div class="admin-detail-completar-row"><label for="adminSolicitudCodigoProducto">Codigo del producto</label><input type="text" id="adminSolicitudCodigoProducto" placeholder="Ej. PILAR30" /></div>';
+            html += '<button type="button" id="adminSolicitudGuardarRespuestaBtn" class="btn btn-primary" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Guardar respuesta</button>';
             html += '</div>';
         }
         contentEl.innerHTML = html;
@@ -2780,6 +3026,51 @@ class ScanAsYouShopApp {
                 }
             });
         });
+        const guardarRespuestaBtn = document.getElementById('adminSolicitudGuardarRespuestaBtn');
+        if (guardarRespuestaBtn) {
+            guardarRespuestaBtn.addEventListener('click', async () => {
+                const codigoInput = document.getElementById('adminSolicitudCodigoProducto');
+                const articuloYaExistente = document.getElementById('adminSolicitudArticuloYaExistente');
+                const codigo = codigoInput && codigoInput.value ? codigoInput.value.trim() : '';
+                if (!codigo) {
+                    window.ui.showToast('Indica el codigo del producto', 'warning');
+                    return;
+                }
+                const sid = guardarRespuestaBtn.getAttribute('data-id');
+                if (!sid) return;
+                const estado = articuloYaExistente && articuloYaExistente.checked ? 'articulo_ya_existente' : 'completo';
+                const hadPhoto = !!(s.foto_url);
+                if (estado === 'completo' && hadPhoto) {
+                    await window.supabaseClient.eliminarFotoSolicitudArticulo(s.foto_url);
+                }
+                const payload = { estado: estado, codigo_producto: codigo };
+                if (estado === 'completo' && hadPhoto) payload.foto_url = null;
+                const ok = await window.supabaseClient.updateSolicitudArticuloRespuesta(sid, payload);
+                if (ok) {
+                    window.ui.showToast(estado === 'completo' ? 'Solicitud completada. Imagen eliminada.' : 'Respuesta guardada (articulo ya existente).', 'success');
+                    this.showScreenAdmin('solicitudesList');
+                    this.updateActiveNavAdmin('solicitudesList');
+                } else {
+                    window.ui.showToast('Error al guardar la respuesta', 'error');
+                }
+            });
+        }
+    }
+
+    /**
+     * Devuelve etiqueta amigable para el estado de una solicitud (listado y detalle admin).
+     * @param {string} estado
+     * @returns {string}
+     */
+    getAdminSolicitudEstadoLabel(estado) {
+        const labels = {
+            pendiente: 'Pendiente',
+            aprobado: 'Aprobado',
+            rechazado: 'Rechazado',
+            completo: 'COMPLETO',
+            articulo_ya_existente: 'Articulo ya existente'
+        };
+        return labels[estado] || (estado || 'pendiente');
     }
 
     /**

@@ -703,10 +703,13 @@
                 <form id="solicitudArticuloForm" class="profile-form solicitud-articulo-form" style="display: none;">
                     <div class="solicitud-articulo-wrap">
                         <div class="form-group solicitud-articulo-field">
-                            <label for="solicitudArticuloProveedor">Proveedor <span class="required">*</span></label>
-                            <select id="solicitudArticuloProveedor" required>
-                                <option value="">Seleccione proveedor</option>
-                            </select>
+                            <label for="solicitudArticuloProveedorInput">Proveedor <span class="required">*</span></label>
+                            <div class="solicitud-articulo-combobox" id="solicitudArticuloProveedorWrap">
+                                <input type="text" id="solicitudArticuloProveedorInput" placeholder="Escribe para buscar (ej. roca, sanitario, roc san)..." autocomplete="off" aria-describedby="solicitudArticuloProveedorHint">
+                                <input type="hidden" id="solicitudArticuloProveedor" name="solicitudArticuloProveedor" required>
+                                <div id="solicitudArticuloProveedorDropdown" class="solicitud-articulo-proveedor-dropdown" role="listbox" aria-expanded="false"></div>
+                            </div>
+                            <p id="solicitudArticuloProveedorHint" class="solicitud-articulo-foto-hint">Puedes escribir parte del nombre o un alias; el orden no importa (ej. sanitario roca).</p>
                         </div>
                         <div class="form-group solicitud-articulo-field">
                             <label for="solicitudArticuloDescripcion">Descripcion <span class="required">*</span></label>
@@ -1148,6 +1151,24 @@
             </header>
             <main class="screen-content" id="adminSolicitudDetailContent"></main>
         </div>
+        <div id="adminProveedoresScreen" class="screen screen-admin">
+            <header class="screen-header">
+                <button type="button" id="adminProveedoresBackBtn" class="profile-back-btn">Volver</button>
+                <h2>Alias proveedores</h2>
+            </header>
+            <main class="screen-content">
+                <p class="admin-proveedores-hint">Anade alias para que al buscar en Solicitar articulo nuevo aparezca el proveedor (ej. "sanitario roca", "roc san").</p>
+                <div id="adminProveedoresList" class="admin-list"></div>
+                <div id="adminProveedorAliasBlock" class="admin-detail-block" style="display: none;">
+                    <h3 id="adminProveedorAliasTitle" class="admin-detail-completar-title"></h3>
+                    <ul id="adminProveedorAliasList" class="admin-proveedor-alias-list"></ul>
+                    <div class="admin-proveedor-alias-add">
+                        <input type="text" id="adminProveedorAliasInput" placeholder="Nuevo alias (ej. roc san)" />
+                        <button type="button" id="adminProveedorAliasAddBtn" class="btn btn-primary">Anadir alias</button>
+                    </div>
+                </div>
+            </main>
+        </div>
         <div id="adminProfileScreen" class="screen screen-admin">
             <main class="screen-content">
                 <p>Perfil administracion</p>
@@ -1157,6 +1178,7 @@
         <nav class="bottom-nav bottom-nav-admin" aria-label="Administracion">
             <button type="button" id="navAdminInicio" class="nav-item nav-item-admin active">Inicio</button>
             <button type="button" id="navAdminSolicitudes" class="nav-item nav-item-admin">Solicitudes</button>
+            <button type="button" id="navAdminProveedores" class="nav-item nav-item-admin">Proveedores</button>
             <button type="button" id="navAdminProfile" class="nav-item nav-item-admin">Perfil</button>
         </nav>
     </div>

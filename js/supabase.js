@@ -2215,6 +2215,74 @@ class SupabaseClient {
     }
 
     /**
+     * Lista todos los alias de proveedores (para combobox de busqueda).
+     * @returns {Promise<Array<{codigo_proveedor: string, alias: string}>>}
+     */
+    async getProveedoresAlias() {
+        try {
+            if (!this.client) return [];
+            const { data, error } = await this.client
+                .from('proveedores_alias')
+                .select('codigo_proveedor, alias');
+            if (error) {
+                console.error('Error getProveedoresAlias:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getProveedoresAlias:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Anade un alias a un proveedor (solo ADMINISTRACION por RLS).
+     * @param {string} codigoProveedor
+     * @param {string} alias - texto del alias (se guarda tal cual; la busqueda es case-insensitive)
+     * @returns {Promise<boolean>}
+     */
+    async addProveedorAlias(codigoProveedor, alias) {
+        try {
+            if (!this.client || !codigoProveedor || !alias) return false;
+            const a = String(alias).trim();
+            if (!a) return false;
+            const { error } = await this.client
+                .from('proveedores_alias')
+                .insert([{ codigo_proveedor: codigoProveedor, alias: a }]);
+            if (error) {
+                if (error.code === '23505') return true;
+                throw error;
+            }
+            return true;
+        } catch (err) {
+            console.error('addProveedorAlias:', err);
+            return false;
+        }
+    }
+
+    /**
+     * Elimina un alias de un proveedor (solo ADMINISTRACION por RLS).
+     * @param {string} codigoProveedor
+     * @param {string} alias - texto exacto del alias a borrar
+     * @returns {Promise<boolean>}
+     */
+    async removeProveedorAlias(codigoProveedor, alias) {
+        try {
+            if (!this.client || !codigoProveedor || !alias) return false;
+            const { error } = await this.client
+                .from('proveedores_alias')
+                .delete()
+                .eq('codigo_proveedor', codigoProveedor)
+                .eq('alias', String(alias).trim());
+            if (error) throw error;
+            return true;
+        } catch (err) {
+            console.error('removeProveedorAlias:', err);
+            return false;
+        }
+    }
+
+    /**
      * Crea una solicitud de articulo nuevo (solo Dependiente/Comercial; RLS aplica).
      * @param {Object} payload - { codigo_proveedor, descripcion, ref_proveedor?, tarifa?, pagina?, precio, auth_uid, user_id?, comercial_id? }
      * @returns {Promise<{id: string, ...}|null>} Fila insertada con id, o null si error
@@ -2364,6 +2432,80 @@ class SupabaseClient {
             return true;
         } catch (err) {
             console.error('updateSolicitudArticuloEstado:', err);
+            return false;
+        }
+    }
+
+    /**
+     * Actualiza el estado de una solicitud de articulo nuevo (panel ADMINISTRACION).
+     * @param {string} id - UUID de la solicitud
+     * @param {string} estado - 'aprobado' o 'rechazado'
+     * @returns {Promise<boolean>}
+     */
+    async updateSolicitudArticuloEstado(id, estado) {
+        try {
+            if (!this.client || !id || !estado) return false;
+            const { error } = await this.client
+                .from('solicitudes_articulos_nuevos')
+                .update({ estado: estado })
+                .eq('id', id);
+            if (error) throw error;
+            return true;
+        } catch (err) {
+            console.error('updateSolicitudArticuloEstado:', err);
+            return false;
+        }
+    }
+
+    /**
+     * Elimina la foto de una solicitud del bucket Supabase Storage (bucket solicitudes-articulos-fotos).
+     * La ruta se extrae de la URL publica (todo lo que va despues de "solicitudes-articulos-fotos/").
+     * @param {string} fotoUrl - URL publica de la imagen (ej. .../object/public/solicitudes-articulos-fotos/UUID/nombre.jpg)
+     * @returns {Promise<boolean>}
+     */
+    async eliminarFotoSolicitudArticulo(fotoUrl) {
+        try {
+            if (!this.client || !fotoUrl || typeof fotoUrl !== 'string') return false;
+            const bucket = 'solicitudes-articulos-fotos';
+            const idx = fotoUrl.indexOf('solicitudes-articulos-fotos/');
+            if (idx === -1) return false;
+            const path = fotoUrl.substring(idx + bucket.length + 1);
+            if (!path) return false;
+            const { error } = await this.client.storage.from(bucket).remove([path]);
+            if (error) {
+                console.error('Error eliminarFotoSolicitudArticulo:', error);
+                return false;
+            }
+            return true;
+        } catch (err) {
+            console.error('eliminarFotoSolicitudArticulo:', err);
+            return false;
+        }
+    }
+
+    /**
+     * Actualiza la respuesta de Administracion: estado (completo | articulo_ya_existente), codigo_producto y opcionalmente foto_url (null).
+     * Usado al completar la solicitud con el codigo del producto o al marcar "articulo ya existente".
+     * @param {string} id - UUID de la solicitud
+     * @param {Object} payload - { estado, codigo_producto, foto_url? }
+     * @returns {Promise<boolean>}
+     */
+    async updateSolicitudArticuloRespuesta(id, payload) {
+        try {
+            if (!this.client || !id || !payload) return false;
+            const update = {
+                estado: payload.estado,
+                codigo_producto: payload.codigo_producto != null ? String(payload.codigo_producto).trim() : null
+            };
+            if (payload.hasOwnProperty('foto_url')) update.foto_url = payload.foto_url;
+            const { error } = await this.client
+                .from('solicitudes_articulos_nuevos')
+                .update(update)
+                .eq('id', id);
+            if (error) throw error;
+            return true;
+        } catch (err) {
+            console.error('updateSolicitudArticuloRespuesta:', err);
             return false;
         }
     }

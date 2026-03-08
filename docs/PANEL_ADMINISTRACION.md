@@ -4,7 +4,7 @@
 
 Usuarios con rol **ADMINISTRACION** (`tipo = 'ADMINISTRACION'` en `public.usuarios`) ven una vista distinta de la app: un panel dedicado a la gestion de tareas de administracion. De momento incluye la gestion de **solicitudes de creacion de articulos nuevos** (creadas por Dependientes y Comerciales desde Herramientas).
 
-La misma SPA (scan_client_mobile) muestra un contenedor distinto segun el tipo de usuario: los demas roles (CLIENTE, COMERCIAL, DEPENDIENTE, ADMINISTRADOR) ven la app de tienda; solo ADMINISTRACION ve el panel con Inicio, Solicitudes y Perfil.
+La misma SPA (scan_client_mobile) muestra un contenedor distinto segun el tipo de usuario: los demas roles (CLIENTE, COMERCIAL, DEPENDIENTE, ADMINISTRADOR) ven la app de tienda; solo ADMINISTRACION ve el panel con Inicio, Solicitudes, **Proveedores** y Perfil.
 
 ## Login y seguridad
 
@@ -18,10 +18,13 @@ Ver tambien [../../docs/SUPABASE_AUTH_VERCEL.md](../../docs/SUPABASE_AUTH_VERCEL
 
 - **Inicio**: pantalla de arranque con la estadistica de **solicitudes de creacion de articulos pendientes** (conteo de `solicitudes_articulos_nuevos` donde `estado = 'pendiente'`) y un boton para ir al listado.
 - **Solicitudes**: listado de todas las solicitudes (fecha, estado, descripcion); al pulsar una se abre el detalle.
-- **Detalle**: datos completos de la solicitud y botones **Aprobar** / **Rechazar** que actualizan el campo `estado` a `aprobado` o `rechazado` (solo si el estado actual es `pendiente`).
+- **Detalle**: datos completos de la solicitud; **Estado** mostrado con etiquetas (Pendiente, Aprobado, Rechazado, **COMPLETO**, **Articulo ya existente**). Si la solicitud tiene `codigo_producto`, se muestra. Botones **Aprobar** / **Rechazar** (solo si `estado = 'pendiente'`). Ademas, bloque **Completar solicitud**: campo **Codigo del producto**, checkbox **Articulo ya existente** (para indicar que el articulo ya existia y el trabajador podra anadirlo al carrito con ese codigo) y boton **Guardar respuesta**. Al guardar:
+  - Si no se marca "Articulo ya existente": se pone estado **COMPLETO**, se guarda el codigo, se **elimina la imagen** del bucket Storage y se borra `foto_url` en la fila.
+  - Si se marca "Articulo ya existente": se pone estado **Articulo ya existente** y se guarda el codigo (la imagen no se elimina en este flujo; se puede dejar o eliminar segun criterio).
+- **Proveedores (Alias)**: listado de proveedores; al pulsar uno se muestran sus **alias** para facilitar la busqueda en el combobox de Solicitar articulo nuevo (Dependiente/Comercial). Se pueden anadir y eliminar alias (ej. para "Roca Sanitario" anadir "sanitario roca", "roc san"). Solo ADMINISTRACION puede gestionar alias.
 - **Perfil**: nombre y boton Cerrar sesion.
 
-Navegacion inferior: Inicio, Solicitudes, Perfil.
+Navegacion inferior: Inicio, Solicitudes, Proveedores, Perfil.
 
 ## Backend
 
@@ -31,9 +34,9 @@ Navegacion inferior: Inicio, Solicitudes, Perfil.
 
 ## Archivos implicados
 
-- **Migraciones**: `migration_usuarios_tipo_administracion.sql`, `migration_solicitudes_rls_administracion.sql`.
+- **Migraciones**: `migration_usuarios_tipo_administracion.sql`, `migration_solicitudes_rls_administracion.sql`, `migration_solicitudes_codigo_producto.sql`, `migration_proveedores_alias.sql` (tabla de alias de proveedores para busqueda en Solicitar articulo nuevo).
 - **API**: `api/auth/login.js` (app_metadata y respuesta).
-- **Frontend**: `index.html` (contenedor `#appContainerAdministracion` con pantallas y bottom nav), `js/app.js` (rama en `initialize()`, `initializeAppAdministracion`, `setupScreensAdministracion`, `showScreenAdmin`, carga de conteo/listado/detalle, logout), `js/supabase.js` (`getSolicitudesPendientesCount`, `getSolicitudesArticulosNuevos`, `getSolicitudArticuloNuevoById`, `updateSolicitudArticuloEstado`), `styles.css` (estilos del panel).
+- **Frontend**: `index.html` (contenedor `#appContainerAdministracion` con pantallas Proveedores y bottom nav), `js/app.js` (rama en `initialize()`, `initializeAppAdministracion`, `setupScreensAdministracion`, `showScreenAdmin`, `loadAdminProveedores`, `renderAdminProveedorAliasBlock`, `renderAdminSolicitudDetail`, `getAdminSolicitudEstadoLabel`, carga de conteo/listado/detalle, logout), `js/supabase.js` (`getProveedores`, `getProveedoresAlias`, `addProveedorAlias`, `removeProveedorAlias`, `getSolicitudesPendientesCount`, `getSolicitudesArticulosNuevos`, `getSolicitudArticuloNuevoById`, `updateSolicitudArticuloEstado`, `eliminarFotoSolicitudArticulo`, `updateSolicitudArticuloRespuesta`), `styles.css` (estilos del panel, bloque completar y pantalla Proveedores).
 
 ## Relacion con Solicitud de articulo nuevo
 

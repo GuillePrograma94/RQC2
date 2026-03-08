@@ -3481,6 +3481,49 @@ body.gate-visible .app-container {
     line-height: 1.35;
 }
 
+.solicitud-articulo-combobox {
+    position: relative;
+}
+.solicitud-articulo-combobox #solicitudArticuloProveedorInput {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 1rem;
+    color: var(--gray-800);
+    background: var(--white);
+}
+.solicitud-articulo-proveedor-dropdown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin-top: 2px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    z-index: 10;
+}
+.solicitud-articulo-proveedor-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.6rem 0.85rem;
+    border: none;
+    background: none;
+    font-size: 1rem;
+    color: var(--gray-800);
+    cursor: pointer;
+}
+.solicitud-articulo-proveedor-option:hover,
+.solicitud-articulo-proveedor-option:focus {
+    background: var(--gray-100);
+    outline: none;
+}
+
 .solicitud-articulo-submit {
     margin-top: 1.25rem;
     width: 100%;
@@ -5828,3 +5871,20 @@ body.gate-visible .app-container {
 .app-container-administracion .admin-detail-block p { margin: 0.5rem 0; }
 .app-container-administracion .admin-detail-foto { max-width: 100%; height: auto; border-radius: 8px; }
 .app-container-administracion .admin-detail-actions { margin-top: 1rem; display: flex; gap: 0.5rem; }
+.app-container-administracion .admin-detail-codigo { font-family: monospace; background: var(--gray-100); padding: 0.2rem 0.5rem; border-radius: 4px; }
+.app-container-administracion .admin-detail-completar { margin-top: 1.5rem; padding: 1rem; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; }
+.app-container-administracion .admin-detail-completar-title { margin: 0 0 0.5rem; font-size: 1rem; }
+.app-container-administracion .admin-detail-completar-hint { margin: 0 0 0.75rem; font-size: 0.9rem; color: var(--gray-600); }
+.app-container-administracion .admin-detail-completar-check { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; font-size: 0.9rem; cursor: pointer; }
+.app-container-administracion .admin-detail-completar-row { margin-bottom: 0.75rem; }
+.app-container-administracion .admin-detail-completar-row label { display: block; margin-bottom: 0.25rem; font-size: 0.9rem; font-weight: 600; }
+.app-container-administracion .admin-detail-completar-row input { width: 100%; max-width: 200px; padding: 0.5rem 0.75rem; border: 1px solid var(--gray-300); border-radius: 6px; }
+.app-container-administracion .admin-detail-completar .btn { margin-top: 0.25rem; }
+.app-container-administracion .admin-proveedores-hint { margin-bottom: 1rem; font-size: 0.9rem; color: var(--gray-600); }
+.app-container-administracion .admin-proveedor-alias-count { font-size: 0.8rem; color: var(--gray-500); margin-left: 0.5rem; }
+.app-container-administracion .admin-proveedor-alias-list { list-style: none; padding: 0; margin: 0 0 1rem; }
+.app-container-administracion .admin-proveedor-alias-item { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-100); }
+.app-container-administracion .admin-proveedor-alias-empty { color: var(--gray-500); font-size: 0.9rem; padding: 0.5rem 0; }
+.app-container-administracion .admin-proveedor-alias-add { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.app-container-administracion .admin-proveedor-alias-add input { flex: 1; min-width: 120px; padding: 0.5rem 0.75rem; border: 1px solid var(--gray-300); border-radius: 6px; }
+.app-container-administracion .admin-proveedor-alias-del { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
