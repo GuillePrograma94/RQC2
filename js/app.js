@@ -3157,7 +3157,6 @@ class ScanAsYouShopApp {
         if (isPendiente) {
             html += '<div class="admin-detail-completar admin-solicitud-card">';
             html += '<h3 class="admin-detail-completar-title">Respuesta</h3>';
-            html += '<p class="admin-detail-completar-hint">Indica el codigo del producto (SKU). Si el articulo ya existia en catalogo, marcalo; si es nuevo, al completar se creara con los datos de arriba.</p>';
             html += '<div class="admin-detail-completar-row"><label for="adminSolicitudCodigoProducto">Codigo del producto (SKU)</label><input type="text" id="adminSolicitudCodigoProducto" placeholder="Ej. PILAR30" /></div>';
             html += '<label class="admin-detail-completar-check"><input type="checkbox" id="adminSolicitudArticuloYaExistente" /> Articulo ya existente (solo asignar codigo; no se crea producto)</label>';
             html += '</div>';
