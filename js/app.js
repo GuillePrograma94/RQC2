@@ -2951,7 +2951,7 @@ class ScanAsYouShopApp {
             return;
         }
         listEl.innerHTML = list.map(s => {
-            const fecha = s.created_at ? new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+            const fecha = s.created_at ? new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Madrid' }) : '';
             const desc = this.escapeForHtmlContentPreservingNewlines(s.descripcion || '').substring(0, 60);
             return '<button type="button" class="admin-solicitud-card" data-id="' + this.escapeForHtmlAttribute(s.id) + '">' +
                 '<span class="admin-solicitud-estado">' + this.getAdminSolicitudEstadoLabel(s.estado || 'pendiente') + '</span>' +
@@ -3096,7 +3096,7 @@ class ScanAsYouShopApp {
             contentEl.innerHTML = '<p>No se encontro la solicitud.</p>';
             return;
         }
-        const fecha = s.created_at ? new Date(s.created_at).toLocaleString('es-ES') : '';
+        const fecha = s.created_at ? new Date(s.created_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }) : '';
         const estadoLabel = this.getAdminSolicitudEstadoLabel(s.estado);
         if (headerMetaEl) headerMetaEl.textContent = estadoLabel + ' - ' + fecha;
         const isPendiente = s.estado === 'pendiente';
