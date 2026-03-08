@@ -2372,6 +2372,7 @@ class ScanAsYouShopApp {
             if (document.getElementById('solicitudArticuloTarifa')) document.getElementById('solicitudArticuloTarifa').value = '';
             if (document.getElementById('solicitudArticuloPagina')) document.getElementById('solicitudArticuloPagina').value = '';
             if (document.getElementById('solicitudArticuloPrecio')) document.getElementById('solicitudArticuloPrecio').value = '';
+            if (document.getElementById('solicitudArticuloObservaciones')) document.getElementById('solicitudArticuloObservaciones').value = '';
             if (document.getElementById('solicitudArticuloFoto')) document.getElementById('solicitudArticuloFoto').value = '';
         } catch (e) {
             console.error('initSolicitudArticuloScreen:', e);
@@ -2517,6 +2518,7 @@ class ScanAsYouShopApp {
                 tarifa: (document.getElementById('solicitudArticuloTarifa') && document.getElementById('solicitudArticuloTarifa').value || '').trim() || null,
                 pagina: (document.getElementById('solicitudArticuloPagina') && document.getElementById('solicitudArticuloPagina').value) !== '' ? parseInt(document.getElementById('solicitudArticuloPagina').value, 10) : null,
                 precio: p,
+                observaciones: (document.getElementById('solicitudArticuloObservaciones') && document.getElementById('solicitudArticuloObservaciones').value || '').trim() || null,
                 auth_uid: authUid,
                 user_id: this.currentUser.is_dependiente && this.currentUser.user_id != null ? this.currentUser.user_id : null,
                 comercial_id: this.currentUser.is_comercial && this.currentUser.comercial_id != null ? this.currentUser.comercial_id : null
@@ -2990,6 +2992,7 @@ class ScanAsYouShopApp {
         html += '<p><strong>Tarifa:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.tarifa || '-') + '</p>';
         html += '<p><strong>Pagina:</strong> ' + (s.pagina != null ? s.pagina : '-') + '</p>';
         html += '<p><strong>Precio:</strong> ' + (s.precio != null ? s.precio : '-') + ' EUR</p>';
+        if (s.observaciones) html += '<p><strong>Observaciones:</strong><br><span class="admin-detail-observaciones">' + this.escapeForHtmlContentPreservingNewlines(s.observaciones) + '</span></p>';
         html += '<p><strong>Fecha:</strong> ' + fecha + '</p>';
         html += '<p><strong>Estado:</strong> ' + estadoLabel + '</p>';
         if (s.codigo_producto) {

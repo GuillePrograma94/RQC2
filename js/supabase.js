@@ -2284,7 +2284,7 @@ class SupabaseClient {
 
     /**
      * Crea una solicitud de articulo nuevo (solo Dependiente/Comercial; RLS aplica).
-     * @param {Object} payload - { codigo_proveedor, descripcion, ref_proveedor?, tarifa?, pagina?, precio, auth_uid, user_id?, comercial_id? }
+     * @param {Object} payload - { codigo_proveedor, descripcion, ref_proveedor?, tarifa?, pagina?, precio, observaciones?, auth_uid, user_id?, comercial_id? }
      * @returns {Promise<{id: string, ...}|null>} Fila insertada con id, o null si error
      */
     async crearSolicitudArticuloNuevo(payload) {
@@ -2299,6 +2299,7 @@ class SupabaseClient {
                     tarifa: payload.tarifa ? String(payload.tarifa).trim() : null,
                     pagina: payload.pagina != null && payload.pagina !== '' ? parseInt(payload.pagina, 10) : null,
                     precio: parseFloat(payload.precio),
+                    observaciones: payload.observaciones ? String(payload.observaciones).trim() : null,
                     auth_uid: payload.auth_uid,
                     user_id: payload.user_id != null ? payload.user_id : null,
                     comercial_id: payload.comercial_id != null ? payload.comercial_id : null

@@ -5872,6 +5872,7 @@ body.gate-visible .app-container {
 .app-container-administracion .admin-detail-foto { max-width: 100%; height: auto; border-radius: 8px; }
 .app-container-administracion .admin-detail-actions { margin-top: 1rem; display: flex; gap: 0.5rem; }
 .app-container-administracion .admin-detail-codigo { font-family: monospace; background: var(--gray-100); padding: 0.2rem 0.5rem; border-radius: 4px; }
+.app-container-administracion .admin-detail-observaciones { white-space: pre-wrap; word-break: break-word; display: block; margin-top: 0.25rem; }
 .app-container-administracion .admin-detail-completar { margin-top: 1.5rem; padding: 1rem; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; }
 .app-container-administracion .admin-detail-completar-title { margin: 0 0 0.5rem; font-size: 1rem; }
 .app-container-administracion .admin-detail-completar-hint { margin: 0 0 0.75rem; font-size: 0.9rem; color: var(--gray-600); }

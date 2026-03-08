@@ -21,6 +21,7 @@ La visibilidad del boton "Solicitar articulo nuevo" en la pantalla Herramientas 
 | Tarifa | No | Texto (ej. "SUPER OFERTAS"). |
 | Pagina | No | Numero entero (ej. 25). |
 | Precio | Si | Numero mayor que 0 (ej. 209). |
+| Observaciones | No | Detalles opcionales: articulo similar ya creado, precio de compra fabricante, nombre del cliente que pide el articulo, etc. |
 | Fotografia adjunta | No | Archivo de imagen. Se sube a **Supabase Storage** (bucket `solicitudes-articulos-fotos`). |
 
 ## Modelo de datos
@@ -43,6 +44,7 @@ Los productos pueden asignarse a un proveedor mediante la columna `productos.cod
 - **descripcion** (TEXT NOT NULL)
 - **ref_proveedor**, **tarifa**, **pagina** (opcionales)
 - **precio** (NUMERIC NOT NULL, CHECK > 0)
+- **observaciones** (TEXT, opcional): detalles que ayuden a administracion (articulo similar creado, precio compra fabricante, nombre del cliente que pide el articulo, etc.). Ver `migration_solicitudes_observaciones.sql`.
 - **foto_url** (TEXT, opcional; se rellena tras subir la imagen a Storage)
 - **codigo_producto** (TEXT, opcional): codigo del producto asignado por Administracion al completar la solicitud o al marcar "articulo ya existente" (el trabajador puede usar este codigo para anadir el articulo al carrito). Ver migracion `migration_solicitudes_codigo_producto.sql`.
 - **auth_uid** (UUID NOT NULL): Supabase Auth UUID del solicitante (para RLS UPDATE/SELECT)
@@ -170,6 +172,7 @@ Resumen: una politica para **upload**, otra para **remove** y otra para **downlo
 3. **migration_solicitudes_articulos_nuevos.sql**: crea la tabla `solicitudes_articulos_nuevos` y las politicas RLS. Debe ejecutarse despues de la migracion de proveedores.
 4. **migration_solicitudes_rls_administracion.sql**: anade politicas SELECT y UPDATE para usuarios con rol ADMINISTRACION (panel de gestion). Ver [PANEL_ADMINISTRACION.md](PANEL_ADMINISTRACION.md).
 5. **migration_solicitudes_codigo_producto.sql**: anade la columna `codigo_producto` para que Administracion pueda responder con el codigo al completar o marcar "articulo ya existente".
+6. **migration_solicitudes_observaciones.sql**: anade la columna `observaciones` (TEXT, opcional) para detalles como articulo similar, precio compra, cliente que solicita, etc.
 
 ## Flujo en la app
 
@@ -182,4 +185,4 @@ Resumen: una politica para **upload**, otra para **remove** y otra para **downlo
 ## Archivos implicados
 
 - **Frontend**: `index.html` (pantalla y formulario con clase `solicitud-articulo-screen`, **combobox proveedor** con input + dropdown y hint de busqueda), `js/app.js` (visibilidad del boton, `initSolicitudArticuloScreen`, `filterProveedores`, `_setupProveedorCombobox`, `handleSolicitudArticuloSubmit`), `js/supabase.js` (`getProveedores`, `getProveedoresAlias`, `addProveedorAlias`, `removeProveedorAlias`, `crearSolicitudArticuloNuevo`, `subirFotoSolicitudArticulo`, `updateSolicitudArticuloFotoUrl`, `eliminarFotoSolicitudArticulo`, `updateSolicitudArticuloRespuesta`), `styles.css` (estilos del panel, combobox y bloque completar en administracion).
-- **Backend**: `migration_proveedores_productos.sql`, `migration_proveedores_alias.sql`, `migration_solicitudes_articulos_nuevos.sql`, `migration_solicitudes_codigo_producto.sql`.
+- **Backend**: `migration_proveedores_productos.sql`, `migration_proveedores_alias.sql`, `migration_solicitudes_articulos_nuevos.sql`, `migration_solicitudes_codigo_producto.sql`, `migration_solicitudes_observaciones.sql`.

@@ -705,11 +705,11 @@
                         <div class="form-group solicitud-articulo-field">
                             <label for="solicitudArticuloProveedorInput">Proveedor <span class="required">*</span></label>
                             <div class="solicitud-articulo-combobox" id="solicitudArticuloProveedorWrap">
-                                <input type="text" id="solicitudArticuloProveedorInput" placeholder="Escribe para buscar (ej. roca, sanitario, roc san)..." autocomplete="off" aria-describedby="solicitudArticuloProveedorHint">
+                                <input type="text" id="solicitudArticuloProveedorInput" placeholder="Escribe el nombre del fabricante..." autocomplete="off" aria-describedby="solicitudArticuloProveedorHint">
                                 <input type="hidden" id="solicitudArticuloProveedor" name="solicitudArticuloProveedor" required>
                                 <div id="solicitudArticuloProveedorDropdown" class="solicitud-articulo-proveedor-dropdown" role="listbox" aria-expanded="false"></div>
                             </div>
-                            <p id="solicitudArticuloProveedorHint" class="solicitud-articulo-foto-hint">Puedes escribir parte del nombre o un alias; el orden no importa (ej. sanitario roca).</p>
+                            <p id="solicitudArticuloProveedorHint" class="solicitud-articulo-foto-hint">Puedes escribir parte del nombre; el orden no importa.</p>
                         </div>
                         <div class="form-group solicitud-articulo-field">
                             <label for="solicitudArticuloDescripcion">Descripcion <span class="required">*</span></label>
@@ -734,6 +734,11 @@
                                 <label for="solicitudArticuloPrecio">Precio <span class="required">*</span></label>
                                 <input type="number" id="solicitudArticuloPrecio" step="0.01" min="0.01" placeholder="209" required>
                             </div>
+                        </div>
+                        <div class="form-group solicitud-articulo-field">
+                            <label for="solicitudArticuloObservaciones">Observaciones</label>
+                            <textarea id="solicitudArticuloObservaciones" rows="3" placeholder="Ej. articulo similar ya creado, precio compra fabricante, nombre del cliente que pide el articulo..."></textarea>
+                            <p class="solicitud-articulo-foto-hint">Opcional. Detalles que ayuden a administracion: otro articulo similar, precio de compra, cliente que lo solicita, etc.</p>
                         </div>
                         <div class="form-group solicitud-articulo-field solicitud-articulo-field-foto">
                             <label for="solicitudArticuloFoto">Fotografia adjunta</label>
