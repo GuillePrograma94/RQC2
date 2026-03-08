@@ -3363,6 +3363,198 @@ body.gate-visible .app-container {
     gap: 1rem;
 }
 
+/* ========================================
+   PANTALLA SOLICITUD ARTICULO NUEVO (estetica PC / Android / iPhone)
+   ======================================== */
+.solicitud-articulo-screen .solicitud-articulo-content {
+    padding: 1rem;
+    padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}
+
+.solicitud-articulo-header {
+    margin-bottom: 1.25rem;
+}
+
+.solicitud-articulo-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.solicitud-articulo-wrap {
+    background: var(--white);
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--gray-200);
+    max-width: 100%;
+}
+
+.solicitud-articulo-form .form-group.solicitud-articulo-field {
+    margin-bottom: 1rem;
+}
+
+.solicitud-articulo-form .form-group.solicitud-articulo-field:last-of-type {
+    margin-bottom: 0;
+}
+
+.solicitud-articulo-form .form-group label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+.solicitud-articulo-form .form-group input[type="text"],
+.solicitud-articulo-form .form-group input[type="number"],
+.solicitud-articulo-form .form-group select,
+.solicitud-articulo-form .form-group textarea {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 1rem;
+    color: var(--gray-800);
+    background: var(--white);
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.solicitud-articulo-form .form-group select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    padding-right: 2rem;
+}
+
+.solicitud-articulo-form .form-group input:focus,
+.solicitud-articulo-form .form-group select:focus,
+.solicitud-articulo-form .form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(120, 81, 169, 0.15);
+}
+
+.solicitud-articulo-form .form-group textarea {
+    min-height: 4rem;
+    resize: vertical;
+}
+
+.solicitud-articulo-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.solicitud-articulo-field-half {
+    margin-bottom: 1rem;
+}
+
+.solicitud-articulo-row .solicitud-articulo-field-half:last-child {
+    margin-bottom: 1rem;
+}
+
+.solicitud-articulo-field-foto input[type="file"] {
+    width: 100%;
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    color: var(--gray-700);
+    border: 1px dashed var(--gray-300);
+    border-radius: 8px;
+    background: var(--gray-50);
+    cursor: pointer;
+}
+
+.solicitud-articulo-field-foto input[type="file"]:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: var(--white);
+}
+
+.solicitud-articulo-foto-hint {
+    margin: 0.5rem 0 0;
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    line-height: 1.35;
+}
+
+.solicitud-articulo-submit {
+    margin-top: 1.25rem;
+    width: 100%;
+    padding: 0.85rem 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 10px;
+}
+
+.solicitud-articulo-sin-proveedores {
+    padding: 1rem;
+    background: var(--gray-100);
+    border-radius: 10px;
+    border: 1px solid var(--gray-200);
+}
+
+/* Solicitud articulo: 2 columnas en tablets y PC */
+@media (min-width: 480px) {
+    .solicitud-articulo-row {
+        flex-direction: row;
+        gap: 1rem;
+    }
+    .solicitud-articulo-field-half {
+        flex: 1;
+        margin-bottom: 1rem;
+    }
+    .solicitud-articulo-row .solicitud-articulo-field-half:last-child {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Vista PC: contenedor centrado y ancho maximo */
+@media (min-width: 768px) {
+    .solicitud-articulo-screen .solicitud-articulo-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 1.5rem 1rem 2rem;
+    }
+    .solicitud-articulo-screen .profile-header.solicitud-articulo-header {
+        width: 100%;
+        max-width: 520px;
+    }
+    .solicitud-articulo-screen .solicitud-articulo-form {
+        width: 100%;
+        max-width: 520px;
+    }
+    .solicitud-articulo-wrap {
+        padding: 1.5rem;
+    }
+    .solicitud-articulo-submit {
+        max-width: 280px;
+        margin-left: 0;
+        margin-right: auto;
+    }
+}
+
+/* iPhone / Android pequeno: toques mas grandes y espaciado seguro */
+@media (max-width: 400px) {
+    .solicitud-articulo-form .form-group input[type="text"],
+    .solicitud-articulo-form .form-group input[type="number"],
+    .solicitud-articulo-form .form-group select,
+    .solicitud-articulo-form .form-group textarea {
+        padding: 0.75rem 0.85rem;
+        min-height: 44px;
+    }
+    .solicitud-articulo-form .form-group textarea {
+        min-height: 5rem;
+    }
+    .solicitud-articulo-submit {
+        min-height: 48px;
+    }
+}
+
 /* Panel de Control: Conjuntos WC */
 .wc-conjuntos-toolbar {
     padding: 0 1rem 0.75rem;

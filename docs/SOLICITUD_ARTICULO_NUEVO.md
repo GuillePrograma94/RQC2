@@ -21,7 +21,7 @@ La visibilidad del boton "Solicitar articulo nuevo" en la pantalla Herramientas 
 | Tarifa | No | Texto (ej. "SUPER OFERTAS"). |
 | Pagina | No | Numero entero (ej. 25). |
 | Precio | Si | Numero mayor que 0 (ej. 209). |
-| Fotografia adjunta | No | Archivo de imagen (subida a Storage). |
+| Fotografia adjunta | No | Archivo de imagen. Se sube a **Supabase Storage** (bucket `solicitudes-articulos-fotos`). |
 
 ## Modelo de datos
 
@@ -57,8 +57,10 @@ Las solicitudes creadas por Dependientes y Comerciales son gestionadas por usuar
 
 ## Storage (fotografia)
 
-- **Bucket**: `solicitudes-articulos-fotos`.
+- **Supabase Storage**: bucket `solicitudes-articulos-fotos`.
 - **Ruta**: `{solicitud_id}/{nombre_archivo}`.
+- En el formulario se muestra un texto aclaratorio: "La imagen se sube a Supabase Storage (bucket solicitudes-articulos-fotos). Opcional."
+- La subida en `subirFotoSolicitudArticulo` usa `contentType: file.type` cuando el archivo es imagen para que Supabase guarde el tipo MIME correcto.
 - La politica de INSERT del bucket debe limitar subidas al mismo criterio que el INSERT de la tabla (Dependiente o Comercial autenticado). El bucket y la politica se crean desde el dashboard de Supabase o en un script aparte.
 
 ## Migraciones
@@ -77,5 +79,5 @@ Las solicitudes creadas por Dependientes y Comerciales son gestionadas por usuar
 
 ## Archivos implicados
 
-- **Frontend**: `index.html` (pantalla y formulario), `js/app.js` (visibilidad del boton, `initSolicitudArticuloScreen`, `handleSolicitudArticuloSubmit`), `js/supabase.js` (`getProveedores`, `crearSolicitudArticuloNuevo`, `subirFotoSolicitudArticulo`, `updateSolicitudArticuloFotoUrl`).
+- **Frontend**: `index.html` (pantalla y formulario con clase `solicitud-articulo-screen`, bloque de foto con hint de Supabase Storage), `js/app.js` (visibilidad del boton, `initSolicitudArticuloScreen`, `handleSolicitudArticuloSubmit`), `js/supabase.js` (`getProveedores`, `crearSolicitudArticuloNuevo`, `subirFotoSolicitudArticulo`, `updateSolicitudArticuloFotoUrl`), `styles.css` (estilos `.solicitud-articulo-*`: formulario en tarjeta, responsive PC con max-width 520px, tablet con campos en 2 columnas, movil con areas seguras y toques minimos 44px).
 - **Backend**: `migration_proveedores_productos.sql`, `migration_solicitudes_articulos_nuevos.sql`.

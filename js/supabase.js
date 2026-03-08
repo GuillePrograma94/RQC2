@@ -2246,10 +2246,11 @@ class SupabaseClient {
     }
 
     /**
-     * Sube una foto para una solicitud de articulo nuevo al bucket solicitudes-articulos-fotos.
-     * Ruta: {solicitudId}/{nombre_archivo}. Devuelve la URL publica (o la ruta para construirla).
+     * Sube una foto para una solicitud de articulo nuevo al bucket de Supabase Storage
+     * "solicitudes-articulos-fotos". Ruta en el bucket: {solicitudId}/{nombre_archivo}.
+     * Devuelve la URL publica para guardar en foto_url de la fila.
      * @param {string} solicitudId - UUID de la solicitud
-     * @param {File} file - Archivo de imagen
+     * @param {File} file - Archivo de imagen (image/*)
      * @returns {Promise<string|null>} URL publica o null si error
      */
     async subirFotoSolicitudArticulo(solicitudId, file) {
@@ -2259,9 +2260,13 @@ class SupabaseClient {
             const ext = (file.name && file.name.split('.').pop()) ? file.name.split('.').pop().toLowerCase() : 'jpg';
             const safeName = file.name && file.name.replace(/[^a-zA-Z0-9._-]/g, '_') ? file.name.replace(/[^a-zA-Z0-9._-]/g, '_') : 'foto.' + ext;
             const path = solicitudId + '/' + safeName;
+            const uploadOptions = { upsert: true };
+            if (file.type && file.type.startsWith('image/')) {
+                uploadOptions.contentType = file.type;
+            }
             const { data, error } = await this.client.storage
                 .from(bucket)
-                .upload(path, file, { upsert: true });
+                .upload(path, file, uploadOptions);
             if (error) {
                 console.error('Error subirFotoSolicitudArticulo:', error);
                 return null;
