@@ -6007,14 +6007,14 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
 .app-container-administracion .admin-proveedor-alias-del { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
 
 /* Detalle solicitud: layout tipo pagina de producto (PC) */
-.app-container-administracion .admin-solicitud-detail { max-width: 100%; padding-bottom: 2rem; }
+.app-container-administracion .admin-solicitud-detail { max-width: 100%; padding-bottom: 2rem; display: flex; flex-direction: column; gap: 1rem; }
+.app-container-administracion .admin-solicitud-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-bottom: 0.75rem; font-size: 0.875rem; }
 .app-container-administracion .admin-solicitud-product-page { display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 0; }
 .app-container-administracion .admin-solicitud-gallery { flex-shrink: 0; background: var(--white); border: 1px solid var(--gray-200); border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 200px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .app-container-administracion .admin-solicitud-foto { width: 100%; max-width: 100%; height: auto; max-height: 400px; object-fit: contain; display: block; }
 .app-container-administracion .admin-solicitud-foto-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; padding: 2rem; color: var(--gray-500); font-size: 0.9rem; min-height: 200px; }
 .app-container-administracion .admin-solicitud-foto-placeholder-icon { font-size: 3rem; opacity: 0.5; }
 .app-container-administracion .admin-solicitud-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1rem; }
-.app-container-administracion .admin-solicitud-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-bottom: 0.25rem; font-size: 0.875rem; }
 .app-container-administracion .admin-solicitud-meta-badge { display: inline-block; padding: 0.25rem 0.6rem; border-radius: 6px; font-weight: 600; background: var(--gray-200); color: var(--gray-800); }
 .app-container-administracion .admin-solicitud-meta-fecha { color: var(--gray-600); }
 .app-container-administracion .admin-solicitud-meta-codigo { color: var(--gray-700); }
@@ -6022,31 +6022,34 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
 .app-container-administracion .admin-solicitud-codigo-asignado { margin: 0; }
 .app-container-administracion .admin-detail-codigo { font-family: ui-monospace, monospace; background: var(--gray-100); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.9em; }
 .app-container-administracion .admin-detail-observaciones { white-space: pre-wrap; word-break: break-word; display: block; margin-top: 0.25rem; }
-.app-container-administracion .admin-solicitud-hint { margin: 0; padding: 0.75rem 1rem; background: rgba(120, 81, 169, 0.08); border-radius: 10px; font-size: 0.875rem; color: var(--gray-700); line-height: 1.4; border: 1px solid rgba(120, 81, 169, 0.15); }
 .app-container-administracion .admin-solicitud-card { padding: 1.25rem; background: var(--white); border: 1px solid var(--gray-200); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-.app-container-administracion .admin-solicitud-fields { display: grid; grid-template-columns: 1fr; gap: 1rem 1.25rem; }
+.app-container-administracion .admin-solicitud-fields { display: grid; grid-template-columns: 1fr; gap: 0.75rem 1rem; }
+.app-container-administracion .admin-solicitud-row-1 { display: grid; grid-template-columns: 1fr; gap: 0.75rem 1rem; }
+.app-container-administracion .admin-solicitud-row-2 { display: grid; grid-template-columns: 1fr; gap: 0.75rem 1rem; }
+.app-container-administracion .admin-solicitud-field-full { grid-column: 1 / -1; }
 .app-container-administracion .admin-solicitud-field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
 .app-container-administracion .admin-solicitud-field label { font-size: 0.8125rem; font-weight: 600; color: var(--gray-700); letter-spacing: 0.01em; }
 .app-container-administracion .admin-solicitud-field input,
-.app-container-administracion .admin-solicitud-field textarea { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 0.9375rem; transition: border-color 0.15s ease; }
+.app-container-administracion .admin-solicitud-field textarea,
+.app-container-administracion .admin-solicitud-field select { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 0.9375rem; transition: border-color 0.15s ease; }
 .app-container-administracion .admin-solicitud-field input:focus,
-.app-container-administracion .admin-solicitud-field textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(120, 81, 169, 0.2); }
-.app-container-administracion .admin-solicitud-field textarea { resize: vertical; min-height: 3.5rem; }
-.app-container-administracion .admin-solicitud-field-row { display: contents; }
-.app-container-administracion .admin-solicitud-field-row .admin-solicitud-field { grid-column: span 1; }
+.app-container-administracion .admin-solicitud-field textarea:focus,
+.app-container-administracion .admin-solicitud-field select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(120, 81, 169, 0.2); }
+.app-container-administracion .admin-solicitud-field textarea { resize: vertical; min-height: 3rem; }
 @media (min-width: 768px) {
     .app-container-administracion .screen-content { padding: 1.25rem 1.5rem; padding-bottom: calc(var(--footer-height) + 1.5rem); }
     .app-container-administracion .admin-solicitud-product-page { flex-direction: row; align-items: flex-start; gap: 2rem; }
     .app-container-administracion .admin-solicitud-gallery { width: 360px; max-width: 42%; min-height: 300px; position: sticky; top: 1rem; }
     .app-container-administracion .admin-solicitud-foto { max-height: 440px; }
     .app-container-administracion .admin-solicitud-info { gap: 1.25rem; }
-    .app-container-administracion .admin-solicitud-fields { grid-template-columns: 1fr 1fr; }
-    .app-container-administracion .admin-solicitud-field.admin-solicitud-field-desc { grid-column: 1 / -1; }
-    .app-container-administracion .admin-solicitud-field-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem 1.25rem; grid-column: 1 / -1; }
-    .app-container-administracion .admin-detail-completar { display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto auto; gap: 0.5rem 1rem; align-items: center; }
+    .app-container-administracion .admin-solicitud-fields { grid-template-columns: 1fr 1fr; gap: 0.75rem 1.25rem; }
+    .app-container-administracion .admin-solicitud-row-1 { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
+    .app-container-administracion .admin-solicitud-row-2 { grid-column: 1 / -1; grid-template-columns: 1fr 1fr 1fr; }
+    .app-container-administracion .admin-detail-completar { display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto auto; gap: 0.5rem 1rem; align-items: center; margin-top: 1rem; }
     .app-container-administracion .admin-detail-completar-title { grid-column: 1 / -1; margin-bottom: 0; }
     .app-container-administracion .admin-detail-completar-hint { grid-column: 1 / -1; margin-bottom: 0.5rem; }
     .app-container-administracion .admin-detail-completar-row { grid-column: 1; margin-bottom: 0; }
+    .app-container-administracion .admin-detail-completar-row input { max-width: 200px; }
     .app-container-administracion .admin-detail-completar-check { grid-column: 2; margin-top: 0; justify-self: start; }
     .app-container-administracion .admin-detail-actions { gap: 0.75rem; }
     .app-container-administracion .admin-detail-btn-completar { margin-left: auto; min-width: 120px; }

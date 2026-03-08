@@ -3102,6 +3102,13 @@ class ScanAsYouShopApp {
         const existeEnLista = Array.isArray(proveedores) && proveedores.some(function(pr) { return (pr.codigo_proveedor || '') === codigoProvSolicitud; });
 
         let html = '<div class="admin-solicitud-detail">';
+        html += '<div class="admin-solicitud-meta">';
+        html += '<span class="admin-solicitud-meta-badge">' + this.escapeForHtmlContentPreservingNewlines(estadoLabel) + '</span>';
+        html += '<span class="admin-solicitud-meta-fecha">' + this.escapeForHtmlContentPreservingNewlines(fecha) + '</span>';
+        if (s.codigo_producto) {
+            html += '<span class="admin-solicitud-meta-codigo">SKU: <code>' + this.escapeForHtmlContentPreservingNewlines(s.codigo_producto) + '</code></span>';
+        }
+        html += '</div>';
         html += '<div class="admin-solicitud-product-page">';
         html += '<div class="admin-solicitud-gallery">';
         if (s.foto_url) {
@@ -3112,16 +3119,9 @@ class ScanAsYouShopApp {
         }
         html += '</div>';
         html += '<div class="admin-solicitud-info">';
-        html += '<div class="admin-solicitud-meta">';
-        html += '<span class="admin-solicitud-meta-badge">' + this.escapeForHtmlContentPreservingNewlines(estadoLabel) + '</span>';
-        html += '<span class="admin-solicitud-meta-fecha">' + this.escapeForHtmlContentPreservingNewlines(fecha) + '</span>';
-        if (s.codigo_producto) {
-            html += '<span class="admin-solicitud-meta-codigo">SKU: <code>' + this.escapeForHtmlContentPreservingNewlines(s.codigo_producto) + '</code></span>';
-        }
-        html += '</div>';
         if (isPendiente) {
-            html += '<p class="admin-solicitud-hint">Confirma o edita los datos. El fabricante se usara para el producto al completar.</p>';
             html += '<div class="admin-solicitud-fields admin-solicitud-card">';
+            html += '<div class="admin-solicitud-row-1">';
             html += '<div class="admin-solicitud-field"><label for="adminSolicitudProveedor">Fabricante (proveedor)</label><select id="adminSolicitudProveedor">';
             html += '<option value="">-- Sin asignar --</option>';
             if (codigoProvSolicitud && !existeEnLista) {
@@ -3134,15 +3134,31 @@ class ScanAsYouShopApp {
                 html += '<option value="' + this.escapeForHtmlAttribute(cod) + '"' + sel + '>' + this.escapeForHtmlContentPreservingNewlines(nom) + '</option>';
             }.bind(this));
             html += '</select></div>';
-            html += '<div class="admin-solicitud-field"><label for="adminSolicitudDescripcion">Descripcion</label><textarea id="adminSolicitudDescripcion" rows="3" placeholder="Descripcion del articulo">' + this.escapeForHtmlContentPreservingNewlines(s.descripcion || '') + '</textarea></div>';
-            html += '<div class="admin-solicitud-field admin-solicitud-field-row">';
-            html += '<div class="admin-solicitud-field"><label for="adminSolicitudRefProveedor">Ref. proveedor</label><input type="text" id="adminSolicitudRefProveedor" placeholder="Ej. 97768" value="' + this.escapeForHtmlAttribute(s.ref_proveedor || '') + '" /></div>';
+            html += '<div class="admin-solicitud-field"><label for="adminSolicitudRefProveedor">Ref. Proveedor</label><input type="text" id="adminSolicitudRefProveedor" placeholder="Ej. 97768" value="' + this.escapeForHtmlAttribute(s.ref_proveedor || '') + '" /></div>';
+            html += '</div>';
+            html += '<div class="admin-solicitud-row-2">';
             html += '<div class="admin-solicitud-field"><label for="adminSolicitudTarifa">Tarifa</label><input type="text" id="adminSolicitudTarifa" placeholder="Ej. SUPER OFERTAS" value="' + this.escapeForHtmlAttribute(s.tarifa || '') + '" /></div>';
             html += '<div class="admin-solicitud-field"><label for="adminSolicitudPagina">Pagina</label><input type="number" id="adminSolicitudPagina" min="0" placeholder="-" value="' + (s.pagina != null ? s.pagina : '') + '" /></div>';
-            html += '</div>';
             html += '<div class="admin-solicitud-field"><label for="adminSolicitudPrecio">Precio (EUR, sin IVA)</label><input type="number" id="adminSolicitudPrecio" step="0.001" min="0" placeholder="0" value="' + (s.precio != null ? s.precio : '') + '" /></div>';
-            html += '<div class="admin-solicitud-field"><label for="adminSolicitudObservaciones">Observaciones</label><textarea id="adminSolicitudObservaciones" rows="2" placeholder="Detalles adicionales">' + this.escapeForHtmlContentPreservingNewlines(s.observaciones || '') + '</textarea></div>';
             html += '</div>';
+            html += '<div class="admin-solicitud-field admin-solicitud-field-full"><label for="adminSolicitudDescripcion">Descripcion</label><textarea id="adminSolicitudDescripcion" rows="3" placeholder="Descripcion del articulo">' + this.escapeForHtmlContentPreservingNewlines(s.descripcion || '') + '</textarea></div>';
+            html += '<div class="admin-solicitud-field admin-solicitud-field-full"><label for="adminSolicitudObservaciones">Observaciones</label><textarea id="adminSolicitudObservaciones" rows="2" placeholder="Detalles adicionales">' + this.escapeForHtmlContentPreservingNewlines(s.observaciones || '') + '</textarea></div>';
+            html += '</div>';
+            html += '</div>';
+        } else {
+            html += '<div class="admin-detail-block admin-solicitud-card">';
+            html += '<p><strong>Proveedor:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.codigo_proveedor || '') + '</p>';
+            html += '<p><strong>Descripcion:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.descripcion || '') + '</p>';
+            html += '<p><strong>Ref. proveedor:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.ref_proveedor || '-') + '</p>';
+            html += '<p><strong>Tarifa:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.tarifa || '-') + '</p>';
+            html += '<p><strong>Pagina:</strong> ' + (s.pagina != null ? s.pagina : '-') + '</p>';
+            html += '<p><strong>Precio:</strong> ' + (s.precio != null ? Number(s.precio).toFixed(2) : '-') + ' EUR</p>';
+            if (s.observaciones) html += '<p><strong>Observaciones:</strong><br><span class="admin-detail-observaciones">' + this.escapeForHtmlContentPreservingNewlines(s.observaciones) + '</span></p>';
+            html += '</div>';
+        }
+        html += '</div>';
+        html += '</div>';
+        if (isPendiente) {
             html += '<div class="admin-detail-completar admin-solicitud-card">';
             html += '<h3 class="admin-detail-completar-title">Respuesta</h3>';
             html += '<p class="admin-detail-completar-hint">Indica el codigo del producto (SKU). Si el articulo ya existia en catalogo, marcalo; si es nuevo, al completar se creara con los datos de arriba.</p>';
@@ -3153,18 +3169,7 @@ class ScanAsYouShopApp {
             html += '<button type="button" class="btn btn-outline-secondary admin-detail-btn-volver" id="adminSolicitudVolverBtn">Volver</button>';
             html += '<button type="button" id="adminSolicitudGuardarRespuestaBtn" class="btn btn-primary admin-detail-btn-completar" data-id="' + this.escapeForHtmlAttribute(s.id) + '">Completar</button>';
             html += '</div>';
-        } else {
-            html += '<div class="admin-detail-block">';
-            html += '<p><strong>Proveedor:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.codigo_proveedor || '') + '</p>';
-            html += '<p><strong>Descripcion:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.descripcion || '') + '</p>';
-            html += '<p><strong>Ref. proveedor:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.ref_proveedor || '-') + '</p>';
-            html += '<p><strong>Tarifa:</strong> ' + this.escapeForHtmlContentPreservingNewlines(s.tarifa || '-') + '</p>';
-            html += '<p><strong>Pagina:</strong> ' + (s.pagina != null ? s.pagina : '-') + '</p>';
-            html += '<p><strong>Precio:</strong> ' + (s.precio != null ? Number(s.precio).toFixed(2) : '-') + ' EUR</p>';
-            if (s.observaciones) html += '<p><strong>Observaciones:</strong><br><span class="admin-detail-observaciones">' + this.escapeForHtmlContentPreservingNewlines(s.observaciones) + '</span></p>';
-            html += '</div>';
         }
-        html += '</div></div>';
         html += '</div>';
         contentEl.innerHTML = html;
 
