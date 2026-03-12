@@ -909,8 +909,8 @@ class CartManager {
 
                     // Filtrar productos que contengan TODAS las palabras
                     const filtered = productos.filter(p => {
-                        const descLower = p.descripcion.toLowerCase();
-                        return words.every(word => descLower.includes(word));
+                        const textToSearch = ((p.descripcion || '') + ' ' + (p.sinonimos || '')).toLowerCase();
+                        return words.every(word => textToSearch.includes(word));
                     });
 
                     resolve(filtered);

@@ -43,6 +43,7 @@ Si no encuentra exacto:
 2. **Búsqueda AND**: El producto debe contener TODAS las palabras
 3. **Orden flexible**: Las palabras pueden estar en cualquier orden
 4. **Sin límites**: Muestra TODOS los productos que cumplan
+5. **Campo de sinónimos**: Además de la descripción del producto, se busca también en el campo **sinónimos** (si existe). Así, si un artículo tiene sinónimos cargados (por ejemplo "Cuentagotas, Medidor"), una búsqueda por "medidor" lo encontrará aunque la descripción no contenga esa palabra.
 
 ### **Ejemplo Práctico**:
 ```

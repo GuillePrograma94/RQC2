@@ -118,8 +118,8 @@ class PurchaseHistoryCache {
             
             if (words.length > 0) {
                 results = results.filter(item => {
-                    const descLower = item.descripcion.toLowerCase();
-                    return words.every(word => descLower.includes(word));
+                    const textToSearch = ((item.descripcion || '') + ' ' + (item.sinonimos || '')).toLowerCase();
+                    return words.every(word => textToSearch.includes(word));
                 });
             }
         }

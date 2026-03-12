@@ -19,6 +19,9 @@
 -- ============================================================
 -- 1. Función para obtener productos modificados/agregados
 -- ============================================================
+-- Drop necesario si la función ya existía con otro tipo de retorno (ej. sin columna sinonimos)
+DROP FUNCTION IF EXISTS obtener_productos_modificados(text);
+
 CREATE OR REPLACE FUNCTION obtener_productos_modificados(
     p_version_hash_local TEXT
 )
@@ -26,6 +29,7 @@ RETURNS TABLE (
     codigo TEXT,
     descripcion TEXT,
     pvp REAL,
+    sinonimos TEXT,
     fecha_actualizacion TIMESTAMP WITH TIME ZONE,
     accion TEXT  -- 'INSERT' o 'UPDATE'
 ) AS $$
@@ -46,6 +50,7 @@ BEGIN
             p.codigo::TEXT,
             p.descripcion::TEXT,
             p.pvp,
+            p.sinonimos::TEXT,
             p.fecha_actualizacion,
             'INSERT'::TEXT AS accion
         FROM productos p
@@ -59,6 +64,7 @@ BEGIN
         p.codigo::TEXT,
         p.descripcion::TEXT,
         p.pvp,
+        p.sinonimos::TEXT,
         p.fecha_actualizacion,
         CASE 
             WHEN p.fecha_creacion > v_fecha_version THEN 'INSERT'::TEXT
@@ -233,7 +239,7 @@ ON codigos_secundarios(fecha_creacion DESC, codigo_secundario);
 -- que la sincronización incremental funcione correctamente.
 
 -- Trigger para productos
--- Solo actualizar fecha_actualizacion cuando los datos (descripcion, pvp) cambian.
+-- Solo actualizar fecha_actualizacion cuando los datos (descripcion, pvp, sinonimos) cambian.
 -- Si son idénticos, no tocar fecha para no marcar todo como "modificado" en cada subida.
 CREATE OR REPLACE FUNCTION actualizar_fecha_productos()
 RETURNS TRIGGER AS $$
@@ -242,7 +248,8 @@ BEGIN
         -- Solo actualizar fecha cuando hay cambio real
         -- TRIM en texto; redondeo a 2 decimales en pvp para evitar problemas de precisión flotante
         IF TRIM(COALESCE(OLD.descripcion, '')) IS DISTINCT FROM TRIM(COALESCE(NEW.descripcion, ''))
-           OR ROUND(OLD.pvp::numeric, 2) IS DISTINCT FROM ROUND(NEW.pvp::numeric, 2) THEN
+           OR ROUND(OLD.pvp::numeric, 2) IS DISTINCT FROM ROUND(NEW.pvp::numeric, 2)
+           OR TRIM(COALESCE(OLD.sinonimos, '')) IS DISTINCT FROM TRIM(COALESCE(NEW.sinonimos, '')) THEN
             NEW.fecha_actualizacion = NOW();
         ELSE
             NEW.fecha_actualizacion = OLD.fecha_actualizacion;
@@ -319,16 +326,21 @@ Mantiene fecha_creacion sin cambios.';
 -- en códigos) cambian. Así evitamos marcar todo como "modificado" en cada ejecución de
 -- generate_supabase_file.
 
--- Función para UPSERT de productos (actualiza fecha solo cuando descripcion o pvp cambian)
+-- Drop version anterior (3 parámetros sin sinonimos) si existe
+DROP FUNCTION IF EXISTS upsert_producto_con_fecha(text, text, real);
+
+-- Función para UPSERT de productos (actualiza fecha solo cuando descripcion, pvp o sinonimos cambian)
 CREATE OR REPLACE FUNCTION upsert_producto_con_fecha(
     p_codigo TEXT,
     p_descripcion TEXT,
-    p_pvp REAL
+    p_pvp REAL,
+    p_sinonimos TEXT DEFAULT NULL
 )
 RETURNS TABLE (
     codigo TEXT,
     descripcion TEXT,
     pvp REAL,
+    sinonimos TEXT,
     fecha_creacion TIMESTAMP WITH TIME ZONE,
     fecha_actualizacion TIMESTAMP WITH TIME ZONE,
     accion TEXT
@@ -350,13 +362,14 @@ BEGIN
         UPDATE productos
         SET 
             descripcion = TRIM(COALESCE(p_descripcion, '')),
-            pvp = ROUND(p_pvp::numeric, 2)::real
+            pvp = ROUND(p_pvp::numeric, 2)::real,
+            sinonimos = NULLIF(TRIM(COALESCE(p_sinonimos, '')), '')
         WHERE productos.codigo = p_codigo;
         
         v_accion := 'UPDATE';
     ELSE
-        INSERT INTO productos (codigo, descripcion, pvp, fecha_creacion, fecha_actualizacion)
-        VALUES (p_codigo, TRIM(COALESCE(p_descripcion, '')), ROUND(p_pvp::numeric, 2)::real, NOW(), NOW());
+        INSERT INTO productos (codigo, descripcion, pvp, sinonimos, fecha_creacion, fecha_actualizacion)
+        VALUES (p_codigo, TRIM(COALESCE(p_descripcion, '')), ROUND(p_pvp::numeric, 2)::real, NULLIF(TRIM(COALESCE(p_sinonimos, '')), ''), NOW(), NOW());
         
         v_fecha_creacion_original := NOW();
         v_accion := 'INSERT';
@@ -368,6 +381,7 @@ BEGIN
         prod.codigo::TEXT,
         prod.descripcion::TEXT,
         prod.pvp,
+        prod.sinonimos::TEXT,
         prod.fecha_creacion,
         prod.fecha_actualizacion,
         v_accion::TEXT
@@ -377,7 +391,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION upsert_producto_con_fecha IS 
-'UPSERT de producto. Solo actualiza fecha_actualizacion cuando descripcion o pvp cambian.';
+'UPSERT de producto. Solo actualiza fecha_actualizacion cuando descripcion, pvp o sinonimos cambian.';
 
 -- Función para UPSERT masivo de productos (más eficiente para lotes)
 -- Acepta JSONB directamente (Supabase convierte automáticamente arrays Python a JSONB)
@@ -395,6 +409,7 @@ DECLARE
     v_codigo_prod TEXT;  -- Variable con nombre diferente para evitar ambigüedad con RETURNS TABLE
     v_descripcion TEXT;
     v_pvp REAL;
+    v_sinonimos TEXT;
     v_existe BOOLEAN;
     v_accion TEXT;
     v_fecha_actual TIMESTAMP WITH TIME ZONE;
@@ -407,6 +422,7 @@ BEGIN
         v_codigo_prod := (producto_item->>'codigo')::TEXT;
         v_descripcion := (producto_item->>'descripcion')::TEXT;
         v_pvp := (producto_item->>'pvp')::REAL;
+        v_sinonimos := NULLIF(TRIM(COALESCE((producto_item->>'sinonimos')::TEXT, '')), '');
         
         -- Verificar si existe (usar variable explícita)
         SELECT EXISTS(
@@ -424,7 +440,8 @@ BEGIN
             UPDATE productos
             SET 
                 descripcion = TRIM(COALESCE(v_descripcion, '')),
-                pvp = ROUND(v_pvp::numeric, 2)::real  -- Redondear a 2 decimales
+                pvp = ROUND(v_pvp::numeric, 2)::real,
+                sinonimos = v_sinonimos
             WHERE productos.codigo = v_codigo_prod;
             
             -- Obtener fecha DESPUÉS del update
@@ -444,8 +461,8 @@ BEGIN
         ELSE
             v_fecha_actual := NOW();
             -- INSERT: Crear nuevo
-            INSERT INTO productos (codigo, descripcion, pvp, fecha_creacion, fecha_actualizacion)
-            VALUES (v_codigo_prod, TRIM(COALESCE(v_descripcion, '')), ROUND(v_pvp::numeric, 2)::real, v_fecha_actual, v_fecha_actual);
+            INSERT INTO productos (codigo, descripcion, pvp, sinonimos, fecha_creacion, fecha_actualizacion)
+            VALUES (v_codigo_prod, TRIM(COALESCE(v_descripcion, '')), ROUND(v_pvp::numeric, 2)::real, v_sinonimos, v_fecha_actual, v_fecha_actual);
             v_accion := 'INSERT';
             
             -- Retornar resultado para INSERT
@@ -460,8 +477,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION upsert_productos_masivo_con_fecha IS 
-'UPSERT masivo de productos. Solo actualiza fecha_actualizacion cuando descripcion o pvp cambian.
-Recibe un JSONB con array de productos.
+'UPSERT masivo de productos. Solo actualiza fecha_actualizacion cuando descripcion, pvp o sinonimos cambian.
+Recibe un JSONB con array de productos (codigo, descripcion, pvp, sinonimos opcional).
 IMPORTANTE: Solo retorna filas para productos que cambiaron (INSERT o UPDATE con cambio real).
 Productos con datos idénticos no retornan filas (optimización).';
 
@@ -529,7 +546,7 @@ BEGIN
     RAISE NOTICE '3. obtener_estadisticas_cambios(version_hash)';
     RAISE NOTICE '';
     RAISE NOTICE 'Funciones de UPSERT con fecha:';
-    RAISE NOTICE '4. upsert_producto_con_fecha(codigo, descripcion, pvp)';
+    RAISE NOTICE '4. upsert_producto_con_fecha(codigo, descripcion, pvp, sinonimos)';
     RAISE NOTICE '5. upsert_productos_masivo_con_fecha(productos_json)';
     RAISE NOTICE '6. upsert_codigo_secundario_con_fecha(codigo_sec, desc, codigo_principal)';
     RAISE NOTICE '';
