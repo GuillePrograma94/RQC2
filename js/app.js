@@ -3691,10 +3691,14 @@ class ScanAsYouShopApp {
         const input = document.getElementById('fabricanteProveedorInput');
         if (!dropdown || !input) return;
         const qLower = (q || '').toLowerCase().trim();
+        if (qLower.length < 3) {
+            dropdown.innerHTML = '';
+            dropdown.style.display = 'none';
+            input.setAttribute('aria-expanded', 'false');
+            return;
+        }
         const list = this._proveedoresComboboxList;
-        const filtered = !qLower
-            ? list.slice(0, 50)
-            : list.filter(item => item.searchText.includes(qLower)).slice(0, 50);
+        const filtered = list.filter(item => item.searchText.includes(qLower)).slice(0, 50);
         dropdown.innerHTML = '';
         dropdown.style.display = filtered.length ? 'block' : 'none';
         input.setAttribute('aria-expanded', filtered.length ? 'true' : 'false');
