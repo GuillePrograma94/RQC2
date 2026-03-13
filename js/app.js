@@ -3652,7 +3652,7 @@ class ScanAsYouShopApp {
                 if (!cod) continue;
                 const aliases = (aliasByCod[cod] || []).filter(Boolean).join(' ');
                 const searchText = (nom + ' ' + aliases).toLowerCase().trim();
-                const displayText = nom === cod ? nom : cod + ' - ' + nom;
+                const displayText = nom;
                 list.push({ codigo_proveedor: cod, nombre_proveedor: nom, searchText, displayText });
             }
             this._proveedoresComboboxList = list;
