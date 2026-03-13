@@ -371,6 +371,12 @@
                                     <span class="chip-label" id="chipFabricanteLabel">Ref. fabricante</span>
                                     <span class="chip-arrow">▾</span>
                                 </button>
+                                <!-- Fabricante (proveedor): filtrar por entidad fabricante -->
+                                <button class="filter-chip chip-expandable" id="chipFabricanteProveedor" data-chip="fabricanteProveedor"
+                                        title="Filtrar por fabricante o proveedor del articulo">
+                                    <span class="chip-label" id="chipFabricanteProveedorLabel">Fabricante</span>
+                                    <span class="chip-arrow">▾</span>
+                                </button>
                                 <!-- Precio: siempre visible -->
                                 <button class="filter-chip chip-expandable" id="chipPrecio" data-chip="precio"
                                         title="Filtra resultados por rango de precio con IVA">
@@ -390,6 +396,14 @@
                             <p class="chip-config-hint">Escribe la referencia del fabricante (código interno, no el EAN)</p>
                             <input type="text" id="fabricanteSearchInput" class="chip-config-input"
                                    placeholder="Ej: BM-300, A4572X..." autocomplete="off">
+                        </div>
+                        <!-- Fabricante (proveedor): desplegable por entidad -->
+                        <div id="chipConfigFabricanteProveedor" class="chip-config-block" style="display:none">
+                            <p class="chip-config-hint">Selecciona un fabricante o proveedor para filtrar los articulos</p>
+                            <select id="fabricanteProveedorSelect" class="chip-config-input" style="width:100%;max-width:280px;">
+                                <option value="">-- Todos --</option>
+                                <!-- Opciones se rellenan con getProveedores() -->
+                            </select>
                         </div>
                         <!-- Precio desde / hasta -->
                         <div id="chipConfigPrecio" class="chip-config-block" style="display:none">

@@ -41,7 +41,7 @@ class CartManager {
      */
     initIndexedDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, 6); // v6: Añadir store de stock
+            const request = indexedDB.open(this.dbName, 7); // v7: indice codigo_proveedor en products
 
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
@@ -62,6 +62,12 @@ class CartManager {
                 if (!db.objectStoreNames.contains('products')) {
                     const productsStore = db.createObjectStore('products', { keyPath: 'codigo' });
                     productsStore.createIndex('descripcion', 'descripcion', { unique: false });
+                    productsStore.createIndex('codigo_proveedor', 'codigo_proveedor', { unique: false });
+                } else {
+                    const productsStore = event.target.transaction.objectStore('products');
+                    if (!productsStore.indexNames.contains('codigo_proveedor')) {
+                        productsStore.createIndex('codigo_proveedor', 'codigo_proveedor', { unique: false });
+                    }
                 }
                 
                 // Crear object store para códigos secundarios (EAN)
@@ -1058,6 +1064,38 @@ class CartManager {
             return results;
         } catch (error) {
             console.error('Error en searchByManufacturerCode:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Devuelve productos cuyo codigo_proveedor coincide con el dado (filtro por fabricante).
+     * @param {string} codigoProveedor - codigo_proveedor del fabricante
+     * @returns {Promise<Array>} lista de productos
+     */
+    async getProductosPorCodigoProveedor(codigoProveedor) {
+        if (!this.db || !codigoProveedor || !String(codigoProveedor).trim()) return [];
+        const cod = String(codigoProveedor).trim();
+        try {
+            return new Promise((resolve, reject) => {
+                const tx = this.db.transaction(['products'], 'readonly');
+                const store = tx.objectStore('products');
+                if (store.indexNames.contains('codigo_proveedor')) {
+                    const req = store.index('codigo_proveedor').getAll(cod);
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                } else {
+                    const req = store.getAll();
+                    req.onsuccess = () => {
+                        const all = req.result || [];
+                        resolve(all.filter(p => (p.codigo_proveedor || '').trim() === cod));
+                    };
+                    req.onerror = () => reject(req.error);
+                }
+                tx.onerror = () => reject(tx.error);
+            });
+        } catch (error) {
+            console.error('Error en getProductosPorCodigoProveedor:', error);
             return [];
         }
     }
