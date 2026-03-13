@@ -2,7 +2,10 @@
 -- FIX V3: Versión simplificada sin funciones auxiliares
 -- Problema: Las funciones auxiliares también causan problemas
 -- Solución: Lógica directa con múltiples condiciones AND
+-- Incluye sinonimos en resultado y en búsqueda por descripción.
 -- ============================================================
+
+DROP FUNCTION IF EXISTS buscar_productos_historial_usuario_optimizado(integer, text, text);
 
 -- Función principal simplificada
 CREATE OR REPLACE FUNCTION buscar_productos_historial_usuario_optimizado(
@@ -14,6 +17,7 @@ RETURNS TABLE (
     codigo TEXT,
     descripcion TEXT,
     pvp REAL,
+    sinonimos TEXT,
     fecha_ultima_compra TIMESTAMP WITH TIME ZONE,
     veces_comprado INTEGER
 ) AS $$
@@ -49,12 +53,13 @@ BEGIN
         IF num_palabras >= 5 THEN palabra5 := palabras[5]; END IF;
     END IF;
 
-    -- Búsqueda principal con condiciones directas
+    -- Búsqueda principal con condiciones directas (descripcion o sinonimos por palabra)
     RETURN QUERY
     SELECT 
         h.codigo_producto::TEXT AS codigo,
         p.descripcion::TEXT,
         p.pvp,
+        p.sinonimos::TEXT,
         h.fecha_ultima_compra,
         h.veces_comprado
     FROM historial_compras_usuario h
@@ -66,15 +71,15 @@ BEGIN
           OR h.codigo_producto ILIKE '%' || p_codigo || '%'
           OR cs.codigo_secundario ILIKE '%' || p_codigo || '%'
       )
-      -- Búsqueda por palabras con condiciones directas
+      -- Búsqueda por palabras en descripcion o sinonimos
       AND (
           p_descripcion IS NULL 
           OR (
-              (palabra1 IS NULL OR LOWER(p.descripcion) LIKE '%' || palabra1 || '%')
-              AND (palabra2 IS NULL OR LOWER(p.descripcion) LIKE '%' || palabra2 || '%')
-              AND (palabra3 IS NULL OR LOWER(p.descripcion) LIKE '%' || palabra3 || '%')
-              AND (palabra4 IS NULL OR LOWER(p.descripcion) LIKE '%' || palabra4 || '%')
-              AND (palabra5 IS NULL OR LOWER(p.descripcion) LIKE '%' || palabra5 || '%')
+              (palabra1 IS NULL OR (LOWER(p.descripcion) LIKE '%' || palabra1 || '%' OR LOWER(COALESCE(p.sinonimos, '')) LIKE '%' || palabra1 || '%'))
+              AND (palabra2 IS NULL OR (LOWER(p.descripcion) LIKE '%' || palabra2 || '%' OR LOWER(COALESCE(p.sinonimos, '')) LIKE '%' || palabra2 || '%'))
+              AND (palabra3 IS NULL OR (LOWER(p.descripcion) LIKE '%' || palabra3 || '%' OR LOWER(COALESCE(p.sinonimos, '')) LIKE '%' || palabra3 || '%'))
+              AND (palabra4 IS NULL OR (LOWER(p.descripcion) LIKE '%' || palabra4 || '%' OR LOWER(COALESCE(p.sinonimos, '')) LIKE '%' || palabra4 || '%'))
+              AND (palabra5 IS NULL OR (LOWER(p.descripcion) LIKE '%' || palabra5 || '%' OR LOWER(COALESCE(p.sinonimos, '')) LIKE '%' || palabra5 || '%'))
           )
       )
     ORDER BY h.fecha_ultima_compra DESC;

@@ -226,8 +226,9 @@ Si no existe en principales:
 ## 🎨 Interfaz de Usuario
 
 ### **Campos de Búsqueda**
-- **Código (SKU / EAN / Ref. fabricante)**: Un solo campo para código principal, EAN u otro código secundario, o referencia de fabricante (p. ej. BM-300). No hace falta usar el chip "Ref. fabricante" para buscar por ref.
+- **Código (SKU / EAN / Ref. fabricante)**: Un solo campo para código principal, EAN u otro código secundario, o referencia de fabricante (p. ej. BM-300).
 - **Descripción**: Para búsquedas por texto
+- **Fabricante**: Combobox (escribir + desplegable): se busca por nombre o alias del fabricante, no por código.
 - **Solo comprados**: Filtro de historial (requiere login)
 
 ### **Comportamiento Inteligente**

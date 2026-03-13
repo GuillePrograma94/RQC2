@@ -2,7 +2,11 @@
 -- FIX: Función simplificada para historial SIN filtros
 -- Problema: Las funciones con filtros complejos causan errores
 -- Solución: Función simple que devuelve TODO el historial del usuario
+-- Incluye sinonimos para que "Solo mis compras" filtre también por sinónimos.
 -- ============================================================
+
+-- Drop necesario si la función ya existía sin columna sinonimos
+DROP FUNCTION IF EXISTS buscar_productos_historial_usuario_optimizado(integer, text, text);
 
 -- Función simplificada que devuelve TODO el historial del usuario
 CREATE OR REPLACE FUNCTION buscar_productos_historial_usuario_optimizado(
@@ -14,17 +18,19 @@ RETURNS TABLE (
     codigo TEXT,
     descripcion TEXT,
     pvp REAL,
+    sinonimos TEXT,
     fecha_ultima_compra TIMESTAMP WITH TIME ZONE,
     veces_comprado INTEGER
 ) AS $$
 BEGIN
     -- Función simplificada: devuelve TODO el historial del usuario
-    -- Los filtros se harán en el frontend (búsqueda local)
+    -- Los filtros se harán en el frontend (búsqueda local, incl. sinónimos)
     RETURN QUERY
     SELECT 
         h.codigo_producto::TEXT AS codigo,
         p.descripcion::TEXT,
         p.pvp,
+        p.sinonimos::TEXT,
         h.fecha_ultima_compra,
         h.veces_comprado
     FROM historial_compras_usuario h

@@ -22,12 +22,13 @@ class ScanAsYouShopApp {
         this.filterChips = {
             misCompras: false,
             oferta: false,
-            fabricante: '',      // '' = inactivo (ref. fabricante / codigo secundario)
             codigoProveedor: '', // '' = no filtrar por fabricante (entidad)
             precioDesde: null,
             precioHasta: null,
-            activeConfig: null,  // null | 'fabricante' | 'fabricanteProveedor' | 'precio' | 'almacen' (panel abierto)
+            activeConfig: null,  // null | 'fabricanteProveedor' | 'precio' | 'almacen' (panel abierto)
         };
+        /** Lista para combobox fabricante: { codigo_proveedor, nombre_proveedor, searchText, displayText }. Busqueda por nombre/alias solo. */
+        this._proveedoresComboboxList = [];
     }
 
     /**
@@ -3476,11 +3477,10 @@ class ScanAsYouShopApp {
         const refreshSearchIfNeeded = () => {
             const code = document.getElementById('codeSearchInput')?.value.trim() || '';
             const description = document.getElementById('descriptionSearchInput')?.value.trim() || '';
-            const fabricante = self.filterChips.fabricante || '';
             const codigoProveedor = self.filterChips.codigoProveedor || '';
             const hasResults = (document.getElementById('searchResultsList')?.children.length || 0) > 0;
 
-            if (code || description || fabricante || codigoProveedor || hasResults) {
+            if (code || description || codigoProveedor || hasResults) {
                 self.performSearch();
             }
         };
@@ -3517,44 +3517,7 @@ class ScanAsYouShopApp {
             });
         }
 
-        // --- Chip: Cód. fabricante (abre/cierra input) ---
-        const chipFabricante = document.getElementById('chipFabricante');
-        if (chipFabricante) {
-            chipFabricante.addEventListener('click', () => {
-                const isOpen = self.filterChips.activeConfig === 'fabricante';
-                self._closeChipConfig();
-                if (!isOpen) {
-                    self._openChipConfig('fabricante');
-                    setTimeout(() => {
-                        const input = document.getElementById('fabricanteSearchInput');
-                        if (input) input.focus();
-                    }, 80);
-                }
-            });
-        }
-
-        // Input de fabricante: actualiza estado y label del chip
-        const fabricanteInput = document.getElementById('fabricanteSearchInput');
-        if (fabricanteInput) {
-            fabricanteInput.addEventListener('input', () => {
-                const val = fabricanteInput.value.trim();
-                self.filterChips.fabricante = val;
-                const labelEl = document.getElementById('chipFabricanteLabel');
-                const chipFab = document.getElementById('chipFabricante');
-                if (val) {
-                    if (labelEl) labelEl.textContent = 'Ref: ' + val;
-                    if (chipFab) chipFab.classList.add('active');
-                } else {
-                    if (labelEl) labelEl.textContent = 'Ref. fabricante';
-                    if (chipFab) chipFab.classList.remove('active');
-                }
-            });
-            fabricanteInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') self.performSearch();
-            });
-        }
-
-        // --- Chip: Fabricante (proveedor / entidad) ---
+        // --- Chip: Fabricante (proveedor / entidad): combobox nombre o alias ---
         const chipFabricanteProveedor = document.getElementById('chipFabricanteProveedor');
         if (chipFabricanteProveedor) {
             chipFabricanteProveedor.addEventListener('click', () => {
@@ -3562,28 +3525,15 @@ class ScanAsYouShopApp {
                 self._closeChipConfig();
                 if (!isOpen) {
                     self._openChipConfig('fabricanteProveedor');
-                    self._loadProveedoresSelect();
+                    self._initProveedoresCombobox();
+                    setTimeout(() => {
+                        const input = document.getElementById('fabricanteProveedorInput');
+                        if (input) input.focus();
+                    }, 80);
                 }
             });
         }
-        const fabricanteProveedorSelect = document.getElementById('fabricanteProveedorSelect');
-        if (fabricanteProveedorSelect) {
-            fabricanteProveedorSelect.addEventListener('change', () => {
-                const val = fabricanteProveedorSelect.value.trim();
-                self.filterChips.codigoProveedor = val;
-                const labelEl = document.getElementById('chipFabricanteProveedorLabel');
-                const chip = document.getElementById('chipFabricanteProveedor');
-                const opt = fabricanteProveedorSelect.selectedOptions[0];
-                if (val && opt) {
-                    if (labelEl) labelEl.textContent = opt.textContent || val;
-                    if (chip) chip.classList.add('active');
-                } else {
-                    if (labelEl) labelEl.textContent = 'Fabricante';
-                    if (chip) chip.classList.remove('active');
-                }
-                refreshSearchIfNeeded();
-            });
-        }
+        self._setupFabricanteProveedorCombobox(refreshSearchIfNeeded);
 
         // --- Chip: Precio (abre/cierra inputs desde/hasta) ---
         const chipPrecio = document.getElementById('chipPrecio');
@@ -3640,13 +3590,12 @@ class ScanAsYouShopApp {
 
     /**
      * Abre el panel de configuracion de un chip especifico.
-     * @param {'fabricante'|'fabricanteProveedor'|'precio'|'almacen'} tipo
+     * @param {'fabricanteProveedor'|'precio'|'almacen'} tipo
      */
     _openChipConfig(tipo) {
         this.filterChips.activeConfig = tipo;
         const panel = document.getElementById('chipConfigPanel');
         const blocks = {
-            fabricante: document.getElementById('chipConfigFabricante'),
             fabricanteProveedor: document.getElementById('chipConfigFabricanteProveedor'),
             precio:     document.getElementById('chipConfigPrecio'),
             almacen:    document.getElementById('chipConfigAlmacen'),
@@ -3655,7 +3604,7 @@ class ScanAsYouShopApp {
         for (const [key, el] of Object.entries(blocks)) {
             if (el) el.style.display = (key === tipo) ? '' : 'none';
         }
-        const chipIds = { fabricante: 'chipFabricante', fabricanteProveedor: 'chipFabricanteProveedor', precio: 'chipPrecio', almacen: 'chipAlmacen' };
+        const chipIds = { fabricanteProveedor: 'chipFabricanteProveedor', precio: 'chipPrecio', almacen: 'chipAlmacen' };
         for (const [key, id] of Object.entries(chipIds)) {
             document.getElementById(id)?.classList.toggle('config-open', key === tipo);
         }
@@ -3666,37 +3615,159 @@ class ScanAsYouShopApp {
      */
     _closeChipConfig() {
         this.filterChips.activeConfig = null;
-        document.getElementById('chipFabricante')?.classList.remove('config-open');
         document.getElementById('chipFabricanteProveedor')?.classList.remove('config-open');
         document.getElementById('chipPrecio')?.classList.remove('config-open');
         document.getElementById('chipAlmacen')?.classList.remove('config-open');
         const panel = document.getElementById('chipConfigPanel');
         if (panel) panel.style.display = 'none';
+        const dropdown = document.getElementById('fabricanteProveedorDropdown');
+        if (dropdown) dropdown.style.display = 'none';
     }
 
     /**
-     * Rellena el desplegable de fabricantes (proveedores) desde Supabase.
+     * Inicializa y carga datos del combobox de fabricante (proveedores + alias). Busqueda por nombre o alias, no por codigo.
      */
-    async _loadProveedoresSelect() {
-        const sel = document.getElementById('fabricanteProveedorSelect');
-        if (!sel || !window.supabaseClient) return;
-        if (sel.options.length > 1) return; // ya cargado
+    async _initProveedoresCombobox() {
+        if (!window.supabaseClient) return;
+        if (this._proveedoresComboboxList.length > 0) {
+            this._syncProveedorComboboxFromFilter();
+            return;
+        }
         try {
-            const list = await window.supabaseClient.getProveedores();
-            const frag = document.createDocumentFragment();
-            for (const p of (list || [])) {
+            const [proveedores, aliasList] = await Promise.all([
+                window.supabaseClient.getProveedores(),
+                window.supabaseClient.getProveedoresAlias()
+            ]);
+            const aliasByCod = {};
+            for (const a of (aliasList || [])) {
+                const cod = (a.codigo_proveedor || '').trim();
+                if (!cod) continue;
+                if (!aliasByCod[cod]) aliasByCod[cod] = [];
+                aliasByCod[cod].push((a.alias || '').trim());
+            }
+            const list = [];
+            for (const p of (proveedores || [])) {
                 const cod = (p.codigo_proveedor || '').trim();
                 const nom = (p.nombre_proveedor || cod || '').trim();
                 if (!cod) continue;
-                const opt = document.createElement('option');
-                opt.value = cod;
-                opt.textContent = nom === cod ? cod : cod + ' - ' + nom;
-                frag.appendChild(opt);
+                const aliases = (aliasByCod[cod] || []).filter(Boolean).join(' ');
+                const searchText = (nom + ' ' + aliases).toLowerCase().trim();
+                const displayText = nom === cod ? nom : cod + ' - ' + nom;
+                list.push({ codigo_proveedor: cod, nombre_proveedor: nom, searchText, displayText });
             }
-            sel.appendChild(frag);
+            this._proveedoresComboboxList = list;
+            this._syncProveedorComboboxFromFilter();
         } catch (e) {
-            console.warn('No se pudieron cargar proveedores para el filtro:', e);
+            console.warn('No se pudieron cargar proveedores para el combobox:', e);
+            this._proveedoresComboboxList = [];
         }
+    }
+
+    /**
+     * Sincroniza el input y el hidden del combobox fabricante con filterChips.codigoProveedor.
+     */
+    _syncProveedorComboboxFromFilter() {
+        const cod = this.filterChips.codigoProveedor || '';
+        const list = this._proveedoresComboboxList || [];
+        const inp = document.getElementById('fabricanteProveedorInput');
+        const hid = document.getElementById('fabricanteProveedorCodigo');
+        if (hid) hid.value = cod;
+        if (inp) {
+            if (cod && list.length) {
+                const item = list.find(p => p.codigo_proveedor === cod);
+                inp.value = item ? item.displayText : '';
+            } else {
+                inp.value = '';
+            }
+        }
+    }
+
+    /**
+     * Filtra y muestra el dropdown del combobox fabricante. Solo busca por nombre o alias (no por codigo).
+     * @param {string} q
+     */
+    _filterProveedoresDropdown(q) {
+        const dropdown = document.getElementById('fabricanteProveedorDropdown');
+        const input = document.getElementById('fabricanteProveedorInput');
+        if (!dropdown || !input) return;
+        const qLower = (q || '').toLowerCase().trim();
+        const list = this._proveedoresComboboxList;
+        const filtered = !qLower
+            ? list.slice(0, 50)
+            : list.filter(item => item.searchText.includes(qLower)).slice(0, 50);
+        dropdown.innerHTML = '';
+        dropdown.style.display = filtered.length ? 'block' : 'none';
+        input.setAttribute('aria-expanded', filtered.length ? 'true' : 'false');
+        for (const item of filtered) {
+            const li = document.createElement('li');
+            li.setAttribute('role', 'option');
+            li.setAttribute('aria-selected', 'false');
+            li.textContent = item.displayText;
+            li.dataset.codigo = item.codigo_proveedor;
+            li.dataset.display = item.displayText;
+            li.addEventListener('click', () => {
+                document.getElementById('fabricanteProveedorCodigo').value = item.codigo_proveedor;
+                input.value = item.displayText;
+                input.setAttribute('aria-expanded', 'false');
+                dropdown.style.display = 'none';
+                this._applyFabricanteProveedorSelection(item.codigo_proveedor, item.displayText);
+            });
+            dropdown.appendChild(li);
+        }
+    }
+
+    /**
+     * Aplica la seleccion del fabricante al estado y al chip, y dispara refresh si hace falta.
+     */
+    _applyFabricanteProveedorSelection(codigoProveedor, displayText) {
+        this.filterChips.codigoProveedor = codigoProveedor || '';
+        const labelEl = document.getElementById('chipFabricanteProveedorLabel');
+        const chip = document.getElementById('chipFabricanteProveedor');
+        if (codigoProveedor && displayText) {
+            if (labelEl) labelEl.textContent = displayText.length > 22 ? displayText.slice(0, 19) + '...' : displayText;
+            if (chip) chip.classList.add('active');
+        } else {
+            if (labelEl) labelEl.textContent = 'Fabricante';
+            if (chip) chip.classList.remove('active');
+        }
+        if (typeof this._refreshSearchIfNeeded === 'function') this._refreshSearchIfNeeded();
+    }
+
+    /**
+     * Configura eventos del combobox fabricante (input + dropdown). Busqueda solo por nombre/alias.
+     * @param {function} refreshSearchIfNeeded
+     */
+    _setupFabricanteProveedorCombobox(refreshSearchIfNeeded) {
+        this._refreshSearchIfNeeded = refreshSearchIfNeeded;
+        const input = document.getElementById('fabricanteProveedorInput');
+        const dropdown = document.getElementById('fabricanteProveedorDropdown');
+        const hiddenCodigo = document.getElementById('fabricanteProveedorCodigo');
+        if (!input || !dropdown || !hiddenCodigo) return;
+
+        input.addEventListener('input', () => {
+            const val = input.value.trim();
+            if (!val) {
+                hiddenCodigo.value = '';
+                this._applyFabricanteProveedorSelection('', '');
+            }
+            this._filterProveedoresDropdown(val);
+        });
+        input.addEventListener('focus', () => {
+            this._filterProveedoresDropdown(input.value.trim());
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                dropdown.style.display = 'none';
+                input.setAttribute('aria-expanded', 'false');
+            }
+        });
+        document.addEventListener('click', (ev) => {
+            if (dropdown.style.display === 'block' && input && !input.contains(ev.target) && !dropdown.contains(ev.target)) {
+                dropdown.style.display = 'none';
+                input.setAttribute('aria-expanded', 'false');
+            }
+        });
+        dropdown.addEventListener('click', (e) => { e.stopPropagation(); });
     }
 
     /**
@@ -5043,15 +5114,14 @@ class ScanAsYouShopApp {
         
         const code        = codeInput?.value.trim() || '';
         const description = descInput?.value.trim() || '';
-        const fabricante  = this.filterChips.fabricante || '';
         const codigoProveedor = this.filterChips.codigoProveedor || '';
         const onlyPurchased = this.filterChips.misCompras;
         const soloOfertas   = this.filterChips.oferta;
         const precioDesde   = this.filterChips.precioDesde;
         const precioHasta   = this.filterChips.precioHasta;
 
-        if (!code && !description && !fabricante && !codigoProveedor) {
-            window.ui.showToast('Introduce un código, descripción, ref. fabricante o selecciona un fabricante', 'warning');
+        if (!code && !description && !codigoProveedor) {
+            window.ui.showToast('Introduce un código, descripción o selecciona un fabricante', 'warning');
             return;
         }
 
@@ -5087,15 +5157,10 @@ class ScanAsYouShopApp {
                     fecha_ultima_compra: item.fecha_ultima_compra
                 }));
 
-            } else if (codigoProveedor && !code && !description && !fabricante) {
+            } else if (codigoProveedor && !code && !description) {
                 // Búsqueda exclusiva por fabricante (entidad / codigo_proveedor)
                 console.log('Buscando por fabricante (proveedor):', codigoProveedor);
                 productos = await window.cartManager.getProductosPorCodigoProveedor(codigoProveedor);
-            } else if (fabricante && !code && !description) {
-                // Búsqueda exclusiva por código de fabricante (ref. secundaria)
-                console.log('Buscando por cod. fabricante:', fabricante);
-                productos = await window.cartManager.searchByManufacturerCode(fabricante);
-
             } else {
                 // Búsqueda en el catálogo completo (código y/o descripción)
                 if (code && description) {
@@ -5112,12 +5177,6 @@ class ScanAsYouShopApp {
                     productos = await window.cartManager.searchByDescriptionAllWords(description);
                 }
 
-                // Si además hay filtro de fabricante (ref.), cruzamos con sus resultados
-                if (fabricante && productos.length > 0) {
-                    const porFabricante = await window.cartManager.searchByManufacturerCode(fabricante);
-                    const codigosFab = new Set(porFabricante.map(p => p.codigo.toUpperCase()));
-                    productos = productos.filter(p => codigosFab.has(p.codigo.toUpperCase()));
-                }
                 // Si además hay filtro por fabricante (entidad / codigo_proveedor)
                 if (codigoProveedor && productos.length > 0) {
                     productos = productos.filter(p => (p.codigo_proveedor || '').trim() === codigoProveedor);
@@ -5867,7 +5926,6 @@ class ScanAsYouShopApp {
         // Resetear chips activos
         this.filterChips.misCompras  = false;
         this.filterChips.oferta      = false;
-        this.filterChips.fabricante  = '';
         this.filterChips.codigoProveedor = '';
         this.filterChips.precioDesde = null;
         this.filterChips.precioHasta = null;
@@ -5875,23 +5933,22 @@ class ScanAsYouShopApp {
 
         document.getElementById('chipMisCompras')?.classList.remove('active');
         document.getElementById('chipOferta')?.classList.remove('active');
-        document.getElementById('chipFabricante')?.classList.remove('active');
         document.getElementById('chipFabricanteProveedor')?.classList.remove('active');
         document.getElementById('chipPrecio')?.classList.remove('active');
 
-        const labelFab   = document.getElementById('chipFabricanteLabel');
         const labelFabProv = document.getElementById('chipFabricanteProveedorLabel');
         const labelPrecio = document.getElementById('chipPrecioLabel');
-        if (labelFab)     labelFab.textContent     = 'Ref. fabricante';
         if (labelFabProv) labelFabProv.textContent = 'Fabricante';
         if (labelPrecio)   labelPrecio.textContent  = 'Precio';
 
-        const fabricanteInput  = document.getElementById('fabricanteSearchInput');
-        const fabricanteProveedorSelect = document.getElementById('fabricanteProveedorSelect');
+        const fabricanteProveedorInput = document.getElementById('fabricanteProveedorInput');
+        const fabricanteProveedorCodigo = document.getElementById('fabricanteProveedorCodigo');
+        const fabricanteProveedorDropdown = document.getElementById('fabricanteProveedorDropdown');
         const precioDesdeInput = document.getElementById('precioDesdeInput');
         const precioHastaInput = document.getElementById('precioHastaInput');
-        if (fabricanteInput)  fabricanteInput.value  = '';
-        if (fabricanteProveedorSelect) fabricanteProveedorSelect.value = '';
+        if (fabricanteProveedorInput) fabricanteProveedorInput.value = '';
+        if (fabricanteProveedorCodigo) fabricanteProveedorCodigo.value = '';
+        if (fabricanteProveedorDropdown) fabricanteProveedorDropdown.style.display = 'none';
         if (precioDesdeInput) precioDesdeInput.value = '';
         if (precioHastaInput) precioHastaInput.value = '';
 

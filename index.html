@@ -365,12 +365,6 @@
                                     <span class="chip-icon">☑</span>
                                     <span class="chip-label">Solo en oferta</span>
                                 </button>
-                                <!-- Ref. fabricante: siempre visible -->
-                                <button class="filter-chip chip-expandable" id="chipFabricante" data-chip="fabricante"
-                                        title="Busca por la referencia del fabricante (no EAN)">
-                                    <span class="chip-label" id="chipFabricanteLabel">Ref. fabricante</span>
-                                    <span class="chip-arrow">▾</span>
-                                </button>
                                 <!-- Fabricante (proveedor): filtrar por entidad fabricante -->
                                 <button class="filter-chip chip-expandable" id="chipFabricanteProveedor" data-chip="fabricanteProveedor"
                                         title="Filtrar por fabricante o proveedor del articulo">
@@ -391,19 +385,16 @@
 
                     <!-- Panel de configuración expandible (aparece debajo de los chips) -->
                     <div class="chip-config-panel" id="chipConfigPanel" style="display:none">
-                        <!-- Ref. fabricante -->
-                        <div id="chipConfigFabricante" class="chip-config-block" style="display:none">
-                            <p class="chip-config-hint">Escribe la referencia del fabricante (código interno, no el EAN)</p>
-                            <input type="text" id="fabricanteSearchInput" class="chip-config-input"
-                                   placeholder="Ej: BM-300, A4572X..." autocomplete="off">
-                        </div>
-                        <!-- Fabricante (proveedor): desplegable por entidad -->
+                        <!-- Fabricante (proveedor): combobox buscar por nombre o alias -->
                         <div id="chipConfigFabricanteProveedor" class="chip-config-block" style="display:none">
-                            <p class="chip-config-hint">Selecciona un fabricante o proveedor para filtrar los articulos</p>
-                            <select id="fabricanteProveedorSelect" class="chip-config-input" style="width:100%;max-width:280px;">
-                                <option value="">-- Todos --</option>
-                                <!-- Opciones se rellenan con getProveedores() -->
-                            </select>
+                            <p class="chip-config-hint">Escribe nombre o alias del fabricante para buscar (no se busca por codigo)</p>
+                            <div class="chip-config-combobox-wrap">
+                                <input type="text" id="fabricanteProveedorInput" class="chip-config-input"
+                                       placeholder="Ej: Ramon Soler, RS..." autocomplete="off"
+                                       aria-autocomplete="list" aria-expanded="false" aria-controls="fabricanteProveedorDropdown">
+                                <ul id="fabricanteProveedorDropdown" class="chip-config-combobox-dropdown" role="listbox" style="display:none"></ul>
+                            </div>
+                            <input type="hidden" id="fabricanteProveedorCodigo" value="">
                         </div>
                         <!-- Precio desde / hasta -->
                         <div id="chipConfigPrecio" class="chip-config-block" style="display:none">

@@ -1048,6 +1048,46 @@ body.gate-visible .app-container {
     box-shadow: 0 0 0 3px rgba(120, 81, 169, 0.15);
 }
 
+/* Combobox fabricante: input + dropdown */
+.chip-config-combobox-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 280px;
+}
+.chip-config-combobox-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 220px;
+    overflow-y: auto;
+    border: 2px solid var(--gray-200);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    background: var(--bg);
+    z-index: 20;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.chip-config-combobox-dropdown li {
+    padding: 0.5rem 0.85rem;
+    cursor: pointer;
+    font-size: 0.95rem;
+    border-bottom: 1px solid var(--gray-100);
+}
+.chip-config-combobox-dropdown li:last-child {
+    border-bottom: none;
+}
+.chip-config-combobox-dropdown li:hover,
+.chip-config-combobox-dropdown li[aria-selected="true"] {
+    background: var(--gray-100);
+}
+.chip-config-combobox-dropdown li[role="option"] {
+    cursor: pointer;
+}
+
 /* Rango de precio */
 .price-range-row {
     display: flex;
