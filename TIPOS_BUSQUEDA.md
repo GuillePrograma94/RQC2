@@ -235,7 +235,7 @@ Si no existe en principales:
 - **Solo código**: Búsqueda unificada por código principal (exacto/parcial), por EAN/código secundario exacto, o por referencia de fabricante (parcial en códigos secundarios no EAN). Un solo campo cubre los tres casos.
 - **Solo descripción**: Búsqueda por todas las palabras
 - **Código + descripción**: Búsqueda combinada (descripción → filtro por código)
-- **Con filtro**: Búsqueda en historial personal del usuario
+- **Con `Solo mis compras`**: Búsqueda en historial personal del usuario, manteniendo activos el resto de chips (fabricante, oferta y precio)
 - **Refresco inmediato de chips**: al pulsar `Solo mis compras` o `Solo en oferta`, la búsqueda se relanza automáticamente (sin pulsar `Buscar`) cuando ya hay criterio o resultados en pantalla
 
 ---

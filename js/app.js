@@ -5154,6 +5154,42 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Aplica filtro por fabricante/proveedor.
+     * Si los resultados no traen codigo_proveedor (caso historial), resuelve por SKU contra el indice de proveedor.
+     */
+    async filterProductsByProveedor(productos, codigoProveedor) {
+        if (!codigoProveedor || !Array.isArray(productos) || productos.length === 0) {
+            return productos;
+        }
+
+        const proveedorObjetivo = String(codigoProveedor).trim();
+        if (!proveedorObjetivo) {
+            return productos;
+        }
+
+        const filtradoDirecto = productos.filter(p => (p.codigo_proveedor || '').trim() === proveedorObjetivo);
+        const requiereFallbackPorSku = filtradoDirecto.length === 0
+            || productos.some(p => (p.codigo_proveedor || '').trim() === '');
+
+        if (!requiereFallbackPorSku) {
+            return filtradoDirecto;
+        }
+
+        if (!window.cartManager || typeof window.cartManager.getProductosPorCodigoProveedor !== 'function') {
+            return filtradoDirecto;
+        }
+
+        const productosProveedor = await window.cartManager.getProductosPorCodigoProveedor(proveedorObjetivo);
+        const skuPermitidos = new Set(
+            productosProveedor
+                .map(p => this.normalizeSkuKey(p.codigo))
+                .filter(Boolean)
+        );
+
+        return productos.filter(p => skuPermitidos.has(this.normalizeSkuKey(p.codigo)));
+    }
+
+    /**
      * Realiza la búsqueda
      */
     async performSearch() {
@@ -5225,10 +5261,11 @@ class ScanAsYouShopApp {
                     productos = await window.cartManager.searchByDescriptionAllWords(description);
                 }
 
-                // Si además hay filtro por fabricante (entidad / codigo_proveedor)
-                if (codigoProveedor && productos.length > 0) {
-                    productos = productos.filter(p => (p.codigo_proveedor || '').trim() === codigoProveedor);
-                }
+            }
+
+            // Aplicar filtro de fabricante en todos los modos (catálogo e historial/mis compras).
+            if (codigoProveedor && productos.length > 0) {
+                productos = await this.filterProductsByProveedor(productos, codigoProveedor);
             }
 
             // Capa defensiva: evita mostrar el mismo SKU varias veces en resultados.
