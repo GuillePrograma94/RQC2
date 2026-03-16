@@ -5110,6 +5110,50 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Normaliza un SKU para comparaciones consistentes.
+     */
+    normalizeSkuKey(sku) {
+        return String(sku || '').trim().toUpperCase();
+    }
+
+    /**
+     * Elimina duplicados por SKU manteniendo una única entrada por código.
+     * Si hay varias filas para el mismo SKU, conserva la más reciente por fecha_ultima_compra.
+     */
+    deduplicateProductsBySku(productos) {
+        if (!Array.isArray(productos) || productos.length === 0) {
+            return [];
+        }
+
+        const uniqueBySku = new Map();
+
+        for (const producto of productos) {
+            const skuKey = this.normalizeSkuKey(producto?.codigo);
+
+            // Si no hay SKU, no deduplicamos esa fila para no perder datos.
+            if (!skuKey) {
+                continue;
+            }
+
+            const existing = uniqueBySku.get(skuKey);
+            if (!existing) {
+                uniqueBySku.set(skuKey, producto);
+                continue;
+            }
+
+            const currentTs = producto?.fecha_ultima_compra ? new Date(producto.fecha_ultima_compra).getTime() : NaN;
+            const existingTs = existing?.fecha_ultima_compra ? new Date(existing.fecha_ultima_compra).getTime() : NaN;
+            const currentIsNewer = !Number.isNaN(currentTs) && (Number.isNaN(existingTs) || currentTs > existingTs);
+
+            if (currentIsNewer) {
+                uniqueBySku.set(skuKey, { ...existing, ...producto });
+            }
+        }
+
+        return Array.from(uniqueBySku.values());
+    }
+
+    /**
      * Realiza la búsqueda
      */
     async performSearch() {
@@ -5185,6 +5229,13 @@ class ScanAsYouShopApp {
                 if (codigoProveedor && productos.length > 0) {
                     productos = productos.filter(p => (p.codigo_proveedor || '').trim() === codigoProveedor);
                 }
+            }
+
+            // Capa defensiva: evita mostrar el mismo SKU varias veces en resultados.
+            const totalAntesDeduplicar = productos.length;
+            productos = this.deduplicateProductsBySku(productos);
+            if (productos.length !== totalAntesDeduplicar) {
+                console.log(`Deduplicacion por SKU aplicada: ${totalAntesDeduplicar} -> ${productos.length}`);
             }
 
             // Filtro de ofertas
