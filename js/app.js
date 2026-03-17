@@ -3474,6 +3474,7 @@ class ScanAsYouShopApp {
      */
     setupFilterChips() {
         const self = this;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         const refreshSearchIfNeeded = () => {
             const code = document.getElementById('codeSearchInput')?.value.trim() || '';
             const description = document.getElementById('descriptionSearchInput')?.value.trim() || '';
@@ -3484,11 +3485,49 @@ class ScanAsYouShopApp {
                 self.performSearch();
             }
         };
+        const bindTap = (el, handler) => {
+            if (!el || typeof handler !== 'function') return;
+            if (!isIOS) {
+                el.addEventListener('click', handler);
+                return;
+            }
+            let touchMoved = false;
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let lastTouchMs = 0;
+
+            el.addEventListener('touchstart', (e) => {
+                const t = e.changedTouches && e.changedTouches[0];
+                touchMoved = false;
+                touchStartX = t ? t.clientX : 0;
+                touchStartY = t ? t.clientY : 0;
+            }, { passive: true });
+
+            el.addEventListener('touchmove', (e) => {
+                const t = e.changedTouches && e.changedTouches[0];
+                if (!t) return;
+                if (Math.abs(t.clientX - touchStartX) > 8 || Math.abs(t.clientY - touchStartY) > 8) {
+                    touchMoved = true;
+                }
+            }, { passive: true });
+
+            el.addEventListener('touchend', (e) => {
+                if (touchMoved) return;
+                lastTouchMs = Date.now();
+                e.preventDefault();
+                handler(e);
+            }, { passive: false });
+
+            el.addEventListener('click', (e) => {
+                if (Date.now() - lastTouchMs < 500) return;
+                handler(e);
+            });
+        };
 
         // --- Chip: Mis compras ---
         const chipMisCompras = document.getElementById('chipMisCompras');
         if (chipMisCompras) {
-            chipMisCompras.addEventListener('click', () => {
+            bindTap(chipMisCompras, () => {
                 self.filterChips.misCompras = !self.filterChips.misCompras;
                 chipMisCompras.classList.toggle('active', self.filterChips.misCompras);
                 self._closeChipConfig();
@@ -3499,7 +3538,7 @@ class ScanAsYouShopApp {
         // --- Chip: Oferta ---
         const chipOferta = document.getElementById('chipOferta');
         if (chipOferta) {
-            chipOferta.addEventListener('click', () => {
+            bindTap(chipOferta, () => {
                 self.filterChips.oferta = !self.filterChips.oferta;
                 chipOferta.classList.toggle('active', self.filterChips.oferta);
                 self._closeChipConfig();
@@ -3510,7 +3549,7 @@ class ScanAsYouShopApp {
         // --- Chip: Almacen (abre/cierra mini picker) ---
         const chipAlmacen = document.getElementById('chipAlmacen');
         if (chipAlmacen) {
-            chipAlmacen.addEventListener('click', () => {
+            bindTap(chipAlmacen, () => {
                 const isOpen = self.filterChips.activeConfig === 'almacen';
                 self._closeChipConfig();
                 if (!isOpen) self._openChipConfig('almacen');
@@ -3520,7 +3559,7 @@ class ScanAsYouShopApp {
         // --- Chip: Fabricante (proveedor / entidad): combobox nombre o alias ---
         const chipFabricanteProveedor = document.getElementById('chipFabricanteProveedor');
         if (chipFabricanteProveedor) {
-            chipFabricanteProveedor.addEventListener('click', () => {
+            bindTap(chipFabricanteProveedor, () => {
                 const isOpen = self.filterChips.activeConfig === 'fabricanteProveedor';
                 self._closeChipConfig();
                 if (!isOpen) {
@@ -3538,7 +3577,7 @@ class ScanAsYouShopApp {
         // --- Chip: Precio (abre/cierra inputs desde/hasta) ---
         const chipPrecio = document.getElementById('chipPrecio');
         if (chipPrecio) {
-            chipPrecio.addEventListener('click', () => {
+            bindTap(chipPrecio, () => {
                 const isOpen = self.filterChips.activeConfig === 'precio';
                 self._closeChipConfig();
                 if (!isOpen) {
@@ -3709,13 +3748,17 @@ class ScanAsYouShopApp {
             li.textContent = item.displayText;
             li.dataset.codigo = item.codigo_proveedor;
             li.dataset.display = item.displayText;
-            li.addEventListener('click', () => {
+            const onSelect = (e) => {
+                if (e && e.type === 'touchend') e.preventDefault();
                 document.getElementById('fabricanteProveedorCodigo').value = item.codigo_proveedor;
                 input.value = item.displayText;
                 input.setAttribute('aria-expanded', 'false');
                 dropdown.style.display = 'none';
                 this._applyFabricanteProveedorSelection(item.codigo_proveedor, item.displayText);
-            });
+            };
+            li.addEventListener('click', onSelect);
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            if (isIOS) li.addEventListener('touchend', onSelect, { passive: false });
             dropdown.appendChild(li);
         }
     }
@@ -3771,6 +3814,15 @@ class ScanAsYouShopApp {
                 input.setAttribute('aria-expanded', 'false');
             }
         });
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        if (isIOS) {
+            document.addEventListener('touchstart', (ev) => {
+                if (dropdown.style.display === 'block' && input && !input.contains(ev.target) && !dropdown.contains(ev.target)) {
+                    dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                }
+            }, { passive: true });
+        }
         dropdown.addEventListener('click', (e) => { e.stopPropagation(); });
     }
 
