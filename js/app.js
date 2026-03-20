@@ -1362,15 +1362,33 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Abre el modal para que el comercial cambie su propia contrasena.
+     * Abre el modal para que el representante (comercial/dependiente) cambie su propia contraseña.
      */
     openCambiarPasswordComercialModal() {
         const modal = document.getElementById('cambiarPasswordComercialModal');
         if (!modal) return;
         const form = document.getElementById('cambiarPasswordComercialForm');
         const msgEl = document.getElementById('cambiarPasswordComercialMessage');
+        const titleEl = modal.querySelector('.profile-modal-header h3');
+        const currentLabel = modal.querySelector('label[for="comercialCurrentPassword"]');
+        const currentInput = document.getElementById('comercialCurrentPassword');
+        const newLabel = modal.querySelector('label[for="comercialNewPassword"]');
+        const newInput = document.getElementById('comercialNewPassword');
+        const confirmLabel = modal.querySelector('label[for="comercialConfirmPassword"]');
+        const confirmInput = document.getElementById('comercialConfirmPassword');
+        const submitBtn = document.getElementById('cambiarPasswordComercialSubmit');
         if (form) form.reset();
         if (msgEl) { msgEl.style.display = 'none'; msgEl.textContent = ''; msgEl.className = 'profile-message'; }
+        const isDependiente = !!(this.currentUser && this.currentUser.is_dependiente);
+        const rolTxt = isDependiente ? 'dependiente' : 'comercial';
+        if (titleEl) titleEl.textContent = 'Cambiar contraseña (' + rolTxt + ')';
+        if (currentLabel) currentLabel.textContent = 'Contraseña actual';
+        if (currentInput) currentInput.placeholder = 'Contraseña actual';
+        if (newLabel) newLabel.textContent = 'Nueva contraseña';
+        if (newInput) newInput.placeholder = 'Mínimo 4 caracteres';
+        if (confirmLabel) confirmLabel.textContent = 'Repetir nueva contraseña';
+        if (confirmInput) confirmInput.placeholder = 'Repetir contraseña';
+        if (submitBtn) submitBtn.textContent = 'Guardar contraseña';
         modal.style.display = 'flex';
         const firstInput = document.getElementById('comercialCurrentPassword');
         if (firstInput) firstInput.focus();
@@ -4771,12 +4789,12 @@ class ScanAsYouShopApp {
             }
         }
 
-        // Comercial: submit formulario cambiar contrasena
+        // Representante (comercial/dependiente): submit formulario cambiar contraseña
         const cambiarPasswordComercialForm = document.getElementById('cambiarPasswordComercialForm');
         if (cambiarPasswordComercialForm) {
             cambiarPasswordComercialForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                if (!this.currentUser || !this.currentUser.is_comercial || !this.currentUser.comercial_id) return;
+                if (!this.currentUser) return;
                 const current = document.getElementById('comercialCurrentPassword');
                 const newP = document.getElementById('comercialNewPassword');
                 const confirmP = document.getElementById('comercialConfirmPassword');
@@ -4786,34 +4804,44 @@ class ScanAsYouShopApp {
                 const newVal = newP.value;
                 const confirmVal = confirmP.value;
                 if (newVal.length < 4) {
-                    msgEl.textContent = 'La nueva contrasena debe tener al menos 4 caracteres';
+                    msgEl.textContent = 'La nueva contraseña debe tener al menos 4 caracteres';
                     msgEl.className = 'profile-message error';
                     msgEl.style.display = 'block';
                     return;
                 }
                 if (newVal !== confirmVal) {
-                    msgEl.textContent = 'La nueva contrasena y la repeticion no coinciden';
+                    msgEl.textContent = 'La nueva contraseña y la repetición no coinciden';
                     msgEl.className = 'profile-message error';
                     msgEl.style.display = 'block';
                     return;
                 }
                 if (submitBtn) submitBtn.disabled = true;
-                window.supabaseClient.cambiarPasswordComercial(this.currentUser.comercial_id, current.value, newVal)
+                if (!(this.currentUser.is_comercial && this.currentUser.comercial_id) && !this.currentUser.user_id) {
+                    msgEl.textContent = 'No se pudo identificar el usuario para cambiar la contraseña';
+                    msgEl.className = 'profile-message error';
+                    msgEl.style.display = 'block';
+                    if (submitBtn) submitBtn.disabled = false;
+                    return;
+                }
+                const request = (this.currentUser.is_comercial && this.currentUser.comercial_id)
+                    ? window.supabaseClient.cambiarPasswordComercial(this.currentUser.comercial_id, current.value, newVal)
+                    : window.supabaseClient.cambiarPassword(this.currentUser.user_id, current.value, newVal);
+                request
                     .then((result) => {
                         if (result.success) {
-                            msgEl.textContent = 'Contrasena actualizada correctamente';
+                            msgEl.textContent = 'Contraseña actualizada correctamente';
                             msgEl.className = 'profile-message success';
                             msgEl.style.display = 'block';
                             cambiarPasswordComercialForm.reset();
-                            window.ui.showToast('Contrasena actualizada', 'success');
+                            window.ui.showToast('Contraseña actualizada', 'success');
                         } else {
-                            msgEl.textContent = result.message || 'Error al cambiar contrasena';
+                            msgEl.textContent = result.message || 'Error al cambiar contraseña';
                             msgEl.className = 'profile-message error';
                             msgEl.style.display = 'block';
                         }
                     })
                     .catch(() => {
-                        msgEl.textContent = 'Error de conexion';
+                        msgEl.textContent = 'Error de conexión';
                         msgEl.className = 'profile-message error';
                         msgEl.style.display = 'block';
                     })
