@@ -59,44 +59,78 @@ async function findAuthUserIdByEmail(supabase, email) {
     }
 }
 
-async function linkAndSyncAuthUserPassword(supabase, params) {
-    const {
-        table,
-        match,
-        authUserId,
-        password,
-        appMetadata
-    } = params || {};
+async function syncAuthUserCredentials(supabase, options) {
+    const email = options && options.email ? String(options.email).trim() : '';
+    const password = options && options.password ? String(options.password) : '';
+    const appMetadata = (options && options.appMetadata) || {};
+    const initialAuthUserId = options && options.authUserId ? String(options.authUserId) : null;
+    const onLinked = options && typeof options.onLinked === 'function' ? options.onLinked : null;
+    const label = options && options.label ? String(options.label) : 'auth sync';
 
-    if (!table || !match || !authUserId || !password) return false;
-
-    try {
-        let q = supabase.from(table).update({ auth_user_id: authUserId });
-        Object.keys(match).forEach((key) => {
-            q = q.eq(key, match[key]);
-        });
-        const { error: linkError } = await q;
-        if (linkError) {
-            logError('link auth_user_id (' + table + ')', linkError);
-            return false;
-        }
-
-        const payload = { password };
-        if (appMetadata && typeof appMetadata === 'object') {
-            payload.app_metadata = appMetadata;
-        }
-
-        const { error: syncError } = await supabase.auth.admin.updateUserById(authUserId, payload);
-        if (syncError) {
-            logError('auth.admin.updateUserById relink', syncError);
-            return false;
-        }
-
-        return true;
-    } catch (e) {
-        logError('linkAndSyncAuthUserPassword', e);
-        return false;
+    if (!email || !password) {
+        return { ok: false, message: 'Email o password vacios en sincronizacion de auth' };
     }
+
+    async function linkUserId(uid) {
+        if (!uid || !onLinked) return;
+        try {
+            await onLinked(uid);
+        } catch (e) {
+            logError(label + ' onLinked', e);
+        }
+    }
+
+    if (initialAuthUserId) {
+        const { error: updateError } = await supabase.auth.admin.updateUserById(initialAuthUserId, {
+            password,
+            app_metadata: appMetadata
+        });
+        if (!updateError) {
+            await linkUserId(initialAuthUserId);
+            return { ok: true, authUserId: initialAuthUserId };
+        }
+        logError(label + ' updateUserById inicial', updateError);
+    }
+
+    const { data: created, error: createError } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        app_metadata: appMetadata
+    });
+
+    if (!createError) {
+        const uid = created && (created.user ? created.user.id : created.id);
+        if (uid) await linkUserId(uid);
+        return { ok: true, authUserId: uid || null };
+    }
+
+    const createMsg = createError && createError.message ? String(createError.message) : '';
+    const alreadyRegistered = createMsg.toLowerCase().includes('already been registered');
+    if (!alreadyRegistered) {
+        logError(label + ' createUser', createError);
+        return { ok: false, message: createMsg || 'Error al crear usuario auth' };
+    }
+
+    const existingId = await findAuthUserIdByEmail(supabase, email);
+    if (!existingId) {
+        return { ok: false, message: 'No se pudo localizar usuario auth existente por email' };
+    }
+
+    const { error: updateExistingError } = await supabase.auth.admin.updateUserById(existingId, {
+        password,
+        app_metadata: appMetadata
+    });
+    if (updateExistingError) {
+        logError(label + ' updateUserById existente', updateExistingError);
+        return {
+            ok: false,
+            message: (updateExistingError && updateExistingError.message) || 'No se pudo actualizar password en auth'
+        };
+    }
+
+    await linkUserId(existingId);
+    return { ok: true, authUserId: existingId };
 }
 
 module.exports = async (req, res) => {
@@ -185,44 +219,25 @@ module.exports = async (req, res) => {
             return;
         }
         const authUserIdCom = comRow && comRow.auth_user_id ? comRow.auth_user_id : null;
-        if (!authUserIdCom) {
-            const { data: created, error: createError } = await supabase.auth.admin.createUser({
-                email: emailComercial,
-                password,
-                email_confirm: true,
-                app_metadata: { comercial_id: com.comercial_id, es_comercial: true }
-            });
-            if (createError) {
-                if (createError.message && createError.message.includes('already been registered')) {
-                    const existingId = await findAuthUserIdByEmail(supabase, emailComercial);
-                    if (existingId) {
-                        await linkAndSyncAuthUserPassword(supabase, {
-                            table: 'usuarios_comerciales',
-                            match: { id: com.comercial_id },
-                            authUserId: existingId,
-                            password,
-                            appMetadata: { comercial_id: com.comercial_id, es_comercial: true }
-                        });
-                    }
-                } else {
-                    logError('auth.admin.createUser comercial', createError);
-                    res.status(500).json({
-                        success: false,
-                        message: 'Error al crear sesion de auth',
-                        detail: safeErrorDetail(createError)
-                    });
-                    return;
-                }
-            } else if (created && (created.user ? created.user.id : created.id)) {
-                const uid = created.user ? created.user.id : created.id;
+        const syncCom = await syncAuthUserCredentials(supabase, {
+            email: emailComercial,
+            password,
+            appMetadata: { comercial_id: com.comercial_id, es_comercial: true },
+            authUserId: authUserIdCom,
+            label: 'comercial auth sync',
+            onLinked: async function (uid) {
                 await supabase.from('usuarios_comerciales')
                     .update({ auth_user_id: uid })
                     .eq('id', com.comercial_id);
             }
-        } else {
-            try {
-                await supabase.auth.admin.updateUserById(authUserIdCom, { password });
-            } catch (_) {}
+        });
+        if (!syncCom.ok) {
+            res.status(500).json({
+                success: false,
+                message: 'Error al sincronizar sesion de auth',
+                detail: String(syncCom.message || '').substring(0, 200) || null
+            });
+            return;
         }
         return res.status(200).json({
             success: true,
@@ -280,51 +295,26 @@ module.exports = async (req, res) => {
 
         const authUserId = opRow && opRow.auth_user_id ? opRow.auth_user_id : null;
 
-        if (!authUserId) {
-            const { data: created, error: createError } = await supabase.auth.admin.createUser({
-                email,
-                password,
-                email_confirm: true,
-                app_metadata: { usuario_id: userId, es_operario: true, es_administrador: esAdministrador }
-            });
-
-            if (createError) {
-                if (createError.message && createError.message.includes('already been registered')) {
-                    const existingId = await findAuthUserIdByEmail(supabase, email);
-                    if (existingId) {
-                        await linkAndSyncAuthUserPassword(supabase, {
-                            table: 'usuarios_operarios',
-                            match: { usuario_id: userId, codigo_operario: codigoOperario },
-                            authUserId: existingId,
-                            password,
-                            appMetadata: { usuario_id: userId, es_operario: true, es_administrador: esAdministrador }
-                        });
-                    }
-                } else {
-                    logError('auth.admin.createUser operario', createError);
-                    res.status(500).json({
-                        success: false,
-                        message: 'Error al crear sesion de auth',
-                        detail: safeErrorDetail(createError)
-                    });
-                    return;
-                }
-            } else if (created && (created.user ? created.user.id : created.id)) {
-                const uid = created.user ? created.user.id : created.id;
+        const syncOperario = await syncAuthUserCredentials(supabase, {
+            email,
+            password,
+            appMetadata: { usuario_id: userId, es_operario: true, es_administrador: esAdministrador },
+            authUserId: authUserId,
+            label: 'operario auth sync',
+            onLinked: async function (uid) {
                 await supabase.from('usuarios_operarios')
                     .update({ auth_user_id: uid })
                     .eq('usuario_id', userId)
                     .eq('codigo_operario', codigoOperario);
             }
-        } else {
-            try {
-                await supabase.auth.admin.updateUserById(authUserId, {
-                    password,
-                    app_metadata: { usuario_id: userId, es_operario: true, es_administrador: esAdministrador }
-                });
-            } catch (_) {
-                // Ignorar si falla actualizar password (ej. mismo valor)
-            }
+        });
+        if (!syncOperario.ok) {
+            res.status(500).json({
+                success: false,
+                message: 'Error al sincronizar sesion de auth',
+                detail: String(syncOperario.message || '').substring(0, 200) || null
+            });
+            return;
         }
     } else {
         // Titular: crear/actualizar usuario de Auth en usuarios.auth_user_id (comportamiento original)
@@ -350,48 +340,23 @@ module.exports = async (req, res) => {
 
         const authUserId = userRow && userRow.auth_user_id ? userRow.auth_user_id : null;
 
-        if (!authUserId) {
-            const { data: created, error: createError } = await supabase.auth.admin.createUser({
-                email,
-                password,
-                email_confirm: true,
-                app_metadata: { usuario_id: userId, es_administrador: esAdministrador, es_administracion: esAdministracion }
-            });
-
-            if (createError) {
-                if (createError.message && createError.message.includes('already been registered')) {
-                    const existingId = await findAuthUserIdByEmail(supabase, email);
-                    if (existingId) {
-                        await linkAndSyncAuthUserPassword(supabase, {
-                            table: 'usuarios',
-                            match: { id: userId },
-                            authUserId: existingId,
-                            password,
-                            appMetadata: { usuario_id: userId, es_administrador: esAdministrador, es_administracion: esAdministracion }
-                        });
-                    }
-                } else {
-                    logError('auth.admin.createUser titular', createError);
-                    res.status(500).json({
-                        success: false,
-                        message: 'Error al crear sesion de auth',
-                        detail: safeErrorDetail(createError)
-                    });
-                    return;
-                }
-            } else if (created && (created.user ? created.user.id : created.id)) {
-                const uid = created.user ? created.user.id : created.id;
+        const syncTitular = await syncAuthUserCredentials(supabase, {
+            email,
+            password,
+            appMetadata: { usuario_id: userId, es_administrador: esAdministrador, es_administracion: esAdministracion },
+            authUserId: authUserId,
+            label: 'titular auth sync',
+            onLinked: async function (uid) {
                 await supabase.from('usuarios').update({ auth_user_id: uid }).eq('id', userId);
             }
-        } else {
-            try {
-                await supabase.auth.admin.updateUserById(authUserId, {
-                    password,
-                    app_metadata: { usuario_id: userId, es_administrador: esAdministrador, es_administracion: esAdministracion }
-                });
-            } catch (_) {
-                // Ignorar si falla actualizar password (ej. mismo valor)
-            }
+        });
+        if (!syncTitular.ok) {
+            res.status(500).json({
+                success: false,
+                message: 'Error al sincronizar sesion de auth',
+                detail: String(syncTitular.message || '').substring(0, 200) || null
+            });
+            return;
         }
     }
 

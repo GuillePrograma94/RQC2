@@ -636,27 +636,12 @@ class SupabaseClient {
                 };
             }
 
-            let signInError = null;
-            let signInOk = false;
-            for (let attempt = 1; attempt <= 3; attempt++) {
-                const { error } = await this.client.auth.signInWithPassword({
-                    email: data.email,
-                    password: password
-                });
-                if (!error) {
-                    signInOk = true;
-                    break;
-                }
-                signInError = error;
-                const msg = (error && error.message ? String(error.message) : '').toLowerCase();
-                const isInvalidCreds = msg.indexOf('invalid login credentials') !== -1;
-                if (!isInvalidCreds || attempt === 3) {
-                    break;
-                }
-                await new Promise((resolve) => setTimeout(resolve, attempt * 300));
-            }
+            const { error: signInError } = await this.client.auth.signInWithPassword({
+                email: data.email,
+                password: password
+            });
 
-            if (!signInOk) {
+            if (signInError) {
                 console.error('Error signInWithPassword:', signInError);
                 return {
                     success: false,
