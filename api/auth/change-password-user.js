@@ -14,6 +14,12 @@ function hashPassword(password) {
     return crypto.createHash('sha256').update(password, 'utf8').digest('hex');
 }
 
+function safeErrMsg(err) {
+    if (!err) return null;
+    const msg = err.message || err.code || String(err);
+    return String(msg || '').substring(0, 220) || null;
+}
+
 function authEmail(codigoUsuario) {
     const safe = String(codigoUsuario).trim().replace(/[^a-zA-Z0-9._-]/g, '_');
     return `${safe}@labels.auth`;
@@ -116,10 +122,11 @@ module.exports = async (req, res) => {
     }
 
     // 1) Actualizar hash en tabla usuarios
+    const oldHash = String(userRow.password_hash || '');
     const { error: updErr } = await supabase
         .from('usuarios')
         .update({ password_hash: hashNueva, fecha_actualizacion: new Date().toISOString() })
-        .eq('id', userId);
+        .eq('id', userRow.id);
     if (updErr) {
         res.status(500).json({ success: false, message: 'Error al guardar la nueva contrasena' });
         return;
@@ -128,13 +135,14 @@ module.exports = async (req, res) => {
     // 2) Sincronizar Supabase Auth
     const email = authEmail(userRow.codigo_usuario);
     const appMetadata = {
-        usuario_id: userId,
+        usuario_id: userRow.id,
         es_administrador: String(userRow.tipo || '').toUpperCase() === 'ADMINISTRADOR',
         es_administracion: String(userRow.tipo || '').toUpperCase() === 'ADMINISTRACION'
     };
 
     let authUserId = userRow.auth_user_id ? String(userRow.auth_user_id) : null;
     let authSyncOk = false;
+    let authSyncErr = null;
 
     if (authUserId) {
         const { error } = await supabase.auth.admin.updateUserById(authUserId, {
@@ -142,6 +150,7 @@ module.exports = async (req, res) => {
             app_metadata: appMetadata
         });
         authSyncOk = !error;
+        if (error) authSyncErr = safeErrMsg(error);
     }
 
     if (!authSyncOk) {
@@ -156,6 +165,7 @@ module.exports = async (req, res) => {
             authUserId = created && (created.user ? created.user.id : created.id) || authUserId;
             authSyncOk = true;
         } else {
+            authSyncErr = safeErrMsg(createErr);
             const msg = String(createErr.message || '').toLowerCase();
             if (
                 msg.includes('already been registered') ||
@@ -171,19 +181,33 @@ module.exports = async (req, res) => {
                     if (!updExistingErr) {
                         authUserId = existingId;
                         authSyncOk = true;
+                        authSyncErr = null;
+                    } else {
+                        authSyncErr = safeErrMsg(updExistingErr);
                     }
+                } else {
+                    authSyncErr = authSyncErr || 'No se pudo localizar usuario auth existente por email';
                 }
             }
         }
     }
 
     if (!authSyncOk) {
-        res.status(500).json({ success: false, message: 'Contrasena guardada en BD pero no sincronizada en Auth' });
+        // Rollback para evitar inconsistencia: sin Auth sync, no persistimos cambio en BD.
+        await supabase
+            .from('usuarios')
+            .update({ password_hash: oldHash, fecha_actualizacion: new Date().toISOString() })
+            .eq('id', userRow.id);
+        res.status(500).json({
+            success: false,
+            message: 'No se pudo sincronizar la contrasena en Auth; cambio revertido',
+            detail: authSyncErr
+        });
         return;
     }
 
     if (authUserId && authUserId !== userRow.auth_user_id) {
-        await supabase.from('usuarios').update({ auth_user_id: authUserId }).eq('id', userId);
+        await supabase.from('usuarios').update({ auth_user_id: authUserId }).eq('id', userRow.id);
     }
 
     res.status(200).json({ success: true, message: 'Contrasena actualizada correctamente' });
