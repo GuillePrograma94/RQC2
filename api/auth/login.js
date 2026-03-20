@@ -59,6 +59,46 @@ async function findAuthUserIdByEmail(supabase, email) {
     }
 }
 
+async function linkAndSyncAuthUserPassword(supabase, params) {
+    const {
+        table,
+        match,
+        authUserId,
+        password,
+        appMetadata
+    } = params || {};
+
+    if (!table || !match || !authUserId || !password) return false;
+
+    try {
+        let q = supabase.from(table).update({ auth_user_id: authUserId });
+        Object.keys(match).forEach((key) => {
+            q = q.eq(key, match[key]);
+        });
+        const { error: linkError } = await q;
+        if (linkError) {
+            logError('link auth_user_id (' + table + ')', linkError);
+            return false;
+        }
+
+        const payload = { password };
+        if (appMetadata && typeof appMetadata === 'object') {
+            payload.app_metadata = appMetadata;
+        }
+
+        const { error: syncError } = await supabase.auth.admin.updateUserById(authUserId, payload);
+        if (syncError) {
+            logError('auth.admin.updateUserById relink', syncError);
+            return false;
+        }
+
+        return true;
+    } catch (e) {
+        logError('linkAndSyncAuthUserPassword', e);
+        return false;
+    }
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -155,11 +195,14 @@ module.exports = async (req, res) => {
             if (createError) {
                 if (createError.message && createError.message.includes('already been registered')) {
                     const existingId = await findAuthUserIdByEmail(supabase, emailComercial);
-                    const existing = existingId ? { id: existingId } : null;
-                    if (existing) {
-                        await supabase.from('usuarios_comerciales')
-                            .update({ auth_user_id: existing.id })
-                            .eq('id', com.comercial_id);
+                    if (existingId) {
+                        await linkAndSyncAuthUserPassword(supabase, {
+                            table: 'usuarios_comerciales',
+                            match: { id: com.comercial_id },
+                            authUserId: existingId,
+                            password,
+                            appMetadata: { comercial_id: com.comercial_id, es_comercial: true }
+                        });
                     }
                 } else {
                     logError('auth.admin.createUser comercial', createError);
@@ -248,12 +291,14 @@ module.exports = async (req, res) => {
             if (createError) {
                 if (createError.message && createError.message.includes('already been registered')) {
                     const existingId = await findAuthUserIdByEmail(supabase, email);
-                    const existing = existingId ? { id: existingId } : null;
-                    if (existing) {
-                        await supabase.from('usuarios_operarios')
-                            .update({ auth_user_id: existing.id })
-                            .eq('usuario_id', userId)
-                            .eq('codigo_operario', codigoOperario);
+                    if (existingId) {
+                        await linkAndSyncAuthUserPassword(supabase, {
+                            table: 'usuarios_operarios',
+                            match: { usuario_id: userId, codigo_operario: codigoOperario },
+                            authUserId: existingId,
+                            password,
+                            appMetadata: { usuario_id: userId, es_operario: true, es_administrador: esAdministrador }
+                        });
                     }
                 } else {
                     logError('auth.admin.createUser operario', createError);
@@ -316,9 +361,14 @@ module.exports = async (req, res) => {
             if (createError) {
                 if (createError.message && createError.message.includes('already been registered')) {
                     const existingId = await findAuthUserIdByEmail(supabase, email);
-                    const existing = existingId ? { id: existingId } : null;
-                    if (existing) {
-                        await supabase.from('usuarios').update({ auth_user_id: existing.id }).eq('id', userId);
+                    if (existingId) {
+                        await linkAndSyncAuthUserPassword(supabase, {
+                            table: 'usuarios',
+                            match: { id: userId },
+                            authUserId: existingId,
+                            password,
+                            appMetadata: { usuario_id: userId, es_administrador: esAdministrador, es_administracion: esAdministracion }
+                        });
                     }
                 } else {
                     logError('auth.admin.createUser titular', createError);
