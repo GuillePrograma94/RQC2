@@ -902,19 +902,30 @@ class SupabaseClient {
             if (!this.client || !userId) {
                 throw new Error('Cliente no inicializado o usuario no indicado');
             }
-            const hashActual = await this._hashPassword(passwordActual);
-            const hashNueva = await this._hashPassword(passwordNueva);
-            const { data, error } = await this.client.rpc('cambiar_password_usuario', {
-                p_user_id: userId,
-                p_password_actual_hash: hashActual,
-                p_password_nueva_hash: hashNueva
+            const apiBase = typeof window !== 'undefined' && window.location && window.location.origin
+                ? window.location.origin
+                : '';
+            const url = apiBase ? `${apiBase}/api/auth/change-password-user` : '/api/auth/change-password-user';
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: userId,
+                    password_actual: passwordActual,
+                    password_nueva: passwordNueva
+                })
             });
-            if (error) throw error;
-            if (data && data.length > 0) {
-                const r = data[0];
-                return { success: !!r.success, message: r.message || null };
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                return {
+                    success: false,
+                    message: payload.message || 'Error al cambiar contrasena'
+                };
             }
-            return { success: false, message: 'Error desconocido' };
+            return {
+                success: !!payload.success,
+                message: payload.message || null
+            };
         } catch (err) {
             console.error('cambiarPassword:', err);
             return { success: false, message: (err && err.message) || 'Error al cambiar contrasena' };

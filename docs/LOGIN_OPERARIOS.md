@@ -22,6 +22,19 @@ Si en la base de datos esta aplicada la version legacy, el login con codigo tipo
 
 No ejecutar `user_management/fix_verificar_login_codigo_cliente.sql` si se usan operarios; ese script reemplaza la funcion por una version que no contempla operarios.
 
+## Cambio de contrasena de usuario (dependiente/cliente) con sync Auth
+
+Para evitar desincronizacion entre `usuarios.password_hash` y Supabase Auth, la app usa el endpoint:
+
+- `POST /api/auth/change-password-user` (`scan_client_mobile/api/auth/change-password-user.js`)
+
+Este flujo:
+
+1. Verifica la contrasena actual contra `usuarios.password_hash` (SHA-256).
+2. Guarda la nueva contrasena en `usuarios.password_hash`.
+3. Sincroniza la misma contrasena en Supabase Auth (por `auth_user_id` o por email `codigo@labels.auth` con fallback de relink).
+4. Solo devuelve `success: true` cuando los dos sistemas quedan alineados.
+
 ---
 
 ## Vista de operario en el menú
