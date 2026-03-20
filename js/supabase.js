@@ -591,6 +591,11 @@ class SupabaseClient {
         return hashHex;
     }
 
+    _toAuthPassword(password) {
+        const raw = (password != null) ? String(password) : '';
+        return raw.length >= 6 ? raw : (raw + '__BM');
+    }
+
     /**
      * Verifica credenciales y establece sesion Supabase Auth (JWT con app_metadata.usuario_id).
      * Llama a la API de login (Vercel) que crea/actualiza el usuario en Auth y devuelve el perfil.
@@ -638,7 +643,7 @@ class SupabaseClient {
 
             const { error: signInError } = await this.client.auth.signInWithPassword({
                 email: data.email,
-                password: password
+                password: this._toAuthPassword(password)
             });
 
             if (signInError) {

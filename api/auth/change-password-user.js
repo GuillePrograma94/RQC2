@@ -14,6 +14,12 @@ function hashPassword(password) {
     return crypto.createHash('sha256').update(password, 'utf8').digest('hex');
 }
 
+function toAuthPassword(password) {
+    const raw = String(password == null ? '' : password);
+    // Supabase Auth exige >= 6. Regla funcional de app: 4+.
+    return raw.length >= 6 ? raw : (raw + '__BM');
+}
+
 function safeErrMsg(err) {
     if (!err) return null;
     const msg = err.message || err.code || String(err);
@@ -88,6 +94,7 @@ module.exports = async (req, res) => {
     const supabase = createClient(url, serviceKey);
     const hashActual = hashPassword(passwordActual);
     const hashNueva = hashPassword(passwordNueva);
+    const authPasswordNueva = toAuthPassword(passwordNueva);
 
     let userQuery = supabase
         .from('usuarios')
@@ -146,7 +153,7 @@ module.exports = async (req, res) => {
 
     if (authUserId) {
         const { error } = await supabase.auth.admin.updateUserById(authUserId, {
-            password: passwordNueva,
+            password: authPasswordNueva,
             app_metadata: appMetadata
         });
         authSyncOk = !error;
@@ -156,7 +163,7 @@ module.exports = async (req, res) => {
     if (!authSyncOk) {
         const { data: created, error: createErr } = await supabase.auth.admin.createUser({
             email,
-            password: passwordNueva,
+            password: authPasswordNueva,
             email_confirm: true,
             app_metadata: appMetadata
         });
@@ -175,7 +182,7 @@ module.exports = async (req, res) => {
                 const existingId = await findAuthUserIdByEmail(supabase, email);
                 if (existingId) {
                     const { error: updExistingErr } = await supabase.auth.admin.updateUserById(existingId, {
-                        password: passwordNueva,
+                        password: authPasswordNueva,
                         app_metadata: appMetadata
                     });
                     if (!updExistingErr) {

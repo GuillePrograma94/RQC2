@@ -14,6 +14,12 @@ function hashPassword(password) {
     return crypto.createHash('sha256').update(password, 'utf8').digest('hex');
 }
 
+function toAuthPassword(password) {
+    const raw = String(password == null ? '' : password);
+    // Supabase Auth exige >= 6. Mantenemos regla funcional de 4+ en app.
+    return raw.length >= 6 ? raw : (raw + '__BM');
+}
+
 function authEmail(codigoUsuario) {
     const safe = String(codigoUsuario).trim().replace(/[^a-zA-Z0-9._-]/g, '_');
     return `${safe}@labels.auth`;
@@ -62,6 +68,7 @@ async function findAuthUserIdByEmail(supabase, email) {
 async function syncAuthUserCredentials(supabase, options) {
     const email = options && options.email ? String(options.email).trim() : '';
     const password = options && options.password ? String(options.password) : '';
+    const authPassword = toAuthPassword(password);
     const appMetadata = (options && options.appMetadata) || {};
     const initialAuthUserId = options && options.authUserId ? String(options.authUserId) : null;
     const onLinked = options && typeof options.onLinked === 'function' ? options.onLinked : null;
@@ -82,7 +89,7 @@ async function syncAuthUserCredentials(supabase, options) {
 
     if (initialAuthUserId) {
         const { error: updateError } = await supabase.auth.admin.updateUserById(initialAuthUserId, {
-            password,
+            password: authPassword,
             app_metadata: appMetadata
         });
         if (!updateError) {
@@ -94,7 +101,7 @@ async function syncAuthUserCredentials(supabase, options) {
 
     const { data: created, error: createError } = await supabase.auth.admin.createUser({
         email,
-        password,
+        password: authPassword,
         email_confirm: true,
         app_metadata: appMetadata
     });
@@ -123,7 +130,7 @@ async function syncAuthUserCredentials(supabase, options) {
     }
 
     const { error: updateExistingError } = await supabase.auth.admin.updateUserById(existingId, {
-        password,
+        password: authPassword,
         app_metadata: appMetadata
     });
     if (updateExistingError) {
