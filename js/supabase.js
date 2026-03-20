@@ -919,9 +919,10 @@ class SupabaseClient {
             });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) {
+                const detail = payload && payload.detail ? String(payload.detail) : '';
                 return {
                     success: false,
-                    message: payload.message || 'Error al cambiar contrasena'
+                    message: detail ? ((payload.message || 'Error al cambiar contrasena') + ' (' + detail + ')') : (payload.message || 'Error al cambiar contrasena')
                 };
             }
             return {

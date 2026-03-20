@@ -80,8 +80,8 @@ module.exports = async (req, res) => {
         res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
         return;
     }
-    if (passwordNueva.length < 4) {
-        res.status(400).json({ success: false, message: 'La nueva contrasena debe tener al menos 4 caracteres' });
+    if (passwordNueva.length < 6) {
+        res.status(400).json({ success: false, message: 'La nueva contrasena debe tener al menos 6 caracteres' });
         return;
     }
 
