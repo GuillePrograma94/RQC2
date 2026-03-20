@@ -1406,10 +1406,17 @@
 
     <!-- Fullscreen Mode Handler -->
     <script>
-        // Detectar si está en modo standalone/fullscreen (PWA instalada)
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                            window.matchMedia('(display-mode: fullscreen)').matches ||
-                            window.navigator.standalone === true;
+        // Detectar si esta en modo standalone/fullscreen (PWA instalada)
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+            window.matchMedia('(display-mode: fullscreen)').matches ||
+            window.navigator.standalone === true;
+        const isTabletDevice = (function () {
+            const ua = (navigator.userAgent || '').toLowerCase();
+            const minSide = Math.min(window.screen.width || 0, window.screen.height || 0);
+            const hasTouch = (navigator.maxTouchPoints || 0) > 1;
+            const matchesTabletUa = /ipad|tablet|android(?!.*mobile)/i.test(ua);
+            return hasTouch && (minSide >= 600 || matchesTabletUa);
+        })();
         
         if (isStandalone) {
             console.log('PWA en modo fullscreen/standalone');
@@ -1420,6 +1427,19 @@
                 document.documentElement.requestFullscreen?.({ navigationUI: "hide" })
                     .catch(err => console.log('Fullscreen no disponible:', err));
             }
+        }
+
+        // Tablet instalada: forzar uso en apaisado.
+        if (isStandalone && isTabletDevice) {
+            document.body.classList.add('tablet-landscape-installed');
+            const lockTabletLandscape = function () {
+                if (screen.orientation && typeof screen.orientation.lock === 'function') {
+                    screen.orientation.lock('landscape').catch(function () {});
+                }
+            };
+            lockTabletLandscape();
+            window.addEventListener('orientationchange', lockTabletLandscape);
+            window.addEventListener('resize', lockTabletLandscape);
         }
 
         // Restaurar fullscreen cuando se vuelve a la app

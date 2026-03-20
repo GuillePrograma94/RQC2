@@ -15,6 +15,12 @@ La web app esta pensada para movil pero es util tambien en PC. A partir de **102
 - **768px**: Tablet; app centrada con max-width 480px.
 - **1024px**: Desktop; cabecera y cuerpo a ancho completo; barra de navegacion mas alta y botones mas grandes.
 
+## Orientacion en tablet instalada (PWA)
+
+- `manifest.json` usa `orientation: "any"` para no forzar vertical de forma global.
+- Cuando la app esta instalada (`standalone/fullscreen`) y detecta tablet, `index.html` intenta bloquear orientacion a `landscape`.
+- En ese modo (`body.tablet-landscape-installed`) y con `min-width: 768px` + `orientation: landscape`, `styles.css` elimina el marco de `480px` y usa ancho completo para que la app se vea realmente en apaisado.
+
 No se requiere cambio de codigo JS: la misma app responde al ancho de la ventana.
 
 ## Navegacion y flujo de envio (actualizado)

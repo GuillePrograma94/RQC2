@@ -1721,6 +1721,24 @@ body.gate-visible .app-container {
     }
 }
 
+/* Tablet instalada (PWA) en apaisado: usar ancho completo en lugar de marco de 480px */
+@media (min-width: 768px) and (orientation: landscape) {
+    body.tablet-landscape-installed .app-container {
+        max-width: none;
+        left: 0;
+        right: 0;
+        margin: 0;
+        transform: none;
+    }
+
+    body.tablet-landscape-installed .bottom-nav {
+        max-width: none;
+        left: 0;
+        right: 0;
+        transform: none;
+    }
+}
+
 /* Desktop (PC): cabecera y cuerpo a ancho completo; contenido limitado; botones de nav mas grandes */
 @media (min-width: 1024px) {
     .app-header-fixed {
