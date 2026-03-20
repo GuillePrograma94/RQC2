@@ -4709,7 +4709,12 @@ class ScanAsYouShopApp {
                     return;
                 }
                 if (submitBtn) submitBtn.disabled = true;
-                window.supabaseClient.cambiarPassword(this.currentUser.user_id, current.value, newVal)
+                window.supabaseClient.cambiarPassword(
+                    this.currentUser.user_id,
+                    this.currentUser.codigo_usuario,
+                    current.value,
+                    newVal
+                )
                     .then((result) => {
                         if (result.success) {
                             msgEl.textContent = 'Contrasena actualizada correctamente';
@@ -4825,7 +4830,12 @@ class ScanAsYouShopApp {
                 }
                 const request = (this.currentUser.is_comercial && this.currentUser.comercial_id)
                     ? window.supabaseClient.cambiarPasswordComercial(this.currentUser.comercial_id, current.value, newVal)
-                    : window.supabaseClient.cambiarPassword(this.currentUser.user_id, current.value, newVal);
+                    : window.supabaseClient.cambiarPassword(
+                        this.currentUser.user_id,
+                        this.currentUser.codigo_usuario,
+                        current.value,
+                        newVal
+                    );
                 request
                     .then((result) => {
                         if (result.success) {

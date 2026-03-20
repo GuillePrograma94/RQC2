@@ -30,10 +30,13 @@ Para evitar desincronizacion entre `usuarios.password_hash` y Supabase Auth, la 
 
 Este flujo:
 
-1. Verifica la contrasena actual contra `usuarios.password_hash` (SHA-256).
-2. Guarda la nueva contrasena en `usuarios.password_hash`.
-3. Sincroniza la misma contrasena en Supabase Auth (por `auth_user_id` o por email `codigo@labels.auth` con fallback de relink).
-4. Solo devuelve `success: true` cuando los dos sistemas quedan alineados.
+1. Identifica al usuario por `codigo_usuario` (estandar; el dato que realmente conoce el usuario).
+2. Verifica la contrasena actual contra `usuarios.password_hash` (SHA-256).
+3. Guarda la nueva contrasena en `usuarios.password_hash`.
+4. Sincroniza la misma contrasena en Supabase Auth (por `auth_user_id` o por email `codigo@labels.auth` con fallback de relink).
+5. Solo devuelve `success: true` cuando los dos sistemas quedan alineados.
+
+Si ademas se envia `user_id`, se usa solo para validar consistencia con ese `codigo_usuario`; si no coincide, el endpoint rechaza el cambio por seguridad.
 
 ---
 

@@ -892,15 +892,16 @@ class SupabaseClient {
 
     /**
      * Cambia la contraseña del usuario (verifica la actual con hash)
-     * @param {number} userId - ID del usuario
+     * @param {number} userId - ID interno del usuario (solo validacion de consistencia)
+     * @param {string} codigoUsuario - Codigo de usuario (estandar para identificar al usuario)
      * @param {string} passwordActual - Contraseña actual en texto
      * @param {string} passwordNueva - Contraseña nueva en texto
      * @returns {Promise<{success: boolean, message?: string}>}
      */
-    async cambiarPassword(userId, passwordActual, passwordNueva) {
+    async cambiarPassword(userId, codigoUsuario, passwordActual, passwordNueva) {
         try {
-            if (!this.client || !userId) {
-                throw new Error('Cliente no inicializado o usuario no indicado');
+            if (!this.client || !codigoUsuario) {
+                throw new Error('Cliente no inicializado o codigo de usuario no indicado');
             }
             const apiBase = typeof window !== 'undefined' && window.location && window.location.origin
                 ? window.location.origin
@@ -911,6 +912,7 @@ class SupabaseClient {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     user_id: userId,
+                    codigo_usuario: codigoUsuario,
                     password_actual: passwordActual,
                     password_nueva: passwordNueva
                 })

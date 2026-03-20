@@ -2,7 +2,8 @@
  * POST /api/auth/change-password-user
  * Cambia la contraseña de un usuario (tabla usuarios) y la sincroniza con Supabase Auth.
  *
- * Body: { user_id: number, password_actual: string, password_nueva: string }
+ * Body: { codigo_usuario?: string, user_id?: number, password_actual: string, password_nueva: string }
+ * Estándar: usar siempre codigo_usuario (dato real que introduce el usuario).
  * Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
 
@@ -64,11 +65,12 @@ module.exports = async (req, res) => {
         return;
     }
 
+    const codigoUsuario = body.codigo_usuario != null ? String(body.codigo_usuario).trim() : '';
     const userId = body.user_id != null ? parseInt(body.user_id, 10) : NaN;
     const passwordActual = body.password_actual != null ? String(body.password_actual) : '';
     const passwordNueva = body.password_nueva != null ? String(body.password_nueva) : '';
 
-    if (!Number.isInteger(userId) || userId <= 0 || !passwordActual || !passwordNueva) {
+    if (!codigoUsuario && (!Number.isInteger(userId) || userId <= 0) || !passwordActual || !passwordNueva) {
         res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
         return;
     }
@@ -81,11 +83,17 @@ module.exports = async (req, res) => {
     const hashActual = hashPassword(passwordActual);
     const hashNueva = hashPassword(passwordNueva);
 
-    const { data: userRow, error: userErr } = await supabase
+    let userQuery = supabase
         .from('usuarios')
-        .select('id,codigo_usuario,password_hash,auth_user_id,activo,tipo')
-        .eq('id', userId)
-        .maybeSingle();
+        .select('id,codigo_usuario,password_hash,auth_user_id,activo,tipo');
+
+    if (codigoUsuario) {
+        userQuery = userQuery.eq('codigo_usuario', codigoUsuario);
+    } else {
+        userQuery = userQuery.eq('id', userId);
+    }
+
+    const { data: userRow, error: userErr } = await userQuery.maybeSingle();
 
     if (userErr) {
         res.status(500).json({ success: false, message: 'Error al cargar usuario' });
@@ -93,6 +101,13 @@ module.exports = async (req, res) => {
     }
     if (!userRow || userRow.activo !== true) {
         res.status(404).json({ success: false, message: 'Usuario no encontrado o inactivo' });
+        return;
+    }
+    if (Number.isInteger(userId) && userId > 0 && userRow.id !== userId) {
+        res.status(409).json({
+            success: false,
+            message: 'Inconsistencia entre codigo_usuario y user_id; no se aplica cambio por seguridad'
+        });
         return;
     }
     if (String(userRow.password_hash || '') !== hashActual) {
