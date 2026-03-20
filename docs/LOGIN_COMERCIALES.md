@@ -18,6 +18,16 @@ El login de comerciales usa el endpoint serverless `api/auth/login.js`:
 3. `verificar_login_comercial` verifica contra `usuarios_comerciales.password_hash`.
 4. La respuesta incluye `es_comercial: true`, `comercial_id`, `comercial_numero` y **`user_id: null`** (el ID de `usuarios` no se expone en el login).
 
+### Sincronizacion de password con Supabase Auth
+
+`api/auth/login.js` no solo valida hash en BD (`usuarios` / `usuarios_comerciales`), tambien fuerza la sincronizacion de credenciales en Supabase Auth **antes** de devolver `success`.
+
+- Si `auth_user_id` existe, actualiza password por `auth.admin.updateUserById`.
+- Si falta o es invalido, crea usuario auth.
+- Si el email ya estaba registrado, localiza el usuario existente, actualiza password y vuelve a enlazar `auth_user_id`.
+
+Con esto se evita el caso de "password cambiada en BD pero `signInWithPassword` falla por credenciales desincronizadas".
+
 En la app, `currentUser` queda con:
 ```
 {

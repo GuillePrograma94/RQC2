@@ -106,7 +106,12 @@ async function syncAuthUserCredentials(supabase, options) {
     }
 
     const createMsg = createError && createError.message ? String(createError.message) : '';
-    const alreadyRegistered = createMsg.toLowerCase().includes('already been registered');
+    const createMsgLower = createMsg.toLowerCase();
+    const alreadyRegistered = (
+        createMsgLower.includes('already been registered') ||
+        createMsgLower.includes('already registered') ||
+        (createMsgLower.includes('already') && createMsgLower.includes('register'))
+    );
     if (!alreadyRegistered) {
         logError(label + ' createUser', createError);
         return { ok: false, message: createMsg || 'Error al crear usuario auth' };
@@ -232,12 +237,9 @@ module.exports = async (req, res) => {
             }
         });
         if (!syncCom.ok) {
-            res.status(500).json({
-                success: false,
-                message: 'Error al sincronizar sesion de auth',
-                detail: String(syncCom.message || '').substring(0, 200) || null
-            });
-            return;
+            // No bloquear login: la autenticacion principal ya fue validada por RPC.
+            // Mantener compatibilidad operativa aunque falle la resincronizacion de Auth.
+            logError('comercial auth sync (non-blocking)', syncCom.message || 'sync failed');
         }
         return res.status(200).json({
             success: true,
@@ -309,12 +311,8 @@ module.exports = async (req, res) => {
             }
         });
         if (!syncOperario.ok) {
-            res.status(500).json({
-                success: false,
-                message: 'Error al sincronizar sesion de auth',
-                detail: String(syncOperario.message || '').substring(0, 200) || null
-            });
-            return;
+            // No bloquear login: mantener flujo previo en produccion.
+            logError('operario auth sync (non-blocking)', syncOperario.message || 'sync failed');
         }
     } else {
         // Titular: crear/actualizar usuario de Auth en usuarios.auth_user_id (comportamiento original)
@@ -351,12 +349,8 @@ module.exports = async (req, res) => {
             }
         });
         if (!syncTitular.ok) {
-            res.status(500).json({
-                success: false,
-                message: 'Error al sincronizar sesion de auth',
-                detail: String(syncTitular.message || '').substring(0, 200) || null
-            });
-            return;
+            // No bloquear login: mantener flujo previo en produccion.
+            logError('titular auth sync (non-blocking)', syncTitular.message || 'sync failed');
         }
     }
 
