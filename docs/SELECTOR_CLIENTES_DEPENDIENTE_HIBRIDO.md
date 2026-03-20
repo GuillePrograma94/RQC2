@@ -33,9 +33,9 @@ En scan_client_mobile, el dependiente puede representar a cualquier cliente de s
   LIMIT `p_limit` (ej. 200).  
   Uso: rellenar la "lista rápida" que se guarda en local.
 
-- **RPC 2 – Búsqueda por texto**  
+- **RPC 2 – Búsqueda por texto (global)**  
   `buscar_clientes_dependiente(p_dependiente_user_id, p_query, p_limit)`.  
-  Mismos clientes elegibles. **Cada palabra** de `p_query` (separada por espacios) debe aparecer en al menos uno de: nombre, código, alias, población (ILIKE por palabra). Ejemplos: "rafa olcina", "olci rafa" o "ol lli rafa" encuentran "JOSE RAFAEL OLCINA LLIN". Mismo orden por frecuencia y nombre, LIMIT (ej. 100).  
+  El dependiente debe estar activo en `usuarios_dependientes`, pero la búsqueda se hace contra **todos los clientes activos** (no limitada al almacén de su tienda). **Cada palabra** de `p_query` (separada por espacios) debe aparecer en al menos uno de: nombre, código, alias, población (ILIKE por palabra). Ejemplos: "rafa olcina", "olci rafa" o "ol lli rafa" encuentran "JOSE RAFAEL OLCINA LLIN". Mismo orden por frecuencia y nombre, LIMIT (ej. 100).  
   Uso: cuando el usuario escribe en el buscador, consultar solo contra Supabase.
 
 - **RPC 3 – Registrar representación**  
@@ -56,7 +56,7 @@ En scan_client_mobile, el dependiente puede representar a cualquier cliente de s
   - Si el campo de búsqueda está **vacío**: mostrar solo la lista de frecuentes (la de memoria/IndexedDB).  
   - Si el usuario **escribe**: debounce ~300 ms y llamar a `buscar_clientes_dependiente(dependiente_id, query, 100)`.  
   - Mostrar los resultados de la búsqueda remota (sustituyen o se fusionan con los frecuentes según UX; recomendación: con texto escrito mostrar solo resultados de búsqueda para no confundir).  
-  - Ventaja: se puede encontrar a **cualquier** cliente de la tienda, sin depender del límite de 1000 de una sola carga A-Z.
+  - Ventaja: se puede encontrar a **cualquier** cliente activo de la base de datos, aunque pertenezca a otro almacén.
 
 - **Al seleccionar un cliente**  
   - Llamar a `registrar_representacion_dependiente(dependiente_id, cliente_id)` en segundo plano (no bloquear navegación).  

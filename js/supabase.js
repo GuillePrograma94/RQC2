@@ -814,8 +814,8 @@ class SupabaseClient {
     }
 
     /**
-     * Busca clientes del dependiente por texto (nombre, codigo, alias, poblacion).
-     * Orden: frecuencia luego nombre.
+     * Busca clientes globales para dependiente por texto (nombre, codigo, alias, poblacion).
+     * Orden: frecuencia de ese dependiente y luego nombre.
      * @param {number} dependienteUserId - ID del dependiente (usuarios.id)
      * @param {string} query - Texto a buscar (puede ser vacio para devolver todos hasta limit)
      * @param {number} [limit=100] - Maximo de resultados

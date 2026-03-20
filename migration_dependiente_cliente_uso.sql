@@ -83,7 +83,7 @@ COMMENT ON FUNCTION get_clientes_dependiente_por_frecuencia(INTEGER, INTEGER) IS
 'Clientes del almacen del dependiente ordenados por uso (mas representados primero). Para lista local en selector.';
 
 -- ============================================
--- 3. RPC: BUSCAR CLIENTES POR TEXTO
+-- 3. RPC: BUSCAR CLIENTES POR TEXTO (GLOBAL)
 -- Cada palabra del query debe coincidir en al menos un campo (nombre, codigo, alias, poblacion).
 -- Ej: "rafa olcina" o "olci rafa" encuentran "JOSE RAFAEL OLCINA LLIN".
 -- ============================================
@@ -118,11 +118,10 @@ AS $$
             u.poblacion,
             COALESCE(dcu.veces_representado, 0) AS veces,
             dcu.ultima_representacion AS ultima
-        FROM usuarios_dependientes ud
-        JOIN usuarios u ON u.almacen_habitual = ud.almacen_tienda
-        LEFT JOIN dependiente_cliente_uso dcu ON dcu.dependiente_user_id = ud.usuario_id AND dcu.cliente_user_id = u.id
-        WHERE ud.usuario_id = p_dependiente_user_id
-          AND ud.activo = TRUE
+        FROM usuarios u
+        JOIN usuarios_dependientes ud ON ud.usuario_id = p_dependiente_user_id
+        LEFT JOIN dependiente_cliente_uso dcu ON dcu.dependiente_user_id = p_dependiente_user_id AND dcu.cliente_user_id = u.id
+        WHERE ud.activo = TRUE
           AND (u.activo IS NULL OR u.activo = TRUE)
           AND COALESCE(u.tipo, 'CLIENTE') IN ('CLIENTE', 'ADMINISTRADOR')
           AND (
@@ -150,7 +149,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION buscar_clientes_dependiente(INTEGER, TEXT, INTEGER) IS
-'Busca clientes del dependiente: cada palabra del query debe coincidir en nombre, codigo, alias o poblacion. Orden: frecuencia luego nombre.';
+'Busca clientes globales para dependiente: cada palabra del query debe coincidir en nombre, codigo, alias o poblacion. Orden: frecuencia luego nombre.';
 
 -- ============================================
 -- 4. RPC: REGISTRAR REPRESENTACION (upsert uso)
