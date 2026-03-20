@@ -4696,8 +4696,8 @@ class ScanAsYouShopApp {
                 if (!current || !newP || !confirmP || !msgEl) return;
                 const newVal = newP.value;
                 const confirmVal = confirmP.value;
-                if (newVal.length < 6) {
-                    msgEl.textContent = 'La nueva contrasena debe tener al menos 6 caracteres';
+                if (newVal.length < 4) {
+                    msgEl.textContent = 'La nueva contraseña debe tener al menos 4 caracteres';
                     msgEl.className = 'profile-message error';
                     msgEl.style.display = 'block';
                     return;
@@ -4808,8 +4808,8 @@ class ScanAsYouShopApp {
                 if (!current || !newP || !confirmP || !msgEl) return;
                 const newVal = newP.value;
                 const confirmVal = confirmP.value;
-                if (newVal.length < 6) {
-                    msgEl.textContent = 'La nueva contraseña debe tener al menos 6 caracteres';
+                if (newVal.length < 4) {
+                    msgEl.textContent = 'La nueva contraseña debe tener al menos 4 caracteres';
                     msgEl.className = 'profile-message error';
                     msgEl.style.display = 'block';
                     return;
