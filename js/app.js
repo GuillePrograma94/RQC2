@@ -1238,6 +1238,8 @@ class ScanAsYouShopApp {
             const operariosSection = document.getElementById('profileOperariosSection');
             if (passwordSection) passwordSection.style.display = 'none';
             if (operariosSection) operariosSection.style.display = 'none';
+            const appCacheSection = document.getElementById('profileAppCacheSection');
+            if (appCacheSection) appCacheSection.style.display = 'block';
             return;
         }
         const nameEl = document.getElementById('profileUserName');
@@ -1252,6 +1254,10 @@ class ScanAsYouShopApp {
         const operariosSection = document.getElementById('profileOperariosSection');
         if (operariosSection) {
             operariosSection.style.display = this.currentUser.is_operario ? 'none' : 'block';
+        }
+        const appCacheSection = document.getElementById('profileAppCacheSection');
+        if (appCacheSection) {
+            appCacheSection.style.display = 'block';
         }
         const codigoEjemplo = document.getElementById('profileOperarioCodigoEjemplo');
         if (codigoEjemplo && !this.currentUser.is_operario) {
@@ -1312,6 +1318,40 @@ class ScanAsYouShopApp {
             listEl.style.display = 'none';
             emptyEl.style.display = 'block';
         }
+    }
+
+    /**
+     * Limpia caches del service worker, renueva registro del SW, sube token scb de imagenes familias y recarga.
+     * Proceso manual desde Mi perfil para moviles con cache agresiva.
+     */
+    async forceProfileAppCacheRefresh() {
+        const ok = await window.ui.showConfirm(
+            'Forzar cache de la app',
+            'Se borrara la cache local de la aplicacion (archivos estaticos), se comprobara si hay una version nueva y se recargara la pagina. Las imagenes del catalogo usaran nuevas direcciones. ¿Continuar?',
+            'Continuar',
+            'Cancelar'
+        );
+        if (!ok) {
+            return;
+        }
+        try {
+            if (window.cartManager && typeof window.cartManager.bumpFamiliaImagesCacheBust === 'function') {
+                window.cartManager.bumpFamiliaImagesCacheBust();
+            }
+            if ('caches' in window && typeof caches.keys === 'function') {
+                const keys = await caches.keys();
+                await Promise.all(keys.map((name) => caches.delete(name)));
+            }
+            if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.ready;
+                if (reg && typeof reg.update === 'function') {
+                    await reg.update();
+                }
+            }
+        } catch (e) {
+            console.error('forceProfileAppCacheRefresh:', e);
+        }
+        window.location.reload();
     }
 
     /**
@@ -5503,6 +5543,12 @@ class ScanAsYouShopApp {
         if (profileAddOperarioBtn) {
             profileAddOperarioBtn.addEventListener('click', () => {
                 this.openProfileOperarioModal();
+            });
+        }
+        const profileForceAppCacheBtn = document.getElementById('profileForceAppCacheBtn');
+        if (profileForceAppCacheBtn) {
+            profileForceAppCacheBtn.addEventListener('click', () => {
+                this.forceProfileAppCacheRefresh();
             });
         }
 
