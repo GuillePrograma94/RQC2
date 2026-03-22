@@ -1735,12 +1735,6 @@ body.gate-visible .app-container {
         padding-right: clamp(1rem, 3vw, 2.5rem);
     }
 
-    #appContainerTienda .screen-content.inicio-content .inicio-welcome {
-        align-self: center;
-        max-width: 420px;
-        width: 100%;
-    }
-
     #appContainerTienda .screen-content.inicio-content .inicio-creaciones-card-wrap {
         align-self: center;
     }
@@ -3137,26 +3131,6 @@ body.gate-visible .app-container {
     padding: 2rem 1rem;
 }
 
-.inicio-welcome {
-    text-align: center;
-    max-width: 320px;
-    margin-bottom: 1.5rem;
-}
-
-.inicio-title {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--primary);
-    margin: 0 0 1rem 0;
-}
-
-.inicio-text {
-    font-size: 1rem;
-    color: var(--gray-600);
-    line-height: 1.5;
-    margin: 0;
-}
-
 /* Tarjeta solicitudes de articulos en Inicio (Dependiente / Comercial) */
 .inicio-creaciones-card-wrap {
     width: 100%;
@@ -3265,6 +3239,14 @@ body.gate-visible .app-container {
         gap: 0.75rem;
     }
 }
+
+/* PC: celdas mas grandes (imagen 1:1 legible) manteniendo auto-fill en todo el ancho */
+@media (min-width: 1024px) {
+    .inicio-familias-grid {
+        grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
+        gap: 1rem;
+    }
+}
 .inicio-familia-tile {
     display: flex;
     flex-direction: column;
@@ -3331,9 +3313,10 @@ body.gate-visible .app-container {
 }
 @media (min-width: 1024px) {
     .inicio-familia-tile-desc {
-        font-size: 0.78rem;
-        -webkit-line-clamp: 4;
-        flex: none;
+        font-size: 0.8rem;
+        -webkit-line-clamp: 5;
+        flex: 1;
+        min-height: 0;
     }
 }
 .inicio-familia-tile-code {
