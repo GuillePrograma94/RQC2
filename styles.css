@@ -3217,9 +3217,10 @@ body.gate-visible .app-container {
 .inicio-familia-tile {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    text-align: left;
-    padding: 0.65rem 0.75rem;
+    align-items: center;
+    text-align: center;
+    gap: 0.45rem;
+    padding: 0.65rem 0.5rem;
     border-radius: 10px;
     border: 1px solid var(--gray-200);
     background: #fff;
@@ -3233,16 +3234,28 @@ body.gate-visible .app-container {
 .inicio-familia-tile-leaf {
     border-left: 3px solid var(--primary);
 }
-.inicio-familia-tile-code {
-    font-weight: 700;
-    font-size: 0.95rem;
-    color: var(--gray-900);
+.inicio-familia-tile-img {
+    width: 88px;
+    height: 88px;
+    object-fit: contain;
+    border-radius: 8px;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    flex-shrink: 0;
 }
 .inicio-familia-tile-desc {
-    font-size: 0.8rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    line-height: 1.25;
+    word-break: break-word;
+    max-width: 100%;
+}
+.inicio-familia-tile-code {
+    font-size: 0.78rem;
+    font-weight: 600;
     color: var(--gray-600);
-    margin-top: 0.2rem;
-    line-height: 1.3;
+    font-family: ui-monospace, monospace;
 }
 .inicio-familias-open-search {
     margin-top: 0.25rem;

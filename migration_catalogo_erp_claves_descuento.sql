@@ -300,6 +300,45 @@ COMMENT ON FUNCTION upsert_productos_masivo_con_fecha(JSONB) IS
 'UPSERT masivo productos. JSON: codigo, descripcion, pvp, sinonimos?, codigo_proveedor?, clave_descuento?, activo?, activo_web?.';
 
 -- -----------------------------------------------------------------------------
+-- 8b. Import ERP catalogo: solo flags (no tocar descripcion, pvp, sinonimos, etc.)
+-- -----------------------------------------------------------------------------
+-- Evita INSERT/upsert REST que puede proponer NULL en columnas NOT NULL y, en general,
+-- limita el impacto a tres columnas. Filas sin codigo coincidente en productos: 0 updates.
+CREATE OR REPLACE FUNCTION actualizar_productos_catalogo_erp_flags(filas_json JSONB)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    n INTEGER;
+BEGIN
+    WITH data AS (
+        SELECT
+            NULLIF(TRIM(UPPER(COALESCE(elem->>'codigo', ''))), '') AS codigo,
+            NULLIF(TRIM(COALESCE(elem->>'clave_descuento', '')), '') AS clave_descuento,
+            (elem->>'activo')::boolean AS activo,
+            (elem->>'activo_web')::boolean AS activo_web
+        FROM jsonb_array_elements(filas_json) AS t(elem)
+        WHERE NULLIF(TRIM(UPPER(COALESCE(elem->>'codigo', ''))), '') IS NOT NULL
+    )
+    UPDATE productos p
+    SET
+        clave_descuento = d.clave_descuento,
+        activo = d.activo,
+        activo_web = d.activo_web
+    FROM data d
+    WHERE p.codigo = d.codigo;
+
+    GET DIAGNOSTICS n = ROW_COUNT;
+    RETURN n;
+END;
+$$;
+
+COMMENT ON FUNCTION actualizar_productos_catalogo_erp_flags(JSONB) IS
+'Actualiza solo clave_descuento, activo y activo_web por codigo. No inserta filas ni modifica descripcion, pvp, sinonimos ni codigo_proveedor.';
+
+GRANT EXECUTE ON FUNCTION actualizar_productos_catalogo_erp_flags(JSONB) TO service_role;
+
+-- -----------------------------------------------------------------------------
 -- 9. upsert_producto_con_fecha (unidad) alineado
 -- -----------------------------------------------------------------------------
 DROP FUNCTION IF EXISTS upsert_producto_con_fecha(text, text, real, text, text);

@@ -2734,6 +2734,18 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Imagen de familia por codigo: misma convencion que checkin_pc/web/app.js (no viene en Supabase).
+     */
+    getFamiliaImagenPrincipalUrl(codigo) {
+        const c = String(codigo || '').trim();
+        return 'https://www.saneamiento-martinez.com/imagenes/familias/F' + c + '.JPG';
+    }
+
+    getFamiliaImagenFallbackUrl() {
+        return 'https://www.saneamiento-martinez.com/imagenes/noDisponible100.png';
+    }
+
+    /**
      * Navegador por familias (codigo modificar) en pantalla Inicio; al elegir hoja abre Busqueda con chip activo.
      */
     async renderInicioFamiliasNavigator() {
@@ -2821,14 +2833,29 @@ class ScanAsYouShopApp {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'inicio-familia-tile' + (isLeaf ? ' inicio-familia-tile-leaf' : '');
-            const codeSpan = document.createElement('span');
-            codeSpan.className = 'inicio-familia-tile-code';
-            codeSpan.textContent = code;
+            const img = document.createElement('img');
+            img.className = 'inicio-familia-tile-img';
+            img.alt = desc;
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            const primaryUrl = this.getFamiliaImagenPrincipalUrl(code);
+            const fallbackUrl = this.getFamiliaImagenFallbackUrl();
+            img.src = primaryUrl;
+            img.addEventListener('error', function familiaImgOnError() {
+                img.removeEventListener('error', familiaImgOnError);
+                if (img.src.indexOf('noDisponible100') === -1) {
+                    img.src = fallbackUrl;
+                }
+            });
             const descSpan = document.createElement('span');
             descSpan.className = 'inicio-familia-tile-desc';
             descSpan.textContent = desc;
-            btn.appendChild(codeSpan);
+            const codeSpan = document.createElement('span');
+            codeSpan.className = 'inicio-familia-tile-code';
+            codeSpan.textContent = code;
+            btn.appendChild(img);
             btn.appendChild(descSpan);
+            btn.appendChild(codeSpan);
             btn.addEventListener('click', async () => {
                 if (!isLeaf) {
                     self._inicioFamiliaPath.push({ codigo: code, descripcion: desc });
@@ -3004,9 +3031,10 @@ class ScanAsYouShopApp {
             // Configurar pantallas
             this.setupScreens();
 
-            // Empezar en pantalla principal (carrito); showScreen('cart') ya llama a updateCartView()
-            this.showScreen('cart');
-            this.updateActiveNav('cart');
+            // Pantalla principal: Inicio (familias, bienvenida). Carrito desde la pestaña inferior.
+            this.showScreen('inicio');
+            this.updateActiveNav('inicio');
+            void this.updateCartView();
 
             this.isInitialized = true;
 

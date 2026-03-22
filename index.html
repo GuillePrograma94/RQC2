@@ -225,9 +225,9 @@
     <div id="appContainerTienda" class="app-container">
         
         <!-- ================================
-             PANTALLA PRINCIPAL: MI CARRITO
+             PANTALLA CARRITO
              ================================ -->
-        <div id="cartScreen" class="screen active">
+        <div id="cartScreen" class="screen">
             <!-- Cart Info Bar -->
             <div class="cart-info-bar">
                 <span id="itemsCount">0 productos</span> • 
@@ -254,9 +254,9 @@
         </div>
 
         <!-- ================================
-             PANTALLA INICIO
+             PANTALLA INICIO (entrada por defecto)
              ================================ -->
-        <div id="inicioScreen" class="screen">
+        <div id="inicioScreen" class="screen active">
             <main class="screen-content inicio-content">
                 <div class="inicio-welcome">
                     <h1 class="inicio-title">Bienvenido</h1>
@@ -1131,7 +1131,7 @@
              FOOTER DE NAVEGACIÓN
              ================================ -->
         <nav class="bottom-nav">
-            <button id="navInicio" class="nav-item">
+            <button id="navInicio" class="nav-item active">
                 <span class="nav-icon">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -1149,7 +1149,7 @@
                 </span>
                 <span class="nav-label">Buscar</span>
             </button>
-            <button id="navCart" class="nav-item active">
+            <button id="navCart" class="nav-item">
                 <span class="nav-icon nav-icon-with-badge">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="9" cy="21" r="1"/>
