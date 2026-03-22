@@ -2902,7 +2902,35 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Mapa codigo familia -> padre (prefijo mas largo presente en el catalogo de familias).
+     * Filtra codigos de familias para el arbol de Inicio: deben existir filas exactas de ancla.
+     * - Si length >= 2: debe existir el prefijo de 2 caracteres (ej. 02 para 0218).
+     * - Si length >= 4: debe existir el prefijo de 4 caracteres (ej. 0218 para 02189).
+     * Si existe 02189 en catalogo pero no existe 0218, se excluye 02189 y cualquier codigo que empiece por 0218.
+     * Codigos alfanumericos: mismas longitudes de prefijo (2 y 4 caracteres).
+     */
+    _filterFamiliasCodesConAnclasDosYcuatro(codesSet) {
+        const setAll = new Set();
+        codesSet.forEach((c) => {
+            const u = String(c || '').trim().toUpperCase();
+            if (u) {
+                setAll.add(u);
+            }
+        });
+        const out = new Set();
+        setAll.forEach((c) => {
+            if (c.length >= 2 && !setAll.has(c.slice(0, 2))) {
+                return;
+            }
+            if (c.length >= 4 && !setAll.has(c.slice(0, 4))) {
+                return;
+            }
+            out.add(c);
+        });
+        return out;
+    }
+
+    /**
+     * Mapa codigo familia -> padre (prefijo mas largo presente en el conjunto filtrado de familias).
      */
     _buildFamiliaParentMap(codesSet) {
         const parent = new Map();
@@ -3039,8 +3067,9 @@ class ScanAsYouShopApp {
                 codesSet.add(co);
             }
         }
-        const parentMap = this._buildFamiliaParentMap(codesSet);
-        return this._getFamiliaChildCodes(codesSet, parentMap, null);
+        const filtered = this._filterFamiliasCodesConAnclasDosYcuatro(codesSet);
+        const parentMap = this._buildFamiliaParentMap(filtered);
+        return this._getFamiliaChildCodes(filtered, parentMap, null);
     }
 
     /**
@@ -3085,10 +3114,26 @@ class ScanAsYouShopApp {
             codesSet.add(co);
             byCode.set(co, this._familiaMetaFromLocalRow(f));
         }
-        const parentMap = this._buildFamiliaParentMap(codesSet);
+        const codesSetFiltered = this._filterFamiliasCodesConAnclasDosYcuatro(codesSet);
+        if (this._inicioFamiliaPath && this._inicioFamiliaPath.length) {
+            const validSegs = [];
+            for (let pi = 0; pi < this._inicioFamiliaPath.length; pi++) {
+                const seg = this._inicioFamiliaPath[pi];
+                const co = String(seg.codigo || '').trim().toUpperCase();
+                if (co && codesSetFiltered.has(co)) {
+                    validSegs.push(seg);
+                } else {
+                    break;
+                }
+            }
+            if (validSegs.length !== this._inicioFamiliaPath.length) {
+                this._inicioFamiliaPath = validSegs;
+            }
+        }
+        const parentMap = this._buildFamiliaParentMap(codesSetFiltered);
         const path = this._inicioFamiliaPath || [];
         const parentNorm = path.length === 0 ? null : path[path.length - 1].codigo;
-        const children = this._getFamiliaChildCodes(codesSet, parentMap, parentNorm);
+        const children = this._getFamiliaChildCodes(codesSetFiltered, parentMap, parentNorm);
 
         const self = this;
 
@@ -3135,7 +3180,7 @@ class ScanAsYouShopApp {
             const meta = byCode.get(code) || this._familiaMetaFromLocalRow({ codigo: code, descripcion: code });
             const erpDesc = meta.descripcion || code;
             const displayDesc = meta.titulo_inicio ? meta.titulo_inicio : erpDesc;
-            const subs = this._getFamiliaChildCodes(codesSet, parentMap, code);
+            const subs = this._getFamiliaChildCodes(codesSetFiltered, parentMap, code);
             const isLeaf = subs.length === 0;
             const btn = document.createElement('button');
             btn.type = 'button';
