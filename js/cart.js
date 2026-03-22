@@ -41,7 +41,7 @@ class CartManager {
      */
     initIndexedDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, 8); // v8: store claves_descuento (tarifas por clave)
+            const request = indexedDB.open(this.dbName, 9); // v9: familias + familias_asignadas (IndexedDB)
 
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
@@ -135,6 +135,17 @@ class CartManager {
             if (!db.objectStoreNames.contains('claves_descuento')) {
                 db.createObjectStore('claves_descuento', { keyPath: 'clave' });
                 console.log('Object store claves_descuento creado');
+            }
+
+            if (!db.objectStoreNames.contains('familias')) {
+                db.createObjectStore('familias', { keyPath: 'codigo' });
+                console.log('Object store familias creado');
+            }
+
+            if (!db.objectStoreNames.contains('familias_asignadas')) {
+                const fas = db.createObjectStore('familias_asignadas', { keyPath: 'codigoProducto' });
+                fas.createIndex('codigoModificar', 'codigoModificar', { unique: false });
+                console.log('Object store familias_asignadas creado');
             }
                 
                 console.log('Esquema de base de datos creado/actualizado');
@@ -787,6 +798,113 @@ class CartManager {
                 resolve(m);
             };
             req.onerror = () => resolve(new Map());
+        });
+    }
+
+    /**
+     * Guarda jerarquia de familias (CODIGO + DESCRIPCION) y asignaciones SKU -> codigo modificar.
+     */
+    async saveFamiliasCatalogToStorage(familiasRows, asignadasRows) {
+        if (!this.db) return;
+        const familias = (familiasRows || []).map((r) => ({
+            codigo: String(r.CODIGO != null ? r.CODIGO : r.codigo != null ? r.codigo : '').trim().toUpperCase(),
+            descripcion: String(r.DESCRIPCION != null ? r.DESCRIPCION : r.descripcion != null ? r.descripcion : '').trim(),
+            id: r.id != null ? r.id : null
+        })).filter((f) => f.codigo);
+
+        const asignadas = (asignadasRows || []).map((r) => {
+            const cm = r['codigo modificar'] != null ? r['codigo modificar'] : r.codigo_modificar;
+            const cod = r.Codigo != null ? r.Codigo : r.codigo;
+            return {
+                codigoProducto: String(cod != null ? cod : '').trim().toUpperCase(),
+                codigoModificar: String(cm != null ? cm : '').trim().toUpperCase(),
+                id: r.id != null ? r.id : null
+            };
+        }).filter((a) => a.codigoProducto && a.codigoModificar);
+
+        await new Promise((resolve, reject) => {
+            const tx = this.db.transaction(['familias', 'familias_asignadas'], 'readwrite');
+            tx.objectStore('familias').clear();
+            tx.objectStore('familias_asignadas').clear();
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+            const stF = tx.objectStore('familias');
+            const stA = tx.objectStore('familias_asignadas');
+            for (let i = 0; i < familias.length; i++) stF.put(familias[i]);
+            for (let j = 0; j < asignadas.length; j++) stA.put(asignadas[j]);
+        });
+    }
+
+    /**
+     * Lista todas las filas de familias locales (orden no garantizado).
+     */
+    async getAllFamiliasLocal() {
+        if (!this.db || !this.db.objectStoreNames.contains('familias')) return [];
+        return new Promise((resolve) => {
+            const tx = this.db.transaction(['familias'], 'readonly');
+            const req = tx.objectStore('familias').getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => resolve([]);
+        });
+    }
+
+    /**
+     * SKUs con codigo modificar exacto (ultimo nivel de familia).
+     */
+    async getSkuSetForCodigoModificarExacto(codigoModificar) {
+        const norm = String(codigoModificar || '').trim().toUpperCase();
+        const empty = new Set();
+        if (!norm || !this.db || !this.db.objectStoreNames.contains('familias_asignadas')) {
+            return empty;
+        }
+        return new Promise((resolve) => {
+            const tx = this.db.transaction(['familias_asignadas'], 'readonly');
+            const st = tx.objectStore('familias_asignadas');
+            if (!st.indexNames.contains('codigoModificar')) {
+                resolve(empty);
+                return;
+            }
+            const idx = st.index('codigoModificar');
+            const req = idx.getAll(norm);
+            req.onsuccess = () => {
+                const rows = req.result || [];
+                const s = new Set();
+                for (let i = 0; i < rows.length; i++) {
+                    const c = rows[i].codigoProducto;
+                    if (c) s.add(String(c).trim().toUpperCase());
+                }
+                resolve(s);
+            };
+            req.onerror = () => resolve(empty);
+        });
+    }
+
+    /**
+     * Carga productos del almacen local por lista de SKUs (secuencial en una transaccion).
+     */
+    async getProductsBySkus(skuList) {
+        if (!this.db || !skuList || skuList.length === 0) return [];
+        const keys = [...new Set(skuList.map((s) => String(s || '').trim().toUpperCase()).filter(Boolean))];
+        if (keys.length === 0) return [];
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(['products'], 'readonly');
+            const st = tx.objectStore('products');
+            const out = [];
+            let i = 0;
+            const step = () => {
+                if (i >= keys.length) {
+                    resolve(out);
+                    return;
+                }
+                const k = keys[i++];
+                const r = st.get(k);
+                r.onsuccess = () => {
+                    if (r.result) out.push(r.result);
+                    step();
+                };
+                r.onerror = () => reject(r.error);
+            };
+            step();
         });
     }
 

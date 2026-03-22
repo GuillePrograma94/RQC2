@@ -28,9 +28,13 @@ class ScanAsYouShopApp {
             precioDesde: null,
             precioHasta: null,
             activeConfig: null,  // null | 'fabricanteProveedor' | 'precio' | 'almacen' (panel abierto)
+            codigoModificarFamilia: '', // codigo modificar exacto (ultimo nivel); combinable con precio/fabricante/etc.
+            familiaDescripcion: '',
         };
         /** Lista para combobox fabricante: { codigo_proveedor, nombre_proveedor, searchText, displayText }. Busqueda por nombre/alias solo. */
         this._proveedoresComboboxList = [];
+        /** Pila de codigos en navegador de familias (Inicio): { codigo, descripcion } */
+        this._inicioFamiliaPath = [];
     }
 
     /**
@@ -2680,6 +2684,185 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Mapa codigo familia -> padre (prefijo mas largo presente en el catalogo de familias).
+     */
+    _buildFamiliaParentMap(codesSet) {
+        const parent = new Map();
+        const codes = [...codesSet].map((c) => String(c || '').trim().toUpperCase()).filter(Boolean);
+        const setAll = new Set(codes);
+        for (let i = 0; i < codes.length; i++) {
+            const c = codes[i];
+            let par = null;
+            for (let len = c.length - 1; len >= 1; len--) {
+                const pref = c.slice(0, len);
+                if (setAll.has(pref)) {
+                    par = pref;
+                    break;
+                }
+            }
+            parent.set(c, par);
+        }
+        return parent;
+    }
+
+    _getFamiliaChildCodes(codesSet, parentMap, parentCodeNorm) {
+        const want = parentCodeNorm == null || parentCodeNorm === '' ? null : String(parentCodeNorm).trim().toUpperCase();
+        const out = [];
+        codesSet.forEach((c) => {
+            if (parentMap.get(c) === want) out.push(c);
+        });
+        out.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        return out;
+    }
+
+    _updateFamiliaChipUI() {
+        const chip = document.getElementById('chipFamilia');
+        const label = document.getElementById('chipFamiliaLabel');
+        const cod = this.filterChips.codigoModificarFamilia || '';
+        if (!chip || !label) return;
+        if (cod) {
+            chip.style.display = '';
+            chip.classList.add('active');
+            const desc = (this.filterChips.familiaDescripcion || '').trim();
+            const shortDesc = desc.length > 22 ? desc.slice(0, 19) + '...' : desc;
+            label.textContent = shortDesc ? ('Fam. ' + cod + ' · ' + shortDesc) : ('Fam. ' + cod);
+        } else {
+            chip.style.display = 'none';
+            chip.classList.remove('active');
+            label.textContent = 'Familia';
+        }
+    }
+
+    /**
+     * Navegador por familias (codigo modificar) en pantalla Inicio; al elegir hoja abre Busqueda con chip activo.
+     */
+    async renderInicioFamiliasNavigator() {
+        const section = document.getElementById('inicioFamiliasSection');
+        const bc = document.getElementById('inicioFamiliasBreadcrumb');
+        const grid = document.getElementById('inicioFamiliasGrid');
+        const hint = document.getElementById('inicioFamiliasHint');
+        if (!section || !bc || !grid) return;
+
+        if (!window.cartManager || !window.cartManager.db) {
+            section.style.display = 'none';
+            return;
+        }
+        let familias = [];
+        try {
+            familias = await window.cartManager.getAllFamiliasLocal();
+        } catch (e) {
+            console.error('renderInicioFamiliasNavigator:', e);
+        }
+        section.style.display = 'block';
+        if (!familias.length) {
+            bc.innerHTML = '';
+            grid.innerHTML = '';
+            if (hint) {
+                hint.style.display = '';
+                hint.textContent = 'Tras sincronizar el catalogo aparecera aqui el arbol de familias (codigo modificar).';
+            }
+            return;
+        }
+        if (hint) hint.style.display = 'none';
+
+        const byCode = new Map();
+        const codesSet = new Set();
+        for (let i = 0; i < familias.length; i++) {
+            const f = familias[i];
+            const co = String(f.codigo || '').trim().toUpperCase();
+            if (!co) continue;
+            codesSet.add(co);
+            byCode.set(co, String(f.descripcion || '').trim() || co);
+        }
+        const parentMap = this._buildFamiliaParentMap(codesSet);
+        const path = this._inicioFamiliaPath || [];
+        const parentNorm = path.length === 0 ? null : path[path.length - 1].codigo;
+        const children = this._getFamiliaChildCodes(codesSet, parentMap, parentNorm);
+
+        const self = this;
+
+        bc.innerHTML = '';
+        const rootBtn = document.createElement('button');
+        rootBtn.type = 'button';
+        rootBtn.className = 'inicio-familias-crumb';
+        rootBtn.textContent = 'Todas';
+        rootBtn.addEventListener('click', () => {
+            self._inicioFamiliaPath = [];
+            self.renderInicioFamiliasNavigator();
+        });
+        bc.appendChild(rootBtn);
+        for (let p = 0; p < path.length; p++) {
+            const seg = path[p];
+            const sp = document.createElement('span');
+            sp.className = 'inicio-familias-crumb-sep';
+            sp.textContent = '/';
+            bc.appendChild(sp);
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'inicio-familias-crumb';
+            const dshow = seg.descripcion
+                ? (seg.descripcion.length > 18 ? seg.descripcion.slice(0, 15) + '...' : seg.descripcion)
+                : '';
+            btn.textContent = dshow ? (seg.codigo + ' · ' + dshow) : seg.codigo;
+            const depth = p;
+            btn.addEventListener('click', () => {
+                self._inicioFamiliaPath = self._inicioFamiliaPath.slice(0, depth + 1);
+                self.renderInicioFamiliasNavigator();
+            });
+            bc.appendChild(btn);
+        }
+
+        grid.innerHTML = '';
+        for (let k = 0; k < children.length; k++) {
+            const code = children[k];
+            const desc = byCode.get(code) || code;
+            const subs = this._getFamiliaChildCodes(codesSet, parentMap, code);
+            const isLeaf = subs.length === 0;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'inicio-familia-tile' + (isLeaf ? ' inicio-familia-tile-leaf' : '');
+            const codeSpan = document.createElement('span');
+            codeSpan.className = 'inicio-familia-tile-code';
+            codeSpan.textContent = code;
+            const descSpan = document.createElement('span');
+            descSpan.className = 'inicio-familia-tile-desc';
+            descSpan.textContent = desc;
+            btn.appendChild(codeSpan);
+            btn.appendChild(descSpan);
+            btn.addEventListener('click', async () => {
+                if (!isLeaf) {
+                    self._inicioFamiliaPath.push({ codigo: code, descripcion: desc });
+                    self.renderInicioFamiliasNavigator();
+                    return;
+                }
+                self.filterChips.codigoModificarFamilia = code;
+                self.filterChips.familiaDescripcion = desc;
+                self._updateFamiliaChipUI();
+                self._closeChipConfig();
+                await self.showScreen('search');
+                await self.performSearch();
+            });
+            grid.appendChild(btn);
+        }
+        if (children.length === 0 && path.length > 0) {
+            const last = path[path.length - 1];
+            const openSearch = document.createElement('button');
+            openSearch.type = 'button';
+            openSearch.className = 'btn btn-secondary inicio-familias-open-search';
+            openSearch.textContent = 'Buscar en ' + last.codigo;
+            openSearch.addEventListener('click', async () => {
+                self.filterChips.codigoModificarFamilia = last.codigo;
+                self.filterChips.familiaDescripcion = last.descripcion || '';
+                self._updateFamiliaChipUI();
+                self._closeChipConfig();
+                await self.showScreen('search');
+                await self.performSearch();
+            });
+            grid.appendChild(openSearch);
+        }
+    }
+
+    /**
      * Normaliza teléfono para WhatsApp: solo dígitos, con prefijo de país si no lo lleva
      */
     normalizePhoneForWhatsApp(telefono) {
@@ -2718,8 +2901,11 @@ class ScanAsYouShopApp {
             // Resetear chips de filtro de búsqueda al cerrar sesión
             this.filterChips.misCompras = false;
             this.filterChips.oferta     = false;
+            this.filterChips.codigoModificarFamilia = '';
+            this.filterChips.familiaDescripcion = '';
             document.getElementById('chipMisCompras')?.classList.remove('active');
             document.getElementById('chipOferta')?.classList.remove('active');
+            this._updateFamiliaChipUI();
 
             // Limpiar cache de historial (Phase 2 - Cache)
             if (window.purchaseCache) {
@@ -3410,6 +3596,17 @@ class ScanAsYouShopApp {
                 await this.refreshClavesDescuentoCache();
             }
 
+            window.ui.updateSyncIndicator('Descargando familias...');
+            try {
+                const fc = await window.supabaseClient.downloadFamiliasCatalog(onProgress);
+                await window.cartManager.saveFamiliasCatalogToStorage(fc.familias, fc.familias_asignadas);
+            } catch (famErr) {
+                console.warn('No se pudieron guardar familias locales:', famErr && famErr.message);
+            }
+            if (this.currentScreen === 'inicio' && typeof this.renderInicioFamiliasNavigator === 'function') {
+                this.renderInicioFamiliasNavigator();
+            }
+
             if (typeof this.purgeHiddenCatalogProductsLocal === 'function') {
                 await this.purgeHiddenCatalogProductsLocal();
             }
@@ -3504,9 +3701,10 @@ class ScanAsYouShopApp {
             const code = document.getElementById('codeSearchInput')?.value.trim() || '';
             const description = document.getElementById('descriptionSearchInput')?.value.trim() || '';
             const codigoProveedor = self.filterChips.codigoProveedor || '';
+            const familia = self.filterChips.codigoModificarFamilia || '';
             const hasResults = (document.getElementById('searchResultsList')?.children.length || 0) > 0;
 
-            if (code || description || codigoProveedor || hasResults) {
+            if (code || description || codigoProveedor || familia || hasResults) {
                 self.performSearch();
             }
         };
@@ -3648,6 +3846,35 @@ class ScanAsYouShopApp {
             precioHastaInput.addEventListener('input', updatePrecioChip);
             precioHastaInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') self.performSearch();
+            });
+        }
+
+        // --- Chip: Familia (codigo modificar desde Inicio; pulsar para quitar) ---
+        const chipFamilia = document.getElementById('chipFamilia');
+        if (chipFamilia) {
+            bindTap(chipFamilia, () => {
+                if (!self.filterChips.codigoModificarFamilia) return;
+                self.filterChips.codigoModificarFamilia = '';
+                self.filterChips.familiaDescripcion = '';
+                self._updateFamiliaChipUI();
+                self._closeChipConfig();
+                const c = document.getElementById('codeSearchInput')?.value.trim() || '';
+                const d = document.getElementById('descriptionSearchInput')?.value.trim() || '';
+                const prov = self.filterChips.codigoProveedor || '';
+                if (c || d || prov) {
+                    self.performSearch();
+                } else {
+                    const resultsContainer = document.getElementById('searchResults');
+                    const emptyState = document.getElementById('searchEmpty');
+                    const resultsList = document.getElementById('searchResultsList');
+                    if (resultsList) resultsList.innerHTML = '';
+                    if (resultsContainer) resultsContainer.style.display = 'none';
+                    if (emptyState) {
+                        emptyState.style.display = 'flex';
+                        emptyState.querySelector('.empty-icon').textContent = '🔍';
+                        emptyState.querySelector('p').textContent = 'Busca por código o descripción';
+                    }
+                }
             });
         }
     }
@@ -5248,6 +5475,7 @@ class ScanAsYouShopApp {
 
             if (screenName === 'inicio') {
                 this.loadInicioCreacionesCard();
+                this.renderInicioFamiliasNavigator();
             }
 
             if (screenName === 'commercial') {
@@ -5382,9 +5610,17 @@ class ScanAsYouShopApp {
         const soloOfertas   = this.filterChips.oferta;
         const precioDesde   = this.filterChips.precioDesde;
         const precioHasta   = this.filterChips.precioHasta;
+        const familyCodNorm = String(this.filterChips.codigoModificarFamilia || '').trim().toUpperCase();
 
-        if (!code && !description && !codigoProveedor) {
-            window.ui.showToast('Introduce un código, descripción o selecciona un fabricante', 'warning');
+        let familySkuSet = null;
+        if (familyCodNorm && window.cartManager && typeof window.cartManager.getSkuSetForCodigoModificarExacto === 'function') {
+            familySkuSet = await window.cartManager.getSkuSetForCodigoModificarExacto(familyCodNorm);
+        }
+
+        const soloFamilia = !!(familyCodNorm && !code && !description && !codigoProveedor && !onlyPurchased);
+
+        if (!code && !description && !codigoProveedor && !familyCodNorm) {
+            window.ui.showToast('Introduce codigo, descripcion, fabricante o elige una familia desde Inicio', 'warning');
             return;
         }
 
@@ -5404,7 +5640,7 @@ class ScanAsYouShopApp {
 
         try {
             let productos = [];
-            
+
             if (onlyPurchased) {
                 const effectiveUserId = this.getEffectiveUserId();
                 console.log('Buscando en historial de compras (con cache)...');
@@ -5419,7 +5655,20 @@ class ScanAsYouShopApp {
                     pvp: item.pvp,
                     fecha_ultima_compra: item.fecha_ultima_compra
                 }));
-
+                if (familyCodNorm && productos.length > 0) {
+                    const set = familySkuSet || new Set();
+                    if (set.size === 0) {
+                        productos = [];
+                    } else {
+                        productos = productos.filter((p) => set.has(this.normalizeSkuKey(p.codigo)));
+                    }
+                }
+            } else if (soloFamilia) {
+                if (!familySkuSet || familySkuSet.size === 0) {
+                    await this.displaySearchResults([], false);
+                    return;
+                }
+                productos = await window.cartManager.getProductsBySkus([...familySkuSet]);
             } else if (codigoProveedor && !code && !description) {
                 // Búsqueda exclusiva por fabricante (entidad / codigo_proveedor)
                 console.log('Buscando por fabricante (proveedor):', codigoProveedor);
@@ -5439,7 +5688,15 @@ class ScanAsYouShopApp {
                 } else if (description) {
                     productos = await window.cartManager.searchByDescriptionAllWords(description);
                 }
+            }
 
+            if (!onlyPurchased && !soloFamilia && familyCodNorm) {
+                const set = familySkuSet || new Set();
+                if (set.size === 0) {
+                    productos = [];
+                } else if (productos.length > 0) {
+                    productos = productos.filter((p) => set.has(this.normalizeSkuKey(p.codigo)));
+                }
             }
 
             // Aplicar filtro de fabricante en todos los modos (catálogo e historial/mis compras).
@@ -6209,6 +6466,8 @@ class ScanAsYouShopApp {
         this.filterChips.codigoProveedor = '';
         this.filterChips.precioDesde = null;
         this.filterChips.precioHasta = null;
+        this.filterChips.codigoModificarFamilia = '';
+        this.filterChips.familiaDescripcion = '';
         this._closeChipConfig();
 
         document.getElementById('chipMisCompras')?.classList.remove('active');
@@ -6220,6 +6479,7 @@ class ScanAsYouShopApp {
         const labelPrecio = document.getElementById('chipPrecioLabel');
         if (labelFabProv) labelFabProv.textContent = 'Fabricante';
         if (labelPrecio)   labelPrecio.textContent  = 'Precio';
+        this._updateFamiliaChipUI();
 
         const fabricanteProveedorInput = document.getElementById('fabricanteProveedorInput');
         const fabricanteProveedorCodigo = document.getElementById('fabricanteProveedorCodigo');

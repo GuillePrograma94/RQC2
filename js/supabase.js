@@ -338,6 +338,25 @@ class SupabaseClient {
     }
 
     /**
+     * Descarga tablas familias y familias_asignadas para navegacion por codigo modificar (cache local).
+     */
+    async downloadFamiliasCatalog(onProgress = null) {
+        let familias = [];
+        let familias_asignadas = [];
+        try {
+            familias = await this._downloadWithPagination('familias', onProgress);
+        } catch (e) {
+            console.warn('familias no descargada:', e && e.message);
+        }
+        try {
+            familias_asignadas = await this._downloadWithPagination('familias_asignadas', onProgress);
+        } catch (e) {
+            console.warn('familias_asignadas no descargada:', e && e.message);
+        }
+        return { familias, familias_asignadas };
+    }
+
+    /**
      * Descarga datos con paginación automática
      */
     async _downloadWithPagination(tableName, onProgress = null, filters = {}) {
@@ -377,6 +396,10 @@ class SupabaseClient {
                 query = query.order('codigo_almacen').order('codigo_articulo');
             } else if (tableName === 'claves_descuento') {
                 query = query.order('clave');
+            } else if (tableName === 'familias') {
+                query = query.order('CODIGO');
+            } else if (tableName === 'familias_asignadas') {
+                query = query.order('id');
             } else {
                 query = query.order('id');
             }

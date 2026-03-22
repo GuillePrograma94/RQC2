@@ -882,3 +882,21 @@ AS $$
       AND (u.activo IS NULL OR u.activo = TRUE)
     ORDER BY u.nombre;
 $$;
+
+-- -----------------------------------------------------------------------------
+-- Lectura catalogo: familias y familias_asignadas (navegacion Inicio + filtro busqueda)
+-- -----------------------------------------------------------------------------
+ALTER TABLE familias ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS familias_select_catalogo ON familias;
+CREATE POLICY familias_select_catalogo ON familias
+    FOR SELECT
+    USING (true);
+
+ALTER TABLE familias_asignadas ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS familias_asignadas_select_catalogo ON familias_asignadas;
+CREATE POLICY familias_asignadas_select_catalogo ON familias_asignadas
+    FOR SELECT
+    USING (true);
+
+GRANT SELECT ON familias TO anon, authenticated, service_role;
+GRANT SELECT ON familias_asignadas TO anon, authenticated, service_role;

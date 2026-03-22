@@ -3159,6 +3159,96 @@ body.gate-visible .app-container {
     line-height: 1.35;
 }
 
+.inicio-familias-section {
+    margin-top: 1.25rem;
+    padding: 1rem 0 1.5rem;
+    border-top: 1px solid var(--gray-200);
+}
+.inicio-familias-title {
+    margin: 0 0 0.35rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--gray-800);
+}
+.inicio-familias-sub {
+    margin: 0 0 0.75rem;
+    font-size: 0.82rem;
+    color: var(--gray-600);
+    line-height: 1.35;
+}
+.inicio-familias-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.35rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.85rem;
+}
+.inicio-familias-crumb {
+    border: none;
+    background: var(--gray-100);
+    color: var(--primary);
+    padding: 0.35rem 0.55rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    max-width: 100%;
+    text-align: left;
+}
+.inicio-familias-crumb-sep {
+    color: var(--gray-400);
+    user-select: none;
+}
+.inicio-familias-hint {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    margin: 0 0 0.5rem;
+}
+.inicio-familias-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+}
+@media (min-width: 480px) {
+    .inicio-familias-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+.inicio-familia-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    padding: 0.65rem 0.75rem;
+    border-radius: 10px;
+    border: 1px solid var(--gray-200);
+    background: #fff;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+.inicio-familia-tile:hover {
+    border-color: var(--primary);
+    background: var(--gray-50);
+}
+.inicio-familia-tile-leaf {
+    border-left: 3px solid var(--primary);
+}
+.inicio-familia-tile-code {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--gray-900);
+}
+.inicio-familia-tile-desc {
+    font-size: 0.8rem;
+    color: var(--gray-600);
+    margin-top: 0.2rem;
+    line-height: 1.3;
+}
+.inicio-familias-open-search {
+    margin-top: 0.25rem;
+    width: 100%;
+}
+
 .login-form {
     display: flex;
     flex-direction: column;

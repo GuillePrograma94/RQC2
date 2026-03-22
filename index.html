@@ -276,6 +276,14 @@
                     </div>
                     <p class="inicio-creaciones-card-hint">Pulsa para ver el listado y añadir al carrito los ya creados.</p>
                 </div>
+
+                <section id="inicioFamiliasSection" class="inicio-familias-section" style="display: none;" aria-label="Catalogo por familia">
+                    <h2 class="inicio-familias-title">Catalogo por familia</h2>
+                    <p class="inicio-familias-sub">Navega por codigo modificar; en el ultimo nivel se abre la busqueda (puedes seguir filtrando por precio, fabricante, etc.).</p>
+                    <nav id="inicioFamiliasBreadcrumb" class="inicio-familias-breadcrumb" aria-label="Ruta de familia"></nav>
+                    <p id="inicioFamiliasHint" class="inicio-familias-hint" style="display: none;"></p>
+                    <div id="inicioFamiliasGrid" class="inicio-familias-grid"></div>
+                </section>
             </main>
         </div>
 
@@ -376,6 +384,11 @@
                                         title="Filtra resultados por rango de precio con IVA">
                                     <span class="chip-label" id="chipPrecioLabel">Precio €</span>
                                     <span class="chip-arrow">▾</span>
+                                </button>
+                                <button type="button" class="filter-chip chip-toggle" id="chipFamilia" data-chip="familia"
+                                        style="display: none;"
+                                        title="Filtro por familia elegida en Inicio. Pulsa para quitar">
+                                    <span class="chip-label" id="chipFamiliaLabel">Familia</span>
                                 </button>
                             </div>
                         </div>
