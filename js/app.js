@@ -2923,13 +2923,38 @@ class ScanAsYouShopApp {
         return parent;
     }
 
+    /**
+     * Orden codigo modificar / familia: en cada posicion los digitos van antes que las letras
+     * (p. ej. 0100 antes que 01B1). Resto: orden lexicografico ASCII en mayusculas.
+     */
+    _compareCodigoModificarOrden(a, b) {
+        const sa = String(a || '').trim().toUpperCase();
+        const sb = String(b || '').trim().toUpperCase();
+        const maxLen = Math.max(sa.length, sb.length);
+        for (let i = 0; i < maxLen; i++) {
+            const endA = i >= sa.length;
+            const endB = i >= sb.length;
+            if (endA && endB) return 0;
+            if (endA) return -1;
+            if (endB) return 1;
+            const ca = sa[i];
+            const cb = sb[i];
+            const da = ca >= '0' && ca <= '9';
+            const db = cb >= '0' && cb <= '9';
+            if (da && !db) return -1;
+            if (!da && db) return 1;
+            if (ca !== cb) return ca < cb ? -1 : 1;
+        }
+        return 0;
+    }
+
     _getFamiliaChildCodes(codesSet, parentMap, parentCodeNorm) {
         const want = parentCodeNorm == null || parentCodeNorm === '' ? null : String(parentCodeNorm).trim().toUpperCase();
         const out = [];
         codesSet.forEach((c) => {
             if (parentMap.get(c) === want) out.push(c);
         });
-        out.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        out.sort((x, y) => this._compareCodigoModificarOrden(x, y));
         return out;
     }
 

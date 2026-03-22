@@ -3240,10 +3240,10 @@ body.gate-visible .app-container {
     }
 }
 
-/* PC: celdas mas grandes (imagen 1:1 legible) manteniendo auto-fill en todo el ancho */
+/* PC: celdas mas anchas = menos columnas; cuadrado 1:1 grande para ver imagen completa (contain) */
 @media (min-width: 1024px) {
     .inicio-familias-grid {
-        grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
         gap: 1rem;
     }
 }
@@ -3270,7 +3270,7 @@ body.gate-visible .app-container {
 .inicio-familia-tile-leaf {
     border-left: 3px solid var(--primary);
 }
-/* Movil: recuadro cuadrado (1:1) = imagen grande en ancho de columna y mas hueco debajo para texto */
+/* Area 1:1; en PC object-fit contain en la img (sin recorte; bandas gris si la foto no es cuadrada) */
 .inicio-familia-tile-img-wrap {
     width: 100%;
     aspect-ratio: 1 / 1;
@@ -3282,11 +3282,6 @@ body.gate-visible .app-container {
     align-items: center;
     justify-content: center;
 }
-@media (min-width: 1024px) {
-    .inicio-familia-tile-img-wrap {
-        aspect-ratio: 3 / 4;
-    }
-}
 .inicio-familia-tile-img {
     width: 100%;
     height: 100%;
@@ -3296,6 +3291,11 @@ body.gate-visible .app-container {
     border: none;
     background: transparent;
     display: block;
+}
+@media (min-width: 1024px) {
+    .inicio-familia-tile-img {
+        object-fit: contain;
+    }
 }
 .inicio-familia-tile-desc {
     font-size: 0.74rem;
