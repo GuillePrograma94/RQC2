@@ -6267,3 +6267,101 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     .app-container-administracion .screen-content { padding: 1.5rem 2rem; padding-bottom: calc(var(--footer-height) + 1.5rem); }
     .app-container-administracion .screen-content-detail { padding-top: 0.5rem; padding-left: 1.5rem; padding-right: 2rem; }
 }
+
+/* Panel admin: familias primera fila Inicio (bucket fotos_familias) */
+.familias-admin-intro {
+    font-size: 0.88rem;
+    color: var(--gray-600);
+    line-height: 1.45;
+    margin: 0 0 1rem;
+}
+.familias-admin-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-bottom: 1rem;
+}
+.familias-admin-loading,
+.familias-admin-empty {
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    margin: 0;
+}
+.familias-admin-card {
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    background: var(--white);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+.familias-admin-card-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem 1rem;
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+}
+.familias-admin-card-cod {
+    font-family: ui-monospace, monospace;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--gray-900);
+}
+.familias-admin-card-erp {
+    font-size: 0.82rem;
+    color: var(--gray-600);
+    line-height: 1.35;
+    word-break: break-word;
+}
+.familias-admin-card-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.familias-admin-card-preview-wrap {
+    align-self: center;
+    width: 120px;
+    height: 120px;
+    border-radius: 10px;
+    border: 1px solid var(--gray-200);
+    background: var(--gray-50);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.familias-admin-card-preview {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+.familias-admin-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-top: 0.25rem;
+}
+.familias-admin-input {
+    width: 100%;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+.familias-admin-file {
+    font-size: 0.85rem;
+}
+.familias-admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+}
+.familias-admin-file-hint {
+    font-size: 0.72rem;
+    color: var(--gray-500);
+    margin: 0;
+    word-break: break-all;
+}

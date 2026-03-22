@@ -30,6 +30,7 @@ class ScanAsYouShopApp {
             activeConfig: null,  // null | 'fabricanteProveedor' | 'precio' | 'almacen' (panel abierto)
             codigoModificarFamilia: '', // codigo modificar exacto (ultimo nivel); combinable con precio/fabricante/etc.
             familiaDescripcion: '',
+            familiaChipSoloTitulo: false, // true si titulo_inicio ERP sustituye texto del chip (sin prefijo "Fam. cod")
         };
         /** Lista para combobox fabricante: { codigo_proveedor, nombre_proveedor, searchText, displayText }. Busqueda por nombre/alias solo. */
         this._proveedoresComboboxList = [];
@@ -1766,6 +1767,208 @@ class ScanAsYouShopApp {
         }
     }
 
+    // --- Familias catalogo Inicio (Panel de Control, administrador) ---
+
+    async resizeImageFileToSquareJpegBlob(file, maxSide) {
+        const max = maxSide || 600;
+        if (!file || !file.type || !file.type.startsWith('image/')) {
+            throw new Error('Selecciona una imagen');
+        }
+        const bitmap = await createImageBitmap(file);
+        const w = bitmap.width;
+        const h = bitmap.height;
+        const scale = Math.min(max / w, max / h, 1);
+        const tw = Math.round(w * scale);
+        const th = Math.round(h * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = max;
+        canvas.height = max;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            throw new Error('Canvas no disponible');
+        }
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, max, max);
+        const ox = (max - tw) / 2;
+        const oy = (max - th) / 2;
+        ctx.drawImage(bitmap, ox, oy, tw, th);
+        return new Promise((resolve, reject) => {
+            canvas.toBlob(
+                (blob) => {
+                    if (!blob) {
+                        reject(new Error('No se pudo generar JPEG'));
+                    } else {
+                        resolve(blob);
+                    }
+                },
+                'image/jpeg',
+                0.92
+            );
+        });
+    }
+
+    initFamiliasCatalogoAdminScreen() {
+        this._renderFamiliasCatalogoAdminListAsync();
+    }
+
+    async _renderFamiliasCatalogoAdminListAsync() {
+        const listEl = document.getElementById('familiasCatalogoAdminList');
+        if (!listEl) {
+            return;
+        }
+        listEl.innerHTML = '<p class="familias-admin-loading">Cargando familias...</p>';
+        try {
+            const rows = await window.supabaseClient.getAllFamiliasRows();
+            const localShape = rows.map((r) => {
+                const cod = String(r.CODIGO != null ? r.CODIGO : r.codigo || '').trim().toUpperCase();
+                const des = String(r.DESCRIPCION != null ? r.DESCRIPCION : r.descripcion || '').trim();
+                return {
+                    codigo: cod,
+                    descripcion: des,
+                    titulo_inicio: String(r.titulo_inicio || '').trim(),
+                    imagen_storage_path: String(r.imagen_storage_path || '').trim(),
+                };
+            }).filter((x) => x.codigo);
+            const rootCodes = this._getFamiliaRootChildCodesFromLocalRows(localShape);
+            listEl.innerHTML = '';
+            if (rootCodes.length === 0) {
+                listEl.innerHTML = '<p class="familias-admin-empty">No hay familias de primer nivel. Comprueba datos o sincroniza el catalogo.</p>';
+                return;
+            }
+            const byCod = new Map(localShape.map((x) => [x.codigo, x]));
+            for (let i = 0; i < rootCodes.length; i++) {
+                const cod = rootCodes[i];
+                const row = byCod.get(cod);
+                if (row) {
+                    this._renderFamiliaCatalogoAdminCard(listEl, row);
+                }
+            }
+        } catch (e) {
+            if (e && (e.code === 'SESSION_EXPIRED' || e.message === 'SESSION_EXPIRED')) {
+                window.ui.showToast('Sesion caducada. Vuelve a iniciar sesion como administrador.', 'error');
+            } else {
+                console.error('Familias catalogo admin:', e);
+                window.ui.showToast('Error al cargar familias (permisos o red).', 'error');
+            }
+            listEl.innerHTML = '';
+        }
+    }
+
+    _renderFamiliaCatalogoAdminCard(container, row) {
+        const cod = row.codigo;
+        const card = document.createElement('div');
+        card.className = 'familias-admin-card';
+        const erpDesc = row.descripcion || '';
+        const tituloVal = row.titulo_inicio || '';
+        let imgPath = row.imagen_storage_path || '';
+        const publicUrl = imgPath && window.supabaseClient ? window.supabaseClient.getPublicUrlFotosFamilias(imgPath) : '';
+        const safeFileKey = 'F' + cod.replace(/[^A-Z0-9]/gi, '') + '.jpg';
+
+        card.innerHTML = `
+            <div class="familias-admin-card-head">
+                <span class="familias-admin-card-cod">${this.escapeForHtmlAttribute(cod)}</span>
+                <span class="familias-admin-card-erp">${this.escapeForHtmlAttribute(erpDesc)}</span>
+            </div>
+            <div class="familias-admin-card-body">
+                <div class="familias-admin-card-preview-wrap">
+                    <img class="familias-admin-card-preview" alt="" />
+                </div>
+                <label class="familias-admin-label">Titulo en Inicio (opcional)</label>
+                <input type="text" class="familias-admin-input familias-admin-titulo" maxlength="120" placeholder="Vacío = usar descripcion ERP" />
+                <label class="familias-admin-label">Imagen (max 600x600, cuadrada)</label>
+                <input type="file" accept="image/jpeg,image/png,image/webp" class="familias-admin-file" />
+                <div class="familias-admin-actions">
+                    <button type="button" class="btn btn-primary familias-admin-save">Guardar</button>
+                    <button type="button" class="btn btn-secondary familias-admin-clear-img">Quitar imagen</button>
+                </div>
+                <p class="familias-admin-file-hint">Bucket publico fotos_familias: ${this.escapeForHtmlAttribute(safeFileKey)}</p>
+            </div>
+        `;
+        const titInput = card.querySelector('.familias-admin-titulo');
+        if (titInput) {
+            titInput.value = tituloVal;
+        }
+        const imgEl = card.querySelector('.familias-admin-card-preview');
+        if (imgEl) {
+            imgEl.src = publicUrl || this.getFamiliaImagenUrlForCodigo(cod, { imagen_storage_path: '' });
+            imgEl.addEventListener('error', () => {
+                imgEl.src = this.getFamiliaImagenFallbackUrl();
+            });
+        }
+        const self = this;
+        const saveBtn = card.querySelector('.familias-admin-save');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const titIn = card.querySelector('.familias-admin-titulo');
+                const fileIn = card.querySelector('.familias-admin-file');
+                const nuevoTitulo = titIn ? titIn.value.trim() : '';
+                let newPath = imgPath;
+                try {
+                    const payload = { titulo_inicio: nuevoTitulo };
+                    if (fileIn && fileIn.files && fileIn.files[0]) {
+                        const blob = await self.resizeImageFileToSquareJpegBlob(fileIn.files[0], 600);
+                        newPath = await window.supabaseClient.uploadFotosFamiliaJpeg(safeFileKey, blob);
+                        payload.imagen_storage_path = newPath;
+                    } else if (imgPath) {
+                        payload.imagen_storage_path = imgPath;
+                    }
+                    await window.supabaseClient.updateFamiliaInicioUi(cod, payload);
+                    if (window.cartManager && typeof window.cartManager.patchFamiliaLocalFields === 'function') {
+                        const localPatch = { titulo_inicio: nuevoTitulo };
+                        if (payload.imagen_storage_path !== undefined) {
+                            localPatch.imagen_storage_path = payload.imagen_storage_path || '';
+                        }
+                        await window.cartManager.patchFamiliaLocalFields(cod, localPatch);
+                    }
+                    window.ui.showToast('Familia actualizada', 'success');
+                    row.titulo_inicio = nuevoTitulo;
+                    if (payload.imagen_storage_path !== undefined) {
+                        row.imagen_storage_path = payload.imagen_storage_path || '';
+                        imgPath = row.imagen_storage_path;
+                    }
+                    if (fileIn) {
+                        fileIn.value = '';
+                    }
+                    const pu = imgPath && window.supabaseClient.getPublicUrlFotosFamilias(imgPath);
+                    if (imgEl) {
+                        imgEl.src = pu || self.getFamiliaImagenUrlForCodigo(cod, { imagen_storage_path: '' });
+                    }
+                } catch (err) {
+                    if (err && (err.code === 'SESSION_EXPIRED' || err.message === 'SESSION_EXPIRED')) {
+                        window.ui.showToast('Sesion caducada. Vuelve a iniciar sesion.', 'error');
+                    } else {
+                        console.error('Guardar familia UI:', err);
+                        window.ui.showToast('No se pudo guardar (revisa permisos y bucket).', 'error');
+                    }
+                }
+            });
+        }
+        const clearBtn = card.querySelector('.familias-admin-clear-img');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', async () => {
+                try {
+                    if (imgPath) {
+                        await window.supabaseClient.deleteFotosFamiliaObject(imgPath);
+                    }
+                    await window.supabaseClient.updateFamiliaInicioUi(cod, { imagen_storage_path: null });
+                    if (window.cartManager && typeof window.cartManager.patchFamiliaLocalFields === 'function') {
+                        await window.cartManager.patchFamiliaLocalFields(cod, { imagen_storage_path: '' });
+                    }
+                    row.imagen_storage_path = '';
+                    imgPath = '';
+                    if (imgEl) {
+                        imgEl.src = self.getFamiliaImagenUrlForCodigo(cod, { imagen_storage_path: '' });
+                    }
+                    window.ui.showToast('Imagen quitada', 'success');
+                } catch (err) {
+                    console.error('Quitar imagen familia:', err);
+                    window.ui.showToast('No se pudo quitar la imagen.', 'error');
+                }
+            });
+        }
+        container.appendChild(card);
+    }
+
     // --- Recambios (Panel de Control) ---
 
     /**
@@ -2725,7 +2928,11 @@ class ScanAsYouShopApp {
             chip.classList.add('active');
             const desc = (this.filterChips.familiaDescripcion || '').trim();
             const shortDesc = desc.length > 22 ? desc.slice(0, 19) + '...' : desc;
-            label.textContent = shortDesc ? ('Fam. ' + cod + ' · ' + shortDesc) : ('Fam. ' + cod);
+            if (this.filterChips.familiaChipSoloTitulo && shortDesc) {
+                label.textContent = shortDesc;
+            } else {
+                label.textContent = shortDesc ? ('Fam. ' + cod + ' · ' + shortDesc) : ('Fam. ' + cod);
+            }
         } else {
             chip.style.display = 'none';
             chip.classList.remove('active');
@@ -2734,15 +2941,44 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Imagen de familia por codigo: misma convencion que checkin_pc/web/app.js (no viene en Supabase).
+     * URL imagen loseta familia: ruta en bucket fotos_familias si existe; si no, convencion legada F{codigo}.JPG.
      */
-    getFamiliaImagenPrincipalUrl(codigo) {
+    getFamiliaImagenUrlForCodigo(codigo, meta) {
+        const path = meta && String(meta.imagen_storage_path || '').trim();
+        if (path && window.supabaseClient && typeof window.supabaseClient.getPublicUrlFotosFamilias === 'function') {
+            const u = window.supabaseClient.getPublicUrlFotosFamilias(path);
+            if (u) {
+                return u;
+            }
+        }
         const c = String(codigo || '').trim();
         return 'https://www.saneamiento-martinez.com/imagenes/familias/F' + c + '.JPG';
     }
 
     getFamiliaImagenFallbackUrl() {
         return 'https://www.saneamiento-martinez.com/imagenes/noDisponible100.png';
+    }
+
+    _familiaMetaFromLocalRow(f) {
+        const co = String(f.codigo || '').trim().toUpperCase();
+        return {
+            codigo: co,
+            descripcion: String(f.descripcion || '').trim(),
+            titulo_inicio: String(f.titulo_inicio || '').trim(),
+            imagen_storage_path: String(f.imagen_storage_path || '').trim(),
+        };
+    }
+
+    _getFamiliaRootChildCodesFromLocalRows(familiasList) {
+        const codesSet = new Set();
+        for (let i = 0; i < familiasList.length; i++) {
+            const co = String(familiasList[i].codigo || '').trim().toUpperCase();
+            if (co) {
+                codesSet.add(co);
+            }
+        }
+        const parentMap = this._buildFamiliaParentMap(codesSet);
+        return this._getFamiliaChildCodes(codesSet, parentMap, null);
     }
 
     /**
@@ -2784,7 +3020,7 @@ class ScanAsYouShopApp {
             const co = String(f.codigo || '').trim().toUpperCase();
             if (!co) continue;
             codesSet.add(co);
-            byCode.set(co, String(f.descripcion || '').trim() || co);
+            byCode.set(co, this._familiaMetaFromLocalRow(f));
         }
         const parentMap = this._buildFamiliaParentMap(codesSet);
         const path = this._inicioFamiliaPath || [];
@@ -2827,7 +3063,9 @@ class ScanAsYouShopApp {
         grid.innerHTML = '';
         for (let k = 0; k < children.length; k++) {
             const code = children[k];
-            const desc = byCode.get(code) || code;
+            const meta = byCode.get(code) || this._familiaMetaFromLocalRow({ codigo: code, descripcion: code });
+            const erpDesc = meta.descripcion || code;
+            const displayDesc = meta.titulo_inicio ? meta.titulo_inicio : erpDesc;
             const subs = this._getFamiliaChildCodes(codesSet, parentMap, code);
             const isLeaf = subs.length === 0;
             const btn = document.createElement('button');
@@ -2835,10 +3073,10 @@ class ScanAsYouShopApp {
             btn.className = 'inicio-familia-tile' + (isLeaf ? ' inicio-familia-tile-leaf' : '');
             const img = document.createElement('img');
             img.className = 'inicio-familia-tile-img';
-            img.alt = desc;
+            img.alt = displayDesc;
             img.loading = 'lazy';
             img.decoding = 'async';
-            const primaryUrl = this.getFamiliaImagenPrincipalUrl(code);
+            const primaryUrl = this.getFamiliaImagenUrlForCodigo(code, meta);
             const fallbackUrl = this.getFamiliaImagenFallbackUrl();
             img.src = primaryUrl;
             img.addEventListener('error', function familiaImgOnError() {
@@ -2849,21 +3087,28 @@ class ScanAsYouShopApp {
             });
             const descSpan = document.createElement('span');
             descSpan.className = 'inicio-familia-tile-desc';
-            descSpan.textContent = desc;
+            descSpan.textContent = displayDesc;
             const codeSpan = document.createElement('span');
             codeSpan.className = 'inicio-familia-tile-code';
             codeSpan.textContent = code;
             btn.appendChild(img);
             btn.appendChild(descSpan);
-            btn.appendChild(codeSpan);
+            if (!meta.titulo_inicio) {
+                btn.appendChild(codeSpan);
+            }
             btn.addEventListener('click', async () => {
                 if (!isLeaf) {
-                    self._inicioFamiliaPath.push({ codigo: code, descripcion: desc });
+                    self._inicioFamiliaPath.push({
+                        codigo: code,
+                        descripcion: displayDesc,
+                        chipSoloTitulo: !!meta.titulo_inicio,
+                    });
                     self.renderInicioFamiliasNavigator();
                     return;
                 }
                 self.filterChips.codigoModificarFamilia = code;
-                self.filterChips.familiaDescripcion = desc;
+                self.filterChips.familiaDescripcion = displayDesc;
+                self.filterChips.familiaChipSoloTitulo = !!meta.titulo_inicio;
                 self._updateFamiliaChipUI();
                 self._closeChipConfig();
                 await self.showScreen('search');
@@ -2880,6 +3125,7 @@ class ScanAsYouShopApp {
             openSearch.addEventListener('click', async () => {
                 self.filterChips.codigoModificarFamilia = last.codigo;
                 self.filterChips.familiaDescripcion = last.descripcion || '';
+                self.filterChips.familiaChipSoloTitulo = !!last.chipSoloTitulo;
                 self._updateFamiliaChipUI();
                 self._closeChipConfig();
                 await self.showScreen('search');
@@ -2930,6 +3176,7 @@ class ScanAsYouShopApp {
             this.filterChips.oferta     = false;
             this.filterChips.codigoModificarFamilia = '';
             this.filterChips.familiaDescripcion = '';
+            this.filterChips.familiaChipSoloTitulo = false;
             document.getElementById('chipMisCompras')?.classList.remove('active');
             document.getElementById('chipOferta')?.classList.remove('active');
             this._updateFamiliaChipUI();
@@ -3884,6 +4131,7 @@ class ScanAsYouShopApp {
                 if (!self.filterChips.codigoModificarFamilia) return;
                 self.filterChips.codigoModificarFamilia = '';
                 self.filterChips.familiaDescripcion = '';
+                self.filterChips.familiaChipSoloTitulo = false;
                 self._updateFamiliaChipUI();
                 self._closeChipConfig();
                 const c = document.getElementById('codeSearchInput')?.value.trim() || '';
@@ -4658,6 +4906,20 @@ class ScanAsYouShopApp {
         if (panelControlRecambiosBtn) {
             panelControlRecambiosBtn.addEventListener('click', () => {
                 this.showScreen('recambios');
+            });
+        }
+        const panelControlFamiliasCatalogoBtn = document.getElementById('panelControlFamiliasCatalogoBtn');
+        if (panelControlFamiliasCatalogoBtn) {
+            panelControlFamiliasCatalogoBtn.addEventListener('click', () => {
+                this.showScreen('familiasCatalogoAdmin');
+            });
+        }
+
+        // Familias Inicio (admin): Volver al Panel de Control
+        const familiasCatalogoAdminBackBtn = document.getElementById('familiasCatalogoAdminBackBtn');
+        if (familiasCatalogoAdminBackBtn) {
+            familiasCatalogoAdminBackBtn.addEventListener('click', () => {
+                this.showScreen('panelControl');
             });
         }
 
@@ -5518,6 +5780,10 @@ class ScanAsYouShopApp {
                 this.initRecambiosScreen();
             }
 
+            if (screenName === 'familiasCatalogoAdmin') {
+                this.initFamiliasCatalogoAdminScreen();
+            }
+
             if (screenName === 'recambiosVista') {
                 if (this.recambiosVistaProductoCodigo && this.recambiosVistaMode) {
                     this.renderRecambiosVistaPageFromProduct();
@@ -5639,6 +5905,11 @@ class ScanAsYouShopApp {
         const precioDesde   = this.filterChips.precioDesde;
         const precioHasta   = this.filterChips.precioHasta;
         const familyCodNorm = String(this.filterChips.codigoModificarFamilia || '').trim().toUpperCase();
+
+        if (familyCodNorm && window.cartManager && !window.cartManager.db) {
+            window.ui.showToast('Indice local aun no listo. Espera un momento y vuelve a buscar.', 'warning');
+            return;
+        }
 
         let familySkuSet = null;
         if (familyCodNorm && window.cartManager && typeof window.cartManager.getSkuSetForCodigoModificarExacto === 'function') {
@@ -6496,6 +6767,7 @@ class ScanAsYouShopApp {
         this.filterChips.precioHasta = null;
         this.filterChips.codigoModificarFamilia = '';
         this.filterChips.familiaDescripcion = '';
+        this.filterChips.familiaChipSoloTitulo = false;
         this._closeChipConfig();
 
         document.getElementById('chipMisCompras')?.classList.remove('active');

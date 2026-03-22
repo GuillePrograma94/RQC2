@@ -2811,6 +2811,120 @@ class SupabaseClient {
             throw error;
         }
     }
+
+    // --- Familias pantalla Inicio: bucket publico fotos_familias (admin) ---
+
+    getPublicUrlFotosFamilias(storagePath) {
+        const p = String(storagePath || '').trim().replace(/^\/+/, '');
+        if (!p || !this.client) {
+            return '';
+        }
+        const { data } = this.client.storage.from('fotos_familias').getPublicUrl(p);
+        return data && data.publicUrl ? data.publicUrl : '';
+    }
+
+    async getAllFamiliasRows() {
+        if (!this.client) {
+            return [];
+        }
+        const { data, error } = await this.client.from('familias').select('*').order('CODIGO');
+        if (error) {
+            throw error;
+        }
+        return data || [];
+    }
+
+    async updateFamiliaInicioUi(codigoFamilia, fields) {
+        if (!this.client) {
+            throw new Error('Cliente no inicializado');
+        }
+        const { ok } = await this.ensureAuthSessionForWrite();
+        if (!ok) {
+            const err = new Error('SESSION_EXPIRED');
+            err.code = 'SESSION_EXPIRED';
+            throw err;
+        }
+        const cod = String(codigoFamilia || '').trim();
+        if (!cod) {
+            throw new Error('Codigo familia vacio');
+        }
+        const patch = {};
+        if (fields.titulo_inicio !== undefined) {
+            patch.titulo_inicio = String(fields.titulo_inicio).trim() || null;
+        }
+        if (fields.imagen_storage_path !== undefined) {
+            patch.imagen_storage_path = String(fields.imagen_storage_path).trim() || null;
+        }
+        if (Object.keys(patch).length === 0) {
+            return { ok: true };
+        }
+        let result = await this.client.from('familias').update(patch).eq('CODIGO', cod);
+        if (result.error && result.error.code === '42501') {
+            const refresh = await this.client.auth.refreshSession();
+            if (!refresh.error && refresh.data && refresh.data.session) {
+                result = await this.client.from('familias').update(patch).eq('CODIGO', cod);
+            }
+        }
+        if (result.error) {
+            throw result.error;
+        }
+        return { ok: true };
+    }
+
+    async uploadFotosFamiliaJpeg(storagePath, blob) {
+        if (!this.client) {
+            throw new Error('Cliente no inicializado');
+        }
+        const { ok } = await this.ensureAuthSessionForWrite();
+        if (!ok) {
+            const err = new Error('SESSION_EXPIRED');
+            err.code = 'SESSION_EXPIRED';
+            throw err;
+        }
+        const path = String(storagePath || '').trim().replace(/^\/+/, '');
+        if (!path) {
+            throw new Error('Ruta de imagen vacia');
+        }
+        let up = await this.client.storage.from('fotos_familias').upload(path, blob, {
+            upsert: true,
+            contentType: 'image/jpeg',
+            cacheControl: '3600',
+        });
+        if (up.error) {
+            const refresh = await this.client.auth.refreshSession();
+            if (!refresh.error && refresh.data && refresh.data.session) {
+                up = await this.client.storage.from('fotos_familias').upload(path, blob, {
+                    upsert: true,
+                    contentType: 'image/jpeg',
+                    cacheControl: '3600',
+                });
+            }
+        }
+        if (up.error) {
+            throw up.error;
+        }
+        return path;
+    }
+
+    async deleteFotosFamiliaObject(storagePath) {
+        if (!this.client) {
+            throw new Error('Cliente no inicializado');
+        }
+        const { ok } = await this.ensureAuthSessionForWrite();
+        if (!ok) {
+            const err = new Error('SESSION_EXPIRED');
+            err.code = 'SESSION_EXPIRED';
+            throw err;
+        }
+        const path = String(storagePath || '').trim().replace(/^\/+/, '');
+        if (!path) {
+            return;
+        }
+        const del = await this.client.storage.from('fotos_familias').remove([path]);
+        if (del.error) {
+            throw del.error;
+        }
+    }
 }
 
 // Crear instancia global

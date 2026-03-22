@@ -809,11 +809,17 @@ class CartManager {
         const familias = (familiasRows || []).map((r) => ({
             codigo: String(r.CODIGO != null ? r.CODIGO : r.codigo != null ? r.codigo : '').trim().toUpperCase(),
             descripcion: String(r.DESCRIPCION != null ? r.DESCRIPCION : r.descripcion != null ? r.descripcion : '').trim(),
+            titulo_inicio: String(r.titulo_inicio != null ? r.titulo_inicio : '').trim(),
+            imagen_storage_path: String(r.imagen_storage_path != null ? r.imagen_storage_path : '').trim(),
             id: r.id != null ? r.id : null
         })).filter((f) => f.codigo);
 
         const asignadas = (asignadasRows || []).map((r) => {
-            const cm = r['codigo modificar'] != null ? r['codigo modificar'] : r.codigo_modificar;
+            const cm =
+                r['codigo modificar'] != null ? r['codigo modificar']
+                : r['Codigo modificar'] != null ? r['Codigo modificar']
+                : r.codigo_modificar != null ? r.codigo_modificar
+                : r.codigoModificar;
             const cod = r.Codigo != null ? r.Codigo : r.codigo;
             return {
                 codigoProducto: String(cod != null ? cod : '').trim().toUpperCase(),
@@ -857,25 +863,65 @@ class CartManager {
         if (!norm || !this.db || !this.db.objectStoreNames.contains('familias_asignadas')) {
             return empty;
         }
+        const finish = (rows) => {
+            const s = new Set();
+            for (let i = 0; i < rows.length; i++) {
+                const c = rows[i].codigoProducto;
+                if (c) s.add(String(c).trim().toUpperCase());
+            }
+            return s;
+        };
         return new Promise((resolve) => {
             const tx = this.db.transaction(['familias_asignadas'], 'readonly');
             const st = tx.objectStore('familias_asignadas');
+            const tryScanAll = () => {
+                const reqAll = st.getAll();
+                reqAll.onsuccess = () => {
+                    const all = reqAll.result || [];
+                    const filtered = all.filter((row) => String(row.codigoModificar || '').trim().toUpperCase() === norm);
+                    resolve(finish(filtered));
+                };
+                reqAll.onerror = () => resolve(empty);
+            };
             if (!st.indexNames.contains('codigoModificar')) {
-                resolve(empty);
+                tryScanAll();
                 return;
             }
             const idx = st.index('codigoModificar');
             const req = idx.getAll(norm);
             req.onsuccess = () => {
                 const rows = req.result || [];
-                const s = new Set();
-                for (let i = 0; i < rows.length; i++) {
-                    const c = rows[i].codigoProducto;
-                    if (c) s.add(String(c).trim().toUpperCase());
+                if (rows.length > 0) {
+                    resolve(finish(rows));
+                    return;
                 }
-                resolve(s);
+                tryScanAll();
             };
-            req.onerror = () => resolve(empty);
+            req.onerror = () => tryScanAll();
+        });
+    }
+
+    /**
+     * Actualiza campos opcionales de una fila familias en IndexedDB (tras editar en panel admin).
+     */
+    async patchFamiliaLocalFields(codigo, partial) {
+        if (!this.db || !this.db.objectStoreNames.contains('familias')) return;
+        const k = String(codigo || '').trim().toUpperCase();
+        if (!k || !partial || typeof partial !== 'object') return;
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(['familias'], 'readwrite');
+            const st = tx.objectStore('familias');
+            const r = st.get(k);
+            r.onsuccess = () => {
+                if (!r.result) {
+                    return;
+                }
+                const cur = Object.assign({}, r.result, partial);
+                st.put(cur);
+            };
+            r.onerror = () => reject(r.error);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
         });
     }
 

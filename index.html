@@ -834,7 +834,22 @@
                 <div class="herramientas-actions">
                     <button type="button" id="panelControlWcConjuntosBtn" class="btn btn-primary btn-lg">Configurar conjuntos WC</button>
                     <button type="button" id="panelControlRecambiosBtn" class="btn btn-primary btn-lg">Configurar recambios</button>
+                    <button type="button" id="panelControlFamiliasCatalogoBtn" class="btn btn-primary btn-lg">Familias en Inicio (imagenes)</button>
                 </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA FAMILIAS INICIO (admin: bucket fotos_familias)
+             ================================ -->
+        <div id="familiasCatalogoAdminScreen" class="screen">
+            <main class="screen-content">
+                <div class="profile-header">
+                    <button type="button" id="familiasCatalogoAdminBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title">Familias en Inicio</h2>
+                </div>
+                <p class="familias-admin-intro">Primera fila del arbol en Inicio: sube imagen (hasta 600x600 px, lienzo cuadrado) al bucket publico <strong>fotos_familias</strong> y opcionalmente un titulo que sustituye a la descripcion ERP en la loseta. Si hay titulo personalizado, no se muestra el codigo debajo.</p>
+                <div id="familiasCatalogoAdminList" class="familias-admin-list"></div>
             </main>
         </div>
 
