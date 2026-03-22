@@ -1819,7 +1819,9 @@ class ScanAsYouShopApp {
         try {
             const rows = await window.supabaseClient.getAllFamiliasRows();
             const localShape = rows.map((r) => {
-                const cod = String(r.CODIGO != null ? r.CODIGO : r.codigo || '').trim().toUpperCase();
+                const cod = CartManager.normalizeFamiliaCodigoCatalogo(
+                    r.CODIGO != null ? r.CODIGO : r.codigo != null ? r.codigo : ''
+                );
                 const des = String(r.DESCRIPCION != null ? r.DESCRIPCION : r.descripcion || '').trim();
                 return {
                     codigo: cod,
@@ -3049,7 +3051,7 @@ class ScanAsYouShopApp {
     }
 
     _familiaMetaFromLocalRow(f) {
-        const co = String(f.codigo || '').trim().toUpperCase();
+        const co = CartManager.normalizeFamiliaCodigoCatalogo(f.codigo);
         return {
             codigo: co,
             descripcion: String(f.descripcion || '').trim(),
@@ -3067,7 +3069,7 @@ class ScanAsYouShopApp {
     _getFamiliasDosDigitosParaAdmin(familiasList) {
         const codesSet = new Set();
         for (let i = 0; i < familiasList.length; i++) {
-            const co = String(familiasList[i].codigo || '').trim().toUpperCase();
+            const co = CartManager.normalizeFamiliaCodigoCatalogo(familiasList[i].codigo);
             if (co) {
                 codesSet.add(co);
             }
@@ -3120,7 +3122,7 @@ class ScanAsYouShopApp {
         const codesSet = new Set();
         for (let i = 0; i < familias.length; i++) {
             const f = familias[i];
-            const co = String(f.codigo || '').trim().toUpperCase();
+            const co = CartManager.normalizeFamiliaCodigoCatalogo(f.codigo);
             if (!co) continue;
             codesSet.add(co);
             byCode.set(co, this._familiaMetaFromLocalRow(f));

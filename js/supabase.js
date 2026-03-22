@@ -2827,11 +2827,26 @@ class SupabaseClient {
         if (!this.client) {
             return [];
         }
-        const { data, error } = await this.client.from('familias').select('*').order('CODIGO');
-        if (error) {
-            throw error;
+        const pageSize = 1000;
+        let from = 0;
+        const all = [];
+        while (true) {
+            const { data, error } = await this.client
+                .from('familias')
+                .select('*')
+                .order('CODIGO')
+                .range(from, from + pageSize - 1);
+            if (error) {
+                throw error;
+            }
+            const chunk = data || [];
+            all.push(...chunk);
+            if (chunk.length < pageSize) {
+                break;
+            }
+            from += pageSize;
         }
-        return data || [];
+        return all;
     }
 
     async updateFamiliaInicioUi(codigoFamilia, fields) {

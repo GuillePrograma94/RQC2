@@ -807,7 +807,9 @@ class CartManager {
     async saveFamiliasCatalogToStorage(familiasRows, asignadasRows) {
         if (!this.db) return;
         const familias = (familiasRows || []).map((r) => ({
-            codigo: String(r.CODIGO != null ? r.CODIGO : r.codigo != null ? r.codigo : '').trim().toUpperCase(),
+            codigo: CartManager.normalizeFamiliaCodigoCatalogo(
+                r.CODIGO != null ? r.CODIGO : r.codigo != null ? r.codigo : ''
+            ),
             descripcion: String(r.DESCRIPCION != null ? r.DESCRIPCION : r.descripcion != null ? r.descripcion : '').trim(),
             titulo_inicio: String(r.titulo_inicio != null ? r.titulo_inicio : '').trim(),
             imagen_storage_path: String(r.imagen_storage_path != null ? r.imagen_storage_path : '').trim(),
@@ -903,12 +905,39 @@ class CartManager {
     }
 
     /**
+     * Unifica CODIGO familia: en JSON, valores 0-99 a veces vienen como number (3 -> no es "03").
+     * Cadenas de un solo digito se rellenan a 2; el resto (0218, 01B1) se deja en mayusculas.
+     */
+    static normalizeFamiliaCodigoCatalogo(val) {
+        if (val == null || val === '') {
+            return '';
+        }
+        if (typeof val === 'number' && Number.isFinite(val)) {
+            const n = Math.trunc(val);
+            if (n >= 0 && n <= 99) {
+                return String(n).padStart(2, '0');
+            }
+            return String(n);
+        }
+        const s = String(val).trim().toUpperCase();
+        if (!s) {
+            return '';
+        }
+        if (/^\d+$/.test(s) && s.length === 1) {
+            return s.padStart(2, '0');
+        }
+        return s;
+    }
+
+    /**
      * Actualiza campos opcionales de una fila familias en IndexedDB (tras editar en panel admin).
      */
     async patchFamiliaLocalFields(codigo, partial) {
         if (!this.db || !this.db.objectStoreNames.contains('familias')) return;
-        const k = String(codigo || '').trim().toUpperCase();
-        if (!k || !partial || typeof partial !== 'object') return;
+        const k = CartManager.normalizeFamiliaCodigoCatalogo(codigo);
+        if (!k || !partial || typeof partial !== 'object') {
+            return;
+        }
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(['familias'], 'readwrite');
             const st = tx.objectStore('familias');
