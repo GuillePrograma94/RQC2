@@ -147,7 +147,9 @@ class ScannerManager {
         const card = document.createElement('div');
         card.className = 'product-card';
 
-        const price = parseFloat(producto.pvp || 0);
+        const price = window.app && typeof window.app.getPvpUnitarioConTarifa === 'function'
+            ? window.app.getPvpUnitarioConTarifa(producto)
+            : parseFloat(producto.pvp || 0);
         const priceWithIVA = price * 1.21;
 
         card.innerHTML = `
@@ -215,8 +217,11 @@ class ScannerManager {
      */
     async addToCart(producto, cantidad = 1) {
         try {
-            // Mostrar modal de cantidad (ignorar la cantidad pasada como parámetro)
-            const cantidadSeleccionada = await window.app.showAddToCartModal(producto);
+            const pvpAdj = window.app && typeof window.app.getPvpUnitarioConTarifa === 'function'
+                ? window.app.getPvpUnitarioConTarifa(producto)
+                : parseFloat(producto.pvp || 0);
+            const productoCarrito = Object.assign({}, producto, { pvp: pvpAdj });
+            const cantidadSeleccionada = await window.app.showAddToCartModal(productoCarrito);
             
             // Si el usuario canceló, no hacer nada
             if (cantidadSeleccionada === null) {
@@ -225,7 +230,7 @@ class ScannerManager {
 
             window.ui.showLoading('Añadiendo al carrito...');
 
-            await window.cartManager.addProduct(producto, cantidadSeleccionada);
+            await window.cartManager.addProduct(productoCarrito, cantidadSeleccionada);
 
             window.ui.hideLoading();
             window.ui.showToast(
@@ -540,13 +545,19 @@ class ScannerManager {
             const normalizedCode = code.toUpperCase().trim();
             
             // Buscar en IndexedDB con búsqueda directa (INSTANTÁNEA)
-            const products = await window.cartManager.searchProductsExact(normalizedCode);
+            let products = await window.cartManager.searchProductsExact(normalizedCode);
+            if (window.app && typeof window.app.debeOcultarProductoBusquedaCatalogo === 'function') {
+                products = products.filter((p) => !window.app.debeOcultarProductoBusquedaCatalogo(p));
+            }
             
             console.timeEnd('⏱️ Búsqueda exacta');
             
             if (products.length === 1) {
                 // Un producto encontrado - mostrar directamente modal de cantidad
                 const producto = products[0];
+                const pvpCarrito = window.app && typeof window.app.getPvpUnitarioConTarifa === 'function'
+                    ? window.app.getPvpUnitarioConTarifa(producto)
+                    : producto.pvp;
                 console.log('✅ Producto encontrado:', producto);
                 
                 // Vibración de feedback (si está disponible)
@@ -555,7 +566,11 @@ class ScannerManager {
                 }
                 
                 // Mostrar modal de cantidad directamente
-                const cantidad = await window.app.showAddToCartModal(producto);
+                const cantidad = await window.app.showAddToCartModal({
+                    codigo: producto.codigo,
+                    descripcion: producto.descripcion,
+                    pvp: pvpCarrito
+                });
                 
                 // Si el usuario canceló, reiniciar cámara
                 if (cantidad === null) {
@@ -568,7 +583,11 @@ class ScannerManager {
                 }
                 
                 // Añadir al carrito con la cantidad seleccionada
-                await window.cartManager.addProduct(producto, cantidad);
+                await window.cartManager.addProduct({
+                    codigo: producto.codigo,
+                    descripcion: producto.descripcion,
+                    pvp: pvpCarrito
+                }, cantidad);
                 window.ui.showToast(`✅ ${producto.descripcion} (x${cantidad})`, 'success');
                 window.ui.updateCartBadge();
                 

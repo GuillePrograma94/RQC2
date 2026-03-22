@@ -41,7 +41,7 @@ class CartManager {
      */
     initIndexedDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, 7); // v7: indice codigo_proveedor en products
+            const request = indexedDB.open(this.dbName, 8); // v8: store claves_descuento (tarifas por clave)
 
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
@@ -130,6 +130,11 @@ class CartManager {
             if (!db.objectStoreNames.contains('stock')) {
                 db.createObjectStore('stock', { keyPath: 'codigo_articulo' });
                 console.log('Object store stock creado');
+            }
+
+            if (!db.objectStoreNames.contains('claves_descuento')) {
+                db.createObjectStore('claves_descuento', { keyPath: 'clave' });
+                console.log('Object store claves_descuento creado');
             }
                 
                 console.log('Esquema de base de datos creado/actualizado');
@@ -505,8 +510,8 @@ class CartManager {
                     
                     getRequest.onsuccess = () => {
                         if (getRequest.result) {
-                            // Producto existe, actualizar
-                            store.put(normalizedProduct);
+                            const merged = Object.assign({}, getRequest.result, normalizedProduct);
+                            store.put(merged);
                             updated++;
                         } else {
                             // Producto nuevo, insertar
@@ -690,6 +695,132 @@ class CartManager {
             console.error('Error al actualizar códigos secundarios incrementalmente:', error);
             throw error;
         }
+    }
+
+    /**
+     * Reemplaza el cache local de claves_descuento (tabla pequena).
+     */
+    async saveClavesDescuentoToStorage(rows) {
+        if (!this.db) return;
+        if (!rows || rows.length === 0) {
+            console.warn('No hay claves_descuento para guardar');
+            return;
+        }
+        const transaction = this.db.transaction(['claves_descuento'], 'readwrite');
+        const store = transaction.objectStore('claves_descuento');
+        store.clear();
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            const clave = (r.clave || '').trim();
+            if (!clave) continue;
+            let tarifas = r.tarifas;
+            if (tarifas && typeof tarifas === 'string') {
+                try {
+                    tarifas = JSON.parse(tarifas);
+                } catch (e) {
+                    tarifas = {};
+                }
+            }
+            store.put({
+                clave,
+                tarifas: tarifas && typeof tarifas === 'object' ? tarifas : {},
+                fecha_actualizacion: r.fecha_actualizacion || null
+            });
+        }
+        return new Promise((resolve, reject) => {
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+        });
+    }
+
+    /**
+     * Actualiza claves_descuento incrementalmente (merge por clave).
+     */
+    async updateClavesDescuentoIncremental(rows) {
+        if (!this.db) return { inserted: 0, updated: 0 };
+        if (!rows || rows.length === 0) {
+            return { inserted: 0, updated: 0 };
+        }
+        const transaction = this.db.transaction(['claves_descuento'], 'readwrite');
+        const store = transaction.objectStore('claves_descuento');
+        let n = 0;
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            const clave = (r.clave || '').trim();
+            if (!clave) continue;
+            let tarifas = r.tarifas;
+            if (tarifas && typeof tarifas === 'string') {
+                try {
+                    tarifas = JSON.parse(tarifas);
+                } catch (e) {
+                    tarifas = {};
+                }
+            }
+            store.put({
+                clave,
+                tarifas: tarifas && typeof tarifas === 'object' ? tarifas : {},
+                fecha_actualizacion: r.fecha_actualizacion || null
+            });
+            n++;
+        }
+        return new Promise((resolve, reject) => {
+            transaction.oncomplete = () => resolve({ inserted: n, updated: 0 });
+            transaction.onerror = () => reject(transaction.error);
+        });
+    }
+
+    /**
+     * Mapa clave -> objeto tarifas { codigo_tarifa: porcentaje }
+     */
+    async getClavesDescuentoMap() {
+        if (!this.db) return new Map();
+        return new Promise((resolve) => {
+            const tx = this.db.transaction(['claves_descuento'], 'readonly');
+            const st = tx.objectStore('claves_descuento');
+            const req = st.getAll();
+            req.onsuccess = () => {
+                const m = new Map();
+                (req.result || []).forEach((r) => {
+                    const k = (r.clave || '').trim();
+                    if (k) m.set(k, r.tarifas || {});
+                });
+                resolve(m);
+            };
+            req.onerror = () => resolve(new Map());
+        });
+    }
+
+    /**
+     * Elimina de IndexedDB productos que cumplan el predicado (ahorro espacio: no catalogables).
+     */
+    async purgeProductsIf(predicate) {
+        if (!this.db || typeof predicate !== 'function') return 0;
+        let removed = 0;
+        await new Promise((resolve, reject) => {
+            const tx = this.db.transaction(['products'], 'readwrite');
+            const st = tx.objectStore('products');
+            const cur = st.openCursor();
+            cur.onerror = () => reject(cur.error);
+            cur.onsuccess = (ev) => {
+                const c = ev.target.result;
+                if (!c) return;
+                try {
+                    if (predicate(c.value)) {
+                        c.delete();
+                        removed++;
+                    }
+                } catch (err) {
+                    console.error('purgeProductsIf:', err);
+                }
+                c.continue();
+            };
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+        if (removed > 0) {
+            console.log('purgeProductsIf: eliminados', removed, 'registros locales');
+        }
+        return removed;
     }
 
     /**

@@ -239,6 +239,105 @@ class SupabaseClient {
     }
 
     /**
+     * Descarga productos, codigos secundarios y claves_descuento con decision independiente
+     * incremental vs completa segun estadisticas (umbrales separados).
+     */
+    async downloadCatalogSplit(versionHashLocal, changeStats, onProgress = null) {
+        const TH_PROD = 1000;
+        const TH_COD = 800;
+        const TH_CLAVE = 400;
+
+        const prodN = changeStats
+            ? (changeStats.productos_modificados || 0) + (changeStats.productos_nuevos || 0)
+            : 0;
+        const codN = changeStats
+            ? (changeStats.codigos_modificados || 0) + (changeStats.codigos_nuevos || 0)
+            : 0;
+        const clN = changeStats
+            ? (changeStats.claves_descuento_modificadas || 0) + (changeStats.claves_descuento_nuevas || 0)
+            : 0;
+
+        let useIncProd = !!(versionHashLocal && changeStats && prodN > 0 && prodN < TH_PROD);
+        let useIncCod = !!(versionHashLocal && changeStats && codN > 0 && codN < TH_COD);
+        let useIncClave = !!(versionHashLocal && changeStats && clN > 0 && clN < TH_CLAVE);
+
+        if (!versionHashLocal || !changeStats) {
+            useIncProd = false;
+            useIncCod = false;
+            useIncClave = false;
+        }
+
+        if (versionHashLocal && changeStats && prodN === 0 && codN === 0 && clN === 0) {
+            useIncProd = false;
+            useIncCod = false;
+            useIncClave = false;
+        }
+
+        let productos;
+        if (useIncProd) {
+            const { data, error } = await this.client.rpc(
+                'obtener_productos_modificados',
+                { p_version_hash_local: versionHashLocal }
+            );
+            if (error) throw error;
+            productos = data || [];
+            if (onProgress) {
+                onProgress({ table: 'productos_incremental', loaded: productos.length, total: productos.length, batch: productos.length });
+            }
+        } else {
+            productos = await this._downloadWithPagination('productos', onProgress);
+        }
+
+        let codigosSecundarios;
+        if (useIncCod) {
+            const { data, error } = await this.client.rpc(
+                'obtener_codigos_secundarios_modificados',
+                { p_version_hash_local: versionHashLocal }
+            );
+            if (error) throw error;
+            codigosSecundarios = data || [];
+            if (onProgress) {
+                onProgress({
+                    table: 'codigos_incremental',
+                    loaded: codigosSecundarios.length,
+                    total: codigosSecundarios.length,
+                    batch: codigosSecundarios.length
+                });
+            }
+        } else {
+            codigosSecundarios = await this._downloadWithPagination('codigos_secundarios', onProgress);
+        }
+
+        let clavesDescuento;
+        try {
+            if (useIncClave) {
+                const { data, error } = await this.client.rpc(
+                    'obtener_claves_descuento_modificadas',
+                    { p_version_hash_local: versionHashLocal }
+                );
+                if (error) throw error;
+                clavesDescuento = data || [];
+            } else {
+                clavesDescuento = await this._downloadWithPagination('claves_descuento', onProgress);
+            }
+        } catch (e) {
+            console.warn('claves_descuento omitido (tabla o RPC no disponible):', e && e.message);
+            clavesDescuento = [];
+        }
+
+        return {
+            productos,
+            codigosSecundarios,
+            clavesDescuento,
+            flags: {
+                productsIncremental: useIncProd,
+                codesIncremental: useIncCod,
+                clavesIncremental: useIncClave
+            }
+        };
+    }
+
+    /**
      * Descarga datos con paginación automática
      */
     async _downloadWithPagination(tableName, onProgress = null, filters = {}) {
@@ -276,6 +375,8 @@ class SupabaseClient {
                 query = query.order('desde_unidades');
             } else if (tableName === 'stock_almacen_articulo') {
                 query = query.order('codigo_almacen').order('codigo_articulo');
+            } else if (tableName === 'claves_descuento') {
+                query = query.order('clave');
             } else {
                 query = query.order('id');
             }
@@ -662,6 +763,7 @@ class SupabaseClient {
                 user_name: data.user_name,
                 codigo_usuario: data.codigo_usuario || codigoUsuario,
                 grupo_cliente: data.grupo_cliente ?? null,
+                tarifa: data.tarifa != null && String(data.tarifa).trim() !== '' ? String(data.tarifa).trim() : null,
                 codigo_usuario_titular: data.codigo_usuario_titular ?? null,
                 almacen_habitual: data.almacen_habitual ?? null,
                 es_operario: !!data.es_operario,

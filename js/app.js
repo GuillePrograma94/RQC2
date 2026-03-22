@@ -18,6 +18,8 @@ class ScanAsYouShopApp {
         // Stock
         this.stockAlmacenFiltro = null; // null = global; string = almacen especifico
         this.stockIndex = new Map();    // Map<codigo_articulo_upper, {stock_global, por_almacen}>
+        /** Map clave_descuento -> objeto tarifas { codigo_tarifa: porcentaje } */
+        this.clavesDescuentoMap = new Map();
         // Estado de chips de filtro de búsqueda
         this.filterChips = {
             misCompras: false,
@@ -295,6 +297,9 @@ class ScanAsYouShopApp {
                     user_name: loginResult.user_name,
                     codigo_usuario: loginResult.codigo_usuario,
                     grupo_cliente: loginResult.grupo_cliente || null,
+                    tarifa: loginResult.tarifa != null && String(loginResult.tarifa).trim() !== ''
+                        ? String(loginResult.tarifa).trim()
+                        : null,
                     codigo_usuario_titular: loginResult.codigo_usuario_titular || null,
                     almacen_habitual: loginResult.almacen_habitual || null,
                     is_operario: !!loginResult.es_operario,
@@ -1023,6 +1028,7 @@ class ScanAsYouShopApp {
         delete this.currentUser.cliente_representado_nombre;
         delete this.currentUser.cliente_representado_almacen_habitual;
         delete this.currentUser.cliente_representado_grupo_cliente;
+        delete this.currentUser.cliente_representado_tarifa;
         this.saveUserSession(this.currentUser, this.currentSession);
         this.updateUserUI();
         this._updateSelectorClienteRepresentandoBlock();
@@ -1151,6 +1157,9 @@ class ScanAsYouShopApp {
                 self.currentUser.cliente_representado_nombre = (c.nombre || '').trim();
                 self.currentUser.cliente_representado_almacen_habitual = c.almacen_habitual != null ? c.almacen_habitual : null;
                 self.currentUser.cliente_representado_grupo_cliente = c.grupo_cliente != null ? c.grupo_cliente : null;
+                self.currentUser.cliente_representado_tarifa = c.tarifa != null && String(c.tarifa).trim() !== ''
+                    ? String(c.tarifa).trim()
+                    : null;
                 self.saveUserSession(self.currentUser, self.currentSession);
                 self.updateUserUI();
                 if (self.currentUser.is_dependiente && window.supabaseClient) {
@@ -2801,6 +2810,8 @@ class ScanAsYouShopApp {
                 throw new Error('No se pudo inicializar el carrito');
             }
 
+            await this.refreshClavesDescuentoCache();
+
             // Inicializar scanner
             window.scannerManager.initialize();
 
@@ -3308,110 +3319,99 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            // Obtener versión local para sincronización incremental
             const versionLocalHash = localStorage.getItem('version_hash_local');
-            let useIncremental = false;
             let changeStats = null;
 
-            // Si hay versión local, intentar sincronización incremental
             if (versionLocalHash) {
-                console.log('⚡ Intentando sincronización incremental...');
-                console.log(`   Versión local: ${versionLocalHash.substring(0, 16)}...`);
+                console.log('Analizando cambios por dominio (productos / codigos / claves_descuento)...');
                 window.ui.updateSyncIndicator('Analizando cambios...');
-                
                 try {
                     changeStats = await window.supabaseClient.getChangeStatistics(versionLocalHash);
-                    console.log('📊 Estadísticas obtenidas:', changeStats);
-                    
-                    if (changeStats && changeStats.total_cambios !== null && changeStats.total_cambios !== undefined) {
-                        const totalCambios = changeStats.total_cambios;
-                        const totalProductos = changeStats.productos_modificados + changeStats.productos_nuevos;
-                        
-                        console.log(`   Total cambios: ${totalCambios}`);
-                        console.log(`   Productos nuevos: ${changeStats.productos_nuevos}, modificados: ${changeStats.productos_modificados}`);
-                        console.log(`   Códigos nuevos: ${changeStats.codigos_nuevos}, modificados: ${changeStats.codigos_modificados}`);
-                        
-                        // Usar incremental si hay menos de 1000 cambios (umbral configurable)
-                        // Si hay muchos cambios, es más eficiente hacer sincronización completa
-                        if (totalCambios > 0 && totalCambios < 1000) {
-                            useIncremental = true;
-                            console.log(`✅ Sincronización incremental: ${totalCambios} cambios detectados`);
-                            console.log(`   - Productos: ${changeStats.productos_nuevos} nuevos, ${changeStats.productos_modificados} modificados`);
-                            console.log(`   - Códigos: ${changeStats.codigos_nuevos} nuevos, ${changeStats.codigos_modificados} modificados`);
-                        } else if (totalCambios >= 1000) {
-                            console.log(`📦 Muchos cambios (${totalCambios}), usando sincronización completa para mejor rendimiento`);
-                        } else if (totalCambios === 0) {
-                            // Si total_cambios = 0 pero el hash cambió, puede ser que:
-                            // 1. Los productos fueron modificados pero fecha_actualizacion no se actualizó (problema con UPSERT)
-                            // 2. La versión local no existe en version_control (primera vez)
-                            // 3. Realmente no hay cambios (hash cambió por otra razón)
-                            // En cualquier caso, es más seguro hacer sincronización completa para verificar
-                            console.log(`⚠️ PROBLEMA DETECTADO: total_cambios = 0 pero el hash cambió`);
-                            console.log(`   Esto indica que fecha_actualizacion NO se actualizó en los productos modificados`);
-                            console.log(`   Posibles causas:`);
-                            console.log(`   1. Se usó UPSERT normal en lugar de upsert_productos_masivo_con_fecha`);
-                            console.log(`   2. La función RPC falló y se usó el fallback`);
-                            console.log(`   3. Los cambios se hicieron antes de aplicar la función RPC nueva`);
-                            console.log(`   💡 SOLUCIÓN: Verifica que generate_supabase_file.py use la función RPC correcta`);
-                            console.log(`   📥 Usando sincronización completa para corregir fecha_actualizacion`);
-                        }
-                    } else {
-                        console.warn('⚠️ Estadísticas inválidas o nulas:', changeStats);
-                        console.warn('   Posibles causas:');
-                        console.warn('   1. La función obtener_estadisticas_cambios no existe en Supabase');
-                        console.warn('   2. El script SQL no se ejecutó correctamente');
-                        console.warn('   3. La versión local no existe en version_control');
+                    console.log('Estadisticas:', changeStats);
+                    if (changeStats) {
+                        console.log(
+                            `   Productos: +${changeStats.productos_nuevos || 0} / ~${changeStats.productos_modificados || 0} | ` +
+                            `Codigos: +${changeStats.codigos_nuevos || 0} / ~${changeStats.codigos_modificados || 0} | ` +
+                            `Claves dto: +${changeStats.claves_descuento_nuevas || 0} / ~${changeStats.claves_descuento_modificadas || 0}`
+                        );
                     }
                 } catch (statsError) {
-                    console.error('❌ Error al obtener estadísticas:', statsError);
-                    console.warn('⚠️ Usando sincronización completa como fallback');
-                    console.warn('   Verifica que el script migration_sincronizacion_incremental.sql se ejecutó en Supabase');
+                    console.error('Error al obtener estadisticas:', statsError);
+                    changeStats = null;
                 }
             } else {
-                console.log('ℹ️ No hay versión local guardada, usando sincronización completa (primera vez)');
+                console.log('No hay version local: descarga completa de catalogo');
             }
 
-            console.log(useIncremental ? '⚡ Descargando cambios incrementales...' : '📥 Descargando catálogo completo...');
-            window.ui.updateSyncIndicator(useIncremental ? 'Descargando cambios...' : 'Descargando...');
-
-            // Callback de progreso
             const onProgress = (progress) => {
                 const percent = progress.total ? Math.round((progress.loaded / progress.total) * 100) : 0;
                 window.ui.updateSyncIndicator(`${percent}%`);
             };
 
-            let productos, codigosSecundarios, isIncremental;
+            let productos;
+            let codigosSecundarios;
+            let clavesDescuento = [];
+            let flags = { productsIncremental: false, codesIncremental: false, clavesIncremental: false };
 
-            if (useIncremental) {
-                // Sincronización incremental
-                const result = await window.supabaseClient.downloadProductsIncremental(versionLocalHash, onProgress);
-                productos = result.productos;
-                codigosSecundarios = result.codigosSecundarios;
-                isIncremental = result.isIncremental;
+            if (versionLocalHash && changeStats) {
+                const split = await window.supabaseClient.downloadCatalogSplit(versionLocalHash, changeStats, onProgress);
+                productos = split.productos;
+                codigosSecundarios = split.codigosSecundarios;
+                clavesDescuento = split.clavesDescuento || [];
+                flags = split.flags || flags;
             } else {
-                // Sincronización completa
+                window.ui.updateSyncIndicator('Descargando...');
                 const result = await window.supabaseClient.downloadProducts(onProgress);
                 productos = result.productos;
                 codigosSecundarios = result.codigosSecundarios;
-                isIncremental = false;
+                try {
+                    clavesDescuento = await window.supabaseClient._downloadWithPagination('claves_descuento', onProgress);
+                } catch (e) {
+                    console.warn('claves_descuento no descargado:', e && e.message);
+                    clavesDescuento = [];
+                }
             }
 
-            // Guardar en almacenamiento local
-            if (isIncremental) {
-                // Actualización incremental (más rápida)
-                window.ui.updateSyncIndicator('Aplicando cambios...');
+            const isIncremental =
+                flags.productsIncremental || flags.codesIncremental || flags.clavesIncremental;
+
+            console.log(
+                isIncremental
+                    ? 'Aplicando sync mixta (incremental por dominio donde aplica)...'
+                    : 'Aplicando sync completa de catalogo...'
+            );
+            window.ui.updateSyncIndicator('Guardando productos...');
+
+            if (flags.productsIncremental) {
                 const productosResult = await window.cartManager.updateProductsIncremental(productos);
-                window.ui.updateSyncIndicator('Aplicando códigos...');
-                const codigosResult = await window.cartManager.updateSecondaryCodesIncremental(codigosSecundarios);
-                
-                console.log(`✅ Cambios aplicados: ${productosResult.inserted + productosResult.updated} productos, ${codigosResult.inserted + codigosResult.updated} códigos`);
+                console.log('Productos incremental:', productosResult);
             } else {
-                // Reemplazo completo (más lento pero necesario para primera sincronización o muchos cambios)
-                window.ui.updateSyncIndicator('Guardando productos...');
                 await window.cartManager.saveProductsToStorage(productos);
-                
-                window.ui.updateSyncIndicator('Guardando códigos secundarios...');
+            }
+
+            window.ui.updateSyncIndicator('Guardando codigos secundarios...');
+            if (flags.codesIncremental) {
+                const codigosResult = await window.cartManager.updateSecondaryCodesIncremental(codigosSecundarios);
+                console.log('Codigos secundarios incremental:', codigosResult);
+            } else {
                 await window.cartManager.saveSecondaryCodesToStorage(codigosSecundarios);
+            }
+
+            if (clavesDescuento.length > 0) {
+                window.ui.updateSyncIndicator('Guardando claves descuento...');
+                if (flags.clavesIncremental) {
+                    await window.cartManager.updateClavesDescuentoIncremental(clavesDescuento);
+                } else {
+                    await window.cartManager.saveClavesDescuentoToStorage(clavesDescuento);
+                }
+            }
+
+            if (typeof this.refreshClavesDescuentoCache === 'function') {
+                await this.refreshClavesDescuentoCache();
+            }
+
+            if (typeof this.purgeHiddenCatalogProductsLocal === 'function') {
+                await this.purgeHiddenCatalogProductsLocal();
             }
 
             // Descargar ofertas en segundo plano (sin bloquear)
@@ -3426,8 +3426,8 @@ class ScanAsYouShopApp {
             // Actualizar hash local
             await window.supabaseClient.actualizarVersionLocal(versionCheck.versionRemota);
 
-            const mensaje = isIncremental 
-                ? `Catálogo actualizado - ${productos.length} cambios aplicados`
+            const mensaje = isIncremental
+                ? `Catálogo actualizado (${productos.length} productos, sync mixta por dominio)`
                 : `Catálogo actualizado - ${productos.length} productos`;
 
             console.log('✅ Productos y códigos secundarios sincronizados correctamente');
@@ -3458,6 +3458,9 @@ class ScanAsYouShopApp {
                 if (this.stockIndex.size > 0) {
                     console.log(`Stock en memoria: ${this.stockIndex.size} articulos (sin cambios en hash)`);
                     this.initStockAlmacenFilter();
+                    if (typeof this.purgeHiddenCatalogProductsLocal === 'function') {
+                        await this.purgeHiddenCatalogProductsLocal();
+                    }
                 }
                 return;
             }
@@ -3483,6 +3486,10 @@ class ScanAsYouShopApp {
             } catch (e) {
                 // Silencioso: sin stock no se muestra el filtro
             }
+        }
+
+        if (this.stockIndex && this.stockIndex.size > 0 && typeof this.purgeHiddenCatalogProductsLocal === 'function') {
+            await this.purgeHiddenCatalogProductsLocal();
         }
     }
 
@@ -3944,6 +3951,88 @@ class ScanAsYouShopApp {
         const cantidadCarrito = enCarrito ? (enCarrito.cantidad || 0) : 0;
 
         return stockBase - cantidadCarrito;
+    }
+
+    /**
+     * Stock global numerico para reglas de catalogo (sin descontar carrito).
+     */
+    getStockGlobalParaReglas(codigo) {
+        if (!codigo || !this.stockIndex || this.stockIndex.size === 0) return 0;
+        const e = this.stockIndex.get(String(codigo).toUpperCase());
+        if (!e) return 0;
+        return Number(e.stock_global) || 0;
+    }
+
+    async refreshClavesDescuentoCache() {
+        try {
+            if (!window.cartManager || typeof window.cartManager.getClavesDescuentoMap !== 'function') {
+                this.clavesDescuentoMap = new Map();
+                return;
+            }
+            this.clavesDescuentoMap = await window.cartManager.getClavesDescuentoMap();
+        } catch (e) {
+            console.warn('refreshClavesDescuentoCache:', e);
+            this.clavesDescuentoMap = new Map();
+        }
+    }
+
+    /**
+     * Codigo de tarifa ERP efectivo: cliente representado o usuario logueado.
+     */
+    getEffectiveTarifaCodigo() {
+        if (!this.currentUser) return null;
+        if (this.canRepresentClientes() && this.currentUser.cliente_representado_id) {
+            const t = this.currentUser.cliente_representado_tarifa;
+            return t != null && String(t).trim() !== '' ? String(t).trim() : null;
+        }
+        const t = this.currentUser.tarifa;
+        return t != null && String(t).trim() !== '' ? String(t).trim() : null;
+    }
+
+    /**
+     * Porcentaje de descuento por tarifa para el producto (clave_descuento + tabla claves).
+     */
+    getPorcentajeDtoTarifaParaProducto(producto) {
+        const codigoTarifa = this.getEffectiveTarifaCodigo();
+        if (!codigoTarifa || !producto) return null;
+        const clave = (producto.clave_descuento != null ? String(producto.clave_descuento) : '').trim();
+        if (!clave || !this.clavesDescuentoMap || this.clavesDescuentoMap.size === 0) return null;
+        const t = this.clavesDescuentoMap.get(clave);
+        if (!t || typeof t !== 'object') return null;
+        const pct = t[codigoTarifa];
+        if (pct == null || pct === '') return null;
+        const n = Number(pct);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    /**
+     * PVP unitario sin IVA aplicando descuento por tarifa si corresponde.
+     */
+    getPvpUnitarioConTarifa(producto) {
+        const base = producto && producto.pvp != null ? Number(producto.pvp) : 0;
+        const dto = this.getPorcentajeDtoTarifaParaProducto(producto);
+        if (dto == null) return base;
+        return Math.round(base * (1 - dto / 100) * 10000) / 10000;
+    }
+
+    /**
+     * Ocultar en busqueda de catalogo si activo F, activo_web F y stock global 0.
+     * Historial (solo comprados) no aplica este filtro en performSearch.
+     */
+    debeOcultarProductoBusquedaCatalogo(producto) {
+        if (!producto) return true;
+        if (producto.activo !== false || producto.activo_web !== false) return false;
+        if (!this.stockIndex || this.stockIndex.size === 0) {
+            return false;
+        }
+        const sg = this.getStockGlobalParaReglas(producto.codigo);
+        return sg === 0;
+    }
+
+    async purgeHiddenCatalogProductsLocal() {
+        if (!window.cartManager || typeof window.cartManager.purgeProductsIf !== 'function') return;
+        const self = this;
+        await window.cartManager.purgeProductsIf((p) => self.debeOcultarProductoBusquedaCatalogo(p));
     }
 
     /**
@@ -5365,6 +5454,14 @@ class ScanAsYouShopApp {
                 console.log(`Deduplicacion por SKU aplicada: ${totalAntesDeduplicar} -> ${productos.length}`);
             }
 
+            if (!onlyPurchased && productos.length > 0) {
+                const antesCat = productos.length;
+                productos = productos.filter((p) => !this.debeOcultarProductoBusquedaCatalogo(p));
+                if (productos.length !== antesCat) {
+                    console.log(`Filtro catalogo (activo/web/stock): ${antesCat} -> ${productos.length}`);
+                }
+            }
+
             // Filtro de ofertas
             if (soloOfertas && window.cartManager && window.cartManager.db) {
                 const codigoCliente = this.getEffectiveGrupoCliente() || null;
@@ -5377,10 +5474,10 @@ class ScanAsYouShopApp {
 
             // Filtro de precio (PVP sin IVA; comparamos contra pvp * 1.21 para precio con IVA)
             if (precioDesde !== null) {
-                productos = productos.filter(p => (p.pvp || 0) * 1.21 >= precioDesde);
+                productos = productos.filter(p => this.getPvpUnitarioConTarifa(p) * 1.21 >= precioDesde);
             }
             if (precioHasta !== null) {
-                productos = productos.filter(p => (p.pvp || 0) * 1.21 <= precioHasta);
+                productos = productos.filter(p => this.getPvpUnitarioConTarifa(p) * 1.21 <= precioHasta);
             }
 
             // Ordenar por stock efectivo descendente (mas stock = mas arriba).
@@ -5467,7 +5564,8 @@ class ScanAsYouShopApp {
         }
 
         resultsList.innerHTML = productosLimitados.map(producto => {
-            const priceWithIVA = producto.pvp * 1.21;
+            const pvpMostrar = this.getPvpUnitarioConTarifa(producto);
+            const priceWithIVA = pvpMostrar * 1.21;
             const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
             const escapedDescripcion = this.escapeForHtmlAttribute(producto.descripcion);
             
@@ -5491,12 +5589,12 @@ class ScanAsYouShopApp {
                 
                 return `
                     <div class="result-item-with-image history-item">
-                        <div class="result-image" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${producto.pvp})">
+                        <div class="result-image" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${pvpMostrar})">
                             <img src="${imageUrl}" alt="${producto.descripcion}" 
                                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                             <div class="result-image-placeholder" style="display: none;">📦</div>
                         </div>
-                        <div class="result-info" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${producto.pvp})">
+                        <div class="result-info" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${pvpMostrar})">
                             <div class="result-code">${codigoConOferta}</div>
                             <div class="result-name">${producto.descripcion}</div>
                             <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
@@ -5514,7 +5612,7 @@ class ScanAsYouShopApp {
             
             // Resultado normal
             return `
-                <div class="result-item-with-image" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${producto.pvp})">
+                <div class="result-item-with-image" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${pvpMostrar})">
                     <div class="result-image">
                         <img src="${imageUrl}" alt="${producto.descripcion}" 
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -6157,7 +6255,12 @@ class ScanAsYouShopApp {
         try {
             const producto = await window.supabaseClient.searchProductByCode(code);
             if (producto) {
-                this.addProductToCart(producto.codigo, producto.descripcion, producto.pvp);
+                if (this.debeOcultarProductoBusquedaCatalogo(producto)) {
+                    window.ui.showToast('Producto no disponible para pedido', 'warning');
+                    return;
+                }
+                const pvpU = this.getPvpUnitarioConTarifa(producto);
+                this.addProductToCart(producto.codigo, producto.descripcion, pvpU);
                 if (input) input.value = '';
             } else {
                 window.ui.showToast('Producto no encontrado', 'error');

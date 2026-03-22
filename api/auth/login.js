@@ -371,6 +371,7 @@ module.exports = async (req, res) => {
         user_name: row.user_name || '',
         codigo_usuario: codigoUsuario.trim(),
         grupo_cliente: row.grupo_cliente ?? null,
+        tarifa: row.tarifa != null && String(row.tarifa).trim() !== '' ? String(row.tarifa).trim() : null,
         almacen_habitual: row.almacen_habitual ?? null,
         es_operario: !!row.es_operario,
         nombre_operario: row.nombre_operario || null,
