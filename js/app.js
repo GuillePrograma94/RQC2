@@ -1829,15 +1829,15 @@ class ScanAsYouShopApp {
                     fecha_actualizacion: r.fecha_actualizacion != null ? String(r.fecha_actualizacion) : '',
                 };
             }).filter((x) => x.codigo);
-            const rootCodes = this._getFamiliaRootChildCodesFromLocalRows(localShape);
+            const codigosDosDigitos = this._getFamiliasDosDigitosParaAdmin(localShape);
             listEl.innerHTML = '';
-            if (rootCodes.length === 0) {
-                listEl.innerHTML = '<p class="familias-admin-empty">No hay familias de primer nivel. Comprueba datos o sincroniza el catalogo.</p>';
+            if (codigosDosDigitos.length === 0) {
+                listEl.innerHTML = '<p class="familias-admin-empty">No hay familias de dos digitos en el catalogo. Comprueba datos o sincroniza el catalogo.</p>';
                 return;
             }
             const byCod = new Map(localShape.map((x) => [x.codigo, x]));
-            for (let i = 0; i < rootCodes.length; i++) {
-                const cod = rootCodes[i];
+            for (let i = 0; i < codigosDosDigitos.length; i++) {
+                const cod = codigosDosDigitos[i];
                 const row = byCod.get(cod);
                 if (row) {
                     this._renderFamiliaCatalogoAdminCard(listEl, row);
@@ -3059,7 +3059,12 @@ class ScanAsYouShopApp {
         };
     }
 
-    _getFamiliaRootChildCodesFromLocalRows(familiasList) {
+    /**
+     * Panel Familias en Inicio (admin): listar todas las filas con codigo de exactamente 2 caracteres,
+     * no solo "raices" del arbol (si existiera p. ej. familia "0", 00/01/02 dejan de ser raiz y el panel
+     * vaciaba el resto de familias de dos digitos).
+     */
+    _getFamiliasDosDigitosParaAdmin(familiasList) {
         const codesSet = new Set();
         for (let i = 0; i < familiasList.length; i++) {
             const co = String(familiasList[i].codigo || '').trim().toUpperCase();
@@ -3068,8 +3073,14 @@ class ScanAsYouShopApp {
             }
         }
         const filtered = this._filterFamiliasCodesConAnclasDosYcuatro(codesSet);
-        const parentMap = this._buildFamiliaParentMap(filtered);
-        return this._getFamiliaChildCodes(filtered, parentMap, null);
+        const out = [];
+        filtered.forEach((c) => {
+            if (c.length === 2) {
+                out.push(c);
+            }
+        });
+        out.sort((x, y) => this._compareCodigoModificarOrden(x, y));
+        return out;
     }
 
     /**
