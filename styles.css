@@ -3204,14 +3204,17 @@ body.gate-visible .app-container {
     color: var(--gray-500);
     margin: 0 0 0.5rem;
 }
+/* Movil: 2 familias por fila; PC: 6 por fila */
 .inicio-familias-grid {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+    align-items: stretch;
 }
-@media (min-width: 480px) {
+@media (min-width: 1024px) {
     .inicio-familias-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 0.75rem;
     }
 }
 .inicio-familia-tile {
@@ -3220,12 +3223,15 @@ body.gate-visible .app-container {
     align-items: center;
     text-align: center;
     gap: 0.45rem;
-    padding: 0.65rem 0.5rem;
+    padding: 0.5rem 0.4rem 0.55rem;
     border-radius: 10px;
     border: 1px solid var(--gray-200);
     background: #fff;
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
+    height: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 .inicio-familia-tile:hover {
     border-color: var(--primary);
@@ -3234,10 +3240,10 @@ body.gate-visible .app-container {
 .inicio-familia-tile-leaf {
     border-left: 3px solid var(--primary);
 }
-/* Mismo marco que .result-image en resultados de busqueda (80x80, cover) */
+/* Retrato dentro de la loseta: ancho de columna, alto > ancho (no banda horizontal) */
 .inicio-familia-tile-img-wrap {
-    width: 80px;
-    height: 80px;
+    width: 100%;
+    aspect-ratio: 3 / 4;
     flex-shrink: 0;
     background: var(--gray-100);
     border-radius: 8px;
@@ -3257,12 +3263,22 @@ body.gate-visible .app-container {
     display: block;
 }
 .inicio-familia-tile-desc {
-    font-size: 0.82rem;
+    font-size: 0.74rem;
     font-weight: 700;
     color: var(--gray-900);
     line-height: 1.25;
     word-break: break-word;
     max-width: 100%;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+@media (min-width: 1024px) {
+    .inicio-familia-tile-desc {
+        font-size: 0.78rem;
+        -webkit-line-clamp: 4;
+    }
 }
 .inicio-familia-tile-code {
     font-size: 0.78rem;
@@ -3273,6 +3289,7 @@ body.gate-visible .app-container {
 .inicio-familias-open-search {
     margin-top: 0.25rem;
     width: 100%;
+    grid-column: 1 / -1;
 }
 
 .login-form {
