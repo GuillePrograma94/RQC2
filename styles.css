@@ -1798,6 +1798,38 @@ body.gate-visible .app-container {
         width: 100%;
     }
 
+    /* Inicio: catalogo por familia a ancho completo del navegador (resto de pantallas siguen en 900px) */
+    .screen-content.inicio-content {
+        max-width: none;
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
+        box-sizing: border-box;
+        align-items: stretch;
+        padding-left: clamp(1rem, 3vw, 2.5rem);
+        padding-right: clamp(1rem, 3vw, 2.5rem);
+    }
+
+    .screen-content.inicio-content .inicio-welcome {
+        align-self: center;
+        max-width: 420px;
+        width: 100%;
+    }
+
+    .screen-content.inicio-content .inicio-creaciones-card-wrap {
+        align-self: center;
+    }
+
+    .screen-content.inicio-content .inicio-familias-section {
+        width: 100%;
+        max-width: none;
+        box-sizing: border-box;
+    }
+
+    .screen-content.inicio-content .inicio-familias-grid {
+        width: 100%;
+    }
+
     /* PC: inputs en 2 columnas */
     .search-inputs-grid {
         display: grid;
@@ -3240,10 +3272,10 @@ body.gate-visible .app-container {
 .inicio-familia-tile-leaf {
     border-left: 3px solid var(--primary);
 }
-/* Retrato dentro de la loseta: ancho de columna, alto > ancho (no banda horizontal) */
+/* Movil: recuadro cuadrado (1:1) = imagen grande en ancho de columna y mas hueco debajo para texto */
 .inicio-familia-tile-img-wrap {
     width: 100%;
-    aspect-ratio: 3 / 4;
+    aspect-ratio: 1 / 1;
     flex-shrink: 0;
     background: var(--gray-100);
     border-radius: 8px;
@@ -3251,6 +3283,11 @@ body.gate-visible .app-container {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+@media (min-width: 1024px) {
+    .inicio-familia-tile-img-wrap {
+        aspect-ratio: 3 / 4;
+    }
 }
 .inicio-familia-tile-img {
     width: 100%;
@@ -3270,14 +3307,17 @@ body.gate-visible .app-container {
     word-break: break-word;
     max-width: 100%;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 5;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    flex: 1;
+    min-height: 0;
 }
 @media (min-width: 1024px) {
     .inicio-familia-tile-desc {
         font-size: 0.78rem;
         -webkit-line-clamp: 4;
+        flex: none;
     }
 }
 .inicio-familia-tile-code {
