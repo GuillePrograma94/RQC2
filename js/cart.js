@@ -3,6 +3,9 @@
  * Maneja el almacenamiento local y sincronización con Supabase
  */
 
+/** localStorage: parametro scb en URLs de imagenes de familias (caché agresiva en móvil). */
+const FAMILIAS_IMG_SCB_KEY = 'scan_familias_img_scb';
+
 class CartManager {
     constructor() {
         this.cart = {
@@ -835,13 +838,27 @@ class CartManager {
             const tx = this.db.transaction(['familias', 'familias_asignadas'], 'readwrite');
             tx.objectStore('familias').clear();
             tx.objectStore('familias_asignadas').clear();
-            tx.oncomplete = () => resolve();
+            tx.oncomplete = () => {
+                this.bumpFamiliaImagesCacheBust();
+                resolve();
+            };
             tx.onerror = () => reject(tx.error);
             const stF = tx.objectStore('familias');
             const stA = tx.objectStore('familias_asignadas');
             for (let i = 0; i < familias.length; i++) stF.put(familias[i]);
             for (let j = 0; j < asignadas.length; j++) stA.put(asignadas[j]);
         });
+    }
+
+    /**
+     * Invalida caché HTTP de imágenes de familias (móvil) al sincronizar catálogo o guardar familia local.
+     */
+    bumpFamiliaImagesCacheBust() {
+        try {
+            localStorage.setItem(FAMILIAS_IMG_SCB_KEY, String(Date.now()));
+        } catch (e) {
+            /* modo privado u origen file: */
+        }
     }
 
     /**
@@ -950,7 +967,10 @@ class CartManager {
                 st.put(cur);
             };
             r.onerror = () => reject(r.error);
-            tx.oncomplete = () => resolve();
+            tx.oncomplete = () => {
+                this.bumpFamiliaImagesCacheBust();
+                resolve();
+            };
             tx.onerror = () => reject(tx.error);
         });
     }
@@ -2298,6 +2318,8 @@ class CartManager {
         });
     }
 }
+
+CartManager.FAMILIAS_IMG_SCB_KEY = FAMILIAS_IMG_SCB_KEY;
 
 // Crear instancia global
 window.cartManager = new CartManager();

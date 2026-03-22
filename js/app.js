@@ -3011,7 +3011,22 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * URL publica del bucket con parametro v= para evitar caché del CDN al cambiar archivo (misma ruta).
+     * Token en localStorage: cambia al sincronizar familias o al guardar familia en IndexedDB.
+     * En móvil la caché HTTP suele ignorar solo ?v= si la URL base es la misma; scb fuerza URL nueva.
+     */
+    _getFamiliasImageCacheBustToken() {
+        try {
+            const key = typeof CartManager !== 'undefined' && CartManager.FAMILIAS_IMG_SCB_KEY
+                ? CartManager.FAMILIAS_IMG_SCB_KEY
+                : 'scan_familias_img_scb';
+            return localStorage.getItem(key) || '0';
+        } catch (e) {
+            return '0';
+        }
+    }
+
+    /**
+     * URL publica del bucket con v= (fecha fila) y scb= (post-sync local) para CDN y caché del navegador.
      */
     buildFamiliaBucketImageUrlWithCacheBust(storagePath, fechaActualizacionIso) {
         if (!window.supabaseClient || typeof window.supabaseClient.getPublicUrlFotosFamilias !== 'function') {
@@ -3026,8 +3041,9 @@ class ScanAsYouShopApp {
             const n = Date.parse(fechaActualizacionIso);
             v = Number.isFinite(n) ? String(n) : String(fechaActualizacionIso);
         }
+        const scb = this._getFamiliasImageCacheBustToken();
         const sep = base.indexOf('?') >= 0 ? '&' : '?';
-        return base + sep + 'v=' + encodeURIComponent(v);
+        return base + sep + 'v=' + encodeURIComponent(v) + '&scb=' + encodeURIComponent(scb);
     }
 
     /**
@@ -3035,15 +3051,22 @@ class ScanAsYouShopApp {
      */
     getFamiliaImagenUrlForCodigo(codigo, meta) {
         const path = meta && String(meta.imagen_storage_path || '').trim();
+        const fe = meta && meta.fecha_actualizacion ? String(meta.fecha_actualizacion) : '';
         if (path) {
-            const fe = meta && meta.fecha_actualizacion ? String(meta.fecha_actualizacion) : '';
             const u = this.buildFamiliaBucketImageUrlWithCacheBust(path, fe);
             if (u) {
                 return u;
             }
         }
         const c = String(codigo || '').trim();
-        return 'https://www.saneamiento-martinez.com/imagenes/familias/F' + c + '.JPG';
+        let v = '0';
+        if (fe) {
+            const n = Date.parse(fe);
+            v = Number.isFinite(n) ? String(n) : fe;
+        }
+        const scb = this._getFamiliasImageCacheBustToken();
+        const enc = encodeURIComponent(c);
+        return 'https://www.saneamiento-martinez.com/imagenes/familias/F' + enc + '.JPG?v=' + encodeURIComponent(v) + '&scb=' + encodeURIComponent(scb);
     }
 
     getFamiliaImagenFallbackUrl() {
