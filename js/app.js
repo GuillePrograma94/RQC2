@@ -1769,7 +1769,10 @@ class ScanAsYouShopApp {
 
     // --- Familias catalogo Inicio (Panel de Control, administrador) ---
 
-    async resizeImageFileToSquareJpegBlob(file, maxSide) {
+    /**
+     * Escala la imagen para que el lado mayor sea como maximo maxSide px (sin marco ni relleno blanco).
+     */
+    async resizeImageFileToMaxJpegBlob(file, maxSide) {
         const max = maxSide || 600;
         if (!file || !file.type || !file.type.startsWith('image/')) {
             throw new Error('Selecciona una imagen');
@@ -1781,17 +1784,13 @@ class ScanAsYouShopApp {
         const tw = Math.round(w * scale);
         const th = Math.round(h * scale);
         const canvas = document.createElement('canvas');
-        canvas.width = max;
-        canvas.height = max;
+        canvas.width = tw;
+        canvas.height = th;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
             throw new Error('Canvas no disponible');
         }
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, max, max);
-        const ox = (max - tw) / 2;
-        const oy = (max - th) / 2;
-        ctx.drawImage(bitmap, ox, oy, tw, th);
+        ctx.drawImage(bitmap, 0, 0, tw, th);
         return new Promise((resolve, reject) => {
             canvas.toBlob(
                 (blob) => {
@@ -1827,6 +1826,7 @@ class ScanAsYouShopApp {
                     descripcion: des,
                     titulo_inicio: String(r.titulo_inicio || '').trim(),
                     imagen_storage_path: String(r.imagen_storage_path || '').trim(),
+                    fecha_actualizacion: r.fecha_actualizacion != null ? String(r.fecha_actualizacion) : '',
                 };
             }).filter((x) => x.codigo);
             const rootCodes = this._getFamiliaRootChildCodesFromLocalRows(localShape);
@@ -1861,7 +1861,7 @@ class ScanAsYouShopApp {
         const erpDesc = row.descripcion || '';
         const tituloVal = row.titulo_inicio || '';
         let imgPath = row.imagen_storage_path || '';
-        const publicUrl = imgPath && window.supabaseClient ? window.supabaseClient.getPublicUrlFotosFamilias(imgPath) : '';
+        const publicUrl = imgPath ? this.buildFamiliaBucketImageUrlWithCacheBust(imgPath, row.fecha_actualizacion) : '';
         const safeFileKey = 'F' + cod.replace(/[^A-Z0-9]/gi, '') + '.jpg';
 
         card.innerHTML = `
@@ -1906,17 +1906,24 @@ class ScanAsYouShopApp {
                 try {
                     const payload = { titulo_inicio: nuevoTitulo };
                     if (fileIn && fileIn.files && fileIn.files[0]) {
-                        const blob = await self.resizeImageFileToSquareJpegBlob(fileIn.files[0], 600);
+                        const blob = await self.resizeImageFileToMaxJpegBlob(fileIn.files[0], 600);
                         newPath = await window.supabaseClient.uploadFotosFamiliaJpeg(safeFileKey, blob);
                         payload.imagen_storage_path = newPath;
                     } else if (imgPath) {
                         payload.imagen_storage_path = imgPath;
                     }
-                    await window.supabaseClient.updateFamiliaInicioUi(cod, payload);
+                    const upd = await window.supabaseClient.updateFamiliaInicioUi(cod, payload);
+                    const feIso = upd && upd.fecha_actualizacion != null ? String(upd.fecha_actualizacion) : '';
+                    if (feIso) {
+                        row.fecha_actualizacion = feIso;
+                    }
                     if (window.cartManager && typeof window.cartManager.patchFamiliaLocalFields === 'function') {
                         const localPatch = { titulo_inicio: nuevoTitulo };
                         if (payload.imagen_storage_path !== undefined) {
                             localPatch.imagen_storage_path = payload.imagen_storage_path || '';
+                        }
+                        if (feIso) {
+                            localPatch.fecha_actualizacion = feIso;
                         }
                         await window.cartManager.patchFamiliaLocalFields(cod, localPatch);
                     }
@@ -1929,7 +1936,7 @@ class ScanAsYouShopApp {
                     if (fileIn) {
                         fileIn.value = '';
                     }
-                    const pu = imgPath && window.supabaseClient.getPublicUrlFotosFamilias(imgPath);
+                    const pu = imgPath ? self.buildFamiliaBucketImageUrlWithCacheBust(imgPath, row.fecha_actualizacion) : '';
                     if (imgEl) {
                         imgEl.src = pu || self.getFamiliaImagenUrlForCodigo(cod, { imagen_storage_path: '' });
                     }
@@ -1950,9 +1957,17 @@ class ScanAsYouShopApp {
                     if (imgPath) {
                         await window.supabaseClient.deleteFotosFamiliaObject(imgPath);
                     }
-                    await window.supabaseClient.updateFamiliaInicioUi(cod, { imagen_storage_path: null });
+                    const updClear = await window.supabaseClient.updateFamiliaInicioUi(cod, { imagen_storage_path: null });
+                    const feClear = updClear && updClear.fecha_actualizacion != null ? String(updClear.fecha_actualizacion) : '';
+                    if (feClear) {
+                        row.fecha_actualizacion = feClear;
+                    }
                     if (window.cartManager && typeof window.cartManager.patchFamiliaLocalFields === 'function') {
-                        await window.cartManager.patchFamiliaLocalFields(cod, { imagen_storage_path: '' });
+                        const lp = { imagen_storage_path: '' };
+                        if (feClear) {
+                            lp.fecha_actualizacion = feClear;
+                        }
+                        await window.cartManager.patchFamiliaLocalFields(cod, lp);
                     }
                     row.imagen_storage_path = '';
                     imgPath = '';
@@ -2941,12 +2956,33 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * URL publica del bucket con parametro v= para evitar caché del CDN al cambiar archivo (misma ruta).
+     */
+    buildFamiliaBucketImageUrlWithCacheBust(storagePath, fechaActualizacionIso) {
+        if (!window.supabaseClient || typeof window.supabaseClient.getPublicUrlFotosFamilias !== 'function') {
+            return '';
+        }
+        const base = window.supabaseClient.getPublicUrlFotosFamilias(storagePath);
+        if (!base) {
+            return '';
+        }
+        let v = '0';
+        if (fechaActualizacionIso) {
+            const n = Date.parse(fechaActualizacionIso);
+            v = Number.isFinite(n) ? String(n) : String(fechaActualizacionIso);
+        }
+        const sep = base.indexOf('?') >= 0 ? '&' : '?';
+        return base + sep + 'v=' + encodeURIComponent(v);
+    }
+
+    /**
      * URL imagen loseta familia: ruta en bucket fotos_familias si existe; si no, convencion legada F{codigo}.JPG.
      */
     getFamiliaImagenUrlForCodigo(codigo, meta) {
         const path = meta && String(meta.imagen_storage_path || '').trim();
-        if (path && window.supabaseClient && typeof window.supabaseClient.getPublicUrlFotosFamilias === 'function') {
-            const u = window.supabaseClient.getPublicUrlFotosFamilias(path);
+        if (path) {
+            const fe = meta && meta.fecha_actualizacion ? String(meta.fecha_actualizacion) : '';
+            const u = this.buildFamiliaBucketImageUrlWithCacheBust(path, fe);
             if (u) {
                 return u;
             }
@@ -2966,6 +3002,7 @@ class ScanAsYouShopApp {
             descripcion: String(f.descripcion || '').trim(),
             titulo_inicio: String(f.titulo_inicio || '').trim(),
             imagen_storage_path: String(f.imagen_storage_path || '').trim(),
+            fecha_actualizacion: f.fecha_actualizacion != null ? String(f.fecha_actualizacion) : '',
         };
     }
 
@@ -3004,6 +3041,7 @@ class ScanAsYouShopApp {
         section.style.display = 'block';
         if (!familias.length) {
             bc.innerHTML = '';
+            bc.style.display = 'none';
             grid.innerHTML = '';
             if (hint) {
                 hint.style.display = '';
@@ -3030,15 +3068,21 @@ class ScanAsYouShopApp {
         const self = this;
 
         bc.innerHTML = '';
-        const rootBtn = document.createElement('button');
-        rootBtn.type = 'button';
-        rootBtn.className = 'inicio-familias-crumb';
-        rootBtn.textContent = 'Todas';
-        rootBtn.addEventListener('click', () => {
-            self._inicioFamiliaPath = [];
-            self.renderInicioFamiliasNavigator();
-        });
-        bc.appendChild(rootBtn);
+        if (path.length > 0) {
+            bc.style.display = '';
+            const rootBtn = document.createElement('button');
+            rootBtn.type = 'button';
+            rootBtn.className = 'inicio-familias-crumb';
+            rootBtn.textContent = 'Catálogo';
+            rootBtn.setAttribute('title', 'Volver al listado principal de familias');
+            rootBtn.addEventListener('click', () => {
+                self._inicioFamiliaPath = [];
+                self.renderInicioFamiliasNavigator();
+            });
+            bc.appendChild(rootBtn);
+        } else {
+            bc.style.display = 'none';
+        }
         for (let p = 0; p < path.length; p++) {
             const seg = path[p];
             const sp = document.createElement('span');
@@ -3071,6 +3115,8 @@ class ScanAsYouShopApp {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'inicio-familia-tile' + (isLeaf ? ' inicio-familia-tile-leaf' : '');
+            const imgWrap = document.createElement('div');
+            imgWrap.className = 'inicio-familia-tile-img-wrap';
             const img = document.createElement('img');
             img.className = 'inicio-familia-tile-img';
             img.alt = displayDesc;
@@ -3085,13 +3131,14 @@ class ScanAsYouShopApp {
                     img.src = fallbackUrl;
                 }
             });
+            imgWrap.appendChild(img);
             const descSpan = document.createElement('span');
             descSpan.className = 'inicio-familia-tile-desc';
             descSpan.textContent = displayDesc;
             const codeSpan = document.createElement('span');
             codeSpan.className = 'inicio-familia-tile-code';
             codeSpan.textContent = code;
-            btn.appendChild(img);
+            btn.appendChild(imgWrap);
             btn.appendChild(descSpan);
             if (!meta.titulo_inicio) {
                 btn.appendChild(codeSpan);

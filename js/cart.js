@@ -811,6 +811,7 @@ class CartManager {
             descripcion: String(r.DESCRIPCION != null ? r.DESCRIPCION : r.descripcion != null ? r.descripcion : '').trim(),
             titulo_inicio: String(r.titulo_inicio != null ? r.titulo_inicio : '').trim(),
             imagen_storage_path: String(r.imagen_storage_path != null ? r.imagen_storage_path : '').trim(),
+            fecha_actualizacion: r.fecha_actualizacion != null ? String(r.fecha_actualizacion) : '',
             id: r.id != null ? r.id : null
         })).filter((f) => f.codigo);
 

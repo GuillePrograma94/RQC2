@@ -29,6 +29,22 @@ CREATE POLICY familias_update_admin_catalogo
 
 GRANT UPDATE ON familias TO authenticated;
 
+-- Actualiza fecha_actualizacion en cada UPDATE (bust de caché CDN en URLs publicas de imagen)
+CREATE OR REPLACE FUNCTION actualizar_fecha_familias_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.fecha_actualizacion = NOW();
+    NEW.fecha_creacion = OLD.fecha_creacion;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_actualizar_fecha_familias_update ON familias;
+CREATE TRIGGER trigger_actualizar_fecha_familias_update
+    BEFORE UPDATE ON familias
+    FOR EACH ROW
+    EXECUTE FUNCTION actualizar_fecha_familias_update();
+
 -- -----------------------------------------------------------------------------
 -- Storage: bucket "fotos_familias" (crear en el panel como Public si aun no existe)
 -- -----------------------------------------------------------------------------

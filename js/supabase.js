@@ -2856,19 +2856,26 @@ class SupabaseClient {
             patch.imagen_storage_path = String(fields.imagen_storage_path).trim() || null;
         }
         if (Object.keys(patch).length === 0) {
-            return { ok: true };
+            return { ok: true, fecha_actualizacion: null };
         }
-        let result = await this.client.from('familias').update(patch).eq('CODIGO', cod);
-        if (result.error && result.error.code === '42501') {
+        const run = async () =>
+            this.client.from('familias').update(patch).eq('CODIGO', cod).select('fecha_actualizacion').maybeSingle();
+        let { data, error } = await run();
+        if (error && error.code === '42501') {
             const refresh = await this.client.auth.refreshSession();
             if (!refresh.error && refresh.data && refresh.data.session) {
-                result = await this.client.from('familias').update(patch).eq('CODIGO', cod);
+                const r2 = await run();
+                data = r2.data;
+                error = r2.error;
             }
         }
-        if (result.error) {
-            throw result.error;
+        if (error) {
+            throw error;
         }
-        return { ok: true };
+        return {
+            ok: true,
+            fecha_actualizacion: data && data.fecha_actualizacion != null ? data.fecha_actualizacion : null,
+        };
     }
 
     async uploadFotosFamiliaJpeg(storagePath, blob) {
@@ -2888,7 +2895,7 @@ class SupabaseClient {
         let up = await this.client.storage.from('fotos_familias').upload(path, blob, {
             upsert: true,
             contentType: 'image/jpeg',
-            cacheControl: '3600',
+            cacheControl: '60',
         });
         if (up.error) {
             const refresh = await this.client.auth.refreshSession();
@@ -2896,7 +2903,7 @@ class SupabaseClient {
                 up = await this.client.storage.from('fotos_familias').upload(path, blob, {
                     upsert: true,
                     contentType: 'image/jpeg',
-                    cacheControl: '3600',
+                    cacheControl: '60',
                 });
             }
         }
