@@ -1706,18 +1706,64 @@ body.gate-visible .app-container {
 /* ========================================
    RESPONSIVE
    ======================================== */
-@media (min-width: 768px) {
+/* Marco tipo telefono solo en tablet estrecha; desde 900px el contenedor usa todo el ancho del navegador */
+@media (min-width: 768px) and (max-width: 899px) {
     .app-container {
         max-width: 480px;
         margin: 0 auto;
         box-shadow: var(--shadow-lg);
     }
-    
+
     .bottom-nav {
         max-width: 480px;
         left: 50%;
         transform: translateX(-50%);
         border-radius: 0;
+    }
+}
+
+/* Portatil / ventana ancha: Inicio (familias) a ancho real antes del breakpoint 1024px del resto de estilos PC */
+@media (min-width: 900px) {
+    #appContainerTienda .screen-content.inicio-content {
+        max-width: none;
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
+        box-sizing: border-box;
+        align-items: stretch;
+        padding-left: clamp(1rem, 3vw, 2.5rem);
+        padding-right: clamp(1rem, 3vw, 2.5rem);
+    }
+
+    #appContainerTienda .screen-content.inicio-content .inicio-welcome {
+        align-self: center;
+        max-width: 420px;
+        width: 100%;
+    }
+
+    #appContainerTienda .screen-content.inicio-content .inicio-creaciones-card-wrap {
+        align-self: center;
+    }
+
+    #appContainerTienda .screen-content.inicio-content .inicio-familias-section {
+        width: 100%;
+        max-width: none;
+        box-sizing: border-box;
+        align-self: stretch;
+    }
+
+    #appContainerTienda .screen-content.inicio-content .inicio-familias-grid {
+        width: 100%;
+    }
+
+    /* Otras pantallas (carrito, buscar...): mismo ancho legible que en 1024px */
+    #appContainerTienda .screen-content:not(.inicio-content) {
+        max-width: 900px;
+        margin-left: auto;
+        margin-right: auto;
+        width: 100%;
+        padding: 1.5rem 2rem;
+        box-sizing: border-box;
     }
 }
 
@@ -1798,37 +1844,7 @@ body.gate-visible .app-container {
         width: 100%;
     }
 
-    /* Inicio: catalogo por familia a ancho completo del navegador (resto de pantallas siguen en 900px) */
-    .screen-content.inicio-content {
-        max-width: none;
-        margin-left: 0;
-        margin-right: 0;
-        width: 100%;
-        box-sizing: border-box;
-        align-items: stretch;
-        padding-left: clamp(1rem, 3vw, 2.5rem);
-        padding-right: clamp(1rem, 3vw, 2.5rem);
-    }
-
-    .screen-content.inicio-content .inicio-welcome {
-        align-self: center;
-        max-width: 420px;
-        width: 100%;
-    }
-
-    .screen-content.inicio-content .inicio-creaciones-card-wrap {
-        align-self: center;
-    }
-
-    .screen-content.inicio-content .inicio-familias-section {
-        width: 100%;
-        max-width: none;
-        box-sizing: border-box;
-    }
-
-    .screen-content.inicio-content .inicio-familias-grid {
-        width: 100%;
-    }
+    /* Inicio ancho completo: reglas en @media (min-width: 900px) con #appContainerTienda */
 
     /* PC: inputs en 2 columnas */
     .search-inputs-grid {
@@ -3236,16 +3252,16 @@ body.gate-visible .app-container {
     color: var(--gray-500);
     margin: 0 0 0.5rem;
 }
-/* Movil: 2 familias por fila; PC: 6 por fila */
+/* Movil: 2 familias por fila; desde tablet/PC: tantas columnas como quepan (ancho completo) */
 .inicio-familias-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.6rem;
     align-items: stretch;
 }
-@media (min-width: 1024px) {
+@media (min-width: 900px) {
     .inicio-familias-grid {
-        grid-template-columns: repeat(6, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
         gap: 0.75rem;
     }
 }
