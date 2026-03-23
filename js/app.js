@@ -4861,6 +4861,22 @@ class ScanAsYouShopApp {
         return local;
     }
 
+    async enrichProductosConDatosDescuento(productos) {
+        if (!Array.isArray(productos) || productos.length === 0) return productos;
+        const tarifa = this.getEffectiveTarifaCodigo();
+        if (!this.mostrarPreciosConDescuento || !tarifa) return productos;
+        const enriched = await Promise.all(productos.map(async (p) => {
+            if (!p || !p.codigo) return p;
+            const tieneClave = p.clave_descuento != null && String(p.clave_descuento).trim() !== '';
+            const tienePvp = p.pvp != null && Number.isFinite(Number(p.pvp));
+            if (tieneClave && tienePvp) return p;
+            const full = await this.resolveProductoCatalogoConDescuento(p.codigo);
+            if (!full) return p;
+            return { ...full, ...p };
+        }));
+        return enriched;
+    }
+
     _normalizeDiscountCode(value) {
         const raw = value != null ? String(value).trim() : '';
         if (!raw) return '';
@@ -6571,6 +6587,8 @@ class ScanAsYouShopApp {
                 });
             }
 
+            productos = await this.enrichProductosConDatosDescuento(productos);
+
             await this.displaySearchResults(productos, onlyPurchased);
         } catch (error) {
             console.error('Error en busqueda:', error);
@@ -6667,6 +6685,12 @@ class ScanAsYouShopApp {
 
     _buildSearchResultItemHtml(producto, isFromHistory, productosConOfertas) {
         const pvpMostrar = this.getPvpUnitarioVisible(producto);
+        const tarifa = this.getEffectiveTarifaCodigo();
+        const clave = producto && producto.clave_descuento != null ? String(producto.clave_descuento).trim() : '';
+        const dto = this.getPorcentajeDtoTarifaParaProducto(producto);
+        if (producto && producto.codigo && clave && tarifa && dto != null) {
+            console.log(`El producto ${producto.codigo} tiene asignada la clave de descuento ${clave} y el cliente tiene aplicada la tarifa ${tarifa}, por lo que el descuento que corresponde es del ${Number(dto).toFixed(0)}%`);
+        }
         const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
         const escapedDescripcion = this.escapeForHtmlAttribute(producto.descripcion);
         const tieneOferta = productosConOfertas.has(producto.codigo.toUpperCase());
