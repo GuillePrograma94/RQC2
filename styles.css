@@ -1703,6 +1703,16 @@ body.gate-visible .app-container {
     color: var(--gray-800);
 }
 
+@media (min-width: 1024px) {
+    .toast-container {
+        top: 4.6rem;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        width: min(760px, calc(100vw - 2rem));
+    }
+}
+
 /* ========================================
    RESPONSIVE
    ======================================== */
@@ -4661,6 +4671,32 @@ body.gate-visible .app-container {
     color: var(--gray-600);
     margin: 0 0 0.75rem 0;
     line-height: 1.4;
+}
+
+.profile-cache-progress-wrap {
+    margin-top: 0.65rem;
+}
+
+.profile-cache-progress-track {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--gray-200);
+    overflow: hidden;
+}
+
+.profile-cache-progress-bar {
+    width: 0%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--primary), #9370db);
+    transition: width 220ms ease;
+}
+
+.profile-cache-progress-label {
+    margin: 0.4rem 0 0;
+    font-size: 0.78rem;
+    color: var(--gray-600);
 }
 
 .profile-card {

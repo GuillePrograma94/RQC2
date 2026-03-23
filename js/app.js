@@ -1325,6 +1325,15 @@ class ScanAsYouShopApp {
      * Actualiza familias/familias_asignadas desde backend, sube token scb y repinta pantalla activa.
      */
     async forceProfileAppCacheRefresh() {
+        const btn = document.getElementById('profileForceAppCacheBtn');
+        const progressWrap = document.getElementById('profileForceAppCacheProgressWrap');
+        const progressBar = document.getElementById('profileForceAppCacheProgressBar');
+        const progressLabel = document.getElementById('profileForceAppCacheProgressLabel');
+        const setProgress = (pct, text) => {
+            if (progressWrap) progressWrap.style.display = '';
+            if (progressBar) progressBar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+            if (progressLabel && text) progressLabel.textContent = text;
+        };
         const ok = await window.ui.showConfirm(
             'Forzar cache de la app',
             'Se actualizara el dominio de familias (incluida asignacion de imagenes) sin tocar productos/codigos secundarios. ¿Continuar?',
@@ -1334,32 +1343,49 @@ class ScanAsYouShopApp {
         if (!ok) {
             return;
         }
+        if (btn) btn.disabled = true;
+        setProgress(8, 'Iniciando refresco...');
         try {
             if (window.supabaseClient && window.cartManager &&
                 typeof window.supabaseClient.downloadFamiliasCatalog === 'function' &&
                 typeof window.cartManager.saveFamiliasCatalogToStorage === 'function') {
+                setProgress(30, 'Descargando familias...');
                 const fc = await window.supabaseClient.downloadFamiliasCatalog();
+                setProgress(55, 'Guardando familias en local...');
                 await window.cartManager.saveFamiliasCatalogToStorage(fc.familias, fc.familias_asignadas);
             }
             if (window.cartManager && typeof window.cartManager.bumpFamiliaImagesCacheBust === 'function') {
+                setProgress(70, 'Actualizando referencias de imagen...');
                 window.cartManager.bumpFamiliaImagesCacheBust();
             }
             if ('serviceWorker' in navigator) {
+                setProgress(82, 'Comprobando recursos de la app...');
                 const reg = await navigator.serviceWorker.ready;
                 if (reg && typeof reg.update === 'function') {
                     await reg.update();
                 }
             }
             if (this.currentScreen === 'inicio' && typeof this.renderInicioFamiliasNavigator === 'function') {
+                setProgress(92, 'Repintando pantalla de inicio...');
                 await this.renderInicioFamiliasNavigator();
             }
             if (this.currentScreen === 'familiasCatalogoAdmin' && typeof this._renderFamiliasCatalogoAdminListAsync === 'function') {
+                setProgress(92, 'Repintando panel de familias...');
                 await this._renderFamiliasCatalogoAdminListAsync();
             }
+            setProgress(100, 'Refresco completado');
             window.ui.showToast('Refresco de imagenes aplicado', 'success');
         } catch (e) {
             console.error('forceProfileAppCacheRefresh:', e);
+            setProgress(100, 'Error al refrescar');
             window.ui.showToast('No se pudo refrescar la cache de imagenes', 'error');
+        } finally {
+            if (btn) btn.disabled = false;
+            setTimeout(() => {
+                if (progressWrap) progressWrap.style.display = 'none';
+                if (progressBar) progressBar.style.width = '0%';
+                if (progressLabel) progressLabel.textContent = 'Preparando...';
+            }, 1200);
         }
     }
 

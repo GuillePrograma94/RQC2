@@ -1063,6 +1063,12 @@
                     <h3 class="profile-section-title">Actualizacion de la app</h3>
                     <p class="profile-section-desc">Si ves imagenes del catalogo u otras pantallas desactualizadas, puedes forzar que el navegador descargue de nuevo los archivos de la aplicacion. La pagina se recargara.</p>
                     <button type="button" id="profileForceAppCacheBtn" class="btn btn-secondary">Forzar cache de la app</button>
+                    <div id="profileForceAppCacheProgressWrap" class="profile-cache-progress-wrap" style="display: none;" aria-live="polite">
+                        <div class="profile-cache-progress-track">
+                            <div id="profileForceAppCacheProgressBar" class="profile-cache-progress-bar"></div>
+                        </div>
+                        <p id="profileForceAppCacheProgressLabel" class="profile-cache-progress-label">Preparando...</p>
+                    </div>
                 </section>
             </main>
         </div>
