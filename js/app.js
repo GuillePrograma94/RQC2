@@ -22,7 +22,6 @@ class ScanAsYouShopApp {
         this.clavesDescuentoMap = new Map();
         /** Map clave_descuento normalizada (sin ceros a la izquierda) -> tarifas normalizadas */
         this.clavesDescuentoMapNormalized = new Map();
-        this._descuentoDebugLastLogMs = new Map();
         this.mostrarPreciosConDescuento = true;
         // Estado de chips de filtro de búsqueda
         this.filterChips = {
@@ -43,6 +42,8 @@ class ScanAsYouShopApp {
         this.searchResultsChunkSize = 25;
         this._searchRenderState = null;
         this._searchResultsObserver = null;
+        this.isCatalogSyncInProgress = false;
+        this.catalogDataSourceMode = 'local';
     }
 
     /**
@@ -4066,6 +4067,20 @@ class ScanAsYouShopApp {
         return labels[estado] || (estado || 'pendiente');
     }
 
+    setCatalogSyncMode(isInProgress) {
+        const nextMode = isInProgress ? 'hybrid' : 'local';
+        this.isCatalogSyncInProgress = !!isInProgress;
+        this.catalogDataSourceMode = nextMode;
+
+        if (window.ui && typeof window.ui.setSyncIndicatorHybridMode === 'function') {
+            window.ui.setSyncIndicatorHybridMode(this.isCatalogSyncInProgress);
+        }
+    }
+
+    isHybridCatalogReadModeEnabled() {
+        return this.isCatalogSyncInProgress && navigator.onLine && !!window.supabaseClient;
+    }
+
     /**
      * Sincroniza productos EN SEGUNDO PLANO (solo si hay cambios)
      * Usa sincronización incremental cuando sea posible para mayor velocidad
@@ -4105,10 +4120,19 @@ class ScanAsYouShopApp {
             }
 
             if (!versionCheck.necesitaActualizacion) {
+                this.setCatalogSyncMode(false);
                 console.log('Catálogo local actualizado - no se necesita descargar');
                 window.ui.showSyncIndicator(false);
                 window.ui.showToast('Catálogo actualizado', 'success');
                 return;
+            }
+
+            this.setCatalogSyncMode(true);
+            if (window.supabaseClient && typeof window.supabaseClient.markOfertasCachePending === 'function') {
+                const targetHash = versionCheck && versionCheck.versionRemota
+                    ? versionCheck.versionRemota.version_hash
+                    : null;
+                window.supabaseClient.markOfertasCachePending(targetHash);
             }
 
             let changeStats = null;
@@ -4239,7 +4263,7 @@ class ScanAsYouShopApp {
 
             console.log('Productos y códigos secundarios sincronizados correctamente');
             console.log(`Sync catálogo principal completada en ${elapsedMs} ms`);
-            window.ui.showSyncIndicator(false);
+            window.ui.updateSyncIndicator('Sincronizando en servidor/local...');
             window.ui.showToast(mensaje, 'success');
 
             // Ofertas fuera del camino crítico para mejorar fluidez percibida.
@@ -4251,12 +4275,14 @@ class ScanAsYouShopApp {
                 } catch (ofertaError) {
                     console.error('Error al descargar ofertas (no crítico):', ofertaError);
                 } finally {
+                    this.setCatalogSyncMode(false);
                     window.ui.showSyncIndicator(false);
                 }
             })();
 
         } catch (error) {
             console.error('Error al sincronizar productos:', error);
+            this.setCatalogSyncMode(false);
             window.ui.showSyncIndicator(false);
             // No es crítico, el usuario puede seguir usando la app con datos locales
             // y búsquedas en tiempo real en Supabase
@@ -4899,25 +4925,6 @@ class ScanAsYouShopApp {
         return normalized;
     }
 
-    _debugLogDescuentoProducto(producto, payload) {
-        try {
-            if (!producto || !producto.codigo) return;
-            const codigo = String(producto.codigo).trim();
-            if (!codigo) return;
-            const key = `${codigo}|${payload.tarifaRaw || ''}|${payload.claveRaw || ''}|${payload.resultPct == null ? 'null' : payload.resultPct}`;
-            const now = Date.now();
-            const prev = this._descuentoDebugLastLogMs.get(key) || 0;
-            if (now - prev < 10000) return;
-            this._descuentoDebugLastLogMs.set(key, now);
-            console.log(
-                `Articulo ${codigo} tiene clave descuento ${payload.claveRaw || '-'} (norm ${payload.claveNorm || '-'}) ` +
-                `y tarifa cliente ${payload.tarifaRaw || '-'} (norm ${payload.tarifaNorm || '-'}) -> descuento ${payload.resultPct == null ? 'NO APLICA' : (String(payload.resultPct) + '%')}`
-            );
-        } catch (e) {
-            console.warn('debug descuento producto:', e);
-        }
-    }
-
     /**
      * Codigo de tarifa ERP efectivo: cliente representado o usuario logueado.
      */
@@ -4944,39 +4951,13 @@ class ScanAsYouShopApp {
         if ((!t || typeof t !== 'object') && claveNorm) {
             t = this.clavesDescuentoMapNormalized.get(claveNorm);
         }
-        if (!t || typeof t !== 'object') {
-            this._debugLogDescuentoProducto(producto, {
-                claveRaw: clave,
-                claveNorm: claveNorm,
-                tarifaRaw: String(codigoTarifa).trim(),
-                tarifaNorm: this._normalizeDiscountCode(String(codigoTarifa).trim()),
-                resultPct: null
-            });
-            return null;
-        }
+        if (!t || typeof t !== 'object') return null;
         const tarifaRaw = String(codigoTarifa).trim();
         const tarifaNorm = this._normalizeDiscountCode(tarifaRaw);
         const pct = t[tarifaRaw] != null ? t[tarifaRaw] : t[tarifaNorm];
-        if (pct == null || pct === '') {
-            this._debugLogDescuentoProducto(producto, {
-                claveRaw: clave,
-                claveNorm: claveNorm,
-                tarifaRaw: tarifaRaw,
-                tarifaNorm: tarifaNorm,
-                resultPct: null
-            });
-            return null;
-        }
+        if (pct == null || pct === '') return null;
         const n = Number(pct);
-        const result = Number.isFinite(n) ? n : null;
-        this._debugLogDescuentoProducto(producto, {
-            claveRaw: clave,
-            claveNorm: claveNorm,
-            tarifaRaw: tarifaRaw,
-            tarifaNorm: tarifaNorm,
-            resultPct: result
-        });
-        return result;
+        return Number.isFinite(n) ? n : null;
     }
 
     /**
@@ -6478,6 +6459,7 @@ class ScanAsYouShopApp {
 
         try {
             let productos = [];
+            const hybridMode = this.isHybridCatalogReadModeEnabled();
 
             if (onlyPurchased) {
                 const effectiveUserId = this.getEffectiveUserId();
@@ -6512,8 +6494,21 @@ class ScanAsYouShopApp {
                 console.log('Buscando por fabricante (proveedor):', codigoProveedor);
                 productos = await window.cartManager.getProductosPorCodigoProveedor(codigoProveedor);
             } else {
+                if (hybridMode && code) {
+                    const productoRemoto = await window.supabaseClient.searchProductByCode(code);
+                    if (productoRemoto) {
+                        productos = [productoRemoto];
+                        if (description) {
+                            const descNorm = description.toUpperCase().trim();
+                            productos = productos.filter((p) =>
+                                (p.descripcion || '').toUpperCase().includes(descNorm)
+                            );
+                        }
+                    }
+                }
+
                 // Búsqueda en el catálogo completo (código y/o descripción)
-                if (code && description) {
+                if (productos.length === 0 && code && description) {
                     console.log('Busqueda combinada: descripcion + codigo');
                     const productosPorDescripcion = await window.cartManager.searchByDescriptionAllWords(description);
                     const codeUpper = code.toUpperCase().trim();
@@ -6521,9 +6516,15 @@ class ScanAsYouShopApp {
                         p.codigo.toUpperCase().includes(codeUpper)
                     );
                     console.log(`Resultados: ${productosPorDescripcion.length} por descripcion, ${productos.length} con codigo`);
-                } else if (code) {
+                } else if (productos.length === 0 && code) {
                     productos = await window.cartManager.searchByCodeUnified(code);
-                } else if (description) {
+                    if (hybridMode && productos.length === 0) {
+                        const productoRemoto = await window.supabaseClient.searchProductByCode(code);
+                        if (productoRemoto) {
+                            productos = [productoRemoto];
+                        }
+                    }
+                } else if (productos.length === 0 && description) {
                     productos = await window.cartManager.searchByDescriptionAllWords(description);
                 }
             }
@@ -6685,12 +6686,6 @@ class ScanAsYouShopApp {
 
     _buildSearchResultItemHtml(producto, isFromHistory, productosConOfertas) {
         const pvpMostrar = this.getPvpUnitarioVisible(producto);
-        const tarifa = this.getEffectiveTarifaCodigo();
-        const clave = producto && producto.clave_descuento != null ? String(producto.clave_descuento).trim() : '';
-        const dto = this.getPorcentajeDtoTarifaParaProducto(producto);
-        if (producto && producto.codigo && clave && tarifa && dto != null) {
-            console.log(`El producto ${producto.codigo} tiene asignada la clave de descuento ${clave} y el cliente tiene aplicada la tarifa ${tarifa}, por lo que el descuento que corresponde es del ${Number(dto).toFixed(0)}%`);
-        }
         const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
         const escapedDescripcion = this.escapeForHtmlAttribute(producto.descripcion);
         const tieneOferta = productosConOfertas.has(producto.codigo.toUpperCase());
@@ -7339,23 +7334,6 @@ class ScanAsYouShopApp {
         try {
             console.log('addProductToCart llamado con:', codigo, descripcion, pvp);
 
-            // Traza explicita de descuento por tarifa para el articulo que se va a anadir.
-            const productoCatalogo = await this.resolveProductoCatalogoConDescuento(codigo);
-            if (productoCatalogo) {
-                const clave = productoCatalogo.clave_descuento != null ? String(productoCatalogo.clave_descuento).trim() : '';
-                const tarifa = this.getEffectiveTarifaCodigo();
-                const dto = this.getPorcentajeDtoTarifaParaProducto(productoCatalogo);
-                if (clave && tarifa && dto != null) {
-                    console.log(`El producto ${codigo} tiene asignada la clave de descuento ${clave} y el cliente tiene aplicada la tarifa ${tarifa}, por lo que el descuento que corresponde es del ${Number(dto).toFixed(0)}%`);
-                } else if (clave && tarifa) {
-                    console.log(`El producto ${codigo} tiene asignada la clave de descuento ${clave} y el cliente tiene aplicada la tarifa ${tarifa}, pero no se ha encontrado porcentaje de descuento para esa combinacion`);
-                } else if (clave && !tarifa) {
-                    console.log(`El producto ${codigo} tiene asignada la clave de descuento ${clave}, pero el cliente no tiene tarifa asignada`);
-                } else {
-                    console.log(`El producto ${codigo} no tiene clave de descuento asignada`);
-                }
-            }
-            
             // Mostrar modal de cantidad
             console.log('Mostrando modal de cantidad...');
             const cantidad = await this.showAddToCartModal({
@@ -9986,17 +9964,21 @@ class ScanAsYouShopApp {
                 
                 countRequest.onsuccess = async () => {
                     const count = countRequest.result;
-                    if (count === 0) {
-                        // No hay ofertas en cache, descargarlas
-                        console.log('📥 Descargando ofertas por primera vez...');
+                    const cacheOfertasCompleta = window.supabaseClient
+                        && typeof window.supabaseClient.isOfertasCacheCompleteAndCurrent === 'function'
+                        && window.supabaseClient.isOfertasCacheCompleteAndCurrent();
+
+                    if (count === 0 || !cacheOfertasCompleta) {
+                        // No hay ofertas en cache o la version de ofertas no coincide con el catalogo local
+                        console.log('Descargando ofertas para completar cache local...');
                         try {
                             await window.supabaseClient.downloadOfertas();
-                            console.log('✅ Ofertas descargadas y guardadas en caché');
+                            console.log('Ofertas descargadas y guardadas en cache');
                         } catch (error) {
                             console.error('Error al descargar ofertas (no crítico):', error);
                         }
                     } else {
-                        console.log(`✅ Ofertas en cache: ${count} ofertas`);
+                        console.log(`Ofertas en cache vigentes: ${count}`);
                     }
                 };
                 

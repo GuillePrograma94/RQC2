@@ -543,11 +543,23 @@ class ScannerManager {
             console.time('⏱️ Búsqueda exacta');
             
             const normalizedCode = code.toUpperCase().trim();
+            const hybridMode = !!(
+                window.app &&
+                typeof window.app.isHybridCatalogReadModeEnabled === 'function' &&
+                window.app.isHybridCatalogReadModeEnabled()
+            );
             
             // Buscar en IndexedDB con búsqueda directa (INSTANTÁNEA)
             let products = await window.cartManager.searchProductsExact(normalizedCode);
             if (window.app && typeof window.app.debeOcultarProductoBusquedaCatalogo === 'function') {
                 products = products.filter((p) => !window.app.debeOcultarProductoBusquedaCatalogo(p));
+            }
+
+            if (hybridMode && products.length === 0) {
+                const productoRemoto = await window.supabaseClient.searchProductByCode(normalizedCode);
+                if (productoRemoto) {
+                    products = [productoRemoto];
+                }
             }
             
             console.timeEnd('⏱️ Búsqueda exacta');

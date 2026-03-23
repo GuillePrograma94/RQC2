@@ -89,6 +89,13 @@ class UIManager {
         }
     }
 
+    setSyncIndicatorHybridMode(isHybrid) {
+        if (!this.syncIndicator) {
+            return;
+        }
+        this.syncIndicator.setAttribute('data-sync-mode', isHybrid ? 'hybrid' : 'local');
+    }
+
     /**
      * Muestra pantalla de carga
      */

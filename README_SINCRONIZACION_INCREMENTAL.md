@@ -87,6 +87,34 @@ Los archivos ya incluyen:
 7. Descarga ofertas fuera del camino crítico (post-sync principal)
 ```
 
+### Flujo de lectura en modo híbrido (nuevo)
+
+Durante una sincronización con cambios reales, la app entra en **modo híbrido**:
+
+1. Se activa estado `isCatalogSyncInProgress` en `app.js`.
+2. Búsquedas por código y escaneo exacto pueden resolver en Supabase mientras se reescriben stores locales.
+3. El modo híbrido se mantiene hasta terminar también la descarga de ofertas.
+4. Al finalizar, se vuelve automáticamente a modo local (IndexedDB como fuente principal).
+
+Esto evita ventanas de resultados vacíos cuando el reemplazo completo de stores usa `clear()` + inserción por lotes.
+
+### Política de ofertas en caché (nuevo)
+
+`supabase.js#getOfertasProducto` ahora aplica esta regla:
+
+- Si hay oferta en caché: devuelve caché.
+- Si no hay oferta en caché y la caché de ofertas está **completa y vigente** para el `version_hash_local`: devuelve `[]` y **no consulta Supabase**.
+- Solo se permite fallback remoto en `cache miss` cuando:
+  - está activo el modo híbrido, o
+  - la caché de ofertas no está completa/vigente.
+
+Metadatos persistidos en `localStorage`:
+
+- `ofertas_cache_status` (`pending` / `complete`)
+- `ofertas_cache_version_hash`
+- `ofertas_cache_completed_at`
+- `ofertas_cache_target_version_hash`
+
 ### Ejemplo Real
 
 **Escenario**: 10,000 productos en total, solo 5 cambiaron
@@ -334,6 +362,8 @@ El sistema muestra logs claros:
 ✅ Cambios aplicados: 5 productos, 1 códigos
 ```
 
+Con la política nueva de ofertas, cuando el catálogo y ofertas están vigentes, un `cache miss` mostrará un log de omisión de remoto (sin consulta a Supabase), para evitar consumo innecesario.
+
 ---
 
 ## 🔄 Compatibilidad
@@ -381,6 +411,6 @@ El sistema muestra logs claros:
 
 ---
 
-**Última actualización**: 2025-01-26  
-**Versión**: 1.0  
+**Última actualización**: 2026-03-23  
+**Versión**: 1.1  
 **Autor**: Sistema de Sincronización Incremental

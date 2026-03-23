@@ -7,6 +7,10 @@ class SupabaseClient {
     constructor() {
         this.client = null;
         this.isConnected = false;
+        this.OFERTAS_CACHE_STATUS_KEY = 'ofertas_cache_status';
+        this.OFERTAS_CACHE_VERSION_KEY = 'ofertas_cache_version_hash';
+        this.OFERTAS_CACHE_COMPLETED_AT_KEY = 'ofertas_cache_completed_at';
+        this.OFERTAS_CACHE_TARGET_VERSION_KEY = 'ofertas_cache_target_version_hash';
     }
 
     /**
@@ -99,11 +103,68 @@ class SupabaseClient {
             if (versionRemota && versionRemota.version_hash) {
                 localStorage.setItem('version_hash_local', versionRemota.version_hash);
                 localStorage.setItem('last_sync_date', new Date().toISOString());
+                const ofertasVersion = localStorage.getItem(this.OFERTAS_CACHE_VERSION_KEY);
+                if (!ofertasVersion || ofertasVersion !== versionRemota.version_hash) {
+                    this.markOfertasCachePending(versionRemota.version_hash);
+                }
                 console.log('Hash local actualizado:', versionRemota.version_hash.substring(0, 8) + '...');
             }
         } catch (error) {
             console.error('Error al actualizar versión local:', error);
         }
+    }
+
+    markOfertasCachePending(targetVersionHash = null) {
+        try {
+            localStorage.setItem(this.OFERTAS_CACHE_STATUS_KEY, 'pending');
+            localStorage.removeItem(this.OFERTAS_CACHE_COMPLETED_AT_KEY);
+            if (targetVersionHash) {
+                localStorage.setItem(this.OFERTAS_CACHE_TARGET_VERSION_KEY, targetVersionHash);
+            }
+        } catch (error) {
+            console.error('Error al marcar cache de ofertas pendiente:', error);
+        }
+    }
+
+    markOfertasCacheComplete(versionHash = null) {
+        try {
+            const effectiveVersion = versionHash || localStorage.getItem('version_hash_local') || '';
+            if (effectiveVersion) {
+                localStorage.setItem(this.OFERTAS_CACHE_VERSION_KEY, effectiveVersion);
+            }
+            localStorage.setItem(this.OFERTAS_CACHE_STATUS_KEY, 'complete');
+            localStorage.setItem(this.OFERTAS_CACHE_COMPLETED_AT_KEY, new Date().toISOString());
+            localStorage.removeItem(this.OFERTAS_CACHE_TARGET_VERSION_KEY);
+        } catch (error) {
+            console.error('Error al marcar cache de ofertas completa:', error);
+        }
+    }
+
+    isOfertasCacheCompleteAndCurrent() {
+        try {
+            const localCatalogVersion = localStorage.getItem('version_hash_local') || '';
+            if (!localCatalogVersion) {
+                return false;
+            }
+            const ofertasStatus = localStorage.getItem(this.OFERTAS_CACHE_STATUS_KEY) || '';
+            const ofertasVersion = localStorage.getItem(this.OFERTAS_CACHE_VERSION_KEY) || '';
+            return ofertasStatus === 'complete' && ofertasVersion === localCatalogVersion;
+        } catch (error) {
+            console.error('Error al comprobar estado de cache de ofertas:', error);
+            return false;
+        }
+    }
+
+    shouldFallbackToSupabaseOnOfertasCacheMiss() {
+        const hybridModeActive = !!(
+            window.app &&
+            typeof window.app.isHybridCatalogReadModeEnabled === 'function' &&
+            window.app.isHybridCatalogReadModeEnabled()
+        );
+        if (hybridModeActive) {
+            return true;
+        }
+        return !this.isOfertasCacheCompleteAndCurrent();
     }
 
     /**
@@ -1805,6 +1866,7 @@ class SupabaseClient {
             }
 
             // Intentar obtener desde cache primero
+            let cacheMiss = false;
             if (useCache && window.cartManager && window.cartManager.db) {
                 console.log('Buscando ofertas de ' + codigoArticulo + ' en cache (grupo: ' + grupoCliente + ')...');
                 const ofertasCache = await window.cartManager.getOfertasProductoFromCache(codigoArticulo, grupoCliente);
@@ -1812,8 +1874,16 @@ class SupabaseClient {
                     console.log(`✅ ${ofertasCache.length} ofertas encontradas en cache para ${codigoArticulo}`);
                     return ofertasCache;
                 } else {
-                    console.log(`⚠️ No se encontraron ofertas en cache para ${codigoArticulo} - buscando en Supabase...`);
+                    cacheMiss = true;
                 }
+            }
+
+            if (useCache && cacheMiss) {
+                if (!this.shouldFallbackToSupabaseOnOfertasCacheMiss()) {
+                    console.log(`Sin oferta en cache para ${codigoArticulo}; cache vigente, se evita consulta remota`);
+                    return [];
+                }
+                console.log(`No se encontraron ofertas en cache para ${codigoArticulo}; consultando Supabase por estado de sync/cache`);
             }
 
             if (!this.client) {
@@ -2056,6 +2126,8 @@ class SupabaseClient {
                 await window.cartManager.saveOfertasDetallesToCache(ofertasDetalles || []);
                 await window.cartManager.saveOfertasGruposToCache(ofertasGruposAsignaciones || []);
             }
+
+            this.markOfertasCacheComplete(localStorage.getItem('version_hash_local'));
 
             console.log('✅ ========================================');
             console.log(`✅ Ofertas descargadas: ${ofertas?.length || 0}`);
