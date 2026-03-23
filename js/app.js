@@ -4144,6 +4144,8 @@ class ScanAsYouShopApp {
             }
 
             if (!versionCheck.necesitaActualizacion) {
+                window.ui.updateSyncIndicator('Sincronizando pactos cliente...');
+                await this.syncPactosClientesInBackground();
                 this.setCatalogSyncMode(false);
                 console.log('Catálogo local actualizado - no se necesita descargar');
                 window.ui.showSyncIndicator(false);
@@ -4259,17 +4261,7 @@ class ScanAsYouShopApp {
             }
 
             window.ui.updateSyncIndicator('Guardando pactos cliente...');
-            try {
-                const pactosClientes = await window.supabaseClient.downloadPactosClientesDescuento(onProgress);
-                if (window.cartManager && typeof window.cartManager.savePactosClientesDescuentoToStorage === 'function') {
-                    await window.cartManager.savePactosClientesDescuentoToStorage(pactosClientes || []);
-                }
-                if (typeof this.refreshPactosClienteCache === 'function') {
-                    await this.refreshPactosClienteCache();
-                }
-            } catch (pactosErr) {
-                console.warn('No se pudieron guardar pactos cliente locales:', pactosErr && pactosErr.message);
-            }
+            await this.syncPactosClientesInBackground(onProgress);
 
             window.ui.updateSyncIndicator('Descargando familias...');
             try {
@@ -4927,6 +4919,23 @@ class ScanAsYouShopApp {
             this.pactosCodigoClienteActual = null;
             this.pactosClienteMap = new Map();
             this.pactosClienteMapNormalized = new Map();
+        }
+    }
+
+    async syncPactosClientesInBackground(onProgress = null) {
+        try {
+            if (!window.supabaseClient || typeof window.supabaseClient.downloadPactosClientesDescuento !== 'function') {
+                return;
+            }
+            const pactosClientes = await window.supabaseClient.downloadPactosClientesDescuento(onProgress);
+            if (window.cartManager && typeof window.cartManager.savePactosClientesDescuentoToStorage === 'function') {
+                await window.cartManager.savePactosClientesDescuentoToStorage(pactosClientes || []);
+            }
+            if (typeof this.refreshPactosClienteCache === 'function') {
+                await this.refreshPactosClienteCache();
+            }
+        } catch (pactosErr) {
+            console.warn('No se pudieron guardar pactos cliente locales:', pactosErr && pactosErr.message);
         }
     }
 
