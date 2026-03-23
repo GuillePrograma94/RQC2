@@ -665,6 +665,61 @@ class SupabaseClient {
     }
 
     /**
+     * Busca productos remotos por descripcion y/o codigo parcial.
+     * Se usa como soporte temporal durante el modo hibrido de sincronizacion.
+     * @param {Object} options
+     * @param {string} options.description
+     * @param {string} options.code
+     * @param {number} options.limit
+     * @returns {Promise<Array>}
+     */
+    async searchProductsRemoteCatalog(options = {}) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            const rawDescription = options.description || '';
+            const rawCode = options.code || '';
+            const limit = Number(options.limit) > 0 ? Number(options.limit) : 200;
+            const descriptionTerms = rawDescription
+                .trim()
+                .split(/\s+/)
+                .map(term => term.trim())
+                .filter(Boolean);
+            const code = rawCode.trim().toUpperCase();
+
+            if (!code && descriptionTerms.length === 0) {
+                return [];
+            }
+
+            let query = this.client
+                .from('productos')
+                .select('*')
+                .limit(limit)
+                .order('codigo', { ascending: true });
+
+            if (code) {
+                query = query.ilike('codigo', `%${code}%`);
+            }
+
+            for (const term of descriptionTerms) {
+                query = query.ilike('descripcion', `%${term}%`);
+            }
+
+            const { data, error } = await query;
+            if (error) {
+                throw error;
+            }
+
+            return data || [];
+        } catch (error) {
+            console.error('Error en busqueda remota de catalogo:', error);
+            return [];
+        }
+    }
+
+    /**
      * Crea un carrito en Supabase con el código QR escaneado
      */
     async createCart(codigoQR) {

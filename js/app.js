@@ -6494,16 +6494,18 @@ class ScanAsYouShopApp {
                 console.log('Buscando por fabricante (proveedor):', codigoProveedor);
                 productos = await window.cartManager.getProductosPorCodigoProveedor(codigoProveedor);
             } else {
-                if (hybridMode && code) {
-                    const productoRemoto = await window.supabaseClient.searchProductByCode(code);
-                    if (productoRemoto) {
-                        productos = [productoRemoto];
-                        if (description) {
-                            const descNorm = description.toUpperCase().trim();
-                            productos = productos.filter((p) =>
-                                (p.descripcion || '').toUpperCase().includes(descNorm)
-                            );
+                if (hybridMode && (code || description)) {
+                    if (code && !description) {
+                        const productoRemoto = await window.supabaseClient.searchProductByCode(code);
+                        if (productoRemoto) {
+                            productos = [productoRemoto];
                         }
+                    } else if (typeof window.supabaseClient.searchProductsRemoteCatalog === 'function') {
+                        productos = await window.supabaseClient.searchProductsRemoteCatalog({
+                            code: code,
+                            description: description,
+                            limit: 300
+                        });
                     }
                 }
 
