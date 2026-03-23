@@ -82,9 +82,11 @@ Los archivos ya incluyen:
    ↓
 5. Persistencia local por lotes (chunked writes) para evitar bloqueos UI
    ↓
-6. Actualiza version_hash_local
+6. Sincroniza `pactos_clientes_descuento` (activos) para overrides por cliente+clave
    ↓
-7. Descarga ofertas fuera del camino crítico (post-sync principal)
+7. Actualiza version_hash_local
+   ↓
+8. Descarga ofertas fuera del camino crítico (post-sync principal)
 ```
 
 ### Flujo de lectura en modo híbrido (nuevo)

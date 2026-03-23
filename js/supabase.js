@@ -539,6 +539,22 @@ class SupabaseClient {
     }
 
     /**
+     * Descarga pactos de descuento por cliente (sobrescriben tarifa base por clave).
+     */
+    async downloadPactosClientesDescuento(onProgress = null) {
+        try {
+            return await this._downloadWithPagination(
+                'pactos_clientes_descuento',
+                onProgress,
+                { activo: true }
+            );
+        } catch (e) {
+            console.warn('pactos_clientes_descuento no descargado:', e && e.message);
+            return [];
+        }
+    }
+
+    /**
      * Descarga datos con paginación automática
      */
     async _downloadWithPagination(tableName, onProgress = null, filters = {}, pageSize = 1000) {

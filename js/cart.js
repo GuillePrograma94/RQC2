@@ -44,7 +44,7 @@ class CartManager {
      */
     initIndexedDB() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, 9); // v9: familias + familias_asignadas (IndexedDB)
+            const request = indexedDB.open(this.dbName, 10); // v10: pactos_clientes_descuento (IndexedDB)
 
             request.onerror = () => reject(request.error);
             request.onsuccess = () => {
@@ -149,6 +149,13 @@ class CartManager {
                 const fas = db.createObjectStore('familias_asignadas', { keyPath: 'codigoProducto' });
                 fas.createIndex('codigoModificar', 'codigoModificar', { unique: false });
                 console.log('Object store familias_asignadas creado');
+            }
+
+            if (!db.objectStoreNames.contains('pactos_clientes_descuento')) {
+                const pactosStore = db.createObjectStore('pactos_clientes_descuento', { keyPath: 'id', autoIncrement: true });
+                pactosStore.createIndex('codigo_cliente', 'codigo_cliente', { unique: false });
+                pactosStore.createIndex('clave_descuento', 'clave_descuento', { unique: false });
+                console.log('Object store pactos_clientes_descuento creado');
             }
                 
                 console.log('Esquema de base de datos creado/actualizado');
@@ -776,6 +783,70 @@ class CartManager {
                     if (k) m.set(k, r.tarifas || {});
                 });
                 resolve(m);
+            };
+            req.onerror = () => resolve(new Map());
+        });
+    }
+
+    /**
+     * Reemplaza cache local de pactos de descuento por cliente.
+     */
+    async savePactosClientesDescuentoToStorage(rows) {
+        if (!this.db) return;
+        const list = Array.isArray(rows) ? rows : [];
+        const tx = this.db.transaction(['pactos_clientes_descuento'], 'readwrite');
+        const store = tx.objectStore('pactos_clientes_descuento');
+        store.clear();
+
+        for (let i = 0; i < list.length; i++) {
+            const row = list[i] || {};
+            const codigoCliente = Number.parseInt(row.codigo_cliente, 10);
+            const clave = row.clave_descuento != null ? String(row.clave_descuento).trim() : '';
+            const dto = Number(row.descuento_pct);
+            const activo = row.activo !== false;
+            if (!Number.isFinite(codigoCliente) || codigoCliente <= 0 || !clave || !Number.isFinite(dto)) {
+                continue;
+            }
+            store.put({
+                codigo_cliente: codigoCliente,
+                clave_descuento: clave,
+                descuento_pct: dto,
+                activo: activo,
+                fecha_actualizacion: row.fecha_actualizacion || null
+            });
+        }
+
+        return new Promise((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    }
+
+    /**
+     * Mapa clave_descuento -> porcentaje para un codigo_cliente.
+     */
+    async getPactosClienteDescuentoMap(codigoCliente) {
+        if (!this.db) return new Map();
+        const codigo = Number.parseInt(codigoCliente, 10);
+        if (!Number.isFinite(codigo) || codigo <= 0) return new Map();
+
+        return new Promise((resolve) => {
+            const tx = this.db.transaction(['pactos_clientes_descuento'], 'readonly');
+            const store = tx.objectStore('pactos_clientes_descuento');
+            const index = store.index('codigo_cliente');
+            const req = index.getAll(codigo);
+            req.onsuccess = () => {
+                const map = new Map();
+                (req.result || []).forEach((row) => {
+                    if (row && row.activo !== false && row.clave_descuento != null) {
+                        const clave = String(row.clave_descuento).trim();
+                        const dto = Number(row.descuento_pct);
+                        if (clave && Number.isFinite(dto)) {
+                            map.set(clave, dto);
+                        }
+                    }
+                });
+                resolve(map);
             };
             req.onerror = () => resolve(new Map());
         });

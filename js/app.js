@@ -22,6 +22,12 @@ class ScanAsYouShopApp {
         this.clavesDescuentoMap = new Map();
         /** Map clave_descuento normalizada (sin ceros a la izquierda) -> tarifas normalizadas */
         this.clavesDescuentoMapNormalized = new Map();
+        /** codigo_cliente efectivo actual para pactos */
+        this.pactosCodigoClienteActual = null;
+        /** Map clave_descuento -> porcentaje de pacto del cliente */
+        this.pactosClienteMap = new Map();
+        /** Map clave_descuento normalizada -> porcentaje de pacto del cliente */
+        this.pactosClienteMapNormalized = new Map();
         this.mostrarPreciosConDescuento = true;
         // Estado de chips de filtro de búsqueda
         this.filterChips = {
@@ -1088,6 +1094,7 @@ class ScanAsYouShopApp {
         this.saveUserSession(this.currentUser, this.currentSession);
         this.updateUserUI();
         this._updateSelectorClienteRepresentandoBlock();
+        this.refreshPactosClienteCache();
         if (window.ui && nombre) {
             window.ui.showToast('Has dejado de representar a ' + nombre, 'info');
         }
@@ -1218,6 +1225,7 @@ class ScanAsYouShopApp {
                     : null;
                 self.saveUserSession(self.currentUser, self.currentSession);
                 self.updateUserUI();
+                self.refreshPactosClienteCache();
                 if (self.currentUser.is_dependiente && window.supabaseClient) {
                     window.supabaseClient.registrarRepresentacionDependiente(self.currentUser.user_id, c.id);
                 }
@@ -3579,6 +3587,7 @@ class ScanAsYouShopApp {
             }
 
             await this.refreshClavesDescuentoCache();
+            await this.refreshPactosClienteCache();
 
             // Inicializar scanner
             window.scannerManager.initialize();
@@ -4234,6 +4243,19 @@ class ScanAsYouShopApp {
                 await this.refreshClavesDescuentoCache();
             }
 
+            window.ui.updateSyncIndicator('Guardando pactos cliente...');
+            try {
+                const pactosClientes = await window.supabaseClient.downloadPactosClientesDescuento(onProgress);
+                if (window.cartManager && typeof window.cartManager.savePactosClientesDescuentoToStorage === 'function') {
+                    await window.cartManager.savePactosClientesDescuentoToStorage(pactosClientes || []);
+                }
+                if (typeof this.refreshPactosClienteCache === 'function') {
+                    await this.refreshPactosClienteCache();
+                }
+            } catch (pactosErr) {
+                console.warn('No se pudieron guardar pactos cliente locales:', pactosErr && pactosErr.message);
+            }
+
             window.ui.updateSyncIndicator('Descargando familias...');
             try {
                 const fc = await window.supabaseClient.downloadFamiliasCatalog(onProgress);
@@ -4862,6 +4884,37 @@ class ScanAsYouShopApp {
         }
     }
 
+    async refreshPactosClienteCache(codigoCliente = null) {
+        try {
+            const codigo = codigoCliente != null ? codigoCliente : this.getEffectiveGrupoCliente();
+            const codigoNum = Number.parseInt(codigo, 10);
+            this.pactosCodigoClienteActual = Number.isFinite(codigoNum) && codigoNum > 0 ? codigoNum : null;
+
+            if (
+                !this.pactosCodigoClienteActual ||
+                !window.cartManager ||
+                typeof window.cartManager.getPactosClienteDescuentoMap !== 'function'
+            ) {
+                this.pactosClienteMap = new Map();
+                this.pactosClienteMapNormalized = new Map();
+                return;
+            }
+
+            this.pactosClienteMap = await window.cartManager.getPactosClienteDescuentoMap(this.pactosCodigoClienteActual);
+            this.pactosClienteMapNormalized = new Map();
+            this.pactosClienteMap.forEach((dto, clave) => {
+                const claveNorm = this._normalizeDiscountCode(clave);
+                if (!claveNorm) return;
+                this.pactosClienteMapNormalized.set(claveNorm, dto);
+            });
+        } catch (e) {
+            console.warn('refreshPactosClienteCache:', e);
+            this.pactosCodigoClienteActual = null;
+            this.pactosClienteMap = new Map();
+            this.pactosClienteMapNormalized = new Map();
+        }
+    }
+
     async resolveProductoCatalogoConDescuento(codigo) {
         const cod = codigo != null ? String(codigo).trim().toUpperCase() : '';
         if (!cod) return null;
@@ -4942,8 +4995,12 @@ class ScanAsYouShopApp {
      * Porcentaje de descuento por tarifa para el producto (clave_descuento + tabla claves).
      */
     getPorcentajeDtoTarifaParaProducto(producto) {
+        if (!producto) return null;
+        const dtoPacto = this.getPorcentajePactoParaProducto(producto);
+        if (dtoPacto != null) return dtoPacto;
+
         const codigoTarifa = this.getEffectiveTarifaCodigo();
-        if (!codigoTarifa || !producto) return null;
+        if (!codigoTarifa) return null;
         const clave = (producto.clave_descuento != null ? String(producto.clave_descuento) : '').trim();
         if (!clave || !this.clavesDescuentoMap || this.clavesDescuentoMap.size === 0) return null;
         const claveNorm = this._normalizeDiscountCode(clave);
@@ -4958,6 +5015,26 @@ class ScanAsYouShopApp {
         if (pct == null || pct === '') return null;
         const n = Number(pct);
         return Number.isFinite(n) ? n : null;
+    }
+
+    getPorcentajePactoParaProducto(producto) {
+        const codigoCliente = this.getEffectiveGrupoCliente();
+        const codigoNum = Number.parseInt(codigoCliente, 10);
+        if (!Number.isFinite(codigoNum) || codigoNum <= 0 || !producto) return null;
+        if (!this.pactosClienteMap || this.pactosClienteMap.size === 0) return null;
+        if (this.pactosCodigoClienteActual !== codigoNum) return null;
+
+        const clave = (producto.clave_descuento != null ? String(producto.clave_descuento) : '').trim();
+        if (!clave) return null;
+        const claveNorm = this._normalizeDiscountCode(clave);
+
+        let pact = this.pactosClienteMap.get(clave);
+        if (pact == null && claveNorm) {
+            pact = this.pactosClienteMapNormalized.get(claveNorm);
+        }
+        if (pact == null || pact === '') return null;
+        const pactoNum = Number(pact);
+        return Number.isFinite(pactoNum) ? pactoNum : null;
     }
 
     /**
