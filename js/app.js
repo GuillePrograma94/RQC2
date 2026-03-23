@@ -4836,6 +4836,31 @@ class ScanAsYouShopApp {
         }
     }
 
+    async resolveProductoCatalogoConDescuento(codigo) {
+        const cod = codigo != null ? String(codigo).trim().toUpperCase() : '';
+        if (!cod) return null;
+        let local = null;
+        if (window.cartManager && typeof window.cartManager.getProductByCodigo === 'function') {
+            local = await window.cartManager.getProductByCodigo(cod);
+        }
+        const localTieneDatos =
+            !!local &&
+            local.pvp != null &&
+            local.clave_descuento != null &&
+            String(local.clave_descuento).trim() !== '';
+        if (localTieneDatos) return local;
+        if (window.supabaseClient && typeof window.supabaseClient.searchProductByCode === 'function') {
+            const remoto = await window.supabaseClient.searchProductByCode(cod);
+            if (remoto) {
+                return {
+                    ...local,
+                    ...remoto
+                };
+            }
+        }
+        return local;
+    }
+
     _normalizeDiscountCode(value) {
         const raw = value != null ? String(value).trim() : '';
         if (!raw) return '';
@@ -7281,6 +7306,23 @@ class ScanAsYouShopApp {
     async addProductToCart(codigo, descripcion, pvp) {
         try {
             console.log('addProductToCart llamado con:', codigo, descripcion, pvp);
+
+            // Traza explicita de descuento por tarifa para el articulo que se va a anadir.
+            const productoCatalogo = await this.resolveProductoCatalogoConDescuento(codigo);
+            if (productoCatalogo) {
+                const clave = productoCatalogo.clave_descuento != null ? String(productoCatalogo.clave_descuento).trim() : '';
+                const tarifa = this.getEffectiveTarifaCodigo();
+                const dto = this.getPorcentajeDtoTarifaParaProducto(productoCatalogo);
+                if (clave && tarifa && dto != null) {
+                    console.log(`El producto ${codigo} tiene asignada la clave de descuento ${clave} y el cliente tiene aplicada la tarifa ${tarifa}, por lo que el descuento que corresponde es del ${Number(dto).toFixed(0)}%`);
+                } else if (clave && tarifa) {
+                    console.log(`El producto ${codigo} tiene asignada la clave de descuento ${clave} y el cliente tiene aplicada la tarifa ${tarifa}, pero no se ha encontrado porcentaje de descuento para esa combinacion`);
+                } else if (clave && !tarifa) {
+                    console.log(`El producto ${codigo} tiene asignada la clave de descuento ${clave}, pero el cliente no tiene tarifa asignada`);
+                } else {
+                    console.log(`El producto ${codigo} no tiene clave de descuento asignada`);
+                }
+            }
             
             // Mostrar modal de cantidad
             console.log('Mostrando modal de cantidad...');
@@ -7886,10 +7928,7 @@ class ScanAsYouShopApp {
     async updateCartProductCard(card, producto, ofertasByCodigo, intervalosCache, loteCache) {
         const priceWithIVA = producto.precio_unitario * 1.21;
         const subtotalWithIVA = producto.subtotal * 1.21;
-        let productoCatalogo = null;
-        if (window.cartManager && typeof window.cartManager.getProductByCodigo === 'function') {
-            productoCatalogo = await window.cartManager.getProductByCodigo(producto.codigo_producto);
-        }
+        const productoCatalogo = await this.resolveProductoCatalogoConDescuento(producto.codigo_producto);
         const dtoTarifa = this.mostrarPreciosConDescuento && productoCatalogo
             ? this.getPorcentajeDtoTarifaParaProducto(productoCatalogo)
             : null;
@@ -8034,10 +8073,7 @@ class ScanAsYouShopApp {
 
         const priceWithIVA = producto.precio_unitario * 1.21;
         const subtotalWithIVA = producto.subtotal * 1.21;
-        let productoCatalogo = null;
-        if (window.cartManager && typeof window.cartManager.getProductByCodigo === 'function') {
-            productoCatalogo = await window.cartManager.getProductByCodigo(producto.codigo_producto);
-        }
+        const productoCatalogo = await this.resolveProductoCatalogoConDescuento(producto.codigo_producto);
         const dtoTarifa = this.mostrarPreciosConDescuento && productoCatalogo
             ? this.getPorcentajeDtoTarifaParaProducto(productoCatalogo)
             : null;
