@@ -3165,6 +3165,17 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Limpia los inputs de texto de busqueda al entrar desde Inicio por familia.
+     * Evita arrastrar terminos previos y fuerza una busqueda focalizada en la familia seleccionada.
+     */
+    _clearSearchTextInputsForFamilyNavigation() {
+        const codeInput = document.getElementById('codeSearchInput');
+        const descriptionInput = document.getElementById('descriptionSearchInput');
+        if (codeInput) codeInput.value = '';
+        if (descriptionInput) descriptionInput.value = '';
+    }
+
+    /**
      * Panel Familias en Inicio (admin): listar todas las filas con codigo de exactamente 2 caracteres,
      * no solo "raices" del arbol (si existiera p. ej. familia "0", 00/01/02 dejan de ser raiz y el panel
      * vaciaba el resto de familias de dos digitos).
@@ -3344,6 +3355,7 @@ class ScanAsYouShopApp {
                 self.filterChips.familiaChipSoloTitulo = !!meta.titulo_inicio;
                 self._updateFamiliaChipUI();
                 self._closeChipConfig();
+                self._clearSearchTextInputsForFamilyNavigation();
                 await self.showScreen('search');
                 await self.performSearch();
             });
@@ -3361,6 +3373,7 @@ class ScanAsYouShopApp {
                 self.filterChips.familiaChipSoloTitulo = !!last.chipSoloTitulo;
                 self._updateFamiliaChipUI();
                 self._closeChipConfig();
+                self._clearSearchTextInputsForFamilyNavigation();
                 await self.showScreen('search');
                 await self.performSearch();
             });
