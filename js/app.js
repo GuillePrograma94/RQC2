@@ -1088,6 +1088,7 @@ class ScanAsYouShopApp {
         const nombre = this.currentUser.cliente_representado_nombre || '';
         delete this.currentUser.cliente_representado_id;
         delete this.currentUser.cliente_representado_nombre;
+        delete this.currentUser.cliente_representado_codigo_usuario;
         delete this.currentUser.cliente_representado_almacen_habitual;
         delete this.currentUser.cliente_representado_grupo_cliente;
         delete this.currentUser.cliente_representado_tarifa;
@@ -1218,6 +1219,7 @@ class ScanAsYouShopApp {
             item.addEventListener('click', function () {
                 self.currentUser.cliente_representado_id = c.id;
                 self.currentUser.cliente_representado_nombre = (c.nombre || '').trim();
+                self.currentUser.cliente_representado_codigo_usuario = c.codigo_usuario != null ? String(c.codigo_usuario).trim() : null;
                 self.currentUser.cliente_representado_almacen_habitual = c.almacen_habitual != null ? c.almacen_habitual : null;
                 self.currentUser.cliente_representado_grupo_cliente = c.grupo_cliente != null ? c.grupo_cliente : null;
                 self.currentUser.cliente_representado_tarifa = c.tarifa != null && String(c.tarifa).trim() !== ''
@@ -1255,6 +1257,19 @@ class ScanAsYouShopApp {
             return this.currentUser.cliente_representado_id;
         }
         return this.currentUser.user_id || null;
+    }
+
+    /**
+     * Codigo de cliente para pactos: codigo_usuario del cliente efectivo.
+     */
+    getEffectiveCodigoClientePacto() {
+        if (!this.currentUser) return null;
+        if (this.canRepresentClientes() && this.currentUser.cliente_representado_id) {
+            const codRep = this.currentUser.cliente_representado_codigo_usuario;
+            return codRep != null && String(codRep).trim() !== '' ? String(codRep).trim() : null;
+        }
+        const cod = this.currentUser.codigo_usuario;
+        return cod != null && String(cod).trim() !== '' ? String(cod).trim() : null;
     }
 
     /**
@@ -4886,7 +4901,7 @@ class ScanAsYouShopApp {
 
     async refreshPactosClienteCache(codigoCliente = null) {
         try {
-            const codigo = codigoCliente != null ? codigoCliente : this.getEffectiveGrupoCliente();
+            const codigo = codigoCliente != null ? codigoCliente : this.getEffectiveCodigoClientePacto();
             const codigoNum = Number.parseInt(codigo, 10);
             this.pactosCodigoClienteActual = Number.isFinite(codigoNum) && codigoNum > 0 ? codigoNum : null;
 
@@ -5018,7 +5033,7 @@ class ScanAsYouShopApp {
     }
 
     getPorcentajePactoParaProducto(producto) {
-        const codigoCliente = this.getEffectiveGrupoCliente();
+        const codigoCliente = this.getEffectiveCodigoClientePacto();
         const codigoNum = Number.parseInt(codigoCliente, 10);
         if (!Number.isFinite(codigoNum) || codigoNum <= 0 || !producto) return null;
         if (!this.pactosClienteMap || this.pactosClienteMap.size === 0) return null;
