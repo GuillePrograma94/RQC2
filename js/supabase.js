@@ -482,16 +482,17 @@ class SupabaseClient {
      */
     async _downloadWithPagination(tableName, onProgress = null, filters = {}, pageSize = 1000) {
         const allData = [];
-        let page = 0;
+        const requestedPageSize = Math.max(100, Math.min(pageSize || 1000, 5000));
+        let offset = 0;
         let hasMore = true;
 
         console.log(`Iniciando descarga de ${tableName}...`);
 
         while (hasMore) {
-            const from = page * pageSize;
-            const to = from + pageSize - 1;
+            const from = offset;
+            const to = from + requestedPageSize - 1;
             
-            console.log(`Descargando ${tableName} página ${page + 1} (registros ${from}-${to})...`);
+            console.log(`Descargando ${tableName} (registros ${from}-${to})...`);
 
             let query = this.client
                 .from(tableName)
@@ -533,7 +534,7 @@ class SupabaseClient {
 
             if (data && data.length > 0) {
                 allData.push(...data);
-                page++;
+                offset += data.length;
                 
                 console.log(`${tableName}: ${allData.length} de ${count || '?'} registros descargados`);
                 
@@ -547,8 +548,13 @@ class SupabaseClient {
                     });
                 }
                 
-                // Si recibimos menos datos que el tamaño de página, hemos terminado
-                hasMore = data.length === pageSize;
+                // Si hay count exacto, seguir hasta completarlo (robusto ante límites server-side).
+                // Si no hay count, usar el criterio clásico por tamaño de bloque.
+                if (typeof count === 'number' && count >= 0) {
+                    hasMore = allData.length < count;
+                } else {
+                    hasMore = data.length === requestedPageSize;
+                }
             } else {
                 hasMore = false;
             }
@@ -2896,7 +2902,7 @@ class SupabaseClient {
 
             console.log('Descargando stock desde Supabase...');
 
-            const rawRows = await this._downloadWithPagination('stock_almacen_articulo', onProgress, {}, 3000);
+            const rawRows = await this._downloadWithPagination('stock_almacen_articulo', onProgress);
 
             if (!rawRows || rawRows.length === 0) {
                 console.log('No hay datos de stock en Supabase');

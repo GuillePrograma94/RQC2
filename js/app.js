@@ -36,6 +36,9 @@ class ScanAsYouShopApp {
         this._proveedoresComboboxList = [];
         /** Pila de codigos en navegador de familias (Inicio): { codigo, descripcion } */
         this._inicioFamiliaPath = [];
+        this.searchResultsChunkSize = 25;
+        this._searchRenderState = null;
+        this._searchResultsObserver = null;
     }
 
     /**
@@ -6359,6 +6362,7 @@ class ScanAsYouShopApp {
         const resultsTitle = document.getElementById('searchResultsTitle');
 
         if (!resultsList) return;
+        this._cleanupSearchInfiniteScroll();
 
         if (productos.length === 0) {
             if (resultsContainer) resultsContainer.style.display = 'none';
@@ -6374,19 +6378,6 @@ class ScanAsYouShopApp {
 
         if (emptyState) emptyState.style.display = 'none';
         if (resultsContainer) resultsContainer.style.display = 'block';
-        
-        // Limitar resultados mostrados para mantener velocidad
-        const LIMITE_RESULTADOS = 200;
-        const productosLimitados = productos.slice(0, LIMITE_RESULTADOS);
-        const hayMasResultados = productos.length > LIMITE_RESULTADOS;
-        
-        // Actualizar título con información de límite si aplicla
-        if (resultsTitle) {
-            const totalText = `${productos.length} resultado${productos.length !== 1 ? 's' : ''}`;
-            const limitText = hayMasResultados ? ` (mostrando ${LIMITE_RESULTADOS})` : '';
-            const historyText = isFromHistory ? ' comprado' + (productos.length !== 1 ? 's' : '') + ' anteriormente' : '';
-            resultsTitle.textContent = totalText + limitText + historyText;
-        }
 
         // Pre-cargar índice de productos con ofertas desde cache LOCAL (RÁPIDO)
         const productosConOfertas = new Set();
@@ -6413,70 +6404,160 @@ class ScanAsYouShopApp {
             this.stockIndex = await window.cartManager.getStockIndex();
         }
 
-        resultsList.innerHTML = productosLimitados.map(producto => {
-            const pvpMostrar = this.getPvpUnitarioConTarifa(producto);
-            const priceWithIVA = pvpMostrar * 1.21;
-            const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
-            const escapedDescripcion = this.escapeForHtmlAttribute(producto.descripcion);
-            
-            // Añadir indicador de oferta al código si tiene ofertas
-            const tieneOferta = productosConOfertas.has(producto.codigo.toUpperCase());
-            const codigoConOferta = tieneOferta 
-                ? `${producto.codigo} - <span class="oferta-tag">[OFERTA]</span>` 
-                : producto.codigo;
+        this._searchRenderState = {
+            productos: productos,
+            isFromHistory: isFromHistory,
+            productosConOfertas: productosConOfertas,
+            renderedCount: 0,
+            loadingChunk: false,
+            hasMore: true,
+            resultsList: resultsList,
+            resultsTitle: resultsTitle
+        };
 
-            // Badge de stock
-            const stockBadge = this.buildStockBadgeHtml(producto.codigo);
-            
-            // Si es del historial, mostrar fecha de última compra y botón de eliminar
-            if (isFromHistory && producto.fecha_ultima_compra) {
-                const fechaUltimaCompra = new Date(producto.fecha_ultima_compra);
-                const fechaFormateada = fechaUltimaCompra.toLocaleDateString('es-ES', { 
-                    day: '2-digit', 
-                    month: '2-digit', 
-                    year: 'numeric' 
-                });
-                
-                return `
-                    <div class="result-item-with-image history-item">
-                        <div class="result-image" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${pvpMostrar})">
-                            <img src="${imageUrl}" alt="${producto.descripcion}" 
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                            <div class="result-image-placeholder" style="display: none;">📦</div>
-                        </div>
-                        <div class="result-info" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${pvpMostrar})">
-                            <div class="result-code">${codigoConOferta}</div>
-                            <div class="result-name">${producto.descripcion}</div>
-                            <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
-                            <div class="result-meta">
-                                <span class="result-last-purchase">Ultima compra: ${fechaFormateada}</span>
-                                ${stockBadge}
-                            </div>
-                        </div>
-                        <button class="btn-delete-history" onclick="event.stopPropagation(); window.app.deleteProductFromHistory('${producto.codigo}', '${escapedDescripcion}')">
-                            🗑️
-                        </button>
-                    </div>
-                `;
-            }
-            
-            // Resultado normal
+        resultsList.innerHTML = '';
+        this._appendSearchResultsChunk();
+        this._setupSearchInfiniteScroll();
+    }
+
+    _cleanupSearchInfiniteScroll() {
+        if (this._searchResultsObserver) {
+            this._searchResultsObserver.disconnect();
+            this._searchResultsObserver = null;
+        }
+    }
+
+    _updateSearchResultsTitle() {
+        const state = this._searchRenderState;
+        if (!state || !state.resultsTitle) return;
+
+        const total = state.productos.length;
+        const rendered = state.renderedCount;
+        const totalText = `${total} resultado${total !== 1 ? 's' : ''}`;
+        const shownText = total > rendered ? ` (mostrando ${rendered} de ${total})` : '';
+        const historyText = state.isFromHistory ? ' comprado' + (total !== 1 ? 's' : '') + ' anteriormente' : '';
+        state.resultsTitle.textContent = totalText + shownText + historyText;
+    }
+
+    _buildSearchResultItemHtml(producto, isFromHistory, productosConOfertas) {
+        const pvpMostrar = this.getPvpUnitarioConTarifa(producto);
+        const priceWithIVA = pvpMostrar * 1.21;
+        const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
+        const escapedDescripcion = this.escapeForHtmlAttribute(producto.descripcion);
+        const tieneOferta = productosConOfertas.has(producto.codigo.toUpperCase());
+        const codigoConOferta = tieneOferta
+            ? `${producto.codigo} - <span class="oferta-tag">[OFERTA]</span>`
+            : producto.codigo;
+        const stockBadge = this.buildStockBadgeHtml(producto.codigo);
+
+        if (isFromHistory && producto.fecha_ultima_compra) {
+            const fechaUltimaCompra = new Date(producto.fecha_ultima_compra);
+            const fechaFormateada = fechaUltimaCompra.toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+
             return `
-                <div class="result-item-with-image" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${pvpMostrar})">
-                    <div class="result-image">
+                <div class="result-item-with-image history-item">
+                    <div class="result-image" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${pvpMostrar})">
                         <img src="${imageUrl}" alt="${producto.descripcion}" 
-                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                         <div class="result-image-placeholder" style="display: none;">📦</div>
                     </div>
-                    <div class="result-info">
+                    <div class="result-info" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${pvpMostrar})">
                         <div class="result-code">${codigoConOferta}</div>
                         <div class="result-name">${producto.descripcion}</div>
                         <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
-                        ${stockBadge ? `<div class="result-stock">${stockBadge}</div>` : ''}
+                        <div class="result-meta">
+                            <span class="result-last-purchase">Ultima compra: ${fechaFormateada}</span>
+                            ${stockBadge}
+                        </div>
                     </div>
+                    <button class="btn-delete-history" onclick="event.stopPropagation(); window.app.deleteProductFromHistory('${producto.codigo}', '${escapedDescripcion}')">
+                        🗑️
+                    </button>
                 </div>
             `;
-        }).join('');
+        }
+
+        return `
+            <div class="result-item-with-image" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${pvpMostrar})">
+                <div class="result-image">
+                    <img src="${imageUrl}" alt="${producto.descripcion}" 
+                            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="result-image-placeholder" style="display: none;">📦</div>
+                </div>
+                <div class="result-info">
+                    <div class="result-code">${codigoConOferta}</div>
+                    <div class="result-name">${producto.descripcion}</div>
+                    <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
+                    ${stockBadge ? `<div class="result-stock">${stockBadge}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    _appendSearchResultsChunk() {
+        const state = this._searchRenderState;
+        if (!state || state.loadingChunk || !state.hasMore) return;
+
+        state.loadingChunk = true;
+
+        const from = state.renderedCount;
+        const to = Math.min(from + this.searchResultsChunkSize, state.productos.length);
+        if (from >= to) {
+            state.hasMore = false;
+            state.loadingChunk = false;
+            this._updateSearchResultsTitle();
+            return;
+        }
+
+        const chunkHtml = state.productos
+            .slice(from, to)
+            .map((producto) => this._buildSearchResultItemHtml(producto, state.isFromHistory, state.productosConOfertas))
+            .join('');
+
+        state.resultsList.insertAdjacentHTML('beforeend', chunkHtml);
+        state.renderedCount = to;
+        state.hasMore = state.renderedCount < state.productos.length;
+        state.loadingChunk = false;
+        this._updateSearchResultsTitle();
+    }
+
+    _setupSearchInfiniteScroll() {
+        const state = this._searchRenderState;
+        if (!state || !state.resultsList) return;
+        this._cleanupSearchInfiniteScroll();
+
+        const sentinel = document.createElement('div');
+        sentinel.id = 'searchInfiniteSentinel';
+        sentinel.style.height = '1px';
+        sentinel.style.width = '100%';
+        state.resultsList.appendChild(sentinel);
+
+        this._searchResultsObserver = new IntersectionObserver((entries) => {
+            const stateNow = this._searchRenderState;
+            if (!stateNow) return;
+
+            const visible = entries.some(function (entry) { return entry.isIntersecting; });
+            if (!visible || !stateNow.hasMore || stateNow.loadingChunk) {
+                return;
+            }
+
+            sentinel.remove();
+            this._appendSearchResultsChunk();
+            if (stateNow.hasMore) {
+                stateNow.resultsList.appendChild(sentinel);
+                this._searchResultsObserver.observe(sentinel);
+            }
+        }, {
+            root: null,
+            rootMargin: '500px 0px 500px 0px',
+            threshold: 0
+        });
+
+        this._searchResultsObserver.observe(sentinel);
     }
 
     /**
@@ -7049,9 +7130,14 @@ class ScanAsYouShopApp {
         const descInput = document.getElementById('descriptionSearchInput');
         const resultsContainer = document.getElementById('searchResults');
         const emptyState = document.getElementById('searchEmpty');
+        const resultsList = document.getElementById('searchResultsList');
+
+        this._cleanupSearchInfiniteScroll();
+        this._searchRenderState = null;
 
         if (codeInput) codeInput.value = '';
         if (descInput) descInput.value = '';
+        if (resultsList) resultsList.innerHTML = '';
 
         // Resetear chips activos
         this.filterChips.misCompras  = false;
