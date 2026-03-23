@@ -939,3 +939,191 @@ CREATE POLICY familias_asignadas_select_catalogo ON familias_asignadas
 
 GRANT SELECT ON familias TO anon, authenticated, service_role;
 GRANT SELECT ON familias_asignadas TO anon, authenticated, service_role;
+
+-- -----------------------------------------------------------------------------
+-- 14. RPCs paginadas incrementales y manifest unificado de sincronización
+-- -----------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS obtener_productos_modificados_paginado(TEXT, INTEGER, INTEGER);
+CREATE OR REPLACE FUNCTION obtener_productos_modificados_paginado(
+    p_version_hash_local TEXT,
+    p_limit INTEGER DEFAULT 2000,
+    p_offset INTEGER DEFAULT 0
+)
+RETURNS TABLE (
+    codigo TEXT,
+    descripcion TEXT,
+    pvp REAL,
+    sinonimos TEXT,
+    codigo_proveedor TEXT,
+    clave_descuento TEXT,
+    activo BOOLEAN,
+    activo_web BOOLEAN,
+    fecha_actualizacion TIMESTAMP WITH TIME ZONE,
+    accion TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        q.codigo,
+        q.descripcion,
+        q.pvp,
+        q.sinonimos,
+        q.codigo_proveedor,
+        q.clave_descuento,
+        q.activo,
+        q.activo_web,
+        q.fecha_actualizacion,
+        q.accion
+    FROM obtener_productos_modificados(p_version_hash_local) AS q
+    ORDER BY q.codigo
+    LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 2000), 10000))
+    OFFSET GREATEST(0, COALESCE(p_offset, 0));
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+DROP FUNCTION IF EXISTS obtener_codigos_secundarios_modificados_paginado(TEXT, INTEGER, INTEGER);
+CREATE OR REPLACE FUNCTION obtener_codigos_secundarios_modificados_paginado(
+    p_version_hash_local TEXT,
+    p_limit INTEGER DEFAULT 2000,
+    p_offset INTEGER DEFAULT 0
+)
+RETURNS TABLE (
+    codigo_secundario TEXT,
+    descripcion TEXT,
+    codigo_principal TEXT,
+    fecha_actualizacion TIMESTAMP WITH TIME ZONE,
+    accion TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        q.codigo_secundario,
+        q.descripcion,
+        q.codigo_principal,
+        q.fecha_actualizacion,
+        q.accion
+    FROM obtener_codigos_secundarios_modificados(p_version_hash_local) AS q
+    ORDER BY q.codigo_secundario
+    LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 2000), 10000))
+    OFFSET GREATEST(0, COALESCE(p_offset, 0));
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+DROP FUNCTION IF EXISTS obtener_claves_descuento_modificadas_paginado(TEXT, INTEGER, INTEGER);
+CREATE OR REPLACE FUNCTION obtener_claves_descuento_modificadas_paginado(
+    p_version_hash_local TEXT,
+    p_limit INTEGER DEFAULT 2000,
+    p_offset INTEGER DEFAULT 0
+)
+RETURNS TABLE (
+    clave TEXT,
+    tarifas JSONB,
+    fecha_actualizacion TIMESTAMP WITH TIME ZONE,
+    accion TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        q.clave,
+        q.tarifas,
+        q.fecha_actualizacion,
+        q.accion
+    FROM obtener_claves_descuento_modificadas(p_version_hash_local) AS q
+    ORDER BY q.clave
+    LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 2000), 10000))
+    OFFSET GREATEST(0, COALESCE(p_offset, 0));
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+DROP FUNCTION IF EXISTS obtener_manifest_sync_cliente(TEXT);
+CREATE OR REPLACE FUNCTION obtener_manifest_sync_cliente(
+    p_version_hash_local TEXT DEFAULT NULL
+)
+RETURNS TABLE (
+    version_hash_remota TEXT,
+    version_fecha_remota TIMESTAMP WITH TIME ZONE,
+    version_hash_local TEXT,
+    version_local_encontrada BOOLEAN,
+    hay_actualizacion BOOLEAN,
+    productos_cambios INTEGER,
+    codigos_cambios INTEGER,
+    claves_descuento_cambios INTEGER,
+    familias_total INTEGER,
+    familias_asignadas_total INTEGER,
+    stock_hash TEXT,
+    server_timestamp TIMESTAMP WITH TIME ZONE
+) AS $$
+DECLARE
+    v_hash_remota TEXT;
+    v_fecha_remota TIMESTAMP WITH TIME ZONE;
+    v_local_encontrada BOOLEAN := FALSE;
+    v_hay_actualizacion BOOLEAN := TRUE;
+    v_prod_changes INTEGER := 0;
+    v_cod_changes INTEGER := 0;
+    v_clave_changes INTEGER := 0;
+    v_familias_total INTEGER := 0;
+    v_familias_asignadas_total INTEGER := 0;
+    v_stock_hash TEXT := NULL;
+BEGIN
+    SELECT vc.version_hash, vc.fecha_actualizacion
+    INTO v_hash_remota, v_fecha_remota
+    FROM version_control vc
+    ORDER BY vc.id DESC
+    LIMIT 1;
+
+    IF p_version_hash_local IS NOT NULL AND p_version_hash_local <> '' THEN
+        SELECT EXISTS(
+            SELECT 1 FROM version_control vc WHERE vc.version_hash = p_version_hash_local
+        ) INTO v_local_encontrada;
+    END IF;
+
+    IF p_version_hash_local IS NOT NULL AND p_version_hash_local <> '' THEN
+        v_hay_actualizacion := COALESCE(v_hash_remota, '') <> p_version_hash_local;
+    ELSIF v_hash_remota IS NULL THEN
+        v_hay_actualizacion := FALSE;
+    ELSE
+        v_hay_actualizacion := TRUE;
+    END IF;
+
+    IF p_version_hash_local IS NOT NULL AND p_version_hash_local <> '' AND v_local_encontrada THEN
+        SELECT
+            COALESCE(est.productos_modificados, 0) + COALESCE(est.productos_nuevos, 0),
+            COALESCE(est.codigos_modificados, 0) + COALESCE(est.codigos_nuevos, 0),
+            COALESCE(est.claves_descuento_modificadas, 0) + COALESCE(est.claves_descuento_nuevas, 0)
+        INTO v_prod_changes, v_cod_changes, v_clave_changes
+        FROM obtener_estadisticas_cambios(p_version_hash_local) est
+        LIMIT 1;
+    ELSE
+        SELECT COUNT(*)::INTEGER INTO v_prod_changes FROM productos;
+        SELECT COUNT(*)::INTEGER INTO v_cod_changes FROM codigos_secundarios;
+        SELECT COUNT(*)::INTEGER INTO v_clave_changes FROM claves_descuento;
+    END IF;
+
+    SELECT COUNT(*)::INTEGER INTO v_familias_total FROM familias;
+    SELECT COUNT(*)::INTEGER INTO v_familias_asignadas_total FROM familias_asignadas;
+
+    IF to_regclass('public.stock_meta') IS NOT NULL THEN
+        SELECT sm.hash INTO v_stock_hash FROM stock_meta sm WHERE sm.id = 1;
+    END IF;
+
+    RETURN QUERY
+    SELECT
+        v_hash_remota,
+        v_fecha_remota,
+        p_version_hash_local,
+        v_local_encontrada,
+        v_hay_actualizacion,
+        COALESCE(v_prod_changes, 0),
+        COALESCE(v_cod_changes, 0),
+        COALESCE(v_clave_changes, 0),
+        COALESCE(v_familias_total, 0),
+        COALESCE(v_familias_asignadas_total, 0),
+        v_stock_hash,
+        NOW();
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+GRANT EXECUTE ON FUNCTION obtener_productos_modificados_paginado(TEXT, INTEGER, INTEGER) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION obtener_codigos_secundarios_modificados_paginado(TEXT, INTEGER, INTEGER) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION obtener_claves_descuento_modificadas_paginado(TEXT, INTEGER, INTEGER) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION obtener_manifest_sync_cliente(TEXT) TO anon, authenticated, service_role;

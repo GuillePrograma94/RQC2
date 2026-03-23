@@ -4011,25 +4011,57 @@ class ScanAsYouShopApp {
      */
     async syncProductsInBackground() {
         try {
+            const syncStartTs = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+                ? performance.now()
+                : Date.now();
+
             // Mostrar indicador discreto
             window.ui.showSyncIndicator(true);
             window.ui.updateSyncIndicator('Verificando...');
-            console.log('🔄 Verificando si hay actualizaciones...');
+            console.log('Verificando si hay actualizaciones...');
+
+            const versionLocalHash = localStorage.getItem('version_hash_local');
+            let manifest = null;
+            try {
+                manifest = await window.supabaseClient.getSyncManifest(versionLocalHash);
+            } catch (manifestError) {
+                console.warn('No se pudo cargar manifest de sync:', manifestError && manifestError.message);
+                manifest = null;
+            }
 
             // Verificar si necesita actualización comparando hashes
-            const versionCheck = await window.supabaseClient.verificarActualizacionNecesaria();
+            let versionCheck = null;
+            if (manifest && manifest.version_hash_remota) {
+                versionCheck = {
+                    necesitaActualizacion: !!manifest.hay_actualizacion,
+                    versionRemota: {
+                        version_hash: manifest.version_hash_remota,
+                        fecha_actualizacion: manifest.version_fecha_remota || null
+                    }
+                };
+            } else {
+                versionCheck = await window.supabaseClient.verificarActualizacionNecesaria();
+            }
 
             if (!versionCheck.necesitaActualizacion) {
-                console.log('✅ Catálogo local actualizado - no se necesita descargar');
+                console.log('Catálogo local actualizado - no se necesita descargar');
                 window.ui.showSyncIndicator(false);
                 window.ui.showToast('Catálogo actualizado', 'success');
                 return;
             }
 
-            const versionLocalHash = localStorage.getItem('version_hash_local');
             let changeStats = null;
-
-            if (versionLocalHash) {
+            if (versionLocalHash && manifest) {
+                changeStats = {
+                    productos_modificados: Number(manifest.productos_cambios) || 0,
+                    productos_nuevos: 0,
+                    codigos_modificados: Number(manifest.codigos_cambios) || 0,
+                    codigos_nuevos: 0,
+                    claves_descuento_modificadas: Number(manifest.claves_descuento_cambios) || 0,
+                    claves_descuento_nuevas: 0
+                };
+                console.log('Manifest de cambios cargado:', changeStats);
+            } else if (versionLocalHash) {
                 console.log('Analizando cambios por dominio (productos / codigos / claves_descuento)...');
                 window.ui.updateSyncIndicator('Analizando cambios...');
                 try {
@@ -4061,7 +4093,7 @@ class ScanAsYouShopApp {
             let flags = { productsIncremental: false, codesIncremental: false, clavesIncremental: false };
 
             if (versionLocalHash && changeStats) {
-                const split = await window.supabaseClient.downloadCatalogSplit(versionLocalHash, changeStats, onProgress);
+                const split = await window.supabaseClient.downloadCatalogSplit(versionLocalHash, changeStats, onProgress, manifest);
                 productos = split.productos;
                 codigosSecundarios = split.codigosSecundarios;
                 clavesDescuento = split.clavesDescuento || [];
@@ -4132,15 +4164,6 @@ class ScanAsYouShopApp {
                 await this.purgeHiddenCatalogProductsLocal();
             }
 
-            // Descargar ofertas en segundo plano (sin bloquear)
-            window.ui.updateSyncIndicator('Descargando ofertas...');
-            try {
-                await window.supabaseClient.downloadOfertas(onProgress);
-                console.log('✅ Ofertas descargadas y guardadas en caché');
-            } catch (ofertaError) {
-                console.error('Error al descargar ofertas (no crítico):', ofertaError);
-            }
-
             // Actualizar hash local
             await window.supabaseClient.actualizarVersionLocal(versionCheck.versionRemota);
 
@@ -4148,12 +4171,31 @@ class ScanAsYouShopApp {
                 ? `Catálogo actualizado (${productos.length} productos, sync mixta por dominio)`
                 : `Catálogo actualizado - ${productos.length} productos`;
 
-            console.log('✅ Productos y códigos secundarios sincronizados correctamente');
+            const syncEndTs = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+                ? performance.now()
+                : Date.now();
+            const elapsedMs = Math.max(0, Math.round(syncEndTs - syncStartTs));
+
+            console.log('Productos y códigos secundarios sincronizados correctamente');
+            console.log(`Sync catálogo principal completada en ${elapsedMs} ms`);
             window.ui.showSyncIndicator(false);
             window.ui.showToast(mensaje, 'success');
 
+            // Ofertas fuera del camino crítico para mejorar fluidez percibida.
+            window.ui.updateSyncIndicator('Descargando ofertas...');
+            void (async () => {
+                try {
+                    await window.supabaseClient.downloadOfertas(onProgress);
+                    console.log('Ofertas descargadas y guardadas en cache');
+                } catch (ofertaError) {
+                    console.error('Error al descargar ofertas (no crítico):', ofertaError);
+                } finally {
+                    window.ui.showSyncIndicator(false);
+                }
+            })();
+
         } catch (error) {
-            console.error('❌ Error al sincronizar productos:', error);
+            console.error('Error al sincronizar productos:', error);
             window.ui.showSyncIndicator(false);
             // No es crítico, el usuario puede seguir usando la app con datos locales
             // y búsquedas en tiempo real en Supabase

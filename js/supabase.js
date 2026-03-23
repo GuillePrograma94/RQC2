@@ -58,7 +58,7 @@ class SupabaseClient {
             if (error) throw error;
 
             if (!versionRemota || versionRemota.length === 0) {
-                console.log('📊 No hay información de versión en Supabase');
+            console.log('No hay información de versión en Supabase');
                 return { necesitaActualizacion: true, versionRemota: null };
             }
 
@@ -68,7 +68,7 @@ class SupabaseClient {
             const versionLocalHash = localStorage.getItem('version_hash_local');
             
             if (!versionLocalHash) {
-                console.log('📊 Primera sincronización - necesita descargar datos');
+                console.log('Primera sincronización - necesita descargar datos');
                 return { necesitaActualizacion: true, versionRemota: infoRemota };
             }
 
@@ -76,7 +76,7 @@ class SupabaseClient {
             const versionRemotaHash = infoRemota.version_hash || '';
             const necesitaActualizacion = versionLocalHash !== versionRemotaHash;
 
-            console.log('📊 Verificación de versión:', {
+            console.log('Verificación de versión:', {
                 versionLocal: versionLocalHash.substring(0, 8) + '...',
                 versionRemota: versionRemotaHash.substring(0, 8) + '...',
                 necesitaActualizacion: necesitaActualizacion
@@ -85,7 +85,7 @@ class SupabaseClient {
             return { necesitaActualizacion, versionRemota: infoRemota };
 
         } catch (error) {
-            console.error('❌ Error al verificar actualización:', error);
+            console.error('Error al verificar actualización:', error);
             // En caso de error, asumir que necesita actualización
             return { necesitaActualizacion: true, versionRemota: null };
         }
@@ -99,10 +99,10 @@ class SupabaseClient {
             if (versionRemota && versionRemota.version_hash) {
                 localStorage.setItem('version_hash_local', versionRemota.version_hash);
                 localStorage.setItem('last_sync_date', new Date().toISOString());
-                console.log('✅ Hash local actualizado:', versionRemota.version_hash.substring(0, 8) + '...');
+                console.log('Hash local actualizado:', versionRemota.version_hash.substring(0, 8) + '...');
             }
         } catch (error) {
-            console.error('❌ Error al actualizar versión local:', error);
+            console.error('Error al actualizar versión local:', error);
         }
     }
 
@@ -115,7 +115,7 @@ class SupabaseClient {
                 throw new Error('Cliente de Supabase no inicializado');
             }
 
-            console.log('📥 Descargando productos desde Supabase...');
+            console.log('Descargando productos desde Supabase...');
 
             // Descargar productos con paginación
             const productos = await this._downloadWithPagination('productos', onProgress);
@@ -123,8 +123,8 @@ class SupabaseClient {
             // Descargar códigos secundarios con paginación
             const codigosSecundarios = await this._downloadWithPagination('codigos_secundarios', onProgress);
 
-            console.log(`✅ Productos descargados: ${productos.length}`);
-            console.log(`✅ Códigos secundarios descargados: ${codigosSecundarios.length}`);
+            console.log(`Productos descargados: ${productos.length}`);
+            console.log(`Códigos secundarios descargados: ${codigosSecundarios.length}`);
 
             return {
                 productos: productos || [],
@@ -132,7 +132,7 @@ class SupabaseClient {
             };
 
         } catch (error) {
-            console.error('❌ Error al descargar productos:', error);
+            console.error('Error al descargar productos:', error);
             throw error;
         }
     }
@@ -147,7 +147,7 @@ class SupabaseClient {
                 throw new Error('Cliente de Supabase no inicializado');
             }
 
-            console.log(`🔍 Llamando a obtener_estadisticas_cambios con hash: ${versionHashLocal?.substring(0, 16)}...`);
+            console.log(`Llamando a obtener_estadisticas_cambios con hash: ${versionHashLocal?.substring(0, 16)}...`);
 
             const { data, error } = await this.client.rpc(
                 'obtener_estadisticas_cambios',
@@ -155,23 +155,138 @@ class SupabaseClient {
             );
 
             if (error) {
-                console.error('❌ Error al obtener estadísticas:', error);
+                console.error('Error al obtener estadísticas:', error);
                 console.error('   Código:', error.code);
                 console.error('   Mensaje:', error.message);
                 console.error('   Detalles:', error.details);
                 console.error('   Hint:', error.hint);
-                console.warn('⚠️ Verifica que la función obtener_estadisticas_cambios existe en Supabase');
+                console.warn('Verifica que la función obtener_estadisticas_cambios existe en Supabase');
                 return null; // Fallback a sincronización completa
             }
 
-            console.log('📊 Respuesta de estadísticas:', data);
+            console.log('Respuesta de estadísticas:', data);
 
             return data && data.length > 0 ? data[0] : null;
 
         } catch (error) {
-            console.error('❌ Error al obtener estadísticas de cambios:', error);
+            console.error('Error al obtener estadísticas de cambios:', error);
             console.error('   Stack:', error.stack);
             return null;
+        }
+    }
+
+    /**
+     * Obtiene un manifest de sincronización en una sola llamada.
+     * Si la RPC no está disponible, devuelve null para fallback transparente.
+     */
+    async getSyncManifest(versionHashLocal = null) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            const { data, error } = await this.client.rpc(
+                'obtener_manifest_sync_cliente',
+                { p_version_hash_local: versionHashLocal || null }
+            );
+
+            if (error) {
+                console.warn('Manifest no disponible en backend, se usa fallback por componentes:', error.message);
+                return null;
+            }
+
+            if (!Array.isArray(data) || data.length === 0) {
+                return null;
+            }
+
+            return data[0];
+        } catch (error) {
+            console.warn('No se pudo obtener manifest de sincronización:', error && error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Descarga incremental paginada por RPC (con fallback a RPC legacy no paginada).
+     */
+    async _downloadIncrementalWithPagination(options) {
+        const rpcName = options && options.rpcName ? options.rpcName : '';
+        const fallbackRpcName = options && options.fallbackRpcName ? options.fallbackRpcName : '';
+        const versionHashLocal = options && options.versionHashLocal ? options.versionHashLocal : null;
+        const onProgress = options && options.onProgress ? options.onProgress : null;
+        const progressTable = options && options.progressTable ? options.progressTable : 'incremental';
+        const expectedTotal = options && Number.isFinite(options.expectedTotal) ? options.expectedTotal : null;
+        const pageSize = options && Number.isFinite(options.pageSize)
+            ? Math.max(100, Math.min(options.pageSize, 10000))
+            : 2000;
+
+        if (!rpcName || !versionHashLocal) {
+            return [];
+        }
+
+        let offset = 0;
+        const rows = [];
+
+        try {
+            while (true) {
+                const { data, error } = await this.client.rpc(rpcName, {
+                    p_version_hash_local: versionHashLocal,
+                    p_limit: pageSize,
+                    p_offset: offset
+                });
+
+                if (error) {
+                    throw error;
+                }
+
+                const batch = Array.isArray(data) ? data : [];
+                if (batch.length === 0) {
+                    break;
+                }
+
+                rows.push(...batch);
+                offset += batch.length;
+
+                if (onProgress) {
+                    onProgress({
+                        table: progressTable,
+                        loaded: rows.length,
+                        total: expectedTotal || rows.length,
+                        batch: batch.length
+                    });
+                }
+
+                if (batch.length < pageSize) {
+                    break;
+                }
+            }
+
+            return rows;
+        } catch (error) {
+            if (!fallbackRpcName) {
+                throw error;
+            }
+
+            console.warn(`${rpcName} no disponible, fallback a ${fallbackRpcName}:`, error && error.message);
+            const { data, error: fallbackError } = await this.client.rpc(
+                fallbackRpcName,
+                { p_version_hash_local: versionHashLocal }
+            );
+
+            if (fallbackError) {
+                throw fallbackError;
+            }
+
+            const fallbackRows = Array.isArray(data) ? data : [];
+            if (onProgress) {
+                onProgress({
+                    table: progressTable,
+                    loaded: fallbackRows.length,
+                    total: expectedTotal || fallbackRows.length,
+                    batch: fallbackRows.length
+                });
+            }
+            return fallbackRows;
         }
     }
 
@@ -185,7 +300,7 @@ class SupabaseClient {
                 throw new Error('Cliente de Supabase no inicializado');
             }
 
-            console.log('⚡ Descargando cambios incrementales desde versión:', versionHashLocal?.substring(0, 8) + '...');
+            console.log('Descargando cambios incrementales desde versión:', versionHashLocal?.substring(0, 8) + '...');
 
             // Obtener productos modificados
             const { data: productosData, error: productosError } = await this.client.rpc(
@@ -194,7 +309,7 @@ class SupabaseClient {
             );
 
             if (productosError) {
-                console.error('❌ Error al obtener productos modificados:', productosError);
+                console.error('Error al obtener productos modificados:', productosError);
                 throw productosError;
             }
 
@@ -205,7 +320,7 @@ class SupabaseClient {
             );
 
             if (codigosError) {
-                console.error('❌ Error al obtener códigos modificados:', codigosError);
+                console.error('Error al obtener códigos modificados:', codigosError);
                 throw codigosError;
             }
 
@@ -222,7 +337,7 @@ class SupabaseClient {
                 });
             }
 
-            console.log(`✅ Cambios descargados: ${productos.length} productos, ${codigosSecundarios.length} códigos`);
+            console.log(`Cambios descargados: ${productos.length} productos, ${codigosSecundarios.length} códigos`);
 
             return {
                 productos: productos,
@@ -231,9 +346,9 @@ class SupabaseClient {
             };
 
         } catch (error) {
-            console.error('❌ Error en sincronización incremental:', error);
+            console.error('Error en sincronización incremental:', error);
             // Fallback a sincronización completa
-            console.log('🔄 Fallback a sincronización completa...');
+            console.log('Fallback a sincronización completa...');
             return await this.downloadProducts(onProgress);
         }
     }
@@ -242,20 +357,23 @@ class SupabaseClient {
      * Descarga productos, codigos secundarios y claves_descuento con decision independiente
      * incremental vs completa segun estadisticas (umbrales separados).
      */
-    async downloadCatalogSplit(versionHashLocal, changeStats, onProgress = null) {
+    async downloadCatalogSplit(versionHashLocal, changeStats, onProgress = null, manifest = null) {
+        const t0 = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+            ? performance.now()
+            : Date.now();
         const TH_PROD = 1000;
         const TH_COD = 800;
         const TH_CLAVE = 400;
 
         const prodN = changeStats
             ? (changeStats.productos_modificados || 0) + (changeStats.productos_nuevos || 0)
-            : 0;
+            : (manifest ? (manifest.productos_cambios || 0) : 0);
         const codN = changeStats
             ? (changeStats.codigos_modificados || 0) + (changeStats.codigos_nuevos || 0)
-            : 0;
+            : (manifest ? (manifest.codigos_cambios || 0) : 0);
         const clN = changeStats
             ? (changeStats.claves_descuento_modificadas || 0) + (changeStats.claves_descuento_nuevas || 0)
-            : 0;
+            : (manifest ? (manifest.claves_descuento_cambios || 0) : 0);
 
         let useIncProd = !!(versionHashLocal && changeStats && prodN > 0 && prodN < TH_PROD);
         let useIncCod = !!(versionHashLocal && changeStats && codN > 0 && codN < TH_COD);
@@ -273,57 +391,60 @@ class SupabaseClient {
             useIncClave = false;
         }
 
-        let productos;
-        if (useIncProd) {
-            const { data, error } = await this.client.rpc(
-                'obtener_productos_modificados',
-                { p_version_hash_local: versionHashLocal }
-            );
-            if (error) throw error;
-            productos = data || [];
-            if (onProgress) {
-                onProgress({ table: 'productos_incremental', loaded: productos.length, total: productos.length, batch: productos.length });
-            }
-        } else {
-            productos = await this._downloadWithPagination('productos', onProgress);
-        }
+        const productosTask = useIncProd
+            ? this._downloadIncrementalWithPagination({
+                rpcName: 'obtener_productos_modificados_paginado',
+                fallbackRpcName: 'obtener_productos_modificados',
+                versionHashLocal: versionHashLocal,
+                onProgress: onProgress,
+                progressTable: 'productos_incremental',
+                expectedTotal: prodN,
+                pageSize: 2500
+            })
+            : this._downloadWithPagination('productos', onProgress);
 
-        let codigosSecundarios;
-        if (useIncCod) {
-            const { data, error } = await this.client.rpc(
-                'obtener_codigos_secundarios_modificados',
-                { p_version_hash_local: versionHashLocal }
-            );
-            if (error) throw error;
-            codigosSecundarios = data || [];
-            if (onProgress) {
-                onProgress({
-                    table: 'codigos_incremental',
-                    loaded: codigosSecundarios.length,
-                    total: codigosSecundarios.length,
-                    batch: codigosSecundarios.length
-                });
-            }
-        } else {
-            codigosSecundarios = await this._downloadWithPagination('codigos_secundarios', onProgress);
-        }
+        const codigosTask = useIncCod
+            ? this._downloadIncrementalWithPagination({
+                rpcName: 'obtener_codigos_secundarios_modificados_paginado',
+                fallbackRpcName: 'obtener_codigos_secundarios_modificados',
+                versionHashLocal: versionHashLocal,
+                onProgress: onProgress,
+                progressTable: 'codigos_incremental',
+                expectedTotal: codN,
+                pageSize: 3000
+            })
+            : this._downloadWithPagination('codigos_secundarios', onProgress);
 
-        let clavesDescuento;
-        try {
-            if (useIncClave) {
-                const { data, error } = await this.client.rpc(
-                    'obtener_claves_descuento_modificadas',
-                    { p_version_hash_local: versionHashLocal }
-                );
-                if (error) throw error;
-                clavesDescuento = data || [];
-            } else {
-                clavesDescuento = await this._downloadWithPagination('claves_descuento', onProgress);
+        const clavesTask = (async () => {
+            try {
+                if (useIncClave) {
+                    return await this._downloadIncrementalWithPagination({
+                        rpcName: 'obtener_claves_descuento_modificadas_paginado',
+                        fallbackRpcName: 'obtener_claves_descuento_modificadas',
+                        versionHashLocal: versionHashLocal,
+                        onProgress: onProgress,
+                        progressTable: 'claves_incremental',
+                        expectedTotal: clN,
+                        pageSize: 2000
+                    });
+                }
+                return await this._downloadWithPagination('claves_descuento', onProgress);
+            } catch (e) {
+                console.warn('claves_descuento omitido (tabla o RPC no disponible):', e && e.message);
+                return [];
             }
-        } catch (e) {
-            console.warn('claves_descuento omitido (tabla o RPC no disponible):', e && e.message);
-            clavesDescuento = [];
-        }
+        })();
+
+        const [productos, codigosSecundarios, clavesDescuento] = await Promise.all([
+            productosTask,
+            codigosTask,
+            clavesTask
+        ]);
+
+        const t1 = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+            ? performance.now()
+            : Date.now();
+        console.log(`downloadCatalogSplit completado en ${Math.max(0, Math.round(t1 - t0))} ms`);
 
         return {
             productos,
@@ -359,19 +480,18 @@ class SupabaseClient {
     /**
      * Descarga datos con paginación automática
      */
-    async _downloadWithPagination(tableName, onProgress = null, filters = {}) {
+    async _downloadWithPagination(tableName, onProgress = null, filters = {}, pageSize = 1000) {
         const allData = [];
-        const pageSize = 1000;
         let page = 0;
         let hasMore = true;
 
-        console.log(`📥 Iniciando descarga de ${tableName}...`);
+        console.log(`Iniciando descarga de ${tableName}...`);
 
         while (hasMore) {
             const from = page * pageSize;
             const to = from + pageSize - 1;
             
-            console.log(`📦 Descargando ${tableName} página ${page + 1} (registros ${from}-${to})...`);
+            console.log(`Descargando ${tableName} página ${page + 1} (registros ${from}-${to})...`);
 
             let query = this.client
                 .from(tableName)
@@ -407,7 +527,7 @@ class SupabaseClient {
             const { data, error, count } = await query;
 
             if (error) {
-                console.error(`❌ Error en ${tableName}:`, error);
+                console.error(`Error en ${tableName}:`, error);
                 throw error;
             }
 
@@ -415,7 +535,7 @@ class SupabaseClient {
                 allData.push(...data);
                 page++;
                 
-                console.log(`✅ ${tableName}: ${allData.length} de ${count || '?'} registros descargados`);
+                console.log(`${tableName}: ${allData.length} de ${count || '?'} registros descargados`);
                 
                 // Reportar progreso
                 if (onProgress) {
@@ -434,7 +554,7 @@ class SupabaseClient {
             }
         }
 
-        console.log(`🎉 Descarga completada: ${tableName} - Total: ${allData.length} registros`);
+        console.log(`Descarga completada: ${tableName} - Total: ${allData.length} registros`);
         return allData;
     }
 
@@ -2776,7 +2896,7 @@ class SupabaseClient {
 
             console.log('Descargando stock desde Supabase...');
 
-            const rawRows = await this._downloadWithPagination('stock_almacen_articulo', onProgress);
+            const rawRows = await this._downloadWithPagination('stock_almacen_articulo', onProgress, {}, 3000);
 
             if (!rawRows || rawRows.length === 0) {
                 console.log('No hay datos de stock en Supabase');

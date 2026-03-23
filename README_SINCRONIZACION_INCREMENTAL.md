@@ -68,6 +68,25 @@ Los archivos ya incluyen:
 6. Actualiza versión local
 ```
 
+### Flujo actual optimizado (SWR + manifest)
+
+```
+1. App inicia y carga catálogo local (IndexedDB) de inmediato
+   ↓
+2. Sync en background consulta manifest (obtener_manifest_sync_cliente)
+   ↓
+3. Decide por dominio (productos/códigos/claves) incremental vs completa
+   ↓
+4. Incremental usa RPC paginada (obtener_*_modificados_paginado)
+   └─ fallback automático a RPC legacy si no existe
+   ↓
+5. Persistencia local por lotes (chunked writes) para evitar bloqueos UI
+   ↓
+6. Actualiza version_hash_local
+   ↓
+7. Descarga ofertas fuera del camino crítico (post-sync principal)
+```
+
 ### Ejemplo Real
 
 **Escenario**: 10,000 productos en total, solo 5 cambiaron
@@ -133,20 +152,37 @@ SELECT * FROM obtener_estadisticas_cambios('abc123def456');
 -- total_cambios: 6
 ```
 
+### 4. `obtener_manifest_sync_cliente(version_hash_local)`
+
+Devuelve un resumen único para la toma de decisiones de sync en cliente:
+- `version_hash_remota`, `hay_actualizacion`
+- cambios estimados por dominio (`productos_cambios`, `codigos_cambios`, `claves_descuento_cambios`)
+- conteos auxiliares (`familias_total`, `familias_asignadas_total`)
+- `stock_hash` (si existe `stock_meta`)
+
+### 5. `obtener_*_modificados_paginado(version_hash, limit, offset)`
+
+Wrappers paginados para:
+- `obtener_productos_modificados_paginado`
+- `obtener_codigos_secundarios_modificados_paginado`
+- `obtener_claves_descuento_modificadas_paginado`
+
 ---
 
 ## ⚙️ Configuración
 
 ### Umbral de Cambios
 
-El sistema usa sincronización incremental si hay **menos de 1000 cambios**. Si hay más, usa sincronización completa (más eficiente para muchos cambios).
+El sistema usa sincronización incremental por dominio con umbrales independientes:
+- Productos: `< 1000`
+- Códigos secundarios: `< 800`
+- Claves de descuento: `< 400`
 
-**Modificar umbral** (en `js/app.js`):
+**Modificar umbrales** (en `js/supabase.js`, función `downloadCatalogSplit`):
 ```javascript
-// Línea ~650
-if (totalCambios > 0 && totalCambios < 1000) {  // Cambiar 1000 por otro valor
-    useIncremental = true;
-}
+const TH_PROD = 1000;
+const TH_COD = 800;
+const TH_CLAVE = 400;
 ```
 
 **Recomendaciones**:
@@ -336,7 +372,7 @@ El sistema muestra logs claros:
 ## ✅ Checklist de Implementación
 
 - [ ] Script SQL ejecutado en Supabase
-- [ ] Funciones verificadas (3 funciones creadas)
+- [ ] Funciones verificadas (manifest + RPCs paginadas + estadísticas)
 - [ ] Índices creados (4 índices nuevos)
 - [ ] Primera sincronización completa realizada
 - [ ] Test de sincronización incremental exitoso

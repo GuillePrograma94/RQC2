@@ -145,6 +145,9 @@ Acción: INSERT = código nuevo, UPDATE = código modificado';
 -- ============================================================
 -- 3. Función combinada para obtener estadísticas de cambios
 -- ============================================================
+-- Si cambia el RETURNS TABLE (columnas OUT), PostgreSQL exige DROP previo.
+DROP FUNCTION IF EXISTS obtener_estadisticas_cambios(text);
+
 CREATE OR REPLACE FUNCTION obtener_estadisticas_cambios(
     p_version_hash_local TEXT
 )
@@ -326,8 +329,21 @@ Mantiene fecha_creacion sin cambios.';
 -- en códigos) cambian. Así evitamos marcar todo como "modificado" en cada ejecución de
 -- generate_supabase_file.
 
--- Drop version anterior (3 parámetros sin sinonimos) si existe
-DROP FUNCTION IF EXISTS upsert_producto_con_fecha(text, text, real);
+-- Eliminar cualquier sobrecarga previa para evitar ambigüedad por nombre.
+DO $$
+DECLARE
+    fn_sig regprocedure;
+BEGIN
+    FOR fn_sig IN
+        SELECT p.oid::regprocedure
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public'
+          AND p.proname = 'upsert_producto_con_fecha'
+    LOOP
+        EXECUTE format('DROP FUNCTION IF EXISTS %s;', fn_sig);
+    END LOOP;
+END $$;
 
 -- Función para UPSERT de productos (actualiza fecha solo cuando descripcion, pvp o sinonimos cambian)
 CREATE OR REPLACE FUNCTION upsert_producto_con_fecha(
@@ -390,7 +406,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION upsert_producto_con_fecha IS 
+COMMENT ON FUNCTION upsert_producto_con_fecha(TEXT, TEXT, REAL, TEXT) IS 
 'UPSERT de producto. Solo actualiza fecha_actualizacion cuando descripcion, pvp o sinonimos cambian.';
 
 -- Función para UPSERT masivo de productos (más eficiente para lotes)
@@ -532,7 +548,217 @@ COMMENT ON FUNCTION upsert_codigo_secundario_con_fecha IS
 'UPSERT de código secundario. Solo actualiza fecha_actualizacion cuando descripcion o codigo_principal cambian.';
 
 -- ============================================================
--- 7. Verificación y mensaje de éxito
+-- 7. RPCs paginadas incrementales + manifest de sincronización
+-- ============================================================
+
+DROP FUNCTION IF EXISTS obtener_productos_modificados_paginado(TEXT, INTEGER, INTEGER);
+CREATE OR REPLACE FUNCTION obtener_productos_modificados_paginado(
+    p_version_hash_local TEXT,
+    p_limit INTEGER DEFAULT 2000,
+    p_offset INTEGER DEFAULT 0
+)
+RETURNS TABLE (
+    codigo TEXT,
+    descripcion TEXT,
+    pvp REAL,
+    sinonimos TEXT,
+    fecha_actualizacion TIMESTAMP WITH TIME ZONE,
+    accion TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        q.codigo,
+        q.descripcion,
+        q.pvp,
+        q.sinonimos,
+        q.fecha_actualizacion,
+        q.accion
+    FROM obtener_productos_modificados(p_version_hash_local) AS q
+    ORDER BY q.codigo
+    LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 2000), 10000))
+    OFFSET GREATEST(0, COALESCE(p_offset, 0));
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION obtener_productos_modificados_paginado IS
+'Wrapper paginado de obtener_productos_modificados(version_hash).';
+
+DROP FUNCTION IF EXISTS obtener_codigos_secundarios_modificados_paginado(TEXT, INTEGER, INTEGER);
+CREATE OR REPLACE FUNCTION obtener_codigos_secundarios_modificados_paginado(
+    p_version_hash_local TEXT,
+    p_limit INTEGER DEFAULT 2000,
+    p_offset INTEGER DEFAULT 0
+)
+RETURNS TABLE (
+    codigo_secundario TEXT,
+    descripcion TEXT,
+    codigo_principal TEXT,
+    fecha_actualizacion TIMESTAMP WITH TIME ZONE,
+    accion TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        q.codigo_secundario,
+        q.descripcion,
+        q.codigo_principal,
+        q.fecha_actualizacion,
+        q.accion
+    FROM obtener_codigos_secundarios_modificados(p_version_hash_local) AS q
+    ORDER BY q.codigo_secundario
+    LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 2000), 10000))
+    OFFSET GREATEST(0, COALESCE(p_offset, 0));
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION obtener_codigos_secundarios_modificados_paginado IS
+'Wrapper paginado de obtener_codigos_secundarios_modificados(version_hash).';
+
+DROP FUNCTION IF EXISTS obtener_claves_descuento_modificadas_paginado(TEXT, INTEGER, INTEGER);
+CREATE OR REPLACE FUNCTION obtener_claves_descuento_modificadas_paginado(
+    p_version_hash_local TEXT,
+    p_limit INTEGER DEFAULT 2000,
+    p_offset INTEGER DEFAULT 0
+)
+RETURNS TABLE (
+    clave TEXT,
+    tarifas JSONB,
+    fecha_actualizacion TIMESTAMP WITH TIME ZONE,
+    accion TEXT
+) AS $$
+BEGIN
+    IF to_regclass('public.claves_descuento') IS NULL
+       OR to_regprocedure('obtener_claves_descuento_modificadas(text)') IS NULL THEN
+        RETURN;
+    END IF;
+
+    RETURN QUERY
+    SELECT
+        q.clave,
+        q.tarifas,
+        q.fecha_actualizacion,
+        q.accion
+    FROM obtener_claves_descuento_modificadas(p_version_hash_local) AS q
+    ORDER BY q.clave
+    LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 2000), 10000))
+    OFFSET GREATEST(0, COALESCE(p_offset, 0));
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION obtener_claves_descuento_modificadas_paginado IS
+'Wrapper paginado de obtener_claves_descuento_modificadas(version_hash).';
+
+DROP FUNCTION IF EXISTS obtener_manifest_sync_cliente(TEXT);
+CREATE OR REPLACE FUNCTION obtener_manifest_sync_cliente(
+    p_version_hash_local TEXT DEFAULT NULL
+)
+RETURNS TABLE (
+    version_hash_remota TEXT,
+    version_fecha_remota TIMESTAMP WITH TIME ZONE,
+    version_hash_local TEXT,
+    version_local_encontrada BOOLEAN,
+    hay_actualizacion BOOLEAN,
+    productos_cambios INTEGER,
+    codigos_cambios INTEGER,
+    claves_descuento_cambios INTEGER,
+    familias_total INTEGER,
+    familias_asignadas_total INTEGER,
+    stock_hash TEXT,
+    server_timestamp TIMESTAMP WITH TIME ZONE
+) AS $$
+DECLARE
+    v_hash_remota TEXT;
+    v_fecha_remota TIMESTAMP WITH TIME ZONE;
+    v_local_encontrada BOOLEAN := FALSE;
+    v_hay_actualizacion BOOLEAN := TRUE;
+    v_prod_changes INTEGER := 0;
+    v_cod_changes INTEGER := 0;
+    v_clave_changes INTEGER := 0;
+    v_familias_total INTEGER := 0;
+    v_familias_asignadas_total INTEGER := 0;
+    v_stock_hash TEXT := NULL;
+BEGIN
+    SELECT vc.version_hash, vc.fecha_actualizacion
+    INTO v_hash_remota, v_fecha_remota
+    FROM version_control vc
+    ORDER BY vc.id DESC
+    LIMIT 1;
+
+    IF p_version_hash_local IS NOT NULL AND p_version_hash_local <> '' THEN
+        SELECT EXISTS(
+            SELECT 1 FROM version_control vc WHERE vc.version_hash = p_version_hash_local
+        ) INTO v_local_encontrada;
+    END IF;
+
+    IF p_version_hash_local IS NOT NULL AND p_version_hash_local <> '' THEN
+        v_hay_actualizacion := COALESCE(v_hash_remota, '') <> p_version_hash_local;
+    ELSIF v_hash_remota IS NULL THEN
+        v_hay_actualizacion := FALSE;
+    ELSE
+        v_hay_actualizacion := TRUE;
+    END IF;
+
+    IF p_version_hash_local IS NOT NULL AND p_version_hash_local <> '' AND v_local_encontrada THEN
+        SELECT
+            COALESCE((row_to_json(est)->>'productos_modificados')::INTEGER, 0)
+                + COALESCE((row_to_json(est)->>'productos_nuevos')::INTEGER, 0),
+            COALESCE((row_to_json(est)->>'codigos_modificados')::INTEGER, 0)
+                + COALESCE((row_to_json(est)->>'codigos_nuevos')::INTEGER, 0),
+            COALESCE((row_to_json(est)->>'claves_descuento_modificadas')::INTEGER, 0)
+                + COALESCE((row_to_json(est)->>'claves_descuento_nuevas')::INTEGER, 0)
+        INTO v_prod_changes, v_cod_changes, v_clave_changes
+        FROM obtener_estadisticas_cambios(p_version_hash_local) est
+        LIMIT 1;
+    ELSE
+        SELECT COUNT(*)::INTEGER INTO v_prod_changes FROM productos;
+        SELECT COUNT(*)::INTEGER INTO v_cod_changes FROM codigos_secundarios;
+        IF to_regclass('public.claves_descuento') IS NOT NULL THEN
+            SELECT COUNT(*)::INTEGER INTO v_clave_changes FROM claves_descuento;
+        ELSE
+            v_clave_changes := 0;
+        END IF;
+    END IF;
+
+    IF to_regclass('public.familias') IS NOT NULL THEN
+        SELECT COUNT(*)::INTEGER INTO v_familias_total FROM familias;
+    END IF;
+
+    IF to_regclass('public.familias_asignadas') IS NOT NULL THEN
+        SELECT COUNT(*)::INTEGER INTO v_familias_asignadas_total FROM familias_asignadas;
+    END IF;
+
+    IF to_regclass('public.stock_meta') IS NOT NULL THEN
+        SELECT sm.hash INTO v_stock_hash FROM stock_meta sm WHERE sm.id = 1;
+    END IF;
+
+    RETURN QUERY
+    SELECT
+        v_hash_remota,
+        v_fecha_remota,
+        p_version_hash_local,
+        v_local_encontrada,
+        v_hay_actualizacion,
+        COALESCE(v_prod_changes, 0),
+        COALESCE(v_cod_changes, 0),
+        COALESCE(v_clave_changes, 0),
+        COALESCE(v_familias_total, 0),
+        COALESCE(v_familias_asignadas_total, 0),
+        v_stock_hash,
+        NOW();
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+COMMENT ON FUNCTION obtener_manifest_sync_cliente IS
+'Manifest único de sincronización para cliente móvil (versiones, cambios por dominio, stock hash y conteos).';
+
+GRANT EXECUTE ON FUNCTION obtener_productos_modificados_paginado(TEXT, INTEGER, INTEGER) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION obtener_codigos_secundarios_modificados_paginado(TEXT, INTEGER, INTEGER) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION obtener_claves_descuento_modificadas_paginado(TEXT, INTEGER, INTEGER) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION obtener_manifest_sync_cliente(TEXT) TO anon, authenticated, service_role;
+
+-- ============================================================
+-- 8. Verificación y mensaje de éxito
 -- ============================================================
 DO $$
 BEGIN

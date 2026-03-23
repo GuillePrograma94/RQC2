@@ -445,6 +445,49 @@ class CartManager {
     }
 
     /**
+     * Cede control al event loop para mantener la UI fluida.
+     */
+    async yieldToMainThread() {
+        await new Promise(function (resolve) {
+            setTimeout(resolve, 0);
+        });
+    }
+
+    /**
+     * Reemplaza por completo un store con escrituras por lotes.
+     */
+    async replaceStoreChunked(storeName, rows, chunkSize) {
+        const db = this.db;
+        const size = Math.max(100, chunkSize || 2000);
+
+        await new Promise(function (resolve, reject) {
+            const tx = db.transaction([storeName], 'readwrite');
+            tx.objectStore(storeName).clear();
+            tx.oncomplete = function () { resolve(); };
+            tx.onerror = function () { reject(tx.error); };
+        });
+
+        let offset = 0;
+        while (offset < rows.length) {
+            const end = Math.min(offset + size, rows.length);
+            const batch = rows.slice(offset, end);
+            await new Promise(function (resolve, reject) {
+                const tx = db.transaction([storeName], 'readwrite');
+                const st = tx.objectStore(storeName);
+                for (let i = 0; i < batch.length; i++) {
+                    st.put(batch[i]);
+                }
+                tx.oncomplete = function () { resolve(); };
+                tx.onerror = function () { reject(tx.error); };
+            });
+            offset = end;
+            if (offset < rows.length) {
+                await this.yieldToMainThread();
+            }
+        }
+    }
+
+    /**
      * Guarda productos en el almacenamiento local
      * NORMALIZA códigos a MAYÚSCULAS para búsqueda exacta ultrarrápida
      * Optimizado: pre-normaliza fuera de la transacción para reducir bloqueo de la UI
@@ -452,7 +495,7 @@ class CartManager {
     async saveProductsToStorage(productos) {
         try {
             if (!productos || productos.length === 0) {
-                console.warn('⚠️ No hay productos para guardar');
+                console.warn('No hay productos para guardar');
                 return;
             }
 
@@ -461,22 +504,9 @@ class CartManager {
                 return Object.assign({}, p, { codigo: (p.codigo || '').toUpperCase() });
             });
 
-            console.log(`📝 Guardando ${normalizedList.length} productos...`);
-
-            const db = this.db;
-            await new Promise(function (resolve, reject) {
-                const transaction = db.transaction(['products'], 'readwrite');
-                const store = transaction.objectStore('products');
-                store.clear();
-                for (let i = 0; i < normalizedList.length; i++) {
-                    store.add(normalizedList[i]);
-                }
-                transaction.oncomplete = function () {
-                    console.log(`✅ ${normalizedList.length} productos guardados (códigos normalizados a MAYÚSCULAS)`);
-                    resolve();
-                };
-                transaction.onerror = function () { reject(transaction.error); };
-            });
+            console.log(`Guardando ${normalizedList.length} productos...`);
+            await this.replaceStoreChunked('products', normalizedList, 2000);
+            console.log(`${normalizedList.length} productos guardados (códigos normalizados a MAYÚSCULAS)`);
 
         } catch (error) {
             console.error('Error al guardar productos:', error);
@@ -492,72 +522,41 @@ class CartManager {
     async updateProductsIncremental(productos) {
         try {
             if (!productos || productos.length === 0) {
-                console.log('⚠️ No hay productos para actualizar');
+                console.log('No hay productos para actualizar');
                 return { inserted: 0, updated: 0 };
             }
 
-            const transaction = this.db.transaction(['products'], 'readwrite');
-            const store = transaction.objectStore('products');
-
-            let inserted = 0;
-            let updated = 0;
-
-            return new Promise((resolve, reject) => {
-                const processNext = async (index) => {
-                    if (index >= productos.length) {
-                        transaction.oncomplete = () => {
-                            console.log(`✅ Actualización incremental: ${inserted} insertados, ${updated} actualizados`);
-                            resolve({ inserted, updated });
-                        };
-                        transaction.onerror = () => reject(transaction.error);
-                        return;
-                    }
-
-                    const producto = productos[index];
-                    const normalizedProduct = {
-                        ...producto,
-                        codigo: producto.codigo.toUpperCase()
-                    };
-
-                    // Intentar obtener producto existente
-                    const getRequest = store.get(normalizedProduct.codigo);
-                    
-                    getRequest.onsuccess = () => {
-                        if (getRequest.result) {
-                            const merged = Object.assign({}, getRequest.result, normalizedProduct);
-                            store.put(merged);
-                            updated++;
-                        } else {
-                            // Producto nuevo, insertar
-                            store.add(normalizedProduct);
-                            inserted++;
-                        }
-                        // Procesar siguiente
-                        processNext(index + 1);
-                    };
-
-                    getRequest.onerror = () => {
-                        console.error(`Error al verificar producto ${normalizedProduct.codigo}:`, getRequest.error);
-                        // Intentar insertar de todas formas
-                        try {
-                            store.add(normalizedProduct);
-                            inserted++;
-                        } catch (err) {
-                            // Si falla, probablemente ya existe, intentar actualizar
-                            try {
-                                store.put(normalizedProduct);
-                                updated++;
-                            } catch (err2) {
-                                console.error(`Error al insertar/actualizar ${normalizedProduct.codigo}:`, err2);
-                            }
-                        }
-                        processNext(index + 1);
-                    };
+            const normalized = productos.map(function (producto) {
+                return {
+                    ...producto,
+                    codigo: (producto.codigo || '').toUpperCase()
                 };
-
-                // Iniciar procesamiento
-                processNext(0);
+            }).filter(function (row) {
+                return !!row.codigo;
             });
+
+            const CHUNK_SIZE = 2500;
+            let offset = 0;
+            while (offset < normalized.length) {
+                const end = Math.min(offset + CHUNK_SIZE, normalized.length);
+                const batch = normalized.slice(offset, end);
+                await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['products'], 'readwrite');
+                    const store = tx.objectStore('products');
+                    for (let i = 0; i < batch.length; i++) {
+                        store.put(batch[i]);
+                    }
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+                offset = end;
+                if (offset < normalized.length) {
+                    await this.yieldToMainThread();
+                }
+            }
+
+            console.log(`Actualización incremental productos: ${normalized.length} upserts`);
+            return { inserted: 0, updated: normalized.length, upserted: normalized.length };
 
         } catch (error) {
             console.error('Error al actualizar productos incrementalmente:', error);
@@ -573,7 +572,7 @@ class CartManager {
     async saveSecondaryCodesToStorage(codigosSecundarios) {
         try {
             if (!codigosSecundarios || codigosSecundarios.length === 0) {
-                console.warn('⚠️ No hay códigos secundarios para guardar');
+                console.warn('No hay códigos secundarios para guardar');
                 return;
             }
 
@@ -586,46 +585,14 @@ class CartManager {
                 };
             });
 
-            console.log(`📝 Guardando ${normalizedList.length} códigos secundarios...`);
+            console.log(`Guardando ${normalizedList.length} códigos secundarios...`);
             if (normalizedList.length >= 3) {
-                console.log(`  📌 Ejemplo 1: ${normalizedList[0].codigo_secundario} → ${normalizedList[0].codigo_principal}`);
+                console.log(`Ejemplo 1: ${normalizedList[0].codigo_secundario} -> ${normalizedList[0].codigo_principal}`);
             }
 
-            const CHUNK_SIZE = 2500;
-            const db = this.db;
-            let offset = 0;
+            await this.replaceStoreChunked('secondary_codes', normalizedList, 2500);
 
-            // Primera transacción: clear + primer chunk
-            await new Promise(function (resolve, reject) {
-                const transaction = db.transaction(['secondary_codes'], 'readwrite');
-                const store = transaction.objectStore('secondary_codes');
-                store.clear();
-                const end = Math.min(CHUNK_SIZE, normalizedList.length);
-                for (let i = 0; i < end; i++) {
-                    store.add(normalizedList[i]);
-                }
-                transaction.oncomplete = function () { resolve(); };
-                transaction.onerror = function () { reject(transaction.error); };
-            });
-            offset = Math.min(CHUNK_SIZE, normalizedList.length);
-
-            // Chunks siguientes: permitir que la UI se actualice entre transacciones
-            while (offset < normalizedList.length) {
-                await new Promise(function (r) { setTimeout(r, 0); });
-                await new Promise(function (resolve, reject) {
-                    const transaction = db.transaction(['secondary_codes'], 'readwrite');
-                    const store = transaction.objectStore('secondary_codes');
-                    const end = Math.min(offset + CHUNK_SIZE, normalizedList.length);
-                    for (let i = offset; i < end; i++) {
-                        store.add(normalizedList[i]);
-                    }
-                    transaction.oncomplete = function () { resolve(); };
-                    transaction.onerror = function () { reject(transaction.error); };
-                });
-                offset += CHUNK_SIZE;
-            }
-
-            console.log(`✅ ${normalizedList.length} códigos secundarios guardados (normalizados a MAYÚSCULAS)`);
+            console.log(`${normalizedList.length} códigos secundarios guardados (normalizados a MAYÚSCULAS)`);
         } catch (error) {
             console.error('Error al guardar códigos secundarios:', error);
             throw error;
@@ -639,71 +606,81 @@ class CartManager {
     async updateSecondaryCodesIncremental(codigosSecundarios) {
         try {
             if (!codigosSecundarios || codigosSecundarios.length === 0) {
-                console.log('⚠️ No hay códigos secundarios para actualizar');
+                console.log('No hay códigos secundarios para actualizar');
                 return { inserted: 0, updated: 0 };
             }
 
-            const transaction = this.db.transaction(['secondary_codes'], 'readwrite');
-            const store = transaction.objectStore('secondary_codes');
-            const index = store.index('codigo_secundario');
+            const normalized = codigosSecundarios.map(function (codigo) {
+                return {
+                    codigo_secundario: (codigo.codigo_secundario || '').toUpperCase(),
+                    codigo_principal: (codigo.codigo_principal || '').toUpperCase(),
+                    descripcion: codigo.descripcion || ''
+                };
+            }).filter(function (row) {
+                return !!row.codigo_secundario;
+            });
+
+            const existingIdByCode = await new Promise((resolve) => {
+                const map = new Map();
+                const tx = this.db.transaction(['secondary_codes'], 'readonly');
+                const st = tx.objectStore('secondary_codes');
+                const cursorReq = st.openCursor();
+                cursorReq.onsuccess = function (event) {
+                    const cursor = event.target.result;
+                    if (!cursor) {
+                        resolve(map);
+                        return;
+                    }
+                    const row = cursor.value || {};
+                    const key = (row.codigo_secundario || '').toUpperCase();
+                    if (key) {
+                        map.set(key, row.id);
+                    }
+                    cursor.continue();
+                };
+                cursorReq.onerror = function () {
+                    resolve(map);
+                };
+            });
 
             let inserted = 0;
             let updated = 0;
-
-            return new Promise((resolve, reject) => {
-                const processNext = async (indexIdx) => {
-                    if (indexIdx >= codigosSecundarios.length) {
-                        transaction.oncomplete = () => {
-                            console.log(`✅ Actualización incremental códigos: ${inserted} insertados, ${updated} actualizados`);
-                            resolve({ inserted, updated });
-                        };
-                        transaction.onerror = () => reject(transaction.error);
-                        return;
-                    }
-
-                    const codigo = codigosSecundarios[indexIdx];
-                    const normalizedCode = {
-                        codigo_secundario: codigo.codigo_secundario.toUpperCase(),
-                        codigo_principal: codigo.codigo_principal.toUpperCase(),
-                        descripcion: codigo.descripcion || ''
-                    };
-
-                    // Buscar código existente por índice
-                    const getRequest = index.get(normalizedCode.codigo_secundario);
-                    
-                    getRequest.onsuccess = () => {
-                        if (getRequest.result) {
-                            // Código existe, actualizar (usar put con el ID existente)
-                            const updatedCode = {
-                                ...normalizedCode,
-                                id: getRequest.result.id
-                            };
-                            store.put(updatedCode);
+            const CHUNK_SIZE = 2500;
+            let offset = 0;
+            while (offset < normalized.length) {
+                const end = Math.min(offset + CHUNK_SIZE, normalized.length);
+                const batch = normalized.slice(offset, end);
+                await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['secondary_codes'], 'readwrite');
+                    const store = tx.objectStore('secondary_codes');
+                    for (let i = 0; i < batch.length; i++) {
+                        const row = batch[i];
+                        const existingId = existingIdByCode.get(row.codigo_secundario);
+                        if (existingId != null) {
+                            store.put({
+                                id: existingId,
+                                codigo_secundario: row.codigo_secundario,
+                                codigo_principal: row.codigo_principal,
+                                descripcion: row.descripcion
+                            });
                             updated++;
                         } else {
-                            // Código nuevo, insertar
-                            store.add(normalizedCode);
+                            store.add(row);
                             inserted++;
                         }
-                        // Procesar siguiente
-                        processNext(indexIdx + 1);
-                    };
+                    }
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
 
-                    getRequest.onerror = () => {
-                        // Si hay error, intentar insertar
-                        try {
-                            store.add(normalizedCode);
-                            inserted++;
-                        } catch (err) {
-                            console.error(`Error al insertar código ${normalizedCode.codigo_secundario}:`, err);
-                        }
-                        processNext(indexIdx + 1);
-                    };
-                };
+                offset = end;
+                if (offset < normalized.length) {
+                    await this.yieldToMainThread();
+                }
+            }
 
-                // Iniciar procesamiento
-                processNext(0);
-            });
+            console.log(`Actualización incremental códigos: ${inserted} insertados, ${updated} actualizados`);
+            return { inserted, updated };
 
         } catch (error) {
             console.error('Error al actualizar códigos secundarios incrementalmente:', error);
@@ -2229,24 +2206,26 @@ class CartManager {
      */
     async saveStockToStorage(stockData) {
         if (!this.db || !stockData || stockData.length === 0) return;
-
-        return new Promise((resolve, reject) => {
-            const tx = this.db.transaction(['stock'], 'readwrite');
-            const store = tx.objectStore('stock');
-
-            for (const registro of stockData) {
-                store.put(registro);
+        const CHUNK_SIZE = 2000;
+        let offset = 0;
+        while (offset < stockData.length) {
+            const end = Math.min(offset + CHUNK_SIZE, stockData.length);
+            const batch = stockData.slice(offset, end);
+            await new Promise((resolve, reject) => {
+                const tx = this.db.transaction(['stock'], 'readwrite');
+                const store = tx.objectStore('stock');
+                for (let i = 0; i < batch.length; i++) {
+                    store.put(batch[i]);
+                }
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+            offset = end;
+            if (offset < stockData.length) {
+                await this.yieldToMainThread();
             }
-
-            tx.oncomplete = () => {
-                console.log(`Stock guardado: ${stockData.length} articulos en IndexedDB`);
-                resolve();
-            };
-            tx.onerror = () => {
-                console.error('Error al guardar stock en IndexedDB:', tx.error);
-                reject(tx.error);
-            };
-        });
+        }
+        console.log(`Stock guardado: ${stockData.length} articulos en IndexedDB`);
     }
 
     /**
