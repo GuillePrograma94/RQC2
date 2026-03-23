@@ -22,6 +22,7 @@ class ScanAsYouShopApp {
         this.clavesDescuentoMap = new Map();
         /** Map clave_descuento normalizada (sin ceros a la izquierda) -> tarifas normalizadas */
         this.clavesDescuentoMapNormalized = new Map();
+        this._descuentoDebugLastLogMs = new Map();
         this.mostrarPreciosConDescuento = true;
         // Estado de chips de filtro de búsqueda
         this.filterChips = {
@@ -4857,6 +4858,25 @@ class ScanAsYouShopApp {
         return normalized;
     }
 
+    _debugLogDescuentoProducto(producto, payload) {
+        try {
+            if (!producto || !producto.codigo) return;
+            const codigo = String(producto.codigo).trim();
+            if (!codigo) return;
+            const key = `${codigo}|${payload.tarifaRaw || ''}|${payload.claveRaw || ''}|${payload.resultPct == null ? 'null' : payload.resultPct}`;
+            const now = Date.now();
+            const prev = this._descuentoDebugLastLogMs.get(key) || 0;
+            if (now - prev < 10000) return;
+            this._descuentoDebugLastLogMs.set(key, now);
+            console.log(
+                `Articulo ${codigo} tiene clave descuento ${payload.claveRaw || '-'} (norm ${payload.claveNorm || '-'}) ` +
+                `y tarifa cliente ${payload.tarifaRaw || '-'} (norm ${payload.tarifaNorm || '-'}) -> descuento ${payload.resultPct == null ? 'NO APLICA' : (String(payload.resultPct) + '%')}`
+            );
+        } catch (e) {
+            console.warn('debug descuento producto:', e);
+        }
+    }
+
     /**
      * Codigo de tarifa ERP efectivo: cliente representado o usuario logueado.
      */
@@ -4883,13 +4903,39 @@ class ScanAsYouShopApp {
         if ((!t || typeof t !== 'object') && claveNorm) {
             t = this.clavesDescuentoMapNormalized.get(claveNorm);
         }
-        if (!t || typeof t !== 'object') return null;
+        if (!t || typeof t !== 'object') {
+            this._debugLogDescuentoProducto(producto, {
+                claveRaw: clave,
+                claveNorm: claveNorm,
+                tarifaRaw: String(codigoTarifa).trim(),
+                tarifaNorm: this._normalizeDiscountCode(String(codigoTarifa).trim()),
+                resultPct: null
+            });
+            return null;
+        }
         const tarifaRaw = String(codigoTarifa).trim();
         const tarifaNorm = this._normalizeDiscountCode(tarifaRaw);
         const pct = t[tarifaRaw] != null ? t[tarifaRaw] : t[tarifaNorm];
-        if (pct == null || pct === '') return null;
+        if (pct == null || pct === '') {
+            this._debugLogDescuentoProducto(producto, {
+                claveRaw: clave,
+                claveNorm: claveNorm,
+                tarifaRaw: tarifaRaw,
+                tarifaNorm: tarifaNorm,
+                resultPct: null
+            });
+            return null;
+        }
         const n = Number(pct);
-        return Number.isFinite(n) ? n : null;
+        const result = Number.isFinite(n) ? n : null;
+        this._debugLogDescuentoProducto(producto, {
+            claveRaw: clave,
+            claveNorm: claveNorm,
+            tarifaRaw: tarifaRaw,
+            tarifaNorm: tarifaNorm,
+            resultPct: result
+        });
+        return result;
     }
 
     /**
@@ -7840,6 +7886,20 @@ class ScanAsYouShopApp {
     async updateCartProductCard(card, producto, ofertasByCodigo, intervalosCache, loteCache) {
         const priceWithIVA = producto.precio_unitario * 1.21;
         const subtotalWithIVA = producto.subtotal * 1.21;
+        let productoCatalogo = null;
+        if (window.cartManager && typeof window.cartManager.getProductByCodigo === 'function') {
+            productoCatalogo = await window.cartManager.getProductByCodigo(producto.codigo_producto);
+        }
+        const dtoTarifa = this.mostrarPreciosConDescuento && productoCatalogo
+            ? this.getPorcentajeDtoTarifaParaProducto(productoCatalogo)
+            : null;
+        const priceWithIVABaseTarifa = productoCatalogo && productoCatalogo.pvp != null
+            ? Number(productoCatalogo.pvp) * 1.21
+            : priceWithIVA;
+        const priceWithIVADtoTarifa = productoCatalogo
+            ? this.getPvpUnitarioConTarifa(productoCatalogo) * 1.21
+            : priceWithIVA;
+        const subtotalWithIVADtoTarifa = priceWithIVADtoTarifa * producto.cantidad;
         
         // Actualizar cantidad en el input
         const qtyInput = card.querySelector('.qty-value-input');
@@ -7904,15 +7964,20 @@ class ScanAsYouShopApp {
             }
         }
         
-        // Actualizar precios (descuento % o precio neto de oferta)
+        // Actualizar precios aplicando la opción más favorable para el cliente
         const mostrarPrecioOferta = descuentoAplicado > 0 || precioNetoOfertaAplicado;
-        const badgeTexto = precioNetoOfertaAplicado ? 'Precio oferta' : (descuentoAplicado > 0 ? `-${descuentoAplicado}%` : '');
-        if (mostrarPrecioOferta) {
+        const badgeTextoOferta = precioNetoOfertaAplicado ? 'Precio oferta' : (descuentoAplicado > 0 ? `-${descuentoAplicado}%` : '');
+        const tarifaDisponible = dtoTarifa != null && dtoTarifa > 0 && priceWithIVADtoTarifa < priceWithIVABaseTarifa;
+        const ofertaDisponible = mostrarPrecioOferta && precioConDescuento < priceWithIVA;
+        const usarOferta = ofertaDisponible && (!tarifaDisponible || precioConDescuento <= priceWithIVADtoTarifa);
+        const usarTarifa = tarifaDisponible && !usarOferta;
+
+        if (usarOferta) {
             const priceContainer = card.querySelector('.cart-product-price-container, .cart-product-price');
             if (priceContainer) {
                 priceContainer.innerHTML = `
                     <div class="cart-product-price-original">${priceWithIVA.toFixed(2)} €</div>
-                    <div class="cart-product-price-discount">${precioConDescuento.toFixed(2)} €${badgeTexto ? ` <span class="discount-badge">${badgeTexto}</span>` : ''}</div>
+                    <div class="cart-product-price-discount">${precioConDescuento.toFixed(2)} €${badgeTextoOferta ? ` <span class="discount-badge">${badgeTextoOferta}</span>` : ''}</div>
                 `;
                 priceContainer.className = 'cart-product-price-container';
             }
@@ -7922,6 +7987,23 @@ class ScanAsYouShopApp {
                 subtotalContainer.innerHTML = `
                     <div class="cart-product-subtotal-original">${subtotalWithIVA.toFixed(2)} €</div>
                     <div class="cart-product-subtotal-discount">${subtotalConDescuento.toFixed(2)} €</div>
+                `;
+                subtotalContainer.className = 'cart-product-subtotal-container';
+            }
+        } else if (usarTarifa) {
+            const priceContainer = card.querySelector('.cart-product-price-container, .cart-product-price');
+            if (priceContainer) {
+                priceContainer.innerHTML = `
+                    <div class="cart-product-price-original">${priceWithIVABaseTarifa.toFixed(2)} €</div>
+                    <div class="cart-product-price-discount">${priceWithIVADtoTarifa.toFixed(2)} € <span class="discount-badge">-${Number(dtoTarifa).toFixed(0)}%</span></div>
+                `;
+                priceContainer.className = 'cart-product-price-container';
+            }
+            const subtotalContainer = card.querySelector('.cart-product-subtotal-container, .cart-product-subtotal');
+            if (subtotalContainer) {
+                subtotalContainer.innerHTML = `
+                    <div class="cart-product-subtotal-original">${(priceWithIVABaseTarifa * producto.cantidad).toFixed(2)} €</div>
+                    <div class="cart-product-subtotal-discount">${subtotalWithIVADtoTarifa.toFixed(2)} €</div>
                 `;
                 subtotalContainer.className = 'cart-product-subtotal-container';
             }
@@ -7952,6 +8034,20 @@ class ScanAsYouShopApp {
 
         const priceWithIVA = producto.precio_unitario * 1.21;
         const subtotalWithIVA = producto.subtotal * 1.21;
+        let productoCatalogo = null;
+        if (window.cartManager && typeof window.cartManager.getProductByCodigo === 'function') {
+            productoCatalogo = await window.cartManager.getProductByCodigo(producto.codigo_producto);
+        }
+        const dtoTarifa = this.mostrarPreciosConDescuento && productoCatalogo
+            ? this.getPorcentajeDtoTarifaParaProducto(productoCatalogo)
+            : null;
+        const priceWithIVABaseTarifa = productoCatalogo && productoCatalogo.pvp != null
+            ? Number(productoCatalogo.pvp) * 1.21
+            : priceWithIVA;
+        const priceWithIVADtoTarifa = productoCatalogo
+            ? this.getPvpUnitarioConTarifa(productoCatalogo) * 1.21
+            : priceWithIVA;
+        const subtotalWithIVADtoTarifa = priceWithIVADtoTarifa * producto.cantidad;
 
         const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo_producto}_1.JPG`;
         
@@ -8003,22 +8099,39 @@ class ScanAsYouShopApp {
             ofertaHTML = `<div class="oferta-badge ${claseOferta}" onclick="event.stopPropagation(); window.app.verProductosOfertaDesdeCarrito('${ofertaActiva.numero_oferta}')">${this.escapeForHtmlAttribute(resultadoOferta.mensaje)}</div>`;
         }
         
-        // Generar HTML del precio (descuento % o precio neto de oferta)
+        // Generar HTML del precio aplicando la opción más favorable para el cliente
         const mostrarPrecioOferta = descuentoAplicado > 0 || precioNetoOfertaAplicado;
-        const badgeTexto = precioNetoOfertaAplicado ? 'Precio oferta' : (descuentoAplicado > 0 ? `-${descuentoAplicado}%` : '');
+        const badgeTextoOferta = precioNetoOfertaAplicado ? 'Precio oferta' : (descuentoAplicado > 0 ? `-${descuentoAplicado}%` : '');
+        const tarifaDisponible = dtoTarifa != null && dtoTarifa > 0 && priceWithIVADtoTarifa < priceWithIVABaseTarifa;
+        const ofertaDisponible = mostrarPrecioOferta && precioConDescuento < priceWithIVA;
+        const usarOferta = ofertaDisponible && (!tarifaDisponible || precioConDescuento <= priceWithIVADtoTarifa);
+        const usarTarifa = tarifaDisponible && !usarOferta;
         let precioHTML = '';
         let subtotalHTML = '';
-        if (mostrarPrecioOferta) {
+        if (usarOferta) {
             precioHTML = `
                 <div class="cart-product-price-container">
                     <div class="cart-product-price-original">${priceWithIVA.toFixed(2)} €</div>
-                    <div class="cart-product-price-discount">${precioConDescuento.toFixed(2)} €${badgeTexto ? ` <span class="discount-badge">${badgeTexto}</span>` : ''}</div>
+                    <div class="cart-product-price-discount">${precioConDescuento.toFixed(2)} €${badgeTextoOferta ? ` <span class="discount-badge">${badgeTextoOferta}</span>` : ''}</div>
                 </div>
             `;
             subtotalHTML = `
                 <div class="cart-product-subtotal-container">
                     <div class="cart-product-subtotal-original">${subtotalWithIVA.toFixed(2)} €</div>
                     <div class="cart-product-subtotal-discount">${subtotalConDescuento.toFixed(2)} €</div>
+                </div>
+            `;
+        } else if (usarTarifa) {
+            precioHTML = `
+                <div class="cart-product-price-container">
+                    <div class="cart-product-price-original">${priceWithIVABaseTarifa.toFixed(2)} €</div>
+                    <div class="cart-product-price-discount">${priceWithIVADtoTarifa.toFixed(2)} € <span class="discount-badge">-${Number(dtoTarifa).toFixed(0)}%</span></div>
+                </div>
+            `;
+            subtotalHTML = `
+                <div class="cart-product-subtotal-container">
+                    <div class="cart-product-subtotal-original">${(priceWithIVABaseTarifa * producto.cantidad).toFixed(2)} €</div>
+                    <div class="cart-product-subtotal-discount">${subtotalWithIVADtoTarifa.toFixed(2)} €</div>
                 </div>
             `;
         } else {
