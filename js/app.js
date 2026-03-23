@@ -1321,13 +1321,13 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Refresco manual de imagenes de familias sin tocar catalogo local (productos/codigos secundarios).
-     * Sube token scb y, opcionalmente, actualiza el SW sin limpiar cache global ni recargar.
+     * Refresco manual del dominio de familias sin tocar productos/codigos secundarios.
+     * Actualiza familias/familias_asignadas desde backend, sube token scb y repinta pantalla activa.
      */
     async forceProfileAppCacheRefresh() {
         const ok = await window.ui.showConfirm(
             'Forzar cache de la app',
-            'Se forzara un refresco manual de imagenes del catalogo por familia sin borrar datos de catalogo local (productos/codigos secundarios). ¿Continuar?',
+            'Se actualizara el dominio de familias (incluida asignacion de imagenes) sin tocar productos/codigos secundarios. ¿Continuar?',
             'Continuar',
             'Cancelar'
         );
@@ -1335,6 +1335,12 @@ class ScanAsYouShopApp {
             return;
         }
         try {
+            if (window.supabaseClient && window.cartManager &&
+                typeof window.supabaseClient.downloadFamiliasCatalog === 'function' &&
+                typeof window.cartManager.saveFamiliasCatalogToStorage === 'function') {
+                const fc = await window.supabaseClient.downloadFamiliasCatalog();
+                await window.cartManager.saveFamiliasCatalogToStorage(fc.familias, fc.familias_asignadas);
+            }
             if (window.cartManager && typeof window.cartManager.bumpFamiliaImagesCacheBust === 'function') {
                 window.cartManager.bumpFamiliaImagesCacheBust();
             }
