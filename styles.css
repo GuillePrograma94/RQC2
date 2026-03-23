@@ -2112,6 +2112,13 @@ body.gate-visible .app-container {
     font-weight: 600;
 }
 
+.discount-pacto-marker {
+    color: var(--danger);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
 .cart-product-subtotal-container {
     text-align: right;
 }

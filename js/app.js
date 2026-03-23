@@ -2644,7 +2644,7 @@ class ScanAsYouShopApp {
                 '<img src="' + this.escapeForHtmlAttribute(img) + '" alt="" class="wc-completo-card-product-img" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';"><span class="wc-completo-card-product-placeholder" style="display:none;" aria-hidden="true"></span>' +
                 '</span>' +
                 '<span class="wc-completo-card-product-desc">' + desc + '</span>' +
-                '<span class="wc-completo-card-product-price">' + price + ' EUR' + (priceData.hasDiscountApplied ? ' <span class="discount-badge">-' + Number(priceData.dtoPct).toFixed(0) + '%</span>' : '') + '</span>' +
+                '<span class="wc-completo-card-product-price">' + price + ' EUR' + (priceData.hasDiscountApplied ? ' <span class="discount-badge">-' + Number(priceData.dtoPct).toFixed(0) + '%</span>' + (priceData.isPactoApplied ? ' <span class="discount-pacto-marker">(P)</span>' : '') : '') + '</span>' +
                 '</button>';
         }).join('');
     }
@@ -5056,6 +5056,7 @@ class ScanAsYouShopApp {
     getPriceDisplayData(producto) {
         const baseSinIva = producto && producto.pvp != null ? Number(producto.pvp) : 0;
         const dto = this.mostrarPreciosConDescuento ? this.getPorcentajeDtoTarifaParaProducto(producto) : null;
+        const dtoPacto = this.mostrarPreciosConDescuento ? this.getPorcentajePactoParaProducto(producto) : null;
         const visibleSinIva = this.getPvpUnitarioVisible(producto);
         return {
             baseSinIva,
@@ -5063,7 +5064,8 @@ class ScanAsYouShopApp {
             visibleSinIva,
             baseConIva: baseSinIva * 1.21,
             visibleConIva: visibleSinIva * 1.21,
-            hasDiscountApplied: dto != null && dto > 0 && visibleSinIva < baseSinIva
+            hasDiscountApplied: dto != null && dto > 0 && visibleSinIva < baseSinIva,
+            isPactoApplied: dtoPacto != null && dto != null && dto > 0 && visibleSinIva < baseSinIva
         };
     }
 
@@ -5075,7 +5077,7 @@ class ScanAsYouShopApp {
         return `
             <div class="result-price-container">
                 <div class="result-price-original">${priceData.baseConIva.toFixed(2)} €</div>
-                <div class="result-price-discount">${priceData.visibleConIva.toFixed(2)} € <span class="discount-badge">-${Number(priceData.dtoPct).toFixed(0)}%</span></div>
+                <div class="result-price-discount">${priceData.visibleConIva.toFixed(2)} € <span class="discount-badge">-${Number(priceData.dtoPct).toFixed(0)}%</span>${priceData.isPactoApplied ? ' <span class="discount-pacto-marker">(P)</span>' : ''}</div>
             </div>
         `;
     }
@@ -7197,7 +7199,7 @@ class ScanAsYouShopApp {
             if (priceDataModal.hasDiscountApplied) {
                 priceEl.innerHTML = `
                     <span class="add-to-cart-price-original">${priceDataModal.baseConIva.toFixed(2)} €</span>
-                    <span class="add-to-cart-price-discount">${priceDataModal.visibleConIva.toFixed(2)} € <span class="discount-badge">-${Number(priceDataModal.dtoPct).toFixed(0)}%</span></span>
+                    <span class="add-to-cart-price-discount">${priceDataModal.visibleConIva.toFixed(2)} € <span class="discount-badge">-${Number(priceDataModal.dtoPct).toFixed(0)}%</span>${priceDataModal.isPactoApplied ? ' <span class="discount-pacto-marker">(P)</span>' : ''}</span>
                 `;
             } else {
                 priceEl.textContent = `${priceDataModal.visibleConIva.toFixed(2)} €`;
@@ -8096,6 +8098,7 @@ class ScanAsYouShopApp {
         const mostrarPrecioOferta = descuentoAplicado > 0 || precioNetoOfertaAplicado;
         const badgeTextoOferta = precioNetoOfertaAplicado ? 'Precio oferta' : (descuentoAplicado > 0 ? `-${descuentoAplicado}%` : '');
         const tarifaDisponible = dtoTarifa != null && dtoTarifa > 0 && priceWithIVADtoTarifa < priceWithIVABaseTarifa;
+        const pactoTarifaAplicado = productoCatalogo && this.getPorcentajePactoParaProducto(productoCatalogo) != null;
         const ofertaDisponible = mostrarPrecioOferta && precioConDescuento < priceWithIVA;
         const usarOferta = ofertaDisponible && (!tarifaDisponible || precioConDescuento <= priceWithIVADtoTarifa);
         const usarTarifa = tarifaDisponible && !usarOferta;
@@ -8123,7 +8126,7 @@ class ScanAsYouShopApp {
             if (priceContainer) {
                 priceContainer.innerHTML = `
                     <div class="cart-product-price-original">${priceWithIVABaseTarifa.toFixed(2)} €</div>
-                    <div class="cart-product-price-discount">${priceWithIVADtoTarifa.toFixed(2)} € <span class="discount-badge">-${Number(dtoTarifa).toFixed(0)}%</span></div>
+                    <div class="cart-product-price-discount">${priceWithIVADtoTarifa.toFixed(2)} € <span class="discount-badge">-${Number(dtoTarifa).toFixed(0)}%</span>${pactoTarifaAplicado ? ' <span class="discount-pacto-marker">(P)</span>' : ''}</div>
                 `;
                 priceContainer.className = 'cart-product-price-container';
             }
@@ -8228,6 +8231,7 @@ class ScanAsYouShopApp {
         const mostrarPrecioOferta = descuentoAplicado > 0 || precioNetoOfertaAplicado;
         const badgeTextoOferta = precioNetoOfertaAplicado ? 'Precio oferta' : (descuentoAplicado > 0 ? `-${descuentoAplicado}%` : '');
         const tarifaDisponible = dtoTarifa != null && dtoTarifa > 0 && priceWithIVADtoTarifa < priceWithIVABaseTarifa;
+        const pactoTarifaAplicado = productoCatalogo && this.getPorcentajePactoParaProducto(productoCatalogo) != null;
         const ofertaDisponible = mostrarPrecioOferta && precioConDescuento < priceWithIVA;
         const usarOferta = ofertaDisponible && (!tarifaDisponible || precioConDescuento <= priceWithIVADtoTarifa);
         const usarTarifa = tarifaDisponible && !usarOferta;
@@ -8250,7 +8254,7 @@ class ScanAsYouShopApp {
             precioHTML = `
                 <div class="cart-product-price-container">
                     <div class="cart-product-price-original">${priceWithIVABaseTarifa.toFixed(2)} €</div>
-                    <div class="cart-product-price-discount">${priceWithIVADtoTarifa.toFixed(2)} € <span class="discount-badge">-${Number(dtoTarifa).toFixed(0)}%</span></div>
+                    <div class="cart-product-price-discount">${priceWithIVADtoTarifa.toFixed(2)} € <span class="discount-badge">-${Number(dtoTarifa).toFixed(0)}%</span>${pactoTarifaAplicado ? ' <span class="discount-pacto-marker">(P)</span>' : ''}</div>
                 </div>
             `;
             subtotalHTML = `
