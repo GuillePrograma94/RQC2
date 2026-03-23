@@ -1321,13 +1321,13 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Limpia caches del service worker, renueva registro del SW, sube token scb de imagenes familias y recarga.
-     * Proceso manual desde Mi perfil para moviles con cache agresiva.
+     * Refresco manual de imagenes de familias sin tocar catalogo local (productos/codigos secundarios).
+     * Sube token scb y, opcionalmente, actualiza el SW sin limpiar cache global ni recargar.
      */
     async forceProfileAppCacheRefresh() {
         const ok = await window.ui.showConfirm(
             'Forzar cache de la app',
-            'Se borrara la cache local de la aplicacion (archivos estaticos), se comprobara si hay una version nueva y se recargara la pagina. Las imagenes del catalogo usaran nuevas direcciones. ¿Continuar?',
+            'Se forzara un refresco manual de imagenes del catalogo por familia sin borrar datos de catalogo local (productos/codigos secundarios). ¿Continuar?',
             'Continuar',
             'Cancelar'
         );
@@ -1338,20 +1338,23 @@ class ScanAsYouShopApp {
             if (window.cartManager && typeof window.cartManager.bumpFamiliaImagesCacheBust === 'function') {
                 window.cartManager.bumpFamiliaImagesCacheBust();
             }
-            if ('caches' in window && typeof caches.keys === 'function') {
-                const keys = await caches.keys();
-                await Promise.all(keys.map((name) => caches.delete(name)));
-            }
             if ('serviceWorker' in navigator) {
                 const reg = await navigator.serviceWorker.ready;
                 if (reg && typeof reg.update === 'function') {
                     await reg.update();
                 }
             }
+            if (this.currentScreen === 'inicio' && typeof this.renderInicioFamiliasNavigator === 'function') {
+                await this.renderInicioFamiliasNavigator();
+            }
+            if (this.currentScreen === 'familiasCatalogoAdmin' && typeof this._renderFamiliasCatalogoAdminListAsync === 'function') {
+                await this._renderFamiliasCatalogoAdminListAsync();
+            }
+            window.ui.showToast('Refresco de imagenes aplicado', 'success');
         } catch (e) {
             console.error('forceProfileAppCacheRefresh:', e);
+            window.ui.showToast('No se pudo refrescar la cache de imagenes', 'error');
         }
-        window.location.reload();
     }
 
     /**
@@ -3051,11 +3054,16 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Token en localStorage: cambia al sincronizar familias o al guardar familia en IndexedDB.
-     * En móvil la caché HTTP suele ignorar solo ?v= si la URL base es la misma; scb fuerza URL nueva.
+     * Token para cache-bust de imagenes familias.
+     * Prioridad: ?appcb= en URL (forzado manual) y, si no existe, localStorage (sync/edicion familias).
      */
     _getFamiliasImageCacheBustToken() {
         try {
+            const qs = new URLSearchParams(window.location.search || '');
+            const appcb = (qs.get('appcb') || '').trim();
+            if (appcb) {
+                return appcb;
+            }
             const key = typeof CartManager !== 'undefined' && CartManager.FAMILIAS_IMG_SCB_KEY
                 ? CartManager.FAMILIAS_IMG_SCB_KEY
                 : 'scan_familias_img_scb';
