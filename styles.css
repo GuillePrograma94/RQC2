@@ -1292,6 +1292,28 @@ body.gate-visible .app-container {
     color: var(--primary);
 }
 
+.result-price-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.result-price-original {
+    font-size: 0.78rem;
+    color: var(--gray-500);
+    text-decoration: line-through;
+    line-height: 1.1;
+}
+
+.result-price-discount {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--danger);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
 /* ========================================
    ESCANEO
    ======================================== */
@@ -4671,6 +4693,30 @@ body.gate-visible .app-container {
     color: var(--gray-600);
     margin: 0 0 0.75rem 0;
     line-height: 1.4;
+}
+
+.profile-section-desc-compact {
+    margin: 0.5rem 0 0;
+}
+
+.profile-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.profile-toggle-input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+}
+
+.profile-toggle-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--gray-800);
 }
 
 .profile-cache-progress-wrap {

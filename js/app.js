@@ -20,6 +20,7 @@ class ScanAsYouShopApp {
         this.stockIndex = new Map();    // Map<codigo_articulo_upper, {stock_global, por_almacen}>
         /** Map clave_descuento -> objeto tarifas { codigo_tarifa: porcentaje } */
         this.clavesDescuentoMap = new Map();
+        this.mostrarPreciosConDescuento = true;
         // Estado de chips de filtro de búsqueda
         this.filterChips = {
             misCompras: false,
@@ -127,6 +128,7 @@ class ScanAsYouShopApp {
 
             console.log('Sesion de usuario encontrada:', savedUser.user_name);
             this.currentUser = savedUser;
+            this.loadPricingPreferenceForUser(this.currentUser);
             // Compatibilidad sesion antigua: derivar is_administracion si no existe
             if (this.currentUser.is_administracion === undefined && this.currentUser.tipo) {
                 this.currentUser.is_administracion = String(this.currentUser.tipo).toUpperCase() === 'ADMINISTRACION';
@@ -322,6 +324,7 @@ class ScanAsYouShopApp {
                     comercial_id: loginResult.comercial_id ?? null,
                     comercial_numero: loginResult.comercial_numero ?? null
                 };
+                this.loadPricingPreferenceForUser(this.currentUser);
 
                 // Crear sesion en sesiones_usuario solo para clientes (titular/operario).
                 // Comerciales y dependientes actuan como representantes y no usan sesiones_usuario.
@@ -450,6 +453,47 @@ class ScanAsYouShopApp {
         } catch (error) {
             console.error('Error al cargar sesion:', error);
             return null;
+        }
+    }
+
+    getPricingPreferenceStorageKey(userLike = this.currentUser) {
+        if (!userLike) return null;
+        const userId = userLike.user_id != null ? String(userLike.user_id).trim() : '';
+        const codigo = userLike.codigo_usuario != null ? String(userLike.codigo_usuario).trim() : '';
+        const suffix = userId || codigo;
+        if (!suffix) return null;
+        return `scan_show_prices_with_discount_${suffix}`;
+    }
+
+    loadPricingPreferenceForUser(userLike = this.currentUser) {
+        try {
+            const key = this.getPricingPreferenceStorageKey(userLike);
+            if (!key) {
+                this.mostrarPreciosConDescuento = true;
+                return this.mostrarPreciosConDescuento;
+            }
+            const raw = localStorage.getItem(key);
+            if (raw == null || raw === '') {
+                this.mostrarPreciosConDescuento = true;
+                return this.mostrarPreciosConDescuento;
+            }
+            this.mostrarPreciosConDescuento = raw === '1';
+            return this.mostrarPreciosConDescuento;
+        } catch (e) {
+            console.warn('loadPricingPreferenceForUser:', e);
+            this.mostrarPreciosConDescuento = true;
+            return this.mostrarPreciosConDescuento;
+        }
+    }
+
+    savePricingPreferenceForUser(mostrarConDescuento, userLike = this.currentUser) {
+        this.mostrarPreciosConDescuento = !!mostrarConDescuento;
+        try {
+            const key = this.getPricingPreferenceStorageKey(userLike);
+            if (!key) return;
+            localStorage.setItem(key, this.mostrarPreciosConDescuento ? '1' : '0');
+        } catch (e) {
+            console.warn('savePricingPreferenceForUser:', e);
         }
     }
 
@@ -1228,6 +1272,16 @@ class ScanAsYouShopApp {
      */
     async renderProfileScreen() {
         if (!this.currentUser) return;
+        const pricingToggleEl = document.getElementById('profileMostrarPreciosConDescuento');
+        const pricingHintEl = document.getElementById('profilePricingToggleHint');
+        if (pricingToggleEl) {
+            pricingToggleEl.checked = !!this.mostrarPreciosConDescuento;
+        }
+        if (pricingHintEl) {
+            pricingHintEl.textContent = this.mostrarPreciosConDescuento
+                ? 'Se muestran precios finales con descuento por tarifa cuando aplique.'
+                : 'Se muestran precios base sin aplicar descuento por tarifa.';
+        }
         if (this.currentUser.is_comercial || this.currentUser.is_dependiente) {
             const nameEl = document.getElementById('profileUserName');
             const codeEl = document.getElementById('profileUserCode');
@@ -2570,14 +2624,15 @@ class ScanAsYouShopApp {
         return items.map(item => {
             const cod = codAttr(item.codigo);
             const desc = this.escapeForHtmlAttribute(item.descripcion || '');
-            const price = (item.pvp != null ? Number(item.pvp) : 0).toFixed(2);
+            const priceData = this.getPriceDisplayData(item);
+            const price = priceData.visibleSinIva.toFixed(2);
             const img = item.imageUrl || this._wcProductImageBase() + cod + '_1.JPG';
             return '<button type="button" class="wc-completo-card wc-completo-card-product" data-tipo="' + tipo + '" data-codigo="' + cod + '" data-descripcion="' + this.escapeForHtmlAttribute(item.descripcion || '') + '" data-pvp="' + (item.pvp != null ? item.pvp : 0) + '" aria-label="' + this.escapeForHtmlAttribute(item.descripcion || item.codigo) + '">' +
                 '<span class="wc-completo-card-product-img-wrap">' +
                 '<img src="' + this.escapeForHtmlAttribute(img) + '" alt="" class="wc-completo-card-product-img" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';"><span class="wc-completo-card-product-placeholder" style="display:none;" aria-hidden="true"></span>' +
                 '</span>' +
                 '<span class="wc-completo-card-product-desc">' + desc + '</span>' +
-                '<span class="wc-completo-card-product-price">' + price + ' EUR</span>' +
+                '<span class="wc-completo-card-product-price">' + price + ' EUR' + (priceData.hasDiscountApplied ? ' <span class="discount-badge">-' + Number(priceData.dtoPct).toFixed(0) + '%</span>' : '') + '</span>' +
                 '</button>';
         }).join('');
     }
@@ -2614,7 +2669,7 @@ class ScanAsYouShopApp {
         ['taza', 'tanque', 'asiento'].forEach(tipo => {
             const item = sel[tipo];
             if (item) {
-                total += (item.pvp != null ? item.pvp : 0);
+                total += this.getPvpUnitarioVisible(item);
                 const img = base + this.escapeForHtmlAttribute(item.codigo) + '_1.JPG';
                 const label = tipo === 'taza' ? 'Taza' : tipo === 'tanque' ? 'Tanque' : 'Asiento';
                 const desc = this.escapeForHtmlAttribute(item.descripcion || '');
@@ -2622,7 +2677,7 @@ class ScanAsYouShopApp {
                     '<img src="' + img + '" alt="" onerror="this.style.display=\'none\'">' +
                     '<span class="wc-completo-summary-item-label">' + label + '</span>' +
                     '<span class="wc-completo-summary-item-desc">' + desc + '</span>' +
-                    '<span class="wc-completo-summary-item-price">' + (item.pvp != null ? Number(item.pvp).toFixed(2) : '0.00') + ' EUR</span>' +
+                    '<span class="wc-completo-summary-item-price">' + this.getPvpUnitarioVisible(item).toFixed(2) + ' EUR</span>' +
                     '</div>');
             }
         });
@@ -2645,7 +2700,7 @@ class ScanAsYouShopApp {
         try {
             for (const item of items) {
                 await window.cartManager.addProduct(
-                    { codigo: item.codigo, descripcion: item.descripcion || item.codigo, pvp: item.pvp != null ? item.pvp : 0 },
+                    { codigo: item.codigo, descripcion: item.descripcion || item.codigo, pvp: this.getPvpUnitarioVisible(item) },
                     1
                 );
             }
@@ -4809,6 +4864,53 @@ class ScanAsYouShopApp {
         return Math.round(base * (1 - dto / 100) * 10000) / 10000;
     }
 
+    getPvpUnitarioVisible(producto) {
+        const base = producto && producto.pvp != null ? Number(producto.pvp) : 0;
+        if (!this.mostrarPreciosConDescuento) return base;
+        return this.getPvpUnitarioConTarifa(producto);
+    }
+
+    getPriceDisplayData(producto) {
+        const baseSinIva = producto && producto.pvp != null ? Number(producto.pvp) : 0;
+        const dto = this.mostrarPreciosConDescuento ? this.getPorcentajeDtoTarifaParaProducto(producto) : null;
+        const visibleSinIva = this.getPvpUnitarioVisible(producto);
+        return {
+            baseSinIva,
+            dtoPct: dto,
+            visibleSinIva,
+            baseConIva: baseSinIva * 1.21,
+            visibleConIva: visibleSinIva * 1.21,
+            hasDiscountApplied: dto != null && dto > 0 && visibleSinIva < baseSinIva
+        };
+    }
+
+    renderPriceHtmlForSearchLike(producto) {
+        const priceData = this.getPriceDisplayData(producto);
+        if (!priceData.hasDiscountApplied) {
+            return `<div class="result-price">${priceData.visibleConIva.toFixed(2)} €</div>`;
+        }
+        return `
+            <div class="result-price-container">
+                <div class="result-price-original">${priceData.baseConIva.toFixed(2)} €</div>
+                <div class="result-price-discount">${priceData.visibleConIva.toFixed(2)} € <span class="discount-badge">-${Number(priceData.dtoPct).toFixed(0)}%</span></div>
+            </div>
+        `;
+    }
+
+    refreshVisiblePricesAfterPreferenceChange() {
+        if (this.currentScreen === 'search') {
+            this.performSearch();
+            return;
+        }
+        if (this.currentScreen === 'history') {
+            this.loadPurchaseHistory();
+            return;
+        }
+        if (this.currentScreen === 'cart') {
+            this.updateCartView();
+        }
+    }
+
     /**
      * Ocultar en busqueda de catalogo si activo F, activo_web F y stock global 0.
      * Historial (solo comprados) no aplica este filtro en performSearch.
@@ -5636,6 +5738,21 @@ class ScanAsYouShopApp {
             });
         }
 
+        const profilePricingToggle = document.getElementById('profileMostrarPreciosConDescuento');
+        if (profilePricingToggle) {
+            profilePricingToggle.addEventListener('change', () => {
+                const enabled = !!profilePricingToggle.checked;
+                this.savePricingPreferenceForUser(enabled);
+                const hintEl = document.getElementById('profilePricingToggleHint');
+                if (hintEl) {
+                    hintEl.textContent = enabled
+                        ? 'Se muestran precios finales con descuento por tarifa cuando aplique.'
+                        : 'Se muestran precios base sin aplicar descuento por tarifa.';
+                }
+                this.refreshVisiblePricesAfterPreferenceChange();
+            });
+        }
+
         // Perfil: Añadir operario (abre modal)
         const profileAddOperarioBtn = document.getElementById('profileAddOperarioBtn');
         if (profileAddOperarioBtn) {
@@ -6327,10 +6444,10 @@ class ScanAsYouShopApp {
 
             // Filtro de precio (PVP sin IVA; comparamos contra pvp * 1.21 para precio con IVA)
             if (precioDesde !== null) {
-                productos = productos.filter(p => this.getPvpUnitarioConTarifa(p) * 1.21 >= precioDesde);
+                productos = productos.filter(p => this.getPvpUnitarioVisible(p) * 1.21 >= precioDesde);
             }
             if (precioHasta !== null) {
-                productos = productos.filter(p => this.getPvpUnitarioConTarifa(p) * 1.21 <= precioHasta);
+                productos = productos.filter(p => this.getPvpUnitarioVisible(p) * 1.21 <= precioHasta);
             }
 
             // Ordenar por stock efectivo descendente (mas stock = mas arriba).
@@ -6440,8 +6557,7 @@ class ScanAsYouShopApp {
     }
 
     _buildSearchResultItemHtml(producto, isFromHistory, productosConOfertas) {
-        const pvpMostrar = this.getPvpUnitarioConTarifa(producto);
-        const priceWithIVA = pvpMostrar * 1.21;
+        const pvpMostrar = this.getPvpUnitarioVisible(producto);
         const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
         const escapedDescripcion = this.escapeForHtmlAttribute(producto.descripcion);
         const tieneOferta = productosConOfertas.has(producto.codigo.toUpperCase());
@@ -6468,7 +6584,7 @@ class ScanAsYouShopApp {
                     <div class="result-info" onclick="window.app.addProductToCart('${producto.codigo}', '${escapedDescripcion}', ${pvpMostrar})">
                         <div class="result-code">${codigoConOferta}</div>
                         <div class="result-name">${producto.descripcion}</div>
-                        <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
+                        ${this.renderPriceHtmlForSearchLike(producto)}
                         <div class="result-meta">
                             <span class="result-last-purchase">Ultima compra: ${fechaFormateada}</span>
                             ${stockBadge}
@@ -6491,7 +6607,7 @@ class ScanAsYouShopApp {
                 <div class="result-info">
                     <div class="result-code">${codigoConOferta}</div>
                     <div class="result-name">${producto.descripcion}</div>
-                    <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
+                    ${this.renderPriceHtmlForSearchLike(producto)}
                     ${stockBadge ? `<div class="result-stock">${stockBadge}</div>` : ''}
                 </div>
             </div>
@@ -6869,7 +6985,7 @@ class ScanAsYouShopApp {
 
             codeEl.textContent = producto.codigo;
             descriptionEl.textContent = producto.descripcion;
-            const priceWithIVA = producto.pvp * 1.21;
+            const priceWithIVA = this.getPvpUnitarioVisible(producto) * 1.21;
             priceEl.textContent = `${priceWithIVA.toFixed(2)} €`;
 
             // Verificar si el producto tiene ofertas (solo para usuarios con grupo_cliente)
@@ -7199,7 +7315,7 @@ class ScanAsYouShopApp {
                     window.ui.showToast('Producto no disponible para pedido', 'warning');
                     return;
                 }
-                const pvpU = this.getPvpUnitarioConTarifa(producto);
+                const pvpU = this.getPvpUnitarioVisible(producto);
                 this.addProductToCart(producto.codigo, producto.descripcion, pvpU);
                 if (input) input.value = '';
             } else {
@@ -8231,7 +8347,7 @@ class ScanAsYouShopApp {
         }
 
         resultsList.innerHTML = historial.map(producto => {
-            const priceWithIVA = producto.pvp * 1.21;
+            const priceData = this.getPriceDisplayData(producto);
             const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo}_1.JPG`;
             const escapedDescripcion = this.escapeForHtmlAttribute(producto.descripcion);
             
@@ -8245,15 +8361,15 @@ class ScanAsYouShopApp {
             
             return `
                 <div class="result-item-with-image history-item">
-                    <div class="result-image" onclick="window.app.addProductToCartFromHistory('${producto.codigo}', '${escapedDescripcion}', ${producto.pvp})">
+                    <div class="result-image" onclick="window.app.addProductToCartFromHistory('${producto.codigo}', '${escapedDescripcion}', ${priceData.visibleSinIva})">
                         <img src="${imageUrl}" alt="${producto.descripcion}" 
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                         <div class="result-image-placeholder" style="display: none;">📦</div>
                     </div>
-                    <div class="result-info" onclick="window.app.addProductToCartFromHistory('${producto.codigo}', '${escapedDescripcion}', ${producto.pvp})">
+                    <div class="result-info" onclick="window.app.addProductToCartFromHistory('${producto.codigo}', '${escapedDescripcion}', ${priceData.visibleSinIva})">
                         <div class="result-code">${producto.codigo}</div>
                         <div class="result-name">${producto.descripcion}</div>
-                        <div class="result-price">${priceWithIVA.toFixed(2)} €</div>
+                        ${this.renderPriceHtmlForSearchLike(producto)}
                         <div class="result-meta">
                             <span class="result-last-purchase">Última compra: ${fechaFormateada}</span>
                         </div>
