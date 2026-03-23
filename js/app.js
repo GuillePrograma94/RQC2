@@ -20,6 +20,8 @@ class ScanAsYouShopApp {
         this.stockIndex = new Map();    // Map<codigo_articulo_upper, {stock_global, por_almacen}>
         /** Map clave_descuento -> objeto tarifas { codigo_tarifa: porcentaje } */
         this.clavesDescuentoMap = new Map();
+        /** Map clave_descuento normalizada (sin ceros a la izquierda) -> tarifas normalizadas */
+        this.clavesDescuentoMapNormalized = new Map();
         this.mostrarPreciosConDescuento = true;
         // Estado de chips de filtro de búsqueda
         this.filterChips = {
@@ -4816,13 +4818,43 @@ class ScanAsYouShopApp {
         try {
             if (!window.cartManager || typeof window.cartManager.getClavesDescuentoMap !== 'function') {
                 this.clavesDescuentoMap = new Map();
+                this.clavesDescuentoMapNormalized = new Map();
                 return;
             }
             this.clavesDescuentoMap = await window.cartManager.getClavesDescuentoMap();
+            this.clavesDescuentoMapNormalized = new Map();
+            this.clavesDescuentoMap.forEach((tarifas, clave) => {
+                const claveNorm = this._normalizeDiscountCode(clave);
+                if (!claveNorm) return;
+                this.clavesDescuentoMapNormalized.set(claveNorm, this._normalizeTarifasObject(tarifas));
+            });
         } catch (e) {
             console.warn('refreshClavesDescuentoCache:', e);
             this.clavesDescuentoMap = new Map();
+            this.clavesDescuentoMapNormalized = new Map();
         }
+    }
+
+    _normalizeDiscountCode(value) {
+        const raw = value != null ? String(value).trim() : '';
+        if (!raw) return '';
+        const noLeading = raw.replace(/^0+/, '');
+        return noLeading === '' ? '0' : noLeading;
+    }
+
+    _normalizeTarifasObject(tarifas) {
+        if (!tarifas || typeof tarifas !== 'object') return {};
+        const normalized = {};
+        Object.keys(tarifas).forEach((k) => {
+            const key = String(k).trim();
+            if (!key) return;
+            normalized[key] = tarifas[k];
+            const keyNorm = this._normalizeDiscountCode(key);
+            if (keyNorm && normalized[keyNorm] == null) {
+                normalized[keyNorm] = tarifas[k];
+            }
+        });
+        return normalized;
     }
 
     /**
@@ -4846,9 +4878,15 @@ class ScanAsYouShopApp {
         if (!codigoTarifa || !producto) return null;
         const clave = (producto.clave_descuento != null ? String(producto.clave_descuento) : '').trim();
         if (!clave || !this.clavesDescuentoMap || this.clavesDescuentoMap.size === 0) return null;
-        const t = this.clavesDescuentoMap.get(clave);
+        const claveNorm = this._normalizeDiscountCode(clave);
+        let t = this.clavesDescuentoMap.get(clave);
+        if ((!t || typeof t !== 'object') && claveNorm) {
+            t = this.clavesDescuentoMapNormalized.get(claveNorm);
+        }
         if (!t || typeof t !== 'object') return null;
-        const pct = t[codigoTarifa];
+        const tarifaRaw = String(codigoTarifa).trim();
+        const tarifaNorm = this._normalizeDiscountCode(tarifaRaw);
+        const pct = t[tarifaRaw] != null ? t[tarifaRaw] : t[tarifaNorm];
         if (pct == null || pct === '') return null;
         const n = Number(pct);
         return Number.isFinite(n) ? n : null;
