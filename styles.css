@@ -2579,6 +2579,25 @@ body.gate-visible .app-container {
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--primary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.add-to-cart-price-original {
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    text-decoration: line-through;
+    line-height: 1.1;
+}
+
+.add-to-cart-price-discount {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--danger);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
 }
 
 .add-to-cart-oferta-badge {

@@ -7118,8 +7118,16 @@ class ScanAsYouShopApp {
 
             codeEl.textContent = producto.codigo;
             descriptionEl.textContent = producto.descripcion;
-            const priceWithIVA = this.getPvpUnitarioVisible(producto) * 1.21;
-            priceEl.textContent = `${priceWithIVA.toFixed(2)} €`;
+            const productoPrecio = await this.resolveProductoCatalogoConDescuento(producto.codigo) || producto;
+            const priceDataModal = this.getPriceDisplayData(productoPrecio);
+            if (priceDataModal.hasDiscountApplied) {
+                priceEl.innerHTML = `
+                    <span class="add-to-cart-price-original">${priceDataModal.baseConIva.toFixed(2)} €</span>
+                    <span class="add-to-cart-price-discount">${priceDataModal.visibleConIva.toFixed(2)} € <span class="discount-badge">-${Number(priceDataModal.dtoPct).toFixed(0)}%</span></span>
+                `;
+            } else {
+                priceEl.textContent = `${priceDataModal.visibleConIva.toFixed(2)} €`;
+            }
 
             // Verificar si el producto tiene ofertas (solo para usuarios con grupo_cliente)
             let ofertaData = null;
