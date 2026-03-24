@@ -1083,7 +1083,7 @@ class ScanAsYouShopApp {
      * Limpia el cliente representado actualmente por el comercial.
      * Elimina los campos de representacion del currentUser, guarda la sesion y actualiza la UI.
      */
-    _dejarDeRepresentarCliente() {
+    async _dejarDeRepresentarCliente() {
         if (!this.currentUser) return;
         const nombre = this.currentUser.cliente_representado_nombre || '';
         delete this.currentUser.cliente_representado_id;
@@ -1093,9 +1093,9 @@ class ScanAsYouShopApp {
         delete this.currentUser.cliente_representado_grupo_cliente;
         delete this.currentUser.cliente_representado_tarifa;
         this.saveUserSession(this.currentUser, this.currentSession);
+        await this.refreshPactosClienteCache();
         this.updateUserUI();
         this._updateSelectorClienteRepresentandoBlock();
-        this.refreshPactosClienteCache();
         if (window.ui && nombre) {
             window.ui.showToast('Has dejado de representar a ' + nombre, 'info');
         }
@@ -1216,7 +1216,7 @@ class ScanAsYouShopApp {
             info.appendChild(codeDiv);
             item.appendChild(info);
 
-            item.addEventListener('click', function () {
+            item.addEventListener('click', async function () {
                 self.currentUser.cliente_representado_id = c.id;
                 self.currentUser.cliente_representado_nombre = (c.nombre || '').trim();
                 self.currentUser.cliente_representado_codigo_usuario = c.codigo_usuario != null ? String(c.codigo_usuario).trim() : null;
@@ -1226,8 +1226,8 @@ class ScanAsYouShopApp {
                     ? String(c.tarifa).trim()
                     : null;
                 self.saveUserSession(self.currentUser, self.currentSession);
+                await self.refreshPactosClienteCache();
                 self.updateUserUI();
-                self.refreshPactosClienteCache();
                 if (self.currentUser.is_dependiente && window.supabaseClient) {
                     window.supabaseClient.registrarRepresentacionDependiente(self.currentUser.user_id, c.id);
                 }
@@ -4967,7 +4967,10 @@ class ScanAsYouShopApp {
     async enrichProductosConDatosDescuento(productos) {
         if (!Array.isArray(productos) || productos.length === 0) return productos;
         const tarifa = this.getEffectiveTarifaCodigo();
-        if (!this.mostrarPreciosConDescuento || !tarifa) return productos;
+        const codigoClientePacto = this.getEffectiveCodigoClientePacto();
+        const codigoClientePactoNum = Number.parseInt(codigoClientePacto, 10);
+        const puedeHaberPactosCliente = Number.isFinite(codigoClientePactoNum) && codigoClientePactoNum > 0;
+        if (!this.mostrarPreciosConDescuento || (!tarifa && !puedeHaberPactosCliente)) return productos;
         const enriched = await Promise.all(productos.map(async (p) => {
             if (!p || !p.codigo) return p;
             const tieneClave = p.clave_descuento != null && String(p.clave_descuento).trim() !== '';
