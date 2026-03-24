@@ -1264,9 +1264,15 @@ class ScanAsYouShopApp {
      */
     getEffectiveCodigoClientePacto() {
         if (!this.currentUser) return null;
-        if (this.canRepresentClientes() && this.currentUser.cliente_representado_id) {
+        if (this.canRepresentClientes()) {
             const codRep = this.currentUser.cliente_representado_codigo_usuario;
-            return codRep != null && String(codRep).trim() !== '' ? String(codRep).trim() : null;
+            if (codRep != null && String(codRep).trim() !== '') {
+                return String(codRep).trim();
+            }
+            const isRepresentando =
+                this.currentUser.cliente_representado_id != null ||
+                (this.currentUser.cliente_representado_nombre != null && String(this.currentUser.cliente_representado_nombre).trim() !== '');
+            if (isRepresentando) return null;
         }
         const cod = this.currentUser.codigo_usuario;
         return cod != null && String(cod).trim() !== '' ? String(cod).trim() : null;
@@ -5012,9 +5018,15 @@ class ScanAsYouShopApp {
      */
     getEffectiveTarifaCodigo() {
         if (!this.currentUser) return null;
-        if (this.canRepresentClientes() && this.currentUser.cliente_representado_id) {
+        if (this.canRepresentClientes()) {
             const t = this.currentUser.cliente_representado_tarifa;
-            return t != null && String(t).trim() !== '' ? String(t).trim() : null;
+            if (t != null && String(t).trim() !== '') {
+                return String(t).trim();
+            }
+            const isRepresentando =
+                this.currentUser.cliente_representado_id != null ||
+                (this.currentUser.cliente_representado_nombre != null && String(this.currentUser.cliente_representado_nombre).trim() !== '');
+            if (isRepresentando) return null;
         }
         const t = this.currentUser.tarifa;
         return t != null && String(t).trim() !== '' ? String(t).trim() : null;
