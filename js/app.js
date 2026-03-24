@@ -4978,7 +4978,9 @@ class ScanAsYouShopApp {
             if (tieneClave && tienePvp) return p;
             const full = await this.resolveProductoCatalogoConDescuento(p.codigo);
             if (!full) return p;
-            return { ...full, ...p };
+            // Prioriza datos del catalogo completo para que clave_descuento/pvp no queden a null
+            // cuando el resultado de busqueda parcial viene sin esos campos.
+            return { ...p, ...full };
         }));
         return enriched;
     }
