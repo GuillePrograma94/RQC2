@@ -25,7 +25,6 @@ class PurchaseHistoryCache {
             totalQueries: 0
         };
         
-        console.log('Purchase History Cache initialized');
     }
 
     /**
@@ -45,12 +44,7 @@ class PurchaseHistoryCache {
         if (fullHistoryEntry && this.isCacheValid(fullHistoryEntry)) {
             // We have the full history cached - do LOCAL search
             this.stats.hits++;
-            console.log(`✅ Cache HIT for user ${userId} - doing LOCAL search (${this.getCacheHitRate()}% hit rate)`);
-            
-            // Check if cache needs refresh (24 hours old)
             if (this.needsRefresh(fullHistoryEntry)) {
-                const ageHours = Math.round((Date.now() - fullHistoryEntry.timestamp) / (1000 * 60 * 60));
-                console.log(`🔄 Cache is ${ageHours} hours old, refreshing in background for user ${userId}`);
                 this.refreshInBackground(userId);
             }
             
@@ -59,20 +53,8 @@ class PurchaseHistoryCache {
         
         // Cache miss - fetch FULL history from server (no filters)
         this.stats.misses++;
-        console.log(`📥 Cache MISS for user ${userId} - fetching FULL history from server...`);
-        
-        const startTime = performance.now();
-        
         try {
-            // Fetch FULL history from Supabase (no filters - get everything)
-            const data = await window.supabaseClient.getUserPurchaseHistoryOptimized(
-                userId, 
-                null,  // No code filter
-                null   // No description filter
-            );
-            
-            const fetchTime = Math.round(performance.now() - startTime);
-            console.log(`⏱️ Server fetch took ${fetchTime}ms, caching FULL history for ${this.config.ttl / 1000}s`);
+            const data = await window.supabaseClient.getUserPurchaseHistoryOptimized(userId, null, null);
             
             // Store FULL history in cache
             this.setCache(fullHistoryKey, data);

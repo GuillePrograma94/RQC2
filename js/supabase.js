@@ -655,7 +655,12 @@ class SupabaseClient {
                 .from('productos')
                 .select('*')
                 .eq('codigo', codigo)
-                .single();
+                .maybeSingle();
+
+            if (errorProducto) {
+                console.error('searchProductByCode productos:', errorProducto);
+                return null;
+            }
 
             if (producto) {
                 return producto;
@@ -666,7 +671,12 @@ class SupabaseClient {
                 .from('codigos_secundarios')
                 .select('*, productos(*)')
                 .eq('codigo_secundario', codigo)
-                .single();
+                .maybeSingle();
+
+            if (errorCodigo) {
+                console.error('searchProductByCode codigos_secundarios:', errorCodigo);
+                return null;
+            }
 
             if (codigoSec && codigoSec.productos) {
                 return codigoSec.productos;

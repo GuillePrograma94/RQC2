@@ -217,6 +217,10 @@ class ScanAsYouShopApp {
             // Cargar ofertas en segundo plano si no estan en cache
             this.loadOfertasIfNeeded();
 
+            // Pausar conexiones activas cuando la pagina queda oculta (pantalla bloqueada, otra app)
+            // para evitar consumo de bateria en segundo plano en iPhone/Android.
+            this._setupVisibilityPause();
+
         } catch (error) {
             console.error('Error al inicializar aplicacion:', error);
             window.ui.hideLoading();
@@ -225,6 +229,33 @@ class ScanAsYouShopApp {
                 'error'
             );
         }
+    }
+
+    /**
+     * Pausa el WebSocket Realtime y el timer de refresco JWT cuando la pagina queda oculta,
+     * y los restaura cuando vuelve a primer plano.
+     * Evita consumo de bateria en iPhone cuando el usuario no usa la app.
+     */
+    _setupVisibilityPause() {
+        if (this._visibilityPauseBound) return;
+        this._visibilityPauseBound = () => {
+            if (document.hidden) {
+                this.stopAuthRefreshTimer();
+                if (this.ordersSubscription) {
+                    try { this.ordersSubscription.unsubscribe(); } catch (_) {}
+                    this.ordersSubscription = null;
+                }
+            } else {
+                if (this.currentUser) {
+                    this.startAuthRefreshTimer();
+                    const esRepresentante = this.currentUser.is_comercial || this.currentUser.is_dependiente;
+                    if (!esRepresentante && this.currentUser.user_id) {
+                        this.setupOrderStatusListener();
+                    }
+                }
+            }
+        };
+        document.addEventListener('visibilitychange', this._visibilityPauseBound);
     }
 
     /**
@@ -438,7 +469,6 @@ class ScanAsYouShopApp {
             if (sessionId) {
                 localStorage.setItem('current_session', sessionId.toString());
             }
-            console.log('Sesion guardada localmente');
         } catch (error) {
             console.error('Error al guardar sesion:', error);
         }
@@ -591,22 +621,14 @@ class ScanAsYouShopApp {
                         filter: `usuario_id=eq.${this.currentUser.user_id}`
                     },
                     (payload) => {
-                        console.log('🔔 Cambio detectado en pedido:', payload);
-                        console.log('   - Tipo de evento:', payload.eventType);
-                        console.log('   - Datos nuevos:', payload.new);
-                        console.log('   - Datos antiguos:', payload.old);
                         this.handleOrderStatusChange(payload);
                     }
                 )
                 .subscribe((status, err) => {
-                    console.log('📡 Estado de suscripción de pedidos:', status);
                     if (err) {
-                        console.error('❌ Error en suscripción de pedidos:', err);
-                    }
-                    if (status === 'SUBSCRIBED') {
-                        console.log('✅ Suscripción a cambios de pedidos activa');
+                        console.error('Error en suscripcion de pedidos:', err);
                     } else if (status === 'CHANNEL_ERROR') {
-                        console.error('❌ Error en canal de pedidos. Verifica que Realtime esté habilitado en Supabase.');
+                        console.error('Error en canal de pedidos. Verifica que Realtime este habilitado en Supabase.');
                     }
                 });
 
@@ -623,12 +645,6 @@ class ScanAsYouShopApp {
             const newRecord = payload.new;
             const oldRecord = payload.old;
 
-            console.log('Manejando cambio de estado de pedido:');
-            console.log('   - Estado anterior:', oldRecord?.estado, oldRecord?.estado_procesamiento);
-            console.log('   - Estado nuevo:', newRecord?.estado, newRecord?.estado_procesamiento);
-            console.log('   - ID del pedido:', newRecord?.id);
-            console.log('   - Codigo QR:', newRecord?.codigo_qr);
-
             const isEnPreparacion = newRecord?.estado === 'en_preparacion' && newRecord?.estado_procesamiento === 'procesando';
             const wasEnPreparacion = oldRecord?.estado === 'en_preparacion' && oldRecord?.estado_procesamiento === 'procesando';
             const isCompletado = newRecord?.estado === 'completado' && newRecord?.estado_procesamiento === 'completado';
@@ -637,14 +653,12 @@ class ScanAsYouShopApp {
             // En preparacion (impreso en caja): solo actualizar lista si estamos en Mis Pedidos; NO notificar "listo para recoger"
             // La notificacion al cliente debe aparecer cuando se marca como ENTREGADO (completado), no al imprimir el ticket
             if (isEnPreparacion && !wasEnPreparacion) {
-                console.log('Pedido en preparacion (impreso en caja) - ID:', newRecord.id, '- sin notificacion');
                 if (this.currentScreen === 'myOrders') {
                     await this.loadMyOrders();
                 }
             }
             // Completado (marcar entregado en caja): notificacion "pedido completado"
             else if (isCompletado && !wasCompletado) {
-                console.log('Pedido completado - ID:', newRecord.id);
                 if (Notification.permission !== 'granted') {
                     await this.requestNotificationPermission();
                 }
@@ -652,8 +666,6 @@ class ScanAsYouShopApp {
                 if (this.currentScreen === 'myOrders') {
                     await this.loadMyOrders();
                 }
-            } else {
-                console.log('Cambio de estado no relevante para notificaciones');
             }
 
         } catch (error) {
@@ -4124,7 +4136,6 @@ class ScanAsYouShopApp {
             // Mostrar indicador discreto
             window.ui.showSyncIndicator(true);
             window.ui.updateSyncIndicator('Verificando...');
-            console.log('Verificando si hay actualizaciones...');
 
             const versionLocalHash = localStorage.getItem('version_hash_local');
             let manifest = null;
@@ -4153,7 +4164,6 @@ class ScanAsYouShopApp {
                 window.ui.updateSyncIndicator('Sincronizando pactos cliente...');
                 await this.syncPactosClientesInBackground();
                 this.setCatalogSyncMode(false);
-                console.log('Catálogo local actualizado - no se necesita descargar');
                 window.ui.showSyncIndicator(false);
                 window.ui.showToast('Catálogo actualizado', 'success');
                 return;
@@ -4177,26 +4187,14 @@ class ScanAsYouShopApp {
                     claves_descuento_modificadas: Number(manifest.claves_descuento_cambios) || 0,
                     claves_descuento_nuevas: 0
                 };
-                console.log('Manifest de cambios cargado:', changeStats);
             } else if (versionLocalHash) {
-                console.log('Analizando cambios por dominio (productos / codigos / claves_descuento)...');
                 window.ui.updateSyncIndicator('Analizando cambios...');
                 try {
                     changeStats = await window.supabaseClient.getChangeStatistics(versionLocalHash);
-                    console.log('Estadisticas:', changeStats);
-                    if (changeStats) {
-                        console.log(
-                            `   Productos: +${changeStats.productos_nuevos || 0} / ~${changeStats.productos_modificados || 0} | ` +
-                            `Codigos: +${changeStats.codigos_nuevos || 0} / ~${changeStats.codigos_modificados || 0} | ` +
-                            `Claves dto: +${changeStats.claves_descuento_nuevas || 0} / ~${changeStats.claves_descuento_modificadas || 0}`
-                        );
-                    }
                 } catch (statsError) {
                     console.error('Error al obtener estadisticas:', statsError);
                     changeStats = null;
                 }
-            } else {
-                console.log('No hay version local: descarga completa de catalogo');
             }
 
             const onProgress = (progress) => {
@@ -4239,16 +4237,14 @@ class ScanAsYouShopApp {
             window.ui.updateSyncIndicator('Guardando productos...');
 
             if (flags.productsIncremental) {
-                const productosResult = await window.cartManager.updateProductsIncremental(productos);
-                console.log('Productos incremental:', productosResult);
+                await window.cartManager.updateProductsIncremental(productos);
             } else {
                 await window.cartManager.saveProductsToStorage(productos);
             }
 
             window.ui.updateSyncIndicator('Guardando codigos secundarios...');
             if (flags.codesIncremental) {
-                const codigosResult = await window.cartManager.updateSecondaryCodesIncremental(codigosSecundarios);
-                console.log('Codigos secundarios incremental:', codigosResult);
+                await window.cartManager.updateSecondaryCodesIncremental(codigosSecundarios);
             } else {
                 await window.cartManager.saveSecondaryCodesToStorage(codigosSecundarios);
             }
@@ -4296,8 +4292,6 @@ class ScanAsYouShopApp {
                 : Date.now();
             const elapsedMs = Math.max(0, Math.round(syncEndTs - syncStartTs));
 
-            console.log('Productos y códigos secundarios sincronizados correctamente');
-            console.log(`Sync catálogo principal completada en ${elapsedMs} ms`);
             window.ui.updateSyncIndicator('Sincronizando en servidor/local...');
             window.ui.showToast(mensaje, 'success');
 
@@ -4306,7 +4300,6 @@ class ScanAsYouShopApp {
             void (async () => {
                 try {
                     await window.supabaseClient.downloadOfertas(onProgress);
-                    console.log('Ofertas descargadas y guardadas en cache');
                 } catch (ofertaError) {
                     console.error('Error al descargar ofertas (no crítico):', ofertaError);
                 } finally {
@@ -4338,7 +4331,6 @@ class ScanAsYouShopApp {
                 // Hash coincide: no hay cambios, cargar de IndexedDB
                 this.stockIndex = await window.cartManager.getStockIndex();
                 if (this.stockIndex.size > 0) {
-                    console.log(`Stock en memoria: ${this.stockIndex.size} articulos (sin cambios en hash)`);
                     this.initStockAlmacenFilter();
                     if (typeof this.purgeHiddenCatalogProductsLocal === 'function') {
                         await this.purgeHiddenCatalogProductsLocal();
@@ -4347,14 +4339,12 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            console.log('Hash de stock actualizado, descargando...');
             const stockData = await window.supabaseClient.downloadStock();
 
             if (stockData && stockData.length > 0) {
                 await window.cartManager.saveStockToStorage(stockData);
                 this.stockIndex = await window.cartManager.getStockIndex();
                 if (remoteHash) localStorage.setItem('stock_hash_local', remoteHash);
-                console.log(`Stock sincronizado: ${stockData.length} articulos`);
                 this.initStockAlmacenFilter();
             }
         } catch (error) {
@@ -6338,25 +6328,18 @@ class ScanAsYouShopApp {
      * Muestra una pantalla específica
      */
     async showScreen(screenName) {
-        console.log(`\n🔄 CAMBIO DE PANTALLA: ${this.currentScreen || 'inicio'} → ${screenName}`);
         const previousScreen = this.currentScreen;
         
         // Detener cámara si estábamos en una pantalla con cámara
         if (previousScreen === 'scan') {
-            console.log('🔍 Verificando si hay que cerrar cámara de productos...');
-            console.log('   isScanningProducts:', window.scannerManager.isScanningProducts);
             if (window.scannerManager.isScanningProducts) {
-                console.log('🔴 Cerrando cámara de escaneo...');
                 await window.scannerManager.stopCamera();
             }
         }
         
         // Detener cámara de checkout si estábamos en checkout o en mostrador
         if (previousScreen === 'checkout' || previousScreen === 'mostrador') {
-            console.log('Verificando si hay que cerrar camara de checkout...');
-            console.log('   isScanningCheckout:', window.scannerManager.isScanningCheckout);
             if (window.scannerManager.isScanningCheckout) {
-                console.log('Cerrando camara de checkout...');
                 await window.scannerManager.stopCheckoutCamera();
             }
         }
@@ -6373,10 +6356,7 @@ class ScanAsYouShopApp {
             
             // Iniciar cámara si entramos en pantalla de escaneo
             if (screenName === 'scan') {
-                console.log('🟢 Entrando a pantalla SCAN - Iniciando cámara de escaneo...');
-                // Pequeño delay para que el DOM se actualice
                 setTimeout(() => {
-                    console.log('⏰ Timeout completado - llamando a startCamera()');
                     window.scannerManager.startCamera();
                 }, 100);
             }
@@ -6391,7 +6371,6 @@ class ScanAsYouShopApp {
 
             // Iniciar cámara de checkout si entramos en pantalla Escanear en Mostrador
             if (screenName === 'mostrador') {
-                console.log('Entrando a pantalla MOSTRADOR - Iniciando camara de checkout...');
                 setTimeout(() => {
                     window.scannerManager.startCheckoutCameraIntegrated();
                 }, 100);
@@ -6400,7 +6379,6 @@ class ScanAsYouShopApp {
             // Actualizar vista del carrito cuando se accede a esa pantalla
             if (screenName === 'cart') {
                 this.updateCartView();
-                console.log('Vista del carrito actualizada');
             }
 
             if (screenName === 'inicio') {
@@ -6610,8 +6588,6 @@ class ScanAsYouShopApp {
                 }
                 productos = await window.cartManager.getProductsBySkus([...familySkuSet]);
             } else if (codigoProveedor && !code && !description) {
-                // Búsqueda exclusiva por fabricante (entidad / codigo_proveedor)
-                console.log('Buscando por fabricante (proveedor):', codigoProveedor);
                 productos = await window.cartManager.getProductosPorCodigoProveedor(codigoProveedor);
             } else {
                 if (hybridMode && (code || description)) {
@@ -6631,13 +6607,11 @@ class ScanAsYouShopApp {
 
                 // Búsqueda en el catálogo completo (código y/o descripción)
                 if (productos.length === 0 && code && description) {
-                    console.log('Busqueda combinada: descripcion + codigo');
                     const productosPorDescripcion = await window.cartManager.searchByDescriptionAllWords(description);
                     const codeUpper = code.toUpperCase().trim();
                     productos = productosPorDescripcion.filter(p =>
                         p.codigo.toUpperCase().includes(codeUpper)
                     );
-                    console.log(`Resultados: ${productosPorDescripcion.length} por descripcion, ${productos.length} con codigo`);
                 } else if (productos.length === 0 && code) {
                     productos = await window.cartManager.searchByCodeUnified(code);
                     if (hybridMode && productos.length === 0) {
@@ -6666,18 +6640,10 @@ class ScanAsYouShopApp {
             }
 
             // Capa defensiva: evita mostrar el mismo SKU varias veces en resultados.
-            const totalAntesDeduplicar = productos.length;
             productos = this.deduplicateProductsBySku(productos);
-            if (productos.length !== totalAntesDeduplicar) {
-                console.log(`Deduplicacion por SKU aplicada: ${totalAntesDeduplicar} -> ${productos.length}`);
-            }
 
             if (!onlyPurchased && productos.length > 0) {
-                const antesCat = productos.length;
                 productos = productos.filter((p) => !this.debeOcultarProductoBusquedaCatalogo(p));
-                if (productos.length !== antesCat) {
-                    console.log(`Filtro catalogo (activo/web/stock): ${antesCat} -> ${productos.length}`);
-                }
             }
 
             // Filtro de ofertas
@@ -7454,26 +7420,16 @@ class ScanAsYouShopApp {
      */
     async addProductToCart(codigo, descripcion, pvp) {
         try {
-            console.log('addProductToCart llamado con:', codigo, descripcion, pvp);
-
-            // Mostrar modal de cantidad
-            console.log('Mostrando modal de cantidad...');
             const cantidad = await this.showAddToCartModal({
                 codigo,
                 descripcion,
                 pvp
             });
 
-            console.log('Cantidad seleccionada:', cantidad);
-
-            // Si el usuario canceló, no hacer nada
             if (cantidad === null) {
-                console.log('Usuario canceló el modal');
                 return;
             }
 
-            // Añadir al carrito
-            console.log('Añadiendo al carrito:', cantidad, 'unidades');
             await window.cartManager.addProduct({
                 codigo,
                 descripcion,
