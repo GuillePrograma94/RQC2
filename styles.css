@@ -3598,6 +3598,15 @@ body.gate-visible .app-container {
     box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
 }
 
+.menu-version {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    font-size: 0.8rem;
+    color: rgba(0, 0, 0, 0.45);
+    text-align: center;
+}
+
 /* ========================================
    MENU ACTIONS (Últimas Compras, etc.)
    ======================================== */

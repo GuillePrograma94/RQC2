@@ -6301,6 +6301,7 @@ class ScanAsYouShopApp {
         if (this.currentUser && !this.currentUser.comercial) {
             this.loadComercialAsignado();
         }
+        this._updateMenuVersionText();
         if (menuSidebar) {
             menuSidebar.classList.add('open');
         }
@@ -6321,6 +6322,21 @@ class ScanAsYouShopApp {
         }
         if (menuOverlay) {
             menuOverlay.classList.remove('active');
+        }
+    }
+
+    async _updateMenuVersionText() {
+        const el = document.getElementById('menuVersion');
+        if (!el) return;
+        el.textContent = 'Version: --';
+        try {
+            await navigator.serviceWorker?.ready;
+            const cacheKeys = await caches.keys();
+            const scanCache = (cacheKeys || []).find((k) => typeof k === 'string' && k.indexOf('scan-as-you-shop-') === 0);
+            const v = scanCache ? String(scanCache).replace('scan-as-you-shop-', '').trim() : '';
+            el.textContent = 'Version: ' + (v || '--');
+        } catch (_) {
+            // Silencioso: version no disponible (sin SW / sin Cache API)
         }
     }
 
