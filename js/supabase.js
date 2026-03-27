@@ -1300,6 +1300,28 @@ class SupabaseClient {
         }
     }
 
+    async getComercialIdByNumero(comercialNumero) {
+        try {
+            if (!this.client || comercialNumero == null) return null;
+            const num = typeof comercialNumero === 'string' ? parseInt(comercialNumero, 10) : comercialNumero;
+            if (isNaN(num)) return null;
+            const { data, error } = await this.client
+                .from('usuarios_comerciales')
+                .select('id')
+                .eq('numero', num)
+                .limit(1)
+                .maybeSingle();
+            if (error) {
+                console.error('getComercialIdByNumero:', error);
+                return null;
+            }
+            return data && data.id != null ? Number(data.id) : null;
+        } catch (err) {
+            console.error('getComercialIdByNumero:', err);
+            return null;
+        }
+    }
+
     async getPrepedidosDependiente(dependienteUserId) {
         try {
             if (!this.client || dependienteUserId == null) return [];

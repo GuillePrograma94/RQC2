@@ -10295,6 +10295,23 @@ class ScanAsYouShopApp {
             });
             fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28c925'},body:JSON.stringify({sessionId:'28c925',runId:'run1',hypothesisId:'H3',location:'app.js:guardarPresupuestoDesdeCarrito(entry)',message:'Entrada guardar presupuesto',data:{hasCurrentUser:!!this.currentUser,tipo:this.currentUser&&this.currentUser.tipo?this.currentUser.tipo:'',is_comercial:!!(this.currentUser&&this.currentUser.is_comercial),comercial_id:this.currentUser&&this.currentUser.comercial_id!=null?this.currentUser.comercial_id:null,cliente_representado_id:this.currentUser&&this.currentUser.cliente_representado_id!=null?this.currentUser.cliente_representado_id:null},timestamp:Date.now()})}).catch(()=>{});
             // #endregion
+            if (this.currentUser && this.currentUser.is_comercial && !this.currentUser.comercial_id && window.supabaseClient) {
+                const fallbackNumero = this.currentUser.comercial_numero != null
+                    ? this.currentUser.comercial_numero
+                    : parseInt(this.currentUser.codigo_usuario, 10);
+                const resolvedComercialId = await window.supabaseClient.getComercialIdByNumero(fallbackNumero);
+                // #region agent log
+                console.log('[DBG28c925 H5]', {
+                    fallbackNumero: fallbackNumero,
+                    resolvedComercialId: resolvedComercialId
+                });
+                fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28c925'},body:JSON.stringify({sessionId:'28c925',runId:'post-fix',hypothesisId:'H5',location:'app.js:guardarPresupuestoDesdeCarrito(resolve-comercial-id)',message:'Resolucion fallback comercial_id por numero',data:{fallbackNumero:fallbackNumero,resolvedComercialId:resolvedComercialId},timestamp:Date.now()})}).catch(()=>{});
+                // #endregion
+                if (resolvedComercialId) {
+                    this.currentUser.comercial_id = resolvedComercialId;
+                    this.saveUserSession(this.currentUser, this.currentSession);
+                }
+            }
             if (!this.currentUser || !this.currentUser.is_comercial || !this.currentUser.comercial_id) {
                 // #region agent log
                 console.log('[DBG28c925 H4]', {
