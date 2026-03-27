@@ -704,11 +704,10 @@ class CartManager {
             console.warn('No hay claves_descuento para guardar');
             return;
         }
-        const transaction = this.db.transaction(['claves_descuento'], 'readwrite');
-        const store = transaction.objectStore('claves_descuento');
-        store.clear();
+
+        const normalized = [];
         for (let i = 0; i < rows.length; i++) {
-            const r = rows[i];
+            const r = rows[i] || {};
             const clave = (r.clave || '').trim();
             if (!clave) continue;
             let tarifas = r.tarifas;
@@ -719,16 +718,22 @@ class CartManager {
                     tarifas = {};
                 }
             }
-            store.put({
+            normalized.push({
                 clave,
                 tarifas: tarifas && typeof tarifas === 'object' ? tarifas : {},
                 fecha_actualizacion: r.fecha_actualizacion || null
             });
         }
-        return new Promise((resolve, reject) => {
-            transaction.oncomplete = () => resolve();
-            transaction.onerror = () => reject(transaction.error);
-        });
+
+        console.log(`Guardando claves_descuento en cache local: ${normalized.length} registros`);
+        try {
+            await this.replaceStoreChunked('claves_descuento', normalized, 2000);
+            console.log('Claves_descuento guardadas correctamente');
+        } catch (e) {
+            const msg = e && e.message ? e.message : String(e);
+            console.error(`Error guardando claves_descuento en IndexedDB: ${msg}`);
+            throw e;
+        }
     }
 
     /**
@@ -739,11 +744,10 @@ class CartManager {
         if (!rows || rows.length === 0) {
             return { inserted: 0, updated: 0 };
         }
-        const transaction = this.db.transaction(['claves_descuento'], 'readwrite');
-        const store = transaction.objectStore('claves_descuento');
-        let n = 0;
+
+        const normalized = [];
         for (let i = 0; i < rows.length; i++) {
-            const r = rows[i];
+            const r = rows[i] || {};
             const clave = (r.clave || '').trim();
             if (!clave) continue;
             let tarifas = r.tarifas;
@@ -754,17 +758,36 @@ class CartManager {
                     tarifas = {};
                 }
             }
-            store.put({
+            normalized.push({
                 clave,
                 tarifas: tarifas && typeof tarifas === 'object' ? tarifas : {},
                 fecha_actualizacion: r.fecha_actualizacion || null
             });
-            n++;
         }
-        return new Promise((resolve, reject) => {
-            transaction.oncomplete = () => resolve({ inserted: n, updated: 0 });
-            transaction.onerror = () => reject(transaction.error);
-        });
+
+        const CHUNK_SIZE = 2500;
+        let offset = 0;
+        let upserted = 0;
+        while (offset < normalized.length) {
+            const end = Math.min(offset + CHUNK_SIZE, normalized.length);
+            const batch = normalized.slice(offset, end);
+            await new Promise((resolve, reject) => {
+                const tx = this.db.transaction(['claves_descuento'], 'readwrite');
+                const store = tx.objectStore('claves_descuento');
+                for (let i = 0; i < batch.length; i++) {
+                    store.put(batch[i]);
+                }
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+            upserted += batch.length;
+            offset = end;
+            if (offset < normalized.length) {
+                await this.yieldToMainThread();
+            }
+        }
+
+        return { inserted: upserted, updated: 0, upserted: upserted };
     }
 
     /**

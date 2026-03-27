@@ -4348,6 +4348,9 @@ class ScanAsYouShopApp {
 
             if (typeof this.refreshClavesDescuentoCache === 'function') {
                 await this.refreshClavesDescuentoCache();
+                if (typeof this.refreshVisiblePricesAfterPreferenceChange === 'function') {
+                    this.refreshVisiblePricesAfterPreferenceChange();
+                }
             }
 
             window.ui.updateSyncIndicator('Guardando pactos cliente...');
@@ -4962,6 +4965,7 @@ class ScanAsYouShopApp {
                 return;
             }
             this.clavesDescuentoMap = await window.cartManager.getClavesDescuentoMap();
+            console.log(`Claves_descuento cargadas en memoria: ${this.clavesDescuentoMap.size}`);
             this.clavesDescuentoMapNormalized = new Map();
             this.clavesDescuentoMap.forEach((tarifas, clave) => {
                 const claveNorm = this._normalizeDiscountCode(clave);
