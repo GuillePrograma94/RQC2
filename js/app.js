@@ -3292,6 +3292,35 @@ class ScanAsYouShopApp {
         if (descriptionInput) descriptionInput.value = '';
     }
 
+    _fitInicioFamiliaTextToThreeLines(el) {
+        if (!el) return;
+        const maxLines = 3;
+        const minPx = 12;
+        const style = window.getComputedStyle(el);
+        const lineHeightPx = parseFloat(style.lineHeight);
+        let fontPx = parseFloat(style.fontSize);
+        if (!Number.isFinite(lineHeightPx) || !Number.isFinite(fontPx) || lineHeightPx <= 0 || fontPx <= 0) {
+            return;
+        }
+        const ratio = lineHeightPx / fontPx;
+        for (let i = 0; i < 18; i++) {
+            const currentLineHeight = fontPx * ratio;
+            const maxHeight = currentLineHeight * maxLines;
+            if (el.scrollHeight <= maxHeight + 0.5) {
+                break;
+            }
+            fontPx -= 0.5;
+            if (fontPx < minPx) {
+                fontPx = minPx;
+                el.style.fontSize = fontPx + 'px';
+                el.style.lineHeight = ratio.toFixed(3);
+                break;
+            }
+            el.style.fontSize = fontPx + 'px';
+            el.style.lineHeight = ratio.toFixed(3);
+        }
+    }
+
     /**
      * Panel Familias en Inicio (admin): listar todas las filas con codigo de exactamente 2 caracteres,
      * no solo "raices" del arbol (si existiera p. ej. familia "0", 00/01/02 dejan de ser raiz y el panel
@@ -3493,6 +3522,7 @@ class ScanAsYouShopApp {
                 await self.performSearch();
             });
             grid.appendChild(btn);
+            this._fitInicioFamiliaTextToThreeLines(descSpan);
         }
         if (children.length === 0 && path.length > 0) {
             const last = path[path.length - 1];

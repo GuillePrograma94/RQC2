@@ -3349,6 +3349,7 @@ body.gate-visible .app-container {
     height: 92px;
     flex-shrink: 0;
     margin-left: auto;
+    order: 2;
     background: var(--gray-200);
     border-radius: 14px;
     overflow: hidden;
@@ -3378,17 +3379,13 @@ body.gate-visible .app-container {
     line-height: 1.08;
     word-break: break-word;
     max-width: 100%;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    order: 1;
     flex: 1;
     min-height: 0;
 }
 @media (min-width: 1024px) {
     .inicio-familia-tile-desc {
         font-size: 1rem;
-        -webkit-line-clamp: 4;
         flex: 1;
         min-height: 0;
     }
@@ -3414,8 +3411,12 @@ body.gate-visible .app-container {
         width: 100%;
         height: auto;
         margin-left: 0;
+        order: initial;
         border-radius: 8px;
         background: var(--gray-100);
+    }
+    .inicio-familia-tile-desc {
+        order: initial;
     }
     .inicio-familia-tile-code {
         display: block;
