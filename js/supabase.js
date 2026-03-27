@@ -1798,6 +1798,46 @@ class SupabaseClient {
         }
     }
 
+    async actualizarPrepedido(prepedidoId, usuarioId, almacenDestino, observaciones, nombreOperario, cart) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+            const productos = ((cart && Array.isArray(cart.productos)) ? cart.productos : [])
+                .map((p) => ({
+                    codigo_producto: p.codigo_producto || p.codigo,
+                    descripcion_producto: p.descripcion_producto || p.descripcion || '',
+                    cantidad: Number(p.cantidad || 0),
+                    precio_unitario: Number(p.precio_unitario || p.pvp || 0)
+                }))
+                .filter((p) => p.codigo_producto && p.cantidad > 0);
+            if (productos.length === 0) {
+                return { success: false, message: 'El prepedido no tiene productos' };
+            }
+
+            const { data, error } = await this.client.rpc('actualizar_prepedido', {
+                p_prepedido_id: prepedidoId,
+                p_usuario_id: usuarioId,
+                p_almacen_destino: almacenDestino || null,
+                p_observaciones: observaciones != null ? String(observaciones).trim() || null : null,
+                p_nombre_operario: nombreOperario != null ? String(nombreOperario).trim() || null : null,
+                p_productos: productos
+            });
+            if (error) throw error;
+            if (data && data.length > 0) {
+                return {
+                    success: !!data[0].success,
+                    message: data[0].message || '',
+                    prepedido_id: data[0].prepedido_id || prepedidoId
+                };
+            }
+            return { success: false, message: 'No se recibio respuesta del servidor' };
+        } catch (error) {
+            console.error('actualizarPrepedido:', error);
+            return { success: false, message: 'No se pudo actualizar el prepedido' };
+        }
+    }
+
     async getUserPrepedidos(usuarioId) {
         try {
             if (!this.client || usuarioId == null) return [];

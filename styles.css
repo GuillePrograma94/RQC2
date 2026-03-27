@@ -686,6 +686,20 @@ body.gate-visible .app-container {
     font-weight: 600;
 }
 
+#cartScreen .prepedido-observaciones-textarea {
+    margin: 0.35rem 0 0.6rem;
+}
+
+#cartScreen .prepedido-edit-hint {
+    margin: 0 0 0.5rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--primary-dark);
+    background: rgba(124, 58, 237, 0.1);
+}
+
 .cart-item {
     background: var(--white);
     border-radius: 12px;

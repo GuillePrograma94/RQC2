@@ -253,6 +253,9 @@
 
                 <!-- Footer carrito: botón Enviar Pedido (visible cuando hay productos) -->
                 <div id="cartFooter" class="cart-footer" style="display: none;">
+                    <div id="prepedidoEditHint" class="prepedido-edit-hint" style="display: none;">Editando prepedido guardado</div>
+                    <label class="observaciones-label" for="prepedidoObservacionesInput">Observaciones prepedido (opcional):</label>
+                    <textarea id="prepedidoObservacionesInput" class="observaciones-textarea prepedido-observaciones-textarea" placeholder="Añade detalles del prepedido para control interno..." rows="3"></textarea>
                     <button type="button" id="enviarPedidoBtn" class="btn btn-primary btn-lg btn-enviar-pedido">Enviar Pedido</button>
                     <button type="button" id="guardarPrepedidoBtn" class="btn btn-secondary btn-lg btn-guardar-prepedido">Guardar Prepedido</button>
                 </div>

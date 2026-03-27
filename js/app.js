@@ -50,6 +50,8 @@ class ScanAsYouShopApp {
         this._searchResultsObserver = null;
         this.isCatalogSyncInProgress = false;
         this.catalogDataSourceMode = 'local';
+        this.editingPrepedidoId = null;
+        this.editingPrepedidoCodigo = null;
     }
 
     /**
@@ -3536,7 +3538,13 @@ class ScanAsYouShopApp {
             });
             grid.appendChild(btn);
             if (isRootTileMobileStyle) {
-                this._fitInicioFamiliaTextToThreeLines(descSpan);
+                if (window.matchMedia && window.matchMedia('(max-width: 1023px)').matches) {
+                    this._fitInicioFamiliaTextToThreeLines(descSpan);
+                } else {
+                    // En PC evitamos ajuste inline de tipografia para mantener la estetica de escritorio.
+                    descSpan.style.fontSize = '';
+                    descSpan.style.lineHeight = '';
+                }
             }
         }
         if (children.length === 0 && path.length > 0) {
@@ -7802,6 +7810,9 @@ class ScanAsYouShopApp {
 
             // Actualizar header
             this.updateCartHeader(0, 0);
+            this.resetPrepedidoEditMode();
+            const observacionesInput = document.getElementById('prepedidoObservacionesInput');
+            if (observacionesInput) observacionesInput.value = '';
 
             return;
         }
@@ -9552,20 +9563,33 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            let observacionesFinal = '';
-            if (this.canRepresentClientes() && this.currentUser.user_name) {
+            const observacionesInput = document.getElementById('prepedidoObservacionesInput');
+            let observacionesFinal = observacionesInput ? String(observacionesInput.value || '').trim() : '';
+            if (!observacionesFinal && this.canRepresentClientes() && this.currentUser.user_name) {
                 observacionesFinal = 'Prepedido guardado por: ' + this.currentUser.user_name;
             }
             const almacen = this.getEffectiveAlmacenHabitual() || '';
 
             window.ui.showLoading('Guardando prepedido...');
-            const result = await window.supabaseClient.crearPrepedido(
-                effectiveUserId,
-                almacen,
-                observacionesFinal || null,
-                this.currentUser.is_operario ? (this.currentUser.nombre_operario || null) : null,
-                cart
-            );
+            let result = null;
+            if (this.editingPrepedidoId) {
+                result = await window.supabaseClient.actualizarPrepedido(
+                    this.editingPrepedidoId,
+                    effectiveUserId,
+                    almacen,
+                    observacionesFinal || null,
+                    this.currentUser.is_operario ? (this.currentUser.nombre_operario || null) : null,
+                    cart
+                );
+            } else {
+                result = await window.supabaseClient.crearPrepedido(
+                    effectiveUserId,
+                    almacen,
+                    observacionesFinal || null,
+                    this.currentUser.is_operario ? (this.currentUser.nombre_operario || null) : null,
+                    cart
+                );
+            }
             window.ui.hideLoading();
 
             if (!result || !result.success) {
@@ -9573,14 +9597,51 @@ class ScanAsYouShopApp {
                 return;
             }
 
+            const wasEditing = !!this.editingPrepedidoId;
             await window.cartManager.clearCart();
+            this.resetPrepedidoEditMode();
+            if (observacionesInput) observacionesInput.value = '';
             window.ui.updateCartBadge();
             this.updateCartView();
-            window.ui.showToast('Prepedido guardado correctamente', 'success');
+            window.ui.showToast(wasEditing ? 'Prepedido actualizado correctamente' : 'Prepedido guardado correctamente', 'success');
         } catch (error) {
             window.ui.hideLoading();
             console.error('guardarPrepedidoDesdeCarrito:', error);
             window.ui.showToast('Error al guardar prepedido', 'error');
+        }
+    }
+
+    setPrepedidoEditMode(prepedidoId, codigoQr, observaciones) {
+        this.editingPrepedidoId = prepedidoId != null ? Number(prepedidoId) : null;
+        this.editingPrepedidoCodigo = codigoQr ? String(codigoQr) : null;
+        const hintEl = document.getElementById('prepedidoEditHint');
+        const saveBtn = document.getElementById('guardarPrepedidoBtn');
+        const obsEl = document.getElementById('prepedidoObservacionesInput');
+        if (hintEl) {
+            hintEl.style.display = this.editingPrepedidoId ? 'block' : 'none';
+            if (this.editingPrepedidoId) {
+                hintEl.textContent = 'Editando prepedido ' + (this.editingPrepedidoCodigo || this.editingPrepedidoId);
+            }
+        }
+        if (saveBtn) {
+            saveBtn.textContent = this.editingPrepedidoId ? 'Actualizar Prepedido' : 'Guardar Prepedido';
+        }
+        if (obsEl) {
+            obsEl.value = observaciones != null ? String(observaciones) : '';
+        }
+    }
+
+    resetPrepedidoEditMode() {
+        this.editingPrepedidoId = null;
+        this.editingPrepedidoCodigo = null;
+        const hintEl = document.getElementById('prepedidoEditHint');
+        const saveBtn = document.getElementById('guardarPrepedidoBtn');
+        if (hintEl) {
+            hintEl.style.display = 'none';
+            hintEl.textContent = 'Editando prepedido guardado';
+        }
+        if (saveBtn) {
+            saveBtn.textContent = 'Guardar Prepedido';
         }
     }
 
@@ -9720,6 +9781,13 @@ class ScanAsYouShopApp {
                 const productos = await window.supabaseClient.getOrderProducts(prepedidoId);
                 const detailsHtml = productos.map((producto) => `
                     <div class="order-product-item">
+                        <div class="order-product-image">
+                            <img
+                                src="https://www.saneamiento-martinez.com/imagenes/articulos/${this.escapeForHtmlAttribute(producto.codigo_producto || '')}_1.JPG"
+                                alt="${this.escapeForHtmlAttribute(producto.descripcion_producto || producto.codigo_producto || 'Producto')}"
+                                onerror="this.style.display='none'; this.parentElement.classList.add('order-product-placeholder'); this.parentElement.textContent='📦';"
+                            >
+                        </div>
                         <div class="product-info">
                             <div class="product-code">${this.escapeForHtmlAttribute(producto.codigo_producto || '')}</div>
                             <div class="product-name">${this.escapeForHtmlAttribute(producto.descripcion_producto || '')}</div>
@@ -9755,6 +9823,7 @@ class ScanAsYouShopApp {
                     Number(producto.cantidad || 0)
                 );
             }
+            this.setPrepedidoEditMode(prepedidoId, prepedido.codigo_qr || '', prepedido.observaciones || '');
             window.ui.hideLoading();
             this.showScreen('cart');
             this.updateActiveNav('cart');
@@ -9779,6 +9848,11 @@ class ScanAsYouShopApp {
             if (!result || !result.success) {
                 window.ui.showToast((result && result.message) || 'No se pudo eliminar', 'error');
                 return;
+            }
+            if (this.editingPrepedidoId && Number(this.editingPrepedidoId) === Number(prepedidoId)) {
+                this.resetPrepedidoEditMode();
+                const observacionesInput = document.getElementById('prepedidoObservacionesInput');
+                if (observacionesInput) observacionesInput.value = '';
             }
             window.ui.showToast('Prepedido eliminado', 'success');
             await this.loadPrepedidos();
@@ -9849,6 +9923,11 @@ class ScanAsYouShopApp {
                 }
                 if (window.purchaseCache && prepedido.usuario_id) {
                     window.purchaseCache.invalidateUser(prepedido.usuario_id);
+                }
+                if (this.editingPrepedidoId && Number(this.editingPrepedidoId) === Number(prepedidoId)) {
+                    this.resetPrepedidoEditMode();
+                    const observacionesInput = document.getElementById('prepedidoObservacionesInput');
+                    if (observacionesInput) observacionesInput.value = '';
                 }
                 window.ui.hideLoading();
                 window.ui.showToast('Prepedido aceptado y enviado', 'success');

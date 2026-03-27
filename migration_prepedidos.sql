@@ -11,6 +11,7 @@ DROP FUNCTION IF EXISTS get_prepedidos_usuario(INTEGER);
 DROP FUNCTION IF EXISTS get_prepedidos_comercial(INTEGER);
 DROP FUNCTION IF EXISTS get_prepedidos_dependiente(INTEGER);
 DROP FUNCTION IF EXISTS eliminar_prepedido(INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS actualizar_prepedido(INTEGER, INTEGER, TEXT, TEXT, TEXT, JSONB);
 DROP FUNCTION IF EXISTS convertir_prepedido_a_pedido_remoto(INTEGER, INTEGER, TEXT, TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION crear_prepedido(
@@ -301,6 +302,85 @@ BEGIN
     END IF;
 
     RETURN QUERY SELECT TRUE, 'Prepedido eliminado correctamente'::TEXT;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION actualizar_prepedido(
+    p_prepedido_id INTEGER,
+    p_usuario_id INTEGER,
+    p_almacen_destino TEXT,
+    p_observaciones TEXT,
+    p_nombre_operario TEXT,
+    p_productos JSONB
+)
+RETURNS TABLE (
+    prepedido_id INTEGER,
+    success BOOLEAN,
+    message TEXT
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_producto JSONB;
+BEGIN
+    IF p_productos IS NULL OR jsonb_typeof(p_productos) <> 'array' OR jsonb_array_length(p_productos) = 0 THEN
+        RETURN QUERY SELECT NULL::INTEGER, FALSE, 'El prepedido no tiene productos'::TEXT;
+        RETURN;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM carritos_clientes cc
+        WHERE cc.id = p_prepedido_id
+          AND cc.tipo_pedido = 'remoto'
+          AND cc.estado = 'activo'
+          AND cc.estado_procesamiento = 'pendiente'
+          AND (p_usuario_id IS NULL OR cc.usuario_id = p_usuario_id)
+    ) THEN
+        RETURN QUERY SELECT NULL::INTEGER, FALSE, 'No se encontro el prepedido o no se puede editar'::TEXT;
+        RETURN;
+    END IF;
+
+    UPDATE carritos_clientes
+    SET
+        almacen_destino = COALESCE(NULLIF(TRIM(COALESCE(p_almacen_destino, '')), ''), almacen_destino),
+        observaciones = NULLIF(TRIM(COALESCE(p_observaciones, '')), ''),
+        nombre_operario = NULLIF(TRIM(COALESCE(p_nombre_operario, '')), '')
+    WHERE id = p_prepedido_id;
+
+    DELETE FROM productos_carrito
+    WHERE carrito_id = p_prepedido_id;
+
+    FOR v_producto IN SELECT * FROM jsonb_array_elements(p_productos)
+    LOOP
+        INSERT INTO productos_carrito (
+            carrito_id,
+            codigo_producto,
+            descripcion_producto,
+            cantidad,
+            precio_unitario,
+            subtotal
+        ) VALUES (
+            p_prepedido_id,
+            COALESCE(v_producto->>'codigo_producto', ''),
+            COALESCE(v_producto->>'descripcion_producto', ''),
+            COALESCE((v_producto->>'cantidad')::INTEGER, 0),
+            COALESCE((v_producto->>'precio_unitario')::NUMERIC, 0),
+            COALESCE((v_producto->>'cantidad')::INTEGER, 0) * COALESCE((v_producto->>'precio_unitario')::NUMERIC, 0)
+        );
+    END LOOP;
+
+    UPDATE carritos_clientes
+    SET
+        total_productos = COALESCE((
+            SELECT SUM(pc.cantidad) FROM productos_carrito pc WHERE pc.carrito_id = p_prepedido_id
+        ), 0),
+        total_importe = COALESCE((
+            SELECT SUM(pc.subtotal) FROM productos_carrito pc WHERE pc.carrito_id = p_prepedido_id
+        ), 0)
+    WHERE id = p_prepedido_id;
+
+    RETURN QUERY SELECT p_prepedido_id, TRUE, 'Prepedido actualizado correctamente'::TEXT;
 END;
 $$;
 
