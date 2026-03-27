@@ -3301,9 +3301,12 @@ body.gate-visible .app-container {
 /* Movil: 2 familias por fila; desde tablet/PC: tantas columnas como quepan (ancho completo) */
 .inicio-familias-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.6rem;
     align-items: stretch;
+}
+.inicio-familias-grid.inicio-familias-grid-root {
+    grid-template-columns: minmax(0, 1fr);
 }
 @media (min-width: 900px) {
     .inicio-familias-grid {
@@ -3321,14 +3324,14 @@ body.gate-visible .app-container {
 }
 .inicio-familia-tile {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
-    text-align: left;
-    gap: 0.9rem;
-    padding: 0.9rem 1rem;
-    border-radius: 18px;
-    border: 1px solid var(--gray-300);
-    background: #dcdde0;
+    text-align: center;
+    gap: 0.45rem;
+    padding: 0.5rem 0.4rem 0.55rem;
+    border-radius: 10px;
+    border: 1px solid var(--gray-200);
+    background: #fff;
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
     height: 100%;
@@ -3337,21 +3340,18 @@ body.gate-visible .app-container {
 }
 .inicio-familia-tile:hover {
     border-color: var(--primary);
-    background: #d2d5d9;
+    background: var(--gray-50);
 }
 .inicio-familia-tile-leaf {
     border-left: 3px solid var(--primary);
 }
 /* Area 1:1; en PC object-fit contain en la img (sin recorte; bandas gris si la foto no es cuadrada) */
 .inicio-familia-tile-img-wrap {
-    width: 92px;
+    width: 100%;
     aspect-ratio: 1 / 1;
-    height: 92px;
     flex-shrink: 0;
-    margin-left: auto;
-    order: 2;
-    background: var(--gray-200);
-    border-radius: 14px;
+    background: var(--gray-100);
+    border-radius: 8px;
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -3373,19 +3373,25 @@ body.gate-visible .app-container {
     }
 }
 .inicio-familia-tile-desc {
-    font-size: clamp(1.45rem, 5.6vw, 2.1rem);
+    font-size: 0.74rem;
     font-weight: 700;
-    color: #121316;
-    line-height: 1.08;
+    color: var(--gray-900);
+    line-height: 1.25;
     word-break: break-word;
     max-width: 100%;
-    order: 1;
+    display: -webkit-box;
+    line-clamp: 5;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
     flex: 1;
     min-height: 0;
 }
 @media (min-width: 1024px) {
     .inicio-familia-tile-desc {
         font-size: 1rem;
+        line-clamp: 5;
+        -webkit-line-clamp: 5;
         flex: 1;
         min-height: 0;
     }
@@ -3410,16 +3416,45 @@ body.gate-visible .app-container {
     .inicio-familia-tile-img-wrap {
         width: 100%;
         height: auto;
-        margin-left: 0;
-        order: initial;
         border-radius: 8px;
         background: var(--gray-100);
     }
-    .inicio-familia-tile-desc {
-        order: initial;
-    }
     .inicio-familia-tile-code {
         display: block;
+    }
+}
+.inicio-familia-tile-root-mobile .inicio-familia-tile-code {
+    display: none;
+}
+@media (max-width: 1023px) {
+    .inicio-familia-tile-root-mobile {
+        flex-direction: row;
+        align-items: center;
+        text-align: left;
+        gap: 0.9rem;
+        padding: 0.9rem 1rem;
+        border-radius: 18px;
+        border: 1px solid var(--gray-300);
+        background: #dcdde0;
+    }
+    .inicio-familia-tile-root-mobile:hover {
+        background: #d2d5d9;
+    }
+    .inicio-familia-tile-root-mobile .inicio-familia-tile-img-wrap {
+        width: 92px;
+        height: 92px;
+        margin-left: auto;
+        order: 2;
+        border-radius: 14px;
+        background: var(--gray-200);
+    }
+    .inicio-familia-tile-root-mobile .inicio-familia-tile-desc {
+        font-size: clamp(1.45rem, 5.6vw, 2.1rem);
+        color: #121316;
+        line-height: 1.08;
+        display: block;
+        overflow: visible;
+        order: 1;
     }
 }
 .inicio-familias-open-search {

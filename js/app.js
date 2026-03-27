@@ -3414,6 +3414,7 @@ class ScanAsYouShopApp {
         const path = this._inicioFamiliaPath || [];
         const parentNorm = path.length === 0 ? null : path[path.length - 1].codigo;
         const children = this._getFamiliaChildCodes(codesSetFiltered, parentMap, parentNorm);
+        grid.classList.toggle('inicio-familias-grid-root', path.length === 0);
 
         const self = this;
 
@@ -3475,9 +3476,13 @@ class ScanAsYouShopApp {
             const displayDesc = meta.titulo_inicio ? meta.titulo_inicio : erpDesc;
             const subs = this._getFamiliaChildCodes(codesSetFiltered, parentMap, code);
             const isLeaf = subs.length === 0;
+            const isRootTileMobileStyle = path.length === 0 && code.length === 2;
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'inicio-familia-tile' + (isLeaf ? ' inicio-familia-tile-leaf' : '');
+            if (isRootTileMobileStyle) {
+                btn.classList.add('inicio-familia-tile-root-mobile');
+            }
             const imgWrap = document.createElement('div');
             imgWrap.className = 'inicio-familia-tile-img-wrap';
             const img = document.createElement('img');
@@ -3529,7 +3534,9 @@ class ScanAsYouShopApp {
                 await self.performSearch();
             });
             grid.appendChild(btn);
-            this._fitInicioFamiliaTextToThreeLines(descSpan);
+            if (isRootTileMobileStyle) {
+                this._fitInicioFamiliaTextToThreeLines(descSpan);
+            }
         }
         if (children.length === 0 && path.length > 0) {
             const last = path[path.length - 1];
