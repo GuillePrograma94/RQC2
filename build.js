@@ -26,11 +26,11 @@ const version = rawVersion.substring(0, 8);
 let content = fs.readFileSync(SW_FILE, 'utf8');
 if (!content.includes(PLACEHOLDER)) {
     console.warn('build.js: No se encontro ' + PLACEHOLDER + ' en sw.js.');
-    process.exit(0);
+} else {
+    content = content.replace(new RegExp(PLACEHOLDER, 'g'), version);
+    fs.writeFileSync(SW_FILE, content, 'utf8');
+    console.log('build.js: sw.js actualizado con version = ' + version);
 }
-content = content.replace(new RegExp(PLACEHOLDER, 'g'), version);
-fs.writeFileSync(SW_FILE, content, 'utf8');
-console.log('build.js: sw.js actualizado con version = ' + version);
 
 // --- 2. Crear public/ y copiar solo estaticos (api/ se queda en raiz) ---
 if (!fs.existsSync(PUBLIC_DIR)) {
