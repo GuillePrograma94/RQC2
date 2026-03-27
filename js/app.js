@@ -3387,6 +3387,19 @@ class ScanAsYouShopApp {
         bc.innerHTML = '';
         if (path.length > 0) {
             bc.style.display = '';
+            const backBtn = document.createElement('button');
+            backBtn.type = 'button';
+            backBtn.className = 'inicio-familias-back-btn';
+            backBtn.textContent = 'Volver';
+            backBtn.setAttribute('title', 'Volver al nivel anterior');
+            backBtn.addEventListener('click', () => {
+                if (!self._inicioFamiliaPath || self._inicioFamiliaPath.length === 0) {
+                    return;
+                }
+                self._inicioFamiliaPath = self._inicioFamiliaPath.slice(0, self._inicioFamiliaPath.length - 1);
+                self.renderInicioFamiliasNavigator();
+            });
+            bc.appendChild(backBtn);
             const rootBtn = document.createElement('button');
             rootBtn.type = 'button';
             rootBtn.className = 'inicio-familias-crumb';

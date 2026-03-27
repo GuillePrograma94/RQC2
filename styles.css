@@ -3264,6 +3264,20 @@ body.gate-visible .app-container {
     margin-bottom: 0.75rem;
     font-size: 0.85rem;
 }
+.inicio-familias-back-btn {
+    border: 1px solid var(--gray-300);
+    background: var(--white);
+    color: var(--gray-800);
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+.inicio-familias-back-btn::before {
+    content: '\2190';
+    margin-right: 0.35rem;
+}
 .inicio-familias-crumb {
     border: none;
     background: var(--gray-100);
@@ -3287,7 +3301,7 @@ body.gate-visible .app-container {
 /* Movil: 2 familias por fila; desde tablet/PC: tantas columnas como quepan (ancho completo) */
 .inicio-familias-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.6rem;
     align-items: stretch;
 }
@@ -3307,14 +3321,14 @@ body.gate-visible .app-container {
 }
 .inicio-familia-tile {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    text-align: center;
-    gap: 0.45rem;
-    padding: 0.5rem 0.4rem 0.55rem;
-    border-radius: 10px;
-    border: 1px solid var(--gray-200);
-    background: #fff;
+    text-align: left;
+    gap: 0.9rem;
+    padding: 0.9rem 1rem;
+    border-radius: 18px;
+    border: 1px solid var(--gray-300);
+    background: #dcdde0;
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
     height: 100%;
@@ -3323,18 +3337,20 @@ body.gate-visible .app-container {
 }
 .inicio-familia-tile:hover {
     border-color: var(--primary);
-    background: var(--gray-50);
+    background: #d2d5d9;
 }
 .inicio-familia-tile-leaf {
     border-left: 3px solid var(--primary);
 }
 /* Area 1:1; en PC object-fit contain en la img (sin recorte; bandas gris si la foto no es cuadrada) */
 .inicio-familia-tile-img-wrap {
-    width: 100%;
+    width: 92px;
     aspect-ratio: 1 / 1;
+    height: 92px;
     flex-shrink: 0;
-    background: var(--gray-100);
-    border-radius: 8px;
+    margin-left: auto;
+    background: var(--gray-200);
+    border-radius: 14px;
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -3356,14 +3372,14 @@ body.gate-visible .app-container {
     }
 }
 .inicio-familia-tile-desc {
-    font-size: 0.74rem;
+    font-size: clamp(1.45rem, 5.6vw, 2.1rem);
     font-weight: 700;
-    color: var(--gray-900);
-    line-height: 1.25;
+    color: #121316;
+    line-height: 1.08;
     word-break: break-word;
     max-width: 100%;
     display: -webkit-box;
-    -webkit-line-clamp: 5;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
     flex: 1;
@@ -3371,8 +3387,8 @@ body.gate-visible .app-container {
 }
 @media (min-width: 1024px) {
     .inicio-familia-tile-desc {
-        font-size: 0.8rem;
-        -webkit-line-clamp: 5;
+        font-size: 1rem;
+        -webkit-line-clamp: 4;
         flex: 1;
         min-height: 0;
     }
@@ -3382,6 +3398,28 @@ body.gate-visible .app-container {
     font-weight: 600;
     color: var(--gray-600);
     font-family: ui-monospace, monospace;
+    display: none;
+}
+@media (min-width: 1024px) {
+    .inicio-familia-tile {
+        border-radius: 12px;
+        background: #fff;
+        border: 1px solid var(--gray-200);
+        padding: 0.6rem 0.7rem;
+        flex-direction: column;
+        text-align: center;
+        gap: 0.45rem;
+    }
+    .inicio-familia-tile-img-wrap {
+        width: 100%;
+        height: auto;
+        margin-left: 0;
+        border-radius: 8px;
+        background: var(--gray-100);
+    }
+    .inicio-familia-tile-code {
+        display: block;
+    }
 }
 .inicio-familias-open-search {
     margin-top: 0.25rem;
