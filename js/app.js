@@ -9832,14 +9832,14 @@ class ScanAsYouShopApp {
                             <img
                                 src="https://www.saneamiento-martinez.com/imagenes/articulos/${this.escapeForHtmlAttribute(producto.codigo_producto || '')}_1.JPG"
                                 alt="${this.escapeForHtmlAttribute(producto.descripcion_producto || producto.codigo_producto || 'Producto')}"
-                                onerror="this.style.display='none'; this.parentElement.classList.add('order-product-placeholder'); this.parentElement.textContent='📦';"
+                                onerror="this.onerror=null; this.style.display='none'; var ph=document.createElement('div'); ph.className='order-product-placeholder'; ph.textContent='📦'; this.parentElement.appendChild(ph);"
                             >
                         </div>
-                        <div class="product-info">
-                            <div class="product-code">${this.escapeForHtmlAttribute(producto.codigo_producto || '')}</div>
-                            <div class="product-name">${this.escapeForHtmlAttribute(producto.descripcion_producto || '')}</div>
+                        <div class="order-product-info">
+                            <div class="order-product-code">${this.escapeForHtmlAttribute(producto.codigo_producto || '')}</div>
+                            <div class="order-product-name">${this.escapeForHtmlAttribute(producto.descripcion_producto || '')}</div>
                         </div>
-                        <div class="product-qty">x${producto.cantidad || 0}</div>
+                        <div class="order-product-qty">x${producto.cantidad || 0}</div>
                     </div>
                 `).join('');
                 detailsDiv.innerHTML = detailsHtml || '<div class="order-details-error">No hay productos en este prepedido.</div>';
