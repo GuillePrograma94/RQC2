@@ -5426,6 +5426,12 @@ class ScanAsYouShopApp {
                 this.closeMenu();
             });
         }
+        const menuVersion = document.getElementById('menuVersion');
+        if (menuVersion) {
+            menuVersion.addEventListener('click', async () => {
+                await this.checkAndForceWebAppUpdateFromMenu();
+            });
+        }
 
         // Búsqueda
         const searchBtn = document.getElementById('searchBtn');
@@ -6407,6 +6413,79 @@ class ScanAsYouShopApp {
             el.textContent = 'Version: ' + (v || '--');
         } catch (_) {
             // Silencioso: version no disponible (sin SW / sin Cache API)
+        }
+    }
+
+    async _getCurrentSwCacheVersion() {
+        try {
+            await navigator.serviceWorker?.ready;
+            const cacheKeys = await caches.keys();
+            const scanCache = (cacheKeys || []).find((k) => typeof k === 'string' && k.indexOf('scan-as-you-shop-') === 0);
+            return scanCache ? String(scanCache).replace('scan-as-you-shop-', '').trim() : '';
+        } catch (_) {
+            return '';
+        }
+    }
+
+    async _getRemoteSwVersionNoCache() {
+        try {
+            const url = '/sw.js?ts=' + Date.now();
+            const res = await fetch(url, { cache: 'no-store' });
+            if (!res.ok) {
+                return '';
+            }
+            const body = await res.text();
+            const m = body.match(/scan-as-you-shop-([A-Za-z0-9_\-.]+)/);
+            return m && m[1] ? String(m[1]).trim() : '';
+        } catch (_) {
+            return '';
+        }
+    }
+
+    async checkAndForceWebAppUpdateFromMenu() {
+        const menuVersionEl = document.getElementById('menuVersion');
+        if (menuVersionEl && menuVersionEl.dataset.busy === '1') {
+            return;
+        }
+        if (!('serviceWorker' in navigator)) {
+            window.ui.showToast('Este navegador no soporta actualizacion por Service Worker.', 'warning');
+            return;
+        }
+        if (menuVersionEl) {
+            menuVersionEl.dataset.busy = '1';
+        }
+        try {
+            window.ui.showToast('Comprobando version publicada...', 'info');
+            const localVersion = await this._getCurrentSwCacheVersion();
+            const remoteVersion = await this._getRemoteSwVersionNoCache();
+            if (!remoteVersion) {
+                window.ui.showToast('No se pudo comprobar la version remota.', 'error');
+                return;
+            }
+            if (localVersion && localVersion === remoteVersion) {
+                window.ui.showToast('Ya tienes la version mas reciente.', 'success');
+                return;
+            }
+            const reg = await navigator.serviceWorker.getRegistration();
+            if (reg && typeof reg.update === 'function') {
+                await reg.update();
+            }
+            if (reg && reg.waiting) {
+                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+            window.ui.showToast('Nueva version detectada. Actualizando app...', 'info');
+            setTimeout(() => {
+                const u = new URL(window.location.href);
+                u.searchParams.set('appcb', remoteVersion);
+                window.location.href = u.toString();
+            }, 450);
+        } catch (e) {
+            console.error('checkAndForceWebAppUpdateFromMenu:', e);
+            window.ui.showToast('No se pudo actualizar la version de la app.', 'error');
+        } finally {
+            if (menuVersionEl) {
+                menuVersionEl.dataset.busy = '0';
+            }
         }
     }
 
