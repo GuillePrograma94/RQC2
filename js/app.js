@@ -518,9 +518,11 @@ class ScanAsYouShopApp {
             const raw = localStorage.getItem(key);
             if (raw == null || raw === '') {
                 this.mostrarPreciosConDescuento = true;
+                console.log(`Preferencia precios con descuento: key=${key} raw=(vacio) => true`);
                 return this.mostrarPreciosConDescuento;
             }
             this.mostrarPreciosConDescuento = raw === '1';
+            console.log(`Preferencia precios con descuento: key=${key} raw=${raw} => ${this.mostrarPreciosConDescuento}`);
             return this.mostrarPreciosConDescuento;
         } catch (e) {
             console.warn('loadPricingPreferenceForUser:', e);
@@ -3709,6 +3711,20 @@ class ScanAsYouShopApp {
 
             await this.refreshClavesDescuentoCache();
             await this.refreshPactosClienteCache();
+            try {
+                const tarifa = this.getEffectiveTarifaCodigo();
+                const codigoClientePacto = this.getEffectiveCodigoClientePacto();
+                const pactosOk =
+                    this.pactosCodigoClienteActual != null &&
+                    Number.parseInt(codigoClientePacto, 10) === this.pactosCodigoClienteActual;
+                console.log(
+                    `Estado pricing: mostrarPreciosConDescuento=${this.mostrarPreciosConDescuento} tarifa=${tarifa || '(null)'} ` +
+                    `clavesMapSize=${this.clavesDescuentoMap ? this.clavesDescuentoMap.size : 0} ` +
+                    `pactosClienteCodigo=${codigoClientePacto || '(null)'} pactosMapSize=${this.pactosClienteMap ? this.pactosClienteMap.size : 0} pactosVigente=${pactosOk}`
+                );
+            } catch (e) {
+                console.warn('Estado pricing (log):', e && e.message ? e.message : e);
+            }
 
             // Inicializar scanner
             window.scannerManager.initialize();
