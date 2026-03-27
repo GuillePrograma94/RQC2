@@ -3337,8 +3337,10 @@ body.gate-visible .app-container {
     gap: 0.6rem;
     align-items: stretch;
 }
-.inicio-familias-grid.inicio-familias-grid-root {
-    grid-template-columns: minmax(0, 1fr);
+@media (max-width: 1023px) {
+    .inicio-familias-grid.inicio-familias-grid-root {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 @media (min-width: 900px) {
     .inicio-familias-grid {

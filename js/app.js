@@ -52,6 +52,7 @@ class ScanAsYouShopApp {
         this.catalogDataSourceMode = 'local';
         this.editingPrepedidoId = null;
         this.editingPrepedidoCodigo = null;
+        this.editingPrepedidoObservaciones = '';
     }
 
     /**
@@ -5959,7 +5960,30 @@ class ScanAsYouShopApp {
         const guardarPrepedidoBtn = document.getElementById('guardarPrepedidoBtn');
         if (guardarPrepedidoBtn) {
             guardarPrepedidoBtn.addEventListener('click', () => {
-                this.guardarPrepedidoDesdeCarrito();
+                this.openPrepedidoObservacionesModal();
+            });
+        }
+        const closePrepedidoObservacionesModalBtn = document.getElementById('closePrepedidoObservacionesModalBtn');
+        if (closePrepedidoObservacionesModalBtn) {
+            closePrepedidoObservacionesModalBtn.addEventListener('click', () => {
+                this.closePrepedidoObservacionesModal();
+            });
+        }
+        const confirmarGuardarPrepedidoBtn = document.getElementById('confirmarGuardarPrepedidoBtn');
+        if (confirmarGuardarPrepedidoBtn) {
+            confirmarGuardarPrepedidoBtn.addEventListener('click', () => {
+                const input = document.getElementById('prepedidoObservacionesModalInput');
+                const observaciones = input ? String(input.value || '').trim() : '';
+                this.closePrepedidoObservacionesModal();
+                this.guardarPrepedidoDesdeCarrito(observaciones);
+            });
+        }
+        const prepedidoObservacionesModal = document.getElementById('prepedidoObservacionesModal');
+        if (prepedidoObservacionesModal) {
+            prepedidoObservacionesModal.addEventListener('click', (e) => {
+                if (e.target && (e.target.classList.contains('login-modal-overlay') || e.target.id === 'prepedidoObservacionesModal')) {
+                    this.closePrepedidoObservacionesModal();
+                }
             });
         }
 
@@ -7811,8 +7835,6 @@ class ScanAsYouShopApp {
             // Actualizar header
             this.updateCartHeader(0, 0);
             this.resetPrepedidoEditMode();
-            const observacionesInput = document.getElementById('prepedidoObservacionesInput');
-            if (observacionesInput) observacionesInput.value = '';
 
             return;
         }
@@ -9538,7 +9560,36 @@ class ScanAsYouShopApp {
         }
     }
 
-    async guardarPrepedidoDesdeCarrito() {
+    openPrepedidoObservacionesModal() {
+        const modal = document.getElementById('prepedidoObservacionesModal');
+        const input = document.getElementById('prepedidoObservacionesModalInput');
+        const title = document.getElementById('prepedidoObservacionesModalTitle');
+        const confirmBtn = document.getElementById('confirmarGuardarPrepedidoBtn');
+        if (!modal) return;
+        if (title) {
+            title.textContent = this.editingPrepedidoId ? 'Actualizar Prepedido' : 'Guardar Prepedido';
+        }
+        if (confirmBtn) {
+            confirmBtn.textContent = this.editingPrepedidoId ? 'Actualizar prepedido' : 'Guardar prepedido';
+        }
+        if (input) {
+            input.value = this.editingPrepedidoId ? String(this.editingPrepedidoObservaciones || '') : '';
+        }
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        if (input) {
+            setTimeout(() => input.focus(), 50);
+        }
+    }
+
+    closePrepedidoObservacionesModal() {
+        const modal = document.getElementById('prepedidoObservacionesModal');
+        if (!modal) return;
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+
+    async guardarPrepedidoDesdeCarrito(observacionesManual) {
         try {
             if (!this.currentUser) {
                 window.ui.showToast('Debes iniciar sesion', 'warning');
@@ -9563,8 +9614,7 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            const observacionesInput = document.getElementById('prepedidoObservacionesInput');
-            let observacionesFinal = observacionesInput ? String(observacionesInput.value || '').trim() : '';
+            let observacionesFinal = observacionesManual != null ? String(observacionesManual).trim() : '';
             if (!observacionesFinal && this.canRepresentClientes() && this.currentUser.user_name) {
                 observacionesFinal = 'Prepedido guardado por: ' + this.currentUser.user_name;
             }
@@ -9600,7 +9650,6 @@ class ScanAsYouShopApp {
             const wasEditing = !!this.editingPrepedidoId;
             await window.cartManager.clearCart();
             this.resetPrepedidoEditMode();
-            if (observacionesInput) observacionesInput.value = '';
             window.ui.updateCartBadge();
             this.updateCartView();
             window.ui.showToast(wasEditing ? 'Prepedido actualizado correctamente' : 'Prepedido guardado correctamente', 'success');
@@ -9614,9 +9663,9 @@ class ScanAsYouShopApp {
     setPrepedidoEditMode(prepedidoId, codigoQr, observaciones) {
         this.editingPrepedidoId = prepedidoId != null ? Number(prepedidoId) : null;
         this.editingPrepedidoCodigo = codigoQr ? String(codigoQr) : null;
+        this.editingPrepedidoObservaciones = observaciones != null ? String(observaciones) : '';
         const hintEl = document.getElementById('prepedidoEditHint');
         const saveBtn = document.getElementById('guardarPrepedidoBtn');
-        const obsEl = document.getElementById('prepedidoObservacionesInput');
         if (hintEl) {
             hintEl.style.display = this.editingPrepedidoId ? 'block' : 'none';
             if (this.editingPrepedidoId) {
@@ -9626,14 +9675,12 @@ class ScanAsYouShopApp {
         if (saveBtn) {
             saveBtn.textContent = this.editingPrepedidoId ? 'Actualizar Prepedido' : 'Guardar Prepedido';
         }
-        if (obsEl) {
-            obsEl.value = observaciones != null ? String(observaciones) : '';
-        }
     }
 
     resetPrepedidoEditMode() {
         this.editingPrepedidoId = null;
         this.editingPrepedidoCodigo = null;
+        this.editingPrepedidoObservaciones = '';
         const hintEl = document.getElementById('prepedidoEditHint');
         const saveBtn = document.getElementById('guardarPrepedidoBtn');
         if (hintEl) {
@@ -9851,8 +9898,6 @@ class ScanAsYouShopApp {
             }
             if (this.editingPrepedidoId && Number(this.editingPrepedidoId) === Number(prepedidoId)) {
                 this.resetPrepedidoEditMode();
-                const observacionesInput = document.getElementById('prepedidoObservacionesInput');
-                if (observacionesInput) observacionesInput.value = '';
             }
             window.ui.showToast('Prepedido eliminado', 'success');
             await this.loadPrepedidos();
@@ -9926,8 +9971,6 @@ class ScanAsYouShopApp {
                 }
                 if (this.editingPrepedidoId && Number(this.editingPrepedidoId) === Number(prepedidoId)) {
                     this.resetPrepedidoEditMode();
-                    const observacionesInput = document.getElementById('prepedidoObservacionesInput');
-                    if (observacionesInput) observacionesInput.value = '';
                 }
                 window.ui.hideLoading();
                 window.ui.showToast('Prepedido aceptado y enviado', 'success');
