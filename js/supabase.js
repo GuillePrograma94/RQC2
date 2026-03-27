@@ -1281,6 +1281,44 @@ class SupabaseClient {
         }
     }
 
+    async getPrepedidosComercial(comercialNumero) {
+        try {
+            if (!this.client || comercialNumero == null) return [];
+            const num = typeof comercialNumero === 'string' ? parseInt(comercialNumero, 10) : comercialNumero;
+            if (isNaN(num)) return [];
+            const { data, error } = await this.client.rpc('get_prepedidos_comercial', {
+                p_comercial_numero: num
+            });
+            if (error) {
+                console.error('Error getPrepedidosComercial:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getPrepedidosComercial:', err);
+            return [];
+        }
+    }
+
+    async getPrepedidosDependiente(dependienteUserId) {
+        try {
+            if (!this.client || dependienteUserId == null) return [];
+            const id = typeof dependienteUserId === 'string' ? parseInt(dependienteUserId, 10) : dependienteUserId;
+            if (isNaN(id)) return [];
+            const { data, error } = await this.client.rpc('get_prepedidos_dependiente', {
+                p_dependiente_user_id: id
+            });
+            if (error) {
+                console.error('Error getPrepedidosDependiente:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getPrepedidosDependiente:', err);
+            return [];
+        }
+    }
+
     /**
      * Cambia la contraseña del usuario (verifica la actual con hash)
      * @param {number} userId - ID interno del usuario (solo validacion de consistencia)
@@ -1710,6 +1748,125 @@ class SupabaseClient {
                 success: false,
                 message: 'Error de conexion. Intenta de nuevo.'
             };
+        }
+    }
+
+    async crearPrepedido(usuarioId, almacenDestino, observaciones, nombreOperario, cart) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+            const productos = ((cart && Array.isArray(cart.productos)) ? cart.productos : [])
+                .map((p) => ({
+                    codigo_producto: p.codigo_producto || p.codigo,
+                    descripcion_producto: p.descripcion_producto || p.descripcion || '',
+                    cantidad: Number(p.cantidad || 0),
+                    precio_unitario: Number(p.precio_unitario || p.pvp || 0)
+                }))
+                .filter((p) => p.codigo_producto && p.cantidad > 0);
+            if (productos.length === 0) {
+                return { success: false, message: 'El prepedido no tiene productos' };
+            }
+
+            const { data, error } = await this.client.rpc('crear_prepedido', {
+                p_usuario_id: usuarioId,
+                p_almacen_destino: almacenDestino || null,
+                p_observaciones: observaciones != null ? String(observaciones).trim() || null : null,
+                p_nombre_operario: nombreOperario != null ? String(nombreOperario).trim() || null : null,
+                p_productos: productos
+            });
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                const result = data[0];
+                if (result.success) {
+                    return {
+                        success: true,
+                        prepedido_id: result.prepedido_id,
+                        codigo_qr: result.codigo_qr
+                    };
+                }
+                return { success: false, message: result.message || 'No se pudo guardar el prepedido' };
+            }
+            return { success: false, message: 'No se recibio respuesta del servidor' };
+        } catch (error) {
+            console.error('crearPrepedido:', error);
+            return {
+                success: false,
+                message: 'Error de conexion. Intenta de nuevo.'
+            };
+        }
+    }
+
+    async getUserPrepedidos(usuarioId) {
+        try {
+            if (!this.client || usuarioId == null) return [];
+            const id = typeof usuarioId === 'string' ? parseInt(usuarioId, 10) : usuarioId;
+            if (isNaN(id)) return [];
+            const { data, error } = await this.client.rpc('get_prepedidos_usuario', {
+                p_usuario_id: id
+            });
+            if (error) {
+                console.error('Error getUserPrepedidos:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getUserPrepedidos:', err);
+            return [];
+        }
+    }
+
+    async eliminarPrepedido(prepedidoId, usuarioId) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+            const { data, error } = await this.client.rpc('eliminar_prepedido', {
+                p_prepedido_id: prepedidoId,
+                p_usuario_id: usuarioId
+            });
+            if (error) throw error;
+            if (data && data.length > 0) {
+                return {
+                    success: !!data[0].success,
+                    message: data[0].message || ''
+                };
+            }
+            return { success: false, message: 'No se recibio respuesta del servidor' };
+        } catch (error) {
+            console.error('eliminarPrepedido:', error);
+            return { success: false, message: 'No se pudo eliminar el prepedido' };
+        }
+    }
+
+    async convertirPrepedidoAPedidoRemoto(prepedidoId, usuarioId, almacenDestino, observaciones, nombreOperario) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+            const { data, error } = await this.client.rpc('convertir_prepedido_a_pedido_remoto', {
+                p_prepedido_id: prepedidoId,
+                p_usuario_id: usuarioId,
+                p_almacen_destino: almacenDestino || null,
+                p_observaciones: observaciones != null ? String(observaciones).trim() || null : null,
+                p_nombre_operario: nombreOperario != null ? String(nombreOperario).trim() || null : null
+            });
+            if (error) throw error;
+            if (data && data.length > 0) {
+                const row = data[0];
+                return {
+                    success: !!row.success,
+                    message: row.message || '',
+                    carrito_id: row.carrito_id,
+                    codigo_qr: row.codigo_qr,
+                    codigo_cliente_usuario: row.codigo_cliente_usuario || null
+                };
+            }
+            return { success: false, message: 'No se recibio respuesta del servidor' };
+        } catch (error) {
+            console.error('convertirPrepedidoAPedidoRemoto:', error);
+            return { success: false, message: 'No se pudo aceptar el prepedido' };
         }
     }
 

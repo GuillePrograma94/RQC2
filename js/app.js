@@ -5560,6 +5560,16 @@ class ScanAsYouShopApp {
             });
         }
 
+        const prepedidosBtn = document.getElementById('prepedidosBtn');
+        if (prepedidosBtn) {
+            prepedidosBtn.addEventListener('click', () => {
+                this.closeMenu();
+                this.showScreen('prepedidos');
+                this.updateActiveNav('prepedidos');
+                this.loadPrepedidos();
+            });
+        }
+
         // Herramientas: abre pantalla de herramientas (visible para todos los usuarios)
         const herramientasBtn = document.getElementById('herramientasBtn');
         if (herramientasBtn) {
@@ -5936,6 +5946,12 @@ class ScanAsYouShopApp {
         if (enviarPedidoBtn) {
             enviarPedidoBtn.addEventListener('click', () => {
                 this.openEnviarPedidoModal();
+            });
+        }
+        const guardarPrepedidoBtn = document.getElementById('guardarPrepedidoBtn');
+        if (guardarPrepedidoBtn) {
+            guardarPrepedidoBtn.addEventListener('click', () => {
+                this.guardarPrepedidoDesdeCarrito();
             });
         }
 
@@ -6597,6 +6613,10 @@ class ScanAsYouShopApp {
 
             if (screenName === 'misSolicitudesArticulos') {
                 this.initMisSolicitudesScreen();
+            }
+
+            if (screenName === 'prepedidos') {
+                this.loadPrepedidos();
             }
 
         }
@@ -9504,6 +9524,366 @@ class ScanAsYouShopApp {
             }
             window.ui.hideLoading();
             window.ui.showToast('Error al enviar pedido. Intenta de nuevo.', 'error');
+        }
+    }
+
+    async guardarPrepedidoDesdeCarrito() {
+        try {
+            if (!this.currentUser) {
+                window.ui.showToast('Debes iniciar sesion', 'warning');
+                return;
+            }
+            if (this.canRepresentClientes() && !this.currentUser.cliente_representado_id) {
+                window.ui.showToast('Selecciona un cliente para guardar el prepedido', 'warning');
+                this.showScreen('selectorCliente');
+                this.renderSelectorClienteScreen();
+                return;
+            }
+
+            const effectiveUserId = this.getEffectiveUserId();
+            if (!effectiveUserId) {
+                window.ui.showToast('No se pudo determinar el cliente del prepedido', 'error');
+                return;
+            }
+
+            const cart = window.cartManager.getCart();
+            if (!cart || !Array.isArray(cart.productos) || cart.productos.length === 0) {
+                window.ui.showToast('El carrito esta vacio', 'warning');
+                return;
+            }
+
+            let observacionesFinal = '';
+            if (this.canRepresentClientes() && this.currentUser.user_name) {
+                observacionesFinal = 'Prepedido guardado por: ' + this.currentUser.user_name;
+            }
+            const almacen = this.getEffectiveAlmacenHabitual() || '';
+
+            window.ui.showLoading('Guardando prepedido...');
+            const result = await window.supabaseClient.crearPrepedido(
+                effectiveUserId,
+                almacen,
+                observacionesFinal || null,
+                this.currentUser.is_operario ? (this.currentUser.nombre_operario || null) : null,
+                cart
+            );
+            window.ui.hideLoading();
+
+            if (!result || !result.success) {
+                window.ui.showToast((result && result.message) || 'No se pudo guardar el prepedido', 'error');
+                return;
+            }
+
+            await window.cartManager.clearCart();
+            window.ui.updateCartBadge();
+            this.updateCartView();
+            window.ui.showToast('Prepedido guardado correctamente', 'success');
+        } catch (error) {
+            window.ui.hideLoading();
+            console.error('guardarPrepedidoDesdeCarrito:', error);
+            window.ui.showToast('Error al guardar prepedido', 'error');
+        }
+    }
+
+    async loadPrepedidos() {
+        const loadingEl = document.getElementById('prepedidosLoading');
+        const emptyEl = document.getElementById('prepedidosEmpty');
+        const listEl = document.getElementById('prepedidosList');
+        const representandoBlock = document.getElementById('prepedidosRepresentandoBlock');
+        const representandoNombre = document.getElementById('prepedidosRepresentandoNombre');
+        if (!loadingEl || !emptyEl || !listEl) return;
+
+        if (!this.currentUser) {
+            loadingEl.style.display = 'none';
+            emptyEl.style.display = 'flex';
+            listEl.style.display = 'none';
+            return;
+        }
+
+        if (representandoBlock && representandoNombre) {
+            if (this.canRepresentClientes() && this.currentUser.cliente_representado_id && this.currentUser.cliente_representado_nombre) {
+                representandoBlock.style.display = 'block';
+                representandoNombre.textContent = this.currentUser.cliente_representado_nombre;
+            } else {
+                representandoBlock.style.display = 'none';
+            }
+        }
+
+        loadingEl.style.display = 'flex';
+        emptyEl.style.display = 'none';
+        listEl.style.display = 'none';
+        try {
+            let prepedidos = [];
+            if (this.currentUser && this.canRepresentClientes() && !this.currentUser.cliente_representado_id) {
+                if (this.currentUser.is_comercial) {
+                    const comercialNumero = this.currentUser.comercial_numero != null
+                        ? this.currentUser.comercial_numero
+                        : parseInt(this.currentUser.codigo_usuario, 10);
+                    prepedidos = await window.supabaseClient.getPrepedidosComercial(comercialNumero);
+                } else {
+                    prepedidos = await window.supabaseClient.getPrepedidosDependiente(this.currentUser.user_id);
+                }
+            } else {
+                const userId = this.getEffectiveUserId();
+                if (!userId) {
+                    loadingEl.style.display = 'none';
+                    emptyEl.style.display = 'flex';
+                    return;
+                }
+                prepedidos = await window.supabaseClient.getUserPrepedidos(userId);
+            }
+
+            loadingEl.style.display = 'none';
+            if (!prepedidos || prepedidos.length === 0) {
+                emptyEl.style.display = 'flex';
+                listEl.style.display = 'none';
+                return;
+            }
+
+            listEl.innerHTML = '';
+            listEl.style.display = 'block';
+            emptyEl.style.display = 'none';
+            for (const prepedido of prepedidos) {
+                listEl.appendChild(this.createPrepedidoCard(prepedido));
+            }
+        } catch (error) {
+            loadingEl.style.display = 'none';
+            emptyEl.style.display = 'flex';
+            listEl.style.display = 'none';
+            console.error('loadPrepedidos:', error);
+            window.ui.showToast('Error al cargar prepedidos', 'error');
+        }
+    }
+
+    createPrepedidoCard(prepedido) {
+        const card = document.createElement('div');
+        card.className = 'order-card prepedido-card';
+        const idAttr = String(prepedido.id);
+        const fechaFormateada = this.formatDateSpain(prepedido.fecha_creacion);
+        const clienteNombreHtml = (prepedido.cliente_nombre && String(prepedido.cliente_nombre).trim() !== '')
+            ? `<div class="order-card-cliente">Cliente: ${this.escapeForHtmlContentPreservingNewlines(String(prepedido.cliente_nombre).trim())}</div>`
+            : '';
+        const hasObservaciones = prepedido.observaciones && String(prepedido.observaciones).trim() !== '';
+        const observaciones = hasObservaciones ? this.escapeForHtmlContentPreservingNewlines(String(prepedido.observaciones).trim()) : '';
+        const hasOperario = prepedido.nombre_operario && String(prepedido.nombre_operario).trim() !== '';
+        const operario = hasOperario ? this.escapeForHtmlAttribute(String(prepedido.nombre_operario).trim()) : '';
+        const totalConIva = (prepedido.total_importe || 0) * 1.21;
+        card.innerHTML = `
+            <div class="order-card-header" onclick="window.app.togglePrepedidoDetails(${idAttr})">
+                <div class="order-card-main">
+                    <div class="order-card-top">
+                        <span class="order-almacen">${this.escapeForHtmlAttribute(prepedido.almacen_destino || '-')}</span>
+                        <span class="order-type order-type-remote">Prepedido</span>
+                        <span class="order-badge order-badge-pending">Guardado</span>
+                    </div>
+                    ${clienteNombreHtml}
+                    <div class="order-card-meta">
+                        <span class="order-date">${fechaFormateada}</span>
+                        <span class="order-code">Codigo: ${this.escapeForHtmlAttribute(prepedido.codigo_qr || '-')}</span>
+                    </div>
+                    ${hasObservaciones ? `<div class="order-observaciones">${observaciones}</div>` : ''}
+                    ${hasOperario ? `<div class="order-operario">Prepedido por ${operario}</div>` : ''}
+                    <div class="order-card-totals">
+                        <span class="order-items">${prepedido.total_productos} producto${prepedido.total_productos !== 1 ? 's' : ''}</span>
+                        <span class="order-total">${totalConIva.toFixed(2)} €</span>
+                    </div>
+                </div>
+                <div class="order-card-trigger" data-order-id="${idAttr}">
+                    <span class="order-card-trigger-label">Ver detalles</span>
+                    <span class="order-card-arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </span>
+                </div>
+            </div>
+            <div class="order-card-details" id="prepedidoDetails-${idAttr}" style="display: none;">
+                <div class="order-details-loading">
+                    <div class="spinner-small"></div>
+                    <span>Cargando productos...</span>
+                </div>
+            </div>
+            <div class="prepedido-actions">
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="window.app.modificarPrepedido(${idAttr})">Modificar</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="window.app.aceptarPrepedido(${idAttr})">Aceptar</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.app.eliminarPrepedido(${idAttr})">Eliminar</button>
+            </div>
+        `;
+        return card;
+    }
+
+    async togglePrepedidoDetails(prepedidoId) {
+        const detailsDiv = document.getElementById(`prepedidoDetails-${prepedidoId}`);
+        if (!detailsDiv) return;
+        if (detailsDiv.style.display === 'none') {
+            detailsDiv.style.display = 'block';
+            if (detailsDiv.querySelector('.order-details-loading')) {
+                const productos = await window.supabaseClient.getOrderProducts(prepedidoId);
+                const detailsHtml = productos.map((producto) => `
+                    <div class="order-product-item">
+                        <div class="product-info">
+                            <div class="product-code">${this.escapeForHtmlAttribute(producto.codigo_producto || '')}</div>
+                            <div class="product-name">${this.escapeForHtmlAttribute(producto.descripcion_producto || '')}</div>
+                        </div>
+                        <div class="product-qty">x${producto.cantidad || 0}</div>
+                    </div>
+                `).join('');
+                detailsDiv.innerHTML = detailsHtml || '<div class="order-details-error">No hay productos en este prepedido.</div>';
+            }
+            return;
+        }
+        detailsDiv.style.display = 'none';
+    }
+
+    async modificarPrepedido(prepedidoId) {
+        try {
+            window.ui.showLoading('Cargando prepedido...');
+            const prepedido = await window.supabaseClient.getCart(prepedidoId);
+            if (!prepedido || !Array.isArray(prepedido.productos) || prepedido.productos.length === 0) {
+                window.ui.hideLoading();
+                window.ui.showToast('No se encontraron productos del prepedido', 'error');
+                return;
+            }
+
+            await window.cartManager.clearCart();
+            for (const producto of prepedido.productos) {
+                await window.cartManager.addProduct(
+                    {
+                        codigo: producto.codigo_producto || producto.codigo,
+                        descripcion: producto.descripcion_producto || producto.descripcion || '',
+                        pvp: Number(producto.precio_unitario || 0)
+                    },
+                    Number(producto.cantidad || 0)
+                );
+            }
+            window.ui.hideLoading();
+            this.showScreen('cart');
+            this.updateActiveNav('cart');
+            this.updateCartView();
+            window.ui.updateCartBadge();
+            window.ui.showToast('Prepedido cargado en el carrito', 'success');
+        } catch (error) {
+            window.ui.hideLoading();
+            console.error('modificarPrepedido:', error);
+            window.ui.showToast('No se pudo cargar el prepedido', 'error');
+        }
+    }
+
+    async eliminarPrepedido(prepedidoId) {
+        try {
+            const ok = window.confirm('¿Quieres eliminar este prepedido?');
+            if (!ok) return;
+            window.ui.showLoading('Eliminando prepedido...');
+            const effectiveUserId = this.getEffectiveUserId() || null;
+            const result = await window.supabaseClient.eliminarPrepedido(prepedidoId, effectiveUserId);
+            window.ui.hideLoading();
+            if (!result || !result.success) {
+                window.ui.showToast((result && result.message) || 'No se pudo eliminar', 'error');
+                return;
+            }
+            window.ui.showToast('Prepedido eliminado', 'success');
+            await this.loadPrepedidos();
+        } catch (error) {
+            window.ui.hideLoading();
+            console.error('eliminarPrepedido:', error);
+            window.ui.showToast('Error al eliminar prepedido', 'error');
+        }
+    }
+
+    async aceptarPrepedido(prepedidoId) {
+        try {
+            if (!window.erpClient || (!window.erpClient.proxyPath && !window.erpClient.createOrderPath)) {
+                window.ui.showToast('ERP no configurado', 'warning');
+                return;
+            }
+
+            window.ui.showLoading('Aceptando prepedido...');
+            const prepedido = await window.supabaseClient.getCart(prepedidoId);
+            if (!prepedido || !Array.isArray(prepedido.productos) || prepedido.productos.length === 0) {
+                window.ui.hideLoading();
+                window.ui.showToast('No se pudo cargar el prepedido', 'error');
+                return;
+            }
+
+            let observacionesFinal = prepedido.observaciones || '';
+            if (this.canRepresentClientes() && this.currentUser && this.currentUser.user_name) {
+                observacionesFinal += (observacionesFinal ? '\n\n' : '') + 'Pedido enviado por: ' + this.currentUser.user_name;
+            }
+            const almacen = prepedido.almacen_destino || this.getEffectiveAlmacenHabitual() || '';
+            const effectiveUserId = this.getEffectiveUserId() || null;
+            const conversion = await window.supabaseClient.convertirPrepedidoAPedidoRemoto(
+                prepedidoId,
+                effectiveUserId,
+                almacen,
+                observacionesFinal || null,
+                this.currentUser && this.currentUser.is_operario ? (this.currentUser.nombre_operario || null) : null
+            );
+            if (!conversion || !conversion.success) {
+                window.ui.hideLoading();
+                window.ui.showToast((conversion && conversion.message) || 'No se pudo aceptar el prepedido', 'error');
+                return;
+            }
+
+            const referencia = 'RQC/' + conversion.carrito_id + '-' + (conversion.codigo_qr || '');
+            const cart = {
+                productos: (prepedido.productos || []).map((p) => ({
+                    codigo_producto: p.codigo_producto || p.codigo,
+                    cantidad: p.cantidad != null ? p.cantidad : 0
+                }))
+            };
+            const payload = this.buildErpOrderPayload(cart, almacen, referencia, observacionesFinal, conversion.codigo_cliente_usuario);
+
+            try {
+                const response = await window.erpClient.createRemoteOrder(payload);
+                if (response && response.success === false) {
+                    throw new Error(response.message || response.error || 'El ERP rechazo el pedido');
+                }
+                const pedidoErp = response && response.data && response.data.pedido != null ? response.data.pedido : null;
+                if (pedidoErp) {
+                    await window.supabaseClient.updatePedidoErp(conversion.carrito_id, pedidoErp);
+                }
+                await window.supabaseClient.marcarPedidoRemotoEnviado(conversion.carrito_id);
+                try {
+                    await window.supabaseClient.registrarHistorialDesdeCarrito(conversion.carrito_id);
+                } catch (e) {
+                    console.warn('registrarHistorialDesdeCarrito en aceptarPrepedido:', e);
+                }
+                if (window.purchaseCache && prepedido.usuario_id) {
+                    window.purchaseCache.invalidateUser(prepedido.usuario_id);
+                }
+                window.ui.hideLoading();
+                window.ui.showToast('Prepedido aceptado y enviado', 'success');
+                await this.loadPrepedidos();
+            } catch (erpError) {
+                if (this.isErpValidationError(erpError)) {
+                    await window.supabaseClient.updateCarritoEstadoProcesamiento(conversion.carrito_id, 'error_erp');
+                    window.ui.hideLoading();
+                    window.ui.showToast(erpError.message || 'Error de validacion ERP', 'error');
+                    await this.loadPrepedidos();
+                    return;
+                }
+
+                if (window.erpRetryQueue) {
+                    await window.supabaseClient.updateCarritoEstadoProcesamiento(conversion.carrito_id, 'pendiente_erp');
+                    await window.erpRetryQueue.init();
+                    await window.erpRetryQueue.enqueue({
+                        carrito_id: conversion.carrito_id,
+                        payload: payload,
+                        referencia: referencia,
+                        almacen: almacen,
+                        usuario_id: prepedido.usuario_id
+                    });
+                    window.ui.hideLoading();
+                    window.ui.showToast('Sin conexion ERP. El pedido queda pendiente de envio.', 'warning');
+                    await this.loadPrepedidos();
+                    return;
+                }
+
+                throw erpError;
+            }
+        } catch (error) {
+            window.ui.hideLoading();
+            console.error('aceptarPrepedido:', error);
+            window.ui.showToast(error.message || 'No se pudo aceptar el prepedido', 'error');
         }
     }
 

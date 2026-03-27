@@ -204,6 +204,10 @@
                         <span class="menu-action-icon">📦</span>
                         <span>Mis Pedidos</span>
                     </button>
+                    <button id="prepedidosBtn" class="menu-action-btn">
+                        <span class="menu-action-icon">📝</span>
+                        <span>PRE-PEDIDOS</span>
+                    </button>
                     <button id="herramientasBtn" class="menu-action-btn">
                         <span class="menu-action-icon">🔧</span>
                         <span>Herramientas</span>
@@ -250,6 +254,7 @@
                 <!-- Footer carrito: botón Enviar Pedido (visible cuando hay productos) -->
                 <div id="cartFooter" class="cart-footer" style="display: none;">
                     <button type="button" id="enviarPedidoBtn" class="btn btn-primary btn-lg btn-enviar-pedido">Enviar Pedido</button>
+                    <button type="button" id="guardarPrepedidoBtn" class="btn btn-secondary btn-lg btn-guardar-prepedido">Guardar Prepedido</button>
                 </div>
             </main>
         </div>
@@ -552,6 +557,30 @@
 
                 <!-- Orders List -->
                 <div id="ordersList" class="orders-list" style="display: none;"></div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA DE PRE-PEDIDOS
+             ================================ -->
+        <div id="prepedidosScreen" class="screen">
+            <main class="screen-content">
+                <div id="prepedidosRepresentandoBlock" class="my-orders-representando" style="display: none;">
+                    <p class="my-orders-representando-texto">Representando a <strong id="prepedidosRepresentandoNombre"></strong></p>
+                </div>
+
+                <div id="prepedidosLoading" class="loading-state" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Cargando prepedidos...</p>
+                </div>
+
+                <div id="prepedidosEmpty" class="empty-state">
+                    <div class="empty-icon">📝</div>
+                    <h2>No tienes prepedidos guardados</h2>
+                    <p>Guarda prepedidos desde el carrito para poder modificarlos o enviarlos despues</p>
+                </div>
+
+                <div id="prepedidosList" class="orders-list" style="display: none;"></div>
             </main>
         </div>
 

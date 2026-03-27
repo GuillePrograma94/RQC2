@@ -680,6 +680,12 @@ body.gate-visible .app-container {
     font-weight: 600;
 }
 
+.cart-footer .btn-guardar-prepedido {
+    width: 100%;
+    margin-top: 0.6rem;
+    font-weight: 600;
+}
+
 .cart-item {
     background: var(--white);
     border-radius: 12px;
@@ -3730,6 +3736,21 @@ body.gate-visible .app-container {
     background: var(--primary-dark);
     transform: translateY(-2px);
     box-shadow: var(--shadow-purple);
+}
+
+.prepedido-card .order-badge {
+    display: inline-flex;
+}
+
+.prepedido-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin: 0.75rem 0.85rem 0.95rem;
+}
+
+.prepedido-actions .btn {
+    width: 100%;
 }
 
 /* Tarjeta comercial en menú (debajo de datos del cliente) */
