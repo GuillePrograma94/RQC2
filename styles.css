@@ -6536,6 +6536,18 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     border-radius: 8px;
     font-size: 0.9rem;
 }
+.familias-admin-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.84rem;
+    color: var(--gray-800);
+    margin-top: 0.25rem;
+}
+.familias-admin-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+}
 .familias-admin-file {
     font-size: 0.85rem;
 }

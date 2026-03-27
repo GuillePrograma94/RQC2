@@ -3090,6 +3090,9 @@ class SupabaseClient {
         if (fields.imagen_storage_path !== undefined) {
             patch.imagen_storage_path = String(fields.imagen_storage_path).trim() || null;
         }
+        if (fields.activo_inicio !== undefined) {
+            patch.activo_inicio = fields.activo_inicio !== false;
+        }
         if (Object.keys(patch).length === 0) {
             return { ok: true, fecha_actualizacion: null };
         }

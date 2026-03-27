@@ -41,3 +41,12 @@ Navegacion inferior: Inicio, Solicitudes, Proveedores, Perfil.
 ## Relacion con Solicitud de articulo nuevo
 
 Los Dependientes y Comerciales crean solicitudes desde Herramientas; los usuarios ADMINISTRACION las gestionan (ver listado, aprobar/rechazar) desde este panel. Ver [SOLICITUD_ARTICULO_NUEVO.md](SOLICITUD_ARTICULO_NUEVO.md).
+
+## Gestion de familias en Inicio (rol ADMINISTRADOR)
+
+Ademas del panel exclusivo de `ADMINISTRACION`, la app de tienda (roles no ADMINISTRACION) incorpora en Panel de control una gestion de familias para `ADMINISTRADOR`:
+
+- En la vista de familias de Inicio existe un toggle por familia: **Activo en Inicio > Catalogo por familia**.
+- El estado se guarda en `familias.activo_inicio` (BOOLEAN, `TRUE` por defecto).
+- Si una familia queda desactivada, deja de mostrarse solo en el arbol de `Inicio > Catalogo por familia`.
+- Este cambio no modifica la logica general de busqueda/filtro por familia fuera de esa vista.

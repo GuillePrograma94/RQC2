@@ -864,6 +864,7 @@ class CartManager {
             descripcion: String(r.DESCRIPCION != null ? r.DESCRIPCION : r.descripcion != null ? r.descripcion : '').trim(),
             titulo_inicio: String(r.titulo_inicio != null ? r.titulo_inicio : '').trim(),
             imagen_storage_path: String(r.imagen_storage_path != null ? r.imagen_storage_path : '').trim(),
+            activo_inicio: r.activo_inicio !== false,
             fecha_actualizacion: r.fecha_actualizacion != null ? String(r.fecha_actualizacion) : '',
             id: r.id != null ? r.id : null
         })).filter((f) => f.codigo);
@@ -1003,6 +1004,10 @@ class CartManager {
         if (!k || !partial || typeof partial !== 'object') {
             return;
         }
+        const patch = Object.assign({}, partial);
+        if (patch.activo_inicio !== undefined) {
+            patch.activo_inicio = patch.activo_inicio !== false;
+        }
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(['familias'], 'readwrite');
             const st = tx.objectStore('familias');
@@ -1011,7 +1016,7 @@ class CartManager {
                 if (!r.result) {
                     return;
                 }
-                const cur = Object.assign({}, r.result, partial);
+                const cur = Object.assign({}, r.result, patch);
                 st.put(cur);
             };
             r.onerror = () => reject(r.error);

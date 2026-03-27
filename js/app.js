@@ -2005,6 +2005,7 @@ class ScanAsYouShopApp {
                     descripcion: des,
                     titulo_inicio: String(r.titulo_inicio || '').trim(),
                     imagen_storage_path: String(r.imagen_storage_path || '').trim(),
+                    activo_inicio: r.activo_inicio !== false,
                     fecha_actualizacion: r.fecha_actualizacion != null ? String(r.fecha_actualizacion) : '',
                 };
             }).filter((x) => x.codigo);
@@ -2039,6 +2040,7 @@ class ScanAsYouShopApp {
         card.className = 'familias-admin-card';
         const erpDesc = row.descripcion || '';
         const tituloVal = row.titulo_inicio || '';
+        const activoInicioVal = row.activo_inicio !== false;
         let imgPath = row.imagen_storage_path || '';
         const publicUrl = imgPath ? this.buildFamiliaBucketImageUrlWithCacheBust(imgPath, row.fecha_actualizacion) : '';
         const safeFileKey = 'F' + cod.replace(/[^A-Z0-9]/gi, '') + '.jpg';
@@ -2054,6 +2056,10 @@ class ScanAsYouShopApp {
                 </div>
                 <label class="familias-admin-label">Titulo en Inicio (opcional)</label>
                 <input type="text" class="familias-admin-input familias-admin-titulo" maxlength="120" placeholder="Vacío = usar descripcion ERP" />
+                <label class="familias-admin-toggle">
+                    <input type="checkbox" class="familias-admin-activo-inicio" />
+                    <span>Activo en Inicio &gt; Catalogo por familia</span>
+                </label>
                 <label class="familias-admin-label">Imagen (max 600x600, cuadrada)</label>
                 <input type="file" accept="image/jpeg,image/png,image/webp" class="familias-admin-file" />
                 <div class="familias-admin-actions">
@@ -2066,6 +2072,10 @@ class ScanAsYouShopApp {
         const titInput = card.querySelector('.familias-admin-titulo');
         if (titInput) {
             titInput.value = tituloVal;
+        }
+        const activoInicioInput = card.querySelector('.familias-admin-activo-inicio');
+        if (activoInicioInput) {
+            activoInicioInput.checked = activoInicioVal;
         }
         const imgEl = card.querySelector('.familias-admin-card-preview');
         if (imgEl) {
@@ -2080,10 +2090,12 @@ class ScanAsYouShopApp {
             saveBtn.addEventListener('click', async () => {
                 const titIn = card.querySelector('.familias-admin-titulo');
                 const fileIn = card.querySelector('.familias-admin-file');
+                const activoIn = card.querySelector('.familias-admin-activo-inicio');
                 const nuevoTitulo = titIn ? titIn.value.trim() : '';
+                const activoInicio = activoIn ? activoIn.checked : true;
                 let newPath = imgPath;
                 try {
-                    const payload = { titulo_inicio: nuevoTitulo };
+                    const payload = { titulo_inicio: nuevoTitulo, activo_inicio: activoInicio };
                     if (fileIn && fileIn.files && fileIn.files[0]) {
                         const blob = await self.resizeImageFileToMaxJpegBlob(fileIn.files[0], 600);
                         newPath = await window.supabaseClient.uploadFotosFamiliaJpeg(safeFileKey, blob);
@@ -2097,7 +2109,7 @@ class ScanAsYouShopApp {
                         row.fecha_actualizacion = feIso;
                     }
                     if (window.cartManager && typeof window.cartManager.patchFamiliaLocalFields === 'function') {
-                        const localPatch = { titulo_inicio: nuevoTitulo };
+                        const localPatch = { titulo_inicio: nuevoTitulo, activo_inicio: activoInicio };
                         if (payload.imagen_storage_path !== undefined) {
                             localPatch.imagen_storage_path = payload.imagen_storage_path || '';
                         }
@@ -2108,6 +2120,7 @@ class ScanAsYouShopApp {
                     }
                     window.ui.showToast('Familia actualizada', 'success');
                     row.titulo_inicio = nuevoTitulo;
+                    row.activo_inicio = activoInicio;
                     if (payload.imagen_storage_path !== undefined) {
                         row.imagen_storage_path = payload.imagen_storage_path || '';
                         imgPath = row.imagen_storage_path;
@@ -3263,6 +3276,7 @@ class ScanAsYouShopApp {
             descripcion: String(f.descripcion || '').trim(),
             titulo_inicio: String(f.titulo_inicio || '').trim(),
             imagen_storage_path: String(f.imagen_storage_path || '').trim(),
+            activo_inicio: f.activo_inicio !== false,
             fecha_actualizacion: f.fecha_actualizacion != null ? String(f.fecha_actualizacion) : '',
         };
     }
@@ -3341,8 +3355,11 @@ class ScanAsYouShopApp {
             const f = familias[i];
             const co = CartManager.normalizeFamiliaCodigoCatalogo(f.codigo);
             if (!co) continue;
-            codesSet.add(co);
-            byCode.set(co, this._familiaMetaFromLocalRow(f));
+            const meta = this._familiaMetaFromLocalRow(f);
+            byCode.set(co, meta);
+            if (meta.activo_inicio !== false) {
+                codesSet.add(co);
+            }
         }
         const codesSetFiltered = this._filterFamiliasCodesConAnclasDosYcuatro(codesSet);
         if (this._inicioFamiliaPath && this._inicioFamiliaPath.length) {
@@ -8064,9 +8081,6 @@ class ScanAsYouShopApp {
         let precioNetoOfertaAplicado = false;
         let ofertaActiva = null;
         let resultadoOferta = null;
-        // #region agent log
-        fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c33516'},body:JSON.stringify({sessionId:'c33516',runId:'pre-fix',hypothesisId:'H1_H3',location:'app.js:updateCartProductCard:init',message:'Init pricing inputs for cart product',data:{codigoProducto:producto && producto.codigo_producto,cantidad:producto && producto.cantidad,precioUnitario:producto && producto.precio_unitario,priceWithIVA,dtoTarifa,priceWithIVABaseTarifa,priceWithIVADtoTarifa,codigoClienteGrupo:this.getEffectiveGrupoCliente()},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         
         if (codigoCliente) {
             const ofertas = (ofertasByCodigo && ofertasByCodigo.get(producto.codigo_producto)) ||
@@ -8075,9 +8089,6 @@ class ScanAsYouShopApp {
                 ofertaActiva = ofertas[0];
                 const carrito = window.cartManager.getCart();
                 resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito, ofertasByCodigo, intervalosCache, loteCache);
-                // #region agent log
-                fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c33516'},body:JSON.stringify({sessionId:'c33516',runId:'pre-fix',hypothesisId:'H2_H5',location:'app.js:updateCartProductCard:verificarOfertaCumplida',message:'Offer verification result',data:{codigoProducto:producto && producto.codigo_producto,cantidad:producto && producto.cantidad,numeroOferta:ofertaActiva && ofertaActiva.numero_oferta,tipoOferta:ofertaActiva && ofertaActiva.tipo_oferta,descuentoOferta:ofertaActiva && ofertaActiva.descuento_oferta,precioOferta:ofertaActiva && ofertaActiva.precio,resultadoOferta},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
                 
                 if (resultadoOferta && resultadoOferta.cumplida) {
                     const precioNetoOferta = ofertaActiva.precio != null && ofertaActiva.precio !== '' && parseFloat(ofertaActiva.precio) > 0 ? parseFloat(ofertaActiva.precio) : 0;
@@ -8123,9 +8134,6 @@ class ScanAsYouShopApp {
         const ofertaDisponible = mostrarPrecioOferta && precioConDescuento < priceWithIVA;
         const usarOferta = ofertaDisponible && (!tarifaDisponible || precioConDescuento <= priceWithIVADtoTarifa);
         const usarTarifa = tarifaDisponible && !usarOferta;
-        // #region agent log
-        fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c33516'},body:JSON.stringify({sessionId:'c33516',runId:'pre-fix',hypothesisId:'H3',location:'app.js:updateCartProductCard:decision',message:'Final decision offer vs tarifa',data:{codigoProducto:producto && producto.codigo_producto,priceWithIVA,precioConDescuento,descuentoAplicado,precioNetoOfertaAplicado,tarifaDisponible,ofertaDisponible,usarOferta,usarTarifa,priceWithIVADtoTarifa,priceWithIVABaseTarifa},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
 
         if (usarOferta) {
             const priceContainer = card.querySelector('.cart-product-price-container, .cart-product-price');
@@ -8211,9 +8219,6 @@ class ScanAsYouShopApp {
         let subtotalConDescuento = subtotalWithIVA;
         let descuentoAplicado = 0;
         let precioNetoOfertaAplicado = false;
-        // #region agent log
-        fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c33516'},body:JSON.stringify({sessionId:'c33516',runId:'pre-fix',hypothesisId:'H1_H4',location:'app.js:createCartProductCard:init',message:'Init pricing inputs create card',data:{codigoProducto:producto && producto.codigo_producto,cantidad:producto && producto.cantidad,precioUnitario:producto && producto.precio_unitario,priceWithIVA,dtoTarifa,priceWithIVABaseTarifa,priceWithIVADtoTarifa,codigoClienteGrupo:this.getEffectiveGrupoCliente()},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         
         if (codigoCliente) {
             const ofertas = (ofertasByCodigo && ofertasByCodigo.get(producto.codigo_producto)) ||
@@ -8222,9 +8227,6 @@ class ScanAsYouShopApp {
                 ofertaActiva = ofertas[0];
                 const carrito = window.cartManager.getCart();
                 resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito, ofertasByCodigo, intervalosCache, loteCache);
-                // #region agent log
-                fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c33516'},body:JSON.stringify({sessionId:'c33516',runId:'pre-fix',hypothesisId:'H2_H5',location:'app.js:createCartProductCard:verificarOfertaCumplida',message:'Offer verification result create card',data:{codigoProducto:producto && producto.codigo_producto,cantidad:producto && producto.cantidad,numeroOferta:ofertaActiva && ofertaActiva.numero_oferta,tipoOferta:ofertaActiva && ofertaActiva.tipo_oferta,descuentoOferta:ofertaActiva && ofertaActiva.descuento_oferta,precioOferta:ofertaActiva && ofertaActiva.precio,resultadoOferta},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
                 if (resultadoOferta && resultadoOferta.cumplida) {
                     const precioNetoOferta = ofertaActiva.precio != null && ofertaActiva.precio !== '' && parseFloat(ofertaActiva.precio) > 0 ? parseFloat(ofertaActiva.precio) : 0;
                     const tipoOfertaNum = Number(ofertaActiva.tipo_oferta);
@@ -10367,4 +10369,5 @@ if (document.readyState === 'loading') {
 } else {
     window.app.initialize();
 }
+
 
