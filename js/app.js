@@ -5210,7 +5210,11 @@ class ScanAsYouShopApp {
 
     renderPriceHtmlForSearchLike(producto) {
         const priceData = this.getPriceDisplayData(producto);
-        if (!priceData.hasDiscountApplied) {
+        const showDiscount =
+            this.mostrarPreciosConDescuento &&
+            priceData.dtoPct != null &&
+            Number(priceData.dtoPct) > 0;
+        if (!showDiscount) {
             return `<div class="result-price">${priceData.visibleConIva.toFixed(2)} €</div>`;
         }
         return `
