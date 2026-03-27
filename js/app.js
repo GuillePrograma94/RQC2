@@ -3182,6 +3182,7 @@ class ScanAsYouShopApp {
     _updateFamiliaChipUI() {
         const chip = document.getElementById('chipFamilia');
         const label = document.getElementById('chipFamiliaLabel');
+        const chipsRow = document.getElementById('filterChipsRow');
         const cod = this.filterChips.codigoModificarFamilia || '';
         if (!chip || !label) return;
         if (cod) {
@@ -3193,6 +3194,9 @@ class ScanAsYouShopApp {
                 label.textContent = shortDesc;
             } else {
                 label.textContent = shortDesc ? ('Fam. ' + cod + ' · ' + shortDesc) : ('Fam. ' + cod);
+            }
+            if (chipsRow && chipsRow.firstElementChild !== chip) {
+                chipsRow.insertBefore(chip, chipsRow.firstElementChild);
             }
         } else {
             chip.style.display = 'none';
@@ -3517,8 +3521,11 @@ class ScanAsYouShopApp {
                 self.filterChips.familiaChipSoloTitulo = !!meta.titulo_inicio;
                 self._updateFamiliaChipUI();
                 self._closeChipConfig();
-                self._clearSearchTextInputsForFamilyNavigation();
                 await self.showScreen('search');
+                const chipsRow = document.getElementById('filterChipsRow');
+                if (chipsRow) {
+                    chipsRow.scrollLeft = 0;
+                }
                 await self.performSearch();
             });
             grid.appendChild(btn);
@@ -3536,8 +3543,11 @@ class ScanAsYouShopApp {
                 self.filterChips.familiaChipSoloTitulo = !!last.chipSoloTitulo;
                 self._updateFamiliaChipUI();
                 self._closeChipConfig();
-                self._clearSearchTextInputsForFamilyNavigation();
                 await self.showScreen('search');
+                const chipsRow = document.getElementById('filterChipsRow');
+                if (chipsRow) {
+                    chipsRow.scrollLeft = 0;
+                }
                 await self.performSearch();
             });
             grid.appendChild(openSearch);
