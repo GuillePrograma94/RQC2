@@ -8064,6 +8064,9 @@ class ScanAsYouShopApp {
         let precioNetoOfertaAplicado = false;
         let ofertaActiva = null;
         let resultadoOferta = null;
+        // #region agent log
+        fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c33516'},body:JSON.stringify({sessionId:'c33516',runId:'pre-fix',hypothesisId:'H1_H3',location:'app.js:updateCartProductCard:init',message:'Init pricing inputs for cart product',data:{codigoProducto:producto && producto.codigo_producto,cantidad:producto && producto.cantidad,precioUnitario:producto && producto.precio_unitario,priceWithIVA,dtoTarifa,priceWithIVABaseTarifa,priceWithIVADtoTarifa,codigoClienteGrupo:this.getEffectiveGrupoCliente()},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         
         if (codigoCliente) {
             const ofertas = (ofertasByCodigo && ofertasByCodigo.get(producto.codigo_producto)) ||
@@ -8072,6 +8075,9 @@ class ScanAsYouShopApp {
                 ofertaActiva = ofertas[0];
                 const carrito = window.cartManager.getCart();
                 resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito, ofertasByCodigo, intervalosCache, loteCache);
+                // #region agent log
+                fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c33516'},body:JSON.stringify({sessionId:'c33516',runId:'pre-fix',hypothesisId:'H2_H5',location:'app.js:updateCartProductCard:verificarOfertaCumplida',message:'Offer verification result',data:{codigoProducto:producto && producto.codigo_producto,cantidad:producto && producto.cantidad,numeroOferta:ofertaActiva && ofertaActiva.numero_oferta,tipoOferta:ofertaActiva && ofertaActiva.tipo_oferta,descuentoOferta:ofertaActiva && ofertaActiva.descuento_oferta,precioOferta:ofertaActiva && ofertaActiva.precio,resultadoOferta},timestamp:Date.now()})}).catch(()=>{});
+                // #endregion
                 
                 if (resultadoOferta && resultadoOferta.cumplida) {
                     const precioNetoOferta = ofertaActiva.precio != null && ofertaActiva.precio !== '' && parseFloat(ofertaActiva.precio) > 0 ? parseFloat(ofertaActiva.precio) : 0;
@@ -8115,6 +8121,9 @@ class ScanAsYouShopApp {
         const ofertaDisponible = mostrarPrecioOferta && precioConDescuento < priceWithIVA;
         const usarOferta = ofertaDisponible && (!tarifaDisponible || precioConDescuento <= priceWithIVADtoTarifa);
         const usarTarifa = tarifaDisponible && !usarOferta;
+        // #region agent log
+        fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c33516'},body:JSON.stringify({sessionId:'c33516',runId:'pre-fix',hypothesisId:'H3',location:'app.js:updateCartProductCard:decision',message:'Final decision offer vs tarifa',data:{codigoProducto:producto && producto.codigo_producto,priceWithIVA,precioConDescuento,descuentoAplicado,precioNetoOfertaAplicado,tarifaDisponible,ofertaDisponible,usarOferta,usarTarifa,priceWithIVADtoTarifa,priceWithIVABaseTarifa},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
 
         if (usarOferta) {
             const priceContainer = card.querySelector('.cart-product-price-container, .cart-product-price');
@@ -8200,6 +8209,9 @@ class ScanAsYouShopApp {
         let subtotalConDescuento = subtotalWithIVA;
         let descuentoAplicado = 0;
         let precioNetoOfertaAplicado = false;
+        // #region agent log
+        fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c33516'},body:JSON.stringify({sessionId:'c33516',runId:'pre-fix',hypothesisId:'H1_H4',location:'app.js:createCartProductCard:init',message:'Init pricing inputs create card',data:{codigoProducto:producto && producto.codigo_producto,cantidad:producto && producto.cantidad,precioUnitario:producto && producto.precio_unitario,priceWithIVA,dtoTarifa,priceWithIVABaseTarifa,priceWithIVADtoTarifa,codigoClienteGrupo:this.getEffectiveGrupoCliente()},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         
         if (codigoCliente) {
             const ofertas = (ofertasByCodigo && ofertasByCodigo.get(producto.codigo_producto)) ||
@@ -8208,6 +8220,9 @@ class ScanAsYouShopApp {
                 ofertaActiva = ofertas[0];
                 const carrito = window.cartManager.getCart();
                 resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito, ofertasByCodigo, intervalosCache, loteCache);
+                // #region agent log
+                fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c33516'},body:JSON.stringify({sessionId:'c33516',runId:'pre-fix',hypothesisId:'H2_H5',location:'app.js:createCartProductCard:verificarOfertaCumplida',message:'Offer verification result create card',data:{codigoProducto:producto && producto.codigo_producto,cantidad:producto && producto.cantidad,numeroOferta:ofertaActiva && ofertaActiva.numero_oferta,tipoOferta:ofertaActiva && ofertaActiva.tipo_oferta,descuentoOferta:ofertaActiva && ofertaActiva.descuento_oferta,precioOferta:ofertaActiva && ofertaActiva.precio,resultadoOferta},timestamp:Date.now()})}).catch(()=>{});
+                // #endregion
                 if (resultadoOferta && resultadoOferta.cumplida) {
                     const precioNetoOferta = ofertaActiva.precio != null && ofertaActiva.precio !== '' && parseFloat(ofertaActiva.precio) > 0 ? parseFloat(ofertaActiva.precio) : 0;
                     if (precioNetoOferta > 0) {
