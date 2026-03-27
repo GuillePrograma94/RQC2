@@ -3,10 +3,10 @@
  * Maneja cache y funcionamiento offline
  */
 
-// mn93vya8 es reemplazado por build.js en cada deployment de Vercel
+// mn961j71 es reemplazado por build.js en cada deployment de Vercel
 // con los primeros 8 caracteres del SHA del commit de Git.
 // En desarrollo local (sin build), permanece como literal y funciona igualmente.
-const CACHE_NAME = 'scan-as-you-shop-mn93vya8';
+const CACHE_NAME = 'scan-as-you-shop-mn961j71';
 const urlsToCache = [
     '/',
     '/index.html',

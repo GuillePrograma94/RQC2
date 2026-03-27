@@ -366,7 +366,7 @@ BEGIN
         estado = CASE WHEN estado = 'ENVIADO' THEN 'BORRADOR' ELSE estado END
     WHERE id = p_presupuesto_id;
 
-    DELETE FROM presupuestos_lineas WHERE presupuesto_id = p_presupuesto_id;
+    DELETE FROM presupuestos_lineas pl WHERE pl.presupuesto_id = p_presupuesto_id;
 
     FOR v_linea IN SELECT * FROM jsonb_array_elements(p_lineas)
     LOOP

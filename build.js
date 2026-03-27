@@ -24,12 +24,20 @@ const rawVersion =
 const version = rawVersion.substring(0, 8);
 
 let content = fs.readFileSync(SW_FILE, 'utf8');
-if (!content.includes(PLACEHOLDER)) {
-    console.warn('build.js: No se encontro ' + PLACEHOLDER + ' en sw.js.');
-} else {
+if (content.includes(PLACEHOLDER)) {
     content = content.replace(new RegExp(PLACEHOLDER, 'g'), version);
     fs.writeFileSync(SW_FILE, content, 'utf8');
     console.log('build.js: sw.js actualizado con version = ' + version);
+} else {
+    // Compatibilidad: si el placeholder ya fue reemplazado en un build previo,
+    // actualizamos igual el sufijo de cache para forzar renovacion de assets.
+    const replaced = content.replace(/scan-as-you-shop-[A-Za-z0-9_.-]+/g, 'scan-as-you-shop-' + version);
+    if (replaced !== content) {
+        fs.writeFileSync(SW_FILE, replaced, 'utf8');
+        console.log('build.js: sw.js versionado por regex = ' + version);
+    } else {
+        console.warn('build.js: No se encontro marcador de version en sw.js.');
+    }
 }
 
 // --- 2. Crear public/ y copiar solo estaticos (api/ se queda en raiz) ---
