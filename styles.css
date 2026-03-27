@@ -3248,6 +3248,14 @@ body.gate-visible .app-container {
     margin-top: 0;
     padding-top: 0.55rem;
 }
+@media (max-width: 899px) {
+    #appContainerTienda .screen-content.inicio-content {
+        padding-top: 0.35rem;
+    }
+    #appContainerTienda .inicio-familias-section {
+        padding-top: 0.2rem;
+    }
+}
 .inicio-familias-title {
     margin: 0 0 0.35rem;
     font-size: 1.1rem;

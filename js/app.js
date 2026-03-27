@@ -3527,6 +3527,7 @@ class ScanAsYouShopApp {
                 self._updateFamiliaChipUI();
                 self._closeChipConfig();
                 await self.showScreen('search');
+                self.updateActiveNav('search');
                 const chipsRow = document.getElementById('filterChipsRow');
                 if (chipsRow) {
                     chipsRow.scrollLeft = 0;
@@ -3551,6 +3552,7 @@ class ScanAsYouShopApp {
                 self._updateFamiliaChipUI();
                 self._closeChipConfig();
                 await self.showScreen('search');
+                self.updateActiveNav('search');
                 const chipsRow = document.getElementById('filterChipsRow');
                 if (chipsRow) {
                     chipsRow.scrollLeft = 0;
