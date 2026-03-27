@@ -8081,7 +8081,9 @@ class ScanAsYouShopApp {
                 
                 if (resultadoOferta && resultadoOferta.cumplida) {
                     const precioNetoOferta = ofertaActiva.precio != null && ofertaActiva.precio !== '' && parseFloat(ofertaActiva.precio) > 0 ? parseFloat(ofertaActiva.precio) : 0;
-                    if (precioNetoOferta > 0) {
+                    const tipoOfertaNum = Number(ofertaActiva.tipo_oferta);
+                    const usarPrecioNetoFijo = precioNetoOferta > 0 && tipoOfertaNum !== 2;
+                    if (usarPrecioNetoFijo) {
                         precioConDescuento = precioNetoOferta * 1.21;
                         subtotalConDescuento = precioConDescuento * producto.cantidad;
                         precioNetoOfertaAplicado = true;
@@ -8225,7 +8227,9 @@ class ScanAsYouShopApp {
                 // #endregion
                 if (resultadoOferta && resultadoOferta.cumplida) {
                     const precioNetoOferta = ofertaActiva.precio != null && ofertaActiva.precio !== '' && parseFloat(ofertaActiva.precio) > 0 ? parseFloat(ofertaActiva.precio) : 0;
-                    if (precioNetoOferta > 0) {
+                    const tipoOfertaNum = Number(ofertaActiva.tipo_oferta);
+                    const usarPrecioNetoFijo = precioNetoOferta > 0 && tipoOfertaNum !== 2;
+                    if (usarPrecioNetoFijo) {
                         precioConDescuento = precioNetoOferta * 1.21;
                         subtotalConDescuento = precioConDescuento * producto.cantidad;
                         precioNetoOfertaAplicado = true;
