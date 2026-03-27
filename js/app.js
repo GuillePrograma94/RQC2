@@ -172,6 +172,7 @@ class ScanAsYouShopApp {
             // Refresco periodico del JWT para evitar 42501 tras ~1h trabajando
             this.startAuthRefreshTimer();
 
+            
             const savedEsRepresentante = !!savedUser.is_comercial || !!savedUser.is_dependiente;
 
             // Usuario ADMINISTRACION: mostrar contenedor administracion e inicializar solo esa parte
