@@ -1910,6 +1910,179 @@ class SupabaseClient {
         }
     }
 
+    async crearPresupuesto(usuarioIdCliente, comercialId, almacenHabitual, observaciones, cart) {
+        try {
+            if (!this.client) throw new Error('Cliente de Supabase no inicializado');
+            const lineas = ((cart && Array.isArray(cart.productos)) ? cart.productos : [])
+                .map((p) => ({
+                    codigo: p.codigo_producto || p.codigo || '',
+                    descripcion: p.descripcion_producto || p.descripcion || '',
+                    cantidad: Number(p.cantidad || 0),
+                    precio_unitario: Number(p.precio_unitario || p.pvp || 0),
+                    dto_pct: Number(p.dto_pct || 0)
+                }))
+                .filter((l) => l.codigo && l.cantidad > 0);
+            if (!lineas.length) {
+                return { success: false, message: 'El presupuesto no tiene lineas' };
+            }
+            const { data, error } = await this.client.rpc('crear_presupuesto', {
+                p_usuario_id_cliente: usuarioIdCliente,
+                p_comercial_id: comercialId,
+                p_almacen_habitual: almacenHabitual || null,
+                p_observaciones: observaciones != null ? String(observaciones).trim() || null : null,
+                p_lineas: lineas
+            });
+            if (error) throw error;
+            if (Array.isArray(data) && data.length > 0) {
+                const row = data[0];
+                return {
+                    success: !!row.success,
+                    message: row.message || '',
+                    presupuesto_id: row.presupuesto_id || null,
+                    numero_presupuesto: row.numero_presupuesto || null
+                };
+            }
+            return { success: false, message: 'No se recibio respuesta del servidor' };
+        } catch (error) {
+            console.error('crearPresupuesto:', error);
+            return { success: false, message: 'No se pudo guardar el presupuesto' };
+        }
+    }
+
+    async actualizarPresupuesto(presupuestoId, comercialId, almacenHabitual, observaciones, cart) {
+        try {
+            if (!this.client) throw new Error('Cliente de Supabase no inicializado');
+            const lineas = ((cart && Array.isArray(cart.productos)) ? cart.productos : [])
+                .map((p) => ({
+                    codigo: p.codigo_producto || p.codigo || '',
+                    descripcion: p.descripcion_producto || p.descripcion || '',
+                    cantidad: Number(p.cantidad || 0),
+                    precio_unitario: Number(p.precio_unitario || p.pvp || 0),
+                    dto_pct: Number(p.dto_pct || 0)
+                }))
+                .filter((l) => l.codigo && l.cantidad > 0);
+            if (!lineas.length) {
+                return { success: false, message: 'El presupuesto no tiene lineas' };
+            }
+            const { data, error } = await this.client.rpc('actualizar_presupuesto', {
+                p_presupuesto_id: presupuestoId,
+                p_comercial_id: comercialId,
+                p_almacen_habitual: almacenHabitual || null,
+                p_observaciones: observaciones != null ? String(observaciones).trim() || null : null,
+                p_lineas: lineas
+            });
+            if (error) throw error;
+            if (Array.isArray(data) && data.length > 0) {
+                return { success: !!data[0].success, message: data[0].message || '', presupuesto_id: data[0].presupuesto_id || presupuestoId };
+            }
+            return { success: false, message: 'No se recibio respuesta del servidor' };
+        } catch (error) {
+            console.error('actualizarPresupuesto:', error);
+            return { success: false, message: 'No se pudo actualizar el presupuesto' };
+        }
+    }
+
+    async getPresupuestosUsuario(usuarioId) {
+        try {
+            if (!this.client || usuarioId == null) return [];
+            const id = typeof usuarioId === 'string' ? parseInt(usuarioId, 10) : usuarioId;
+            if (isNaN(id)) return [];
+            const { data, error } = await this.client.rpc('get_presupuestos_usuario', { p_usuario_id: id });
+            if (error) throw error;
+            return Array.isArray(data) ? data : [];
+        } catch (error) {
+            console.error('getPresupuestosUsuario:', error);
+            return [];
+        }
+    }
+
+    async getPresupuestosComercial(comercialId) {
+        try {
+            if (!this.client || comercialId == null) return [];
+            const id = typeof comercialId === 'string' ? parseInt(comercialId, 10) : comercialId;
+            if (isNaN(id)) return [];
+            const { data, error } = await this.client.rpc('get_presupuestos_comercial', { p_comercial_id: id });
+            if (error) throw error;
+            return Array.isArray(data) ? data : [];
+        } catch (error) {
+            console.error('getPresupuestosComercial:', error);
+            return [];
+        }
+    }
+
+    async getPresupuestoDetalle(presupuestoId) {
+        try {
+            if (!this.client || !presupuestoId) return null;
+            const { data, error } = await this.client.rpc('get_presupuesto_detalle', { p_presupuesto_id: presupuestoId });
+            if (error) throw error;
+            return Array.isArray(data) && data.length ? data[0] : null;
+        } catch (error) {
+            console.error('getPresupuestoDetalle:', error);
+            return null;
+        }
+    }
+
+    async cambiarEstadoPresupuesto(presupuestoId, estado, comercialId) {
+        try {
+            if (!this.client || !presupuestoId || !estado) return { success: false, message: 'Datos incompletos' };
+            const { data, error } = await this.client.rpc('cambiar_estado_presupuesto', {
+                p_presupuesto_id: presupuestoId,
+                p_estado: estado,
+                p_comercial_id: comercialId || null
+            });
+            if (error) throw error;
+            if (Array.isArray(data) && data.length > 0) return { success: !!data[0].success, message: data[0].message || '' };
+            return { success: false, message: 'No se recibio respuesta del servidor' };
+        } catch (error) {
+            console.error('cambiarEstadoPresupuesto:', error);
+            return { success: false, message: 'No se pudo cambiar el estado del presupuesto' };
+        }
+    }
+
+    async eliminarPresupuesto(presupuestoId, comercialId) {
+        try {
+            if (!this.client || !presupuestoId) return { success: false, message: 'Presupuesto invalido' };
+            const { data, error } = await this.client.rpc('eliminar_presupuesto', {
+                p_presupuesto_id: presupuestoId,
+                p_comercial_id: comercialId || null
+            });
+            if (error) throw error;
+            if (Array.isArray(data) && data.length > 0) return { success: !!data[0].success, message: data[0].message || '' };
+            return { success: false, message: 'No se recibio respuesta del servidor' };
+        } catch (error) {
+            console.error('eliminarPresupuesto:', error);
+            return { success: false, message: 'No se pudo eliminar el presupuesto' };
+        }
+    }
+
+    async generarPdfPresupuesto(presupuestoId) {
+        try {
+            const apiBase = typeof window !== 'undefined' && window.location && window.location.origin
+                ? window.location.origin
+                : '';
+            const url = apiBase ? `${apiBase}/api/quotes/generate-pdf` : '/api/quotes/generate-pdf';
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ presupuesto_id: presupuestoId })
+            });
+            if (!response.ok) {
+                let msg = 'No se pudo generar el PDF';
+                try {
+                    const payload = await response.json();
+                    msg = payload && payload.message ? payload.message : msg;
+                } catch (_) {}
+                return { success: false, message: msg };
+            }
+            const blob = await response.blob();
+            const fileName = 'presupuesto-' + String(presupuestoId) + '.pdf';
+            return { success: true, blob, fileName };
+        } catch (error) {
+            console.error('generarPdfPresupuesto:', error);
+            return { success: false, message: 'Error de conexion al generar PDF' };
+        }
+    }
+
     /**
      * Actualiza el identificador de pedido ERP en un carrito/pedido remoto
      */
@@ -2772,6 +2945,47 @@ class SupabaseClient {
         } catch (err) {
             console.error('getProveedores:', err);
             return [];
+        }
+    }
+
+    async getEmpresasPorAlmacen() {
+        try {
+            if (!this.client) return [];
+            const { data, error } = await this.client
+                .from('empresas_por_almacen')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, condiciones_comerciales, updated_at')
+                .order('almacen', { ascending: true });
+            if (error) throw error;
+            return Array.isArray(data) ? data : [];
+        } catch (error) {
+            console.error('getEmpresasPorAlmacen:', error);
+            return [];
+        }
+    }
+
+    async upsertEmpresaPorAlmacen(payload) {
+        try {
+            if (!this.client || !payload || !payload.almacen) return { success: false, message: 'Datos incompletos' };
+            const row = {
+                almacen: String(payload.almacen).trim(),
+                razon_social: payload.razon_social ? String(payload.razon_social).trim() : '',
+                cif: payload.cif ? String(payload.cif).trim() : '',
+                direccion: payload.direccion ? String(payload.direccion).trim() : '',
+                cp: payload.cp ? String(payload.cp).trim() : '',
+                poblacion: payload.poblacion ? String(payload.poblacion).trim() : '',
+                provincia: payload.provincia ? String(payload.provincia).trim() : '',
+                telefono: payload.telefono ? String(payload.telefono).trim() : null,
+                email: payload.email ? String(payload.email).trim() : null,
+                web: payload.web ? String(payload.web).trim() : null,
+                logo_url: payload.logo_url ? String(payload.logo_url).trim() : null,
+                condiciones_comerciales: payload.condiciones_comerciales ? String(payload.condiciones_comerciales).trim() : null
+            };
+            const { error } = await this.client.from('empresas_por_almacen').upsert([row], { onConflict: 'almacen' });
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error('upsertEmpresaPorAlmacen:', error);
+            return { success: false, message: 'No se pudo guardar la empresa por almacen' };
         }
     }
 

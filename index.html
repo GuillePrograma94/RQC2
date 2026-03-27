@@ -155,6 +155,20 @@
         </div>
     </div>
 
+    <!-- Modal Observaciones Presupuesto -->
+    <div id="presupuestoObservacionesModal" class="login-modal" style="display: none;">
+        <div class="login-modal-overlay"></div>
+        <div class="login-modal-content">
+            <div class="login-modal-header">
+                <h2 id="presupuestoObservacionesModalTitle">Guardar Presupuesto</h2>
+                <button id="closePresupuestoObservacionesModalBtn" class="close-login-btn">✕</button>
+            </div>
+            <label class="observaciones-label" for="presupuestoObservacionesModalInput">Observaciones (opcional):</label>
+            <textarea id="presupuestoObservacionesModalInput" class="observaciones-textarea" placeholder="Añade detalles del presupuesto..." rows="4"></textarea>
+            <button id="confirmarGuardarPresupuestoBtn" class="btn btn-primary btn-lg">Guardar presupuesto</button>
+        </div>
+    </div>
+
     <!-- Modal Enviar Pedido (contenido de Caja: Recoger en Almacén, Enviar en Ruta, Escanear en Mostrador) -->
     <div id="enviarPedidoModal" class="login-modal enviar-pedido-modal" style="display: none;">
         <div class="login-modal-overlay" id="enviarPedidoModalOverlay"></div>
@@ -222,6 +236,10 @@
                         <span class="menu-action-icon">📝</span>
                         <span>PRE-PEDIDOS</span>
                     </button>
+                    <button id="presupuestosBtn" class="menu-action-btn">
+                        <span class="menu-action-icon">📄</span>
+                        <span>PRESUPUESTOS</span>
+                    </button>
                     <button id="herramientasBtn" class="menu-action-btn">
                         <span class="menu-action-icon">🔧</span>
                         <span>Herramientas</span>
@@ -268,8 +286,10 @@
                 <!-- Footer carrito: botón Enviar Pedido (visible cuando hay productos) -->
                 <div id="cartFooter" class="cart-footer" style="display: none;">
                     <div id="prepedidoEditHint" class="prepedido-edit-hint" style="display: none;">Editando prepedido guardado</div>
+                    <div id="presupuestoEditHint" class="prepedido-edit-hint" style="display: none;">Editando presupuesto guardado</div>
                     <button type="button" id="enviarPedidoBtn" class="btn btn-primary btn-lg btn-enviar-pedido">Enviar Pedido</button>
                     <button type="button" id="guardarPrepedidoBtn" class="btn btn-secondary btn-lg btn-guardar-prepedido">Guardar Prepedido</button>
+                    <button type="button" id="guardarPresupuestoBtn" class="btn btn-secondary btn-lg btn-guardar-prepedido">Guardar Presupuesto</button>
                 </div>
             </main>
         </div>
@@ -596,6 +616,27 @@
                 </div>
 
                 <div id="prepedidosList" class="orders-list" style="display: none;"></div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA DE PRESUPUESTOS
+             ================================ -->
+        <div id="presupuestosScreen" class="screen">
+            <main class="screen-content">
+                <div id="presupuestosRepresentandoBlock" class="my-orders-representando" style="display: none;">
+                    <p class="my-orders-representando-texto">Representando a <strong id="presupuestosRepresentandoNombre"></strong></p>
+                </div>
+                <div id="presupuestosLoading" class="loading-state" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Cargando presupuestos...</p>
+                </div>
+                <div id="presupuestosEmpty" class="empty-state">
+                    <div class="empty-icon">📄</div>
+                    <h2>No tienes presupuestos guardados</h2>
+                    <p>Guarda presupuestos desde el carrito para poder compartirlos con el cliente</p>
+                </div>
+                <div id="presupuestosList" class="orders-list" style="display: none;"></div>
             </main>
         </div>
 
@@ -1302,6 +1343,34 @@
                 </div>
             </main>
         </div>
+        <div id="adminEmpresasScreen" class="screen screen-admin">
+            <header class="screen-header">
+                <button type="button" id="adminEmpresasBackBtn" class="profile-back-btn">Volver</button>
+                <h2>Empresas por almacen</h2>
+            </header>
+            <main class="screen-content">
+                <div id="adminEmpresasList" class="admin-list"></div>
+                <div id="adminEmpresaFormBlock" class="admin-detail-block" style="display: none;">
+                    <h3 id="adminEmpresaFormTitle" class="admin-detail-completar-title"></h3>
+                    <div class="admin-solicitud-fields">
+                        <div class="admin-solicitud-field"><label for="adminEmpresaRazonSocial">Razon social</label><input type="text" id="adminEmpresaRazonSocial"></div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaCif">CIF</label><input type="text" id="adminEmpresaCif"></div>
+                        <div class="admin-solicitud-field admin-solicitud-field-full"><label for="adminEmpresaDireccion">Direccion</label><input type="text" id="adminEmpresaDireccion"></div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaCp">CP</label><input type="text" id="adminEmpresaCp"></div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaPoblacion">Poblacion</label><input type="text" id="adminEmpresaPoblacion"></div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaProvincia">Provincia</label><input type="text" id="adminEmpresaProvincia"></div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaTelefono">Telefono</label><input type="text" id="adminEmpresaTelefono"></div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaEmail">Email</label><input type="text" id="adminEmpresaEmail"></div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaWeb">Web</label><input type="text" id="adminEmpresaWeb"></div>
+                        <div class="admin-solicitud-field admin-solicitud-field-full"><label for="adminEmpresaLogoUrl">Logo URL</label><input type="text" id="adminEmpresaLogoUrl"></div>
+                        <div class="admin-solicitud-field admin-solicitud-field-full"><label for="adminEmpresaCondiciones">Condiciones comerciales</label><textarea id="adminEmpresaCondiciones" rows="3"></textarea></div>
+                    </div>
+                    <div class="admin-detail-actions">
+                        <button type="button" id="adminEmpresaGuardarBtn" class="btn btn-primary">Guardar datos empresa</button>
+                    </div>
+                </div>
+            </main>
+        </div>
         <div id="adminProfileScreen" class="screen screen-admin">
             <main class="screen-content">
                 <p>Perfil administracion</p>
@@ -1312,6 +1381,7 @@
             <button type="button" id="navAdminInicio" class="nav-item nav-item-admin active">Inicio</button>
             <button type="button" id="navAdminSolicitudes" class="nav-item nav-item-admin">Solicitudes</button>
             <button type="button" id="navAdminProveedores" class="nav-item nav-item-admin">Proveedores</button>
+            <button type="button" id="navAdminEmpresas" class="nav-item nav-item-admin">Empresas</button>
             <button type="button" id="navAdminProfile" class="nav-item nav-item-admin">Perfil</button>
         </nav>
     </div>

@@ -53,6 +53,9 @@ class ScanAsYouShopApp {
         this.editingPrepedidoId = null;
         this.editingPrepedidoCodigo = null;
         this.editingPrepedidoObservaciones = '';
+        this.editingPresupuestoId = null;
+        this.editingPresupuestoNumero = null;
+        this.editingPresupuestoObservaciones = '';
     }
 
     /**
@@ -145,6 +148,13 @@ class ScanAsYouShopApp {
             // Compatibilidad sesion antigua: derivar is_administracion si no existe
             if (this.currentUser.is_administracion === undefined && this.currentUser.tipo) {
                 this.currentUser.is_administracion = String(this.currentUser.tipo).toUpperCase() === 'ADMINISTRACION';
+            }
+            // Compatibilidad sesion antigua: derivar roles representante si faltan
+            if (this.currentUser.is_comercial === undefined && this.currentUser.tipo) {
+                this.currentUser.is_comercial = String(this.currentUser.tipo).toUpperCase() === 'COMERCIAL';
+            }
+            if (this.currentUser.is_dependiente === undefined && this.currentUser.tipo) {
+                this.currentUser.is_dependiente = String(this.currentUser.tipo).toUpperCase() === 'DEPENDIENTE';
             }
             this.updateUserUI();
 
@@ -820,15 +830,19 @@ class ScanAsYouShopApp {
         const menuUserSubtitle = document.getElementById('menuUserSubtitle');
         const menuUserInfo = document.getElementById('menuUserInfo');
         const menuUserArrow = menuUserInfo ? menuUserInfo.querySelector('.user-info-arrow') : null;
+        const presupuestosBtn = document.getElementById('presupuestosBtn');
+        const guardarPresupuestoBtn = document.getElementById('guardarPresupuestoBtn');
         const chipMisCompras = document.getElementById('chipMisCompras');
         const chipOferta     = document.getElementById('chipOferta');
 
         if (this.currentUser) {
+            const isComercialRole = !!this.currentUser.is_comercial || String(this.currentUser.tipo || '').toUpperCase() === 'COMERCIAL';
+            const isDependienteRole = !!this.currentUser.is_dependiente || String(this.currentUser.tipo || '').toUpperCase() === 'DEPENDIENTE';
             // Usuario logueado
             if (menuGuest) menuGuest.style.display = 'none';
             if (menuUser) menuUser.style.display = 'block';
-            if (this.currentUser.is_comercial || this.currentUser.is_dependiente) {
-                const esDependiente = !!this.currentUser.is_dependiente;
+            if (isComercialRole || isDependienteRole) {
+                const esDependiente = isDependienteRole;
                 if (menuUserName) {
                     menuUserName.textContent = this.currentUser.user_name || (esDependiente ? 'Dependiente' : 'Comercial');
                 }
@@ -863,6 +877,8 @@ class ScanAsYouShopApp {
                 if (menuCommercialCard) menuCommercialCard.style.display = 'none';
                 var myOrdersBtn = document.getElementById('myOrdersBtn');
                 if (myOrdersBtn) myOrdersBtn.style.display = '';
+                if (presupuestosBtn) presupuestosBtn.style.display = isComercialRole ? '' : 'none';
+                if (guardarPresupuestoBtn) guardarPresupuestoBtn.style.display = isComercialRole ? '' : 'none';
             } else if (this.currentUser.is_operario) {
                 // Operario: nombre empresa (grande) + nombre operario (pequeño); bloque solo informativo, no botón
                 if (menuUserName) {
@@ -888,6 +904,8 @@ class ScanAsYouShopApp {
                 } else {
                     this.updateComercialCard();
                 }
+                if (presupuestosBtn) presupuestosBtn.style.display = 'none';
+                if (guardarPresupuestoBtn) guardarPresupuestoBtn.style.display = 'none';
             } else {
                 // Titular: nombre y código; bloque clicable para ir a Mi perfil
                 if (menuUserName) {
@@ -914,6 +932,8 @@ class ScanAsYouShopApp {
                 } else {
                     this.updateComercialCard();
                 }
+                if (presupuestosBtn) presupuestosBtn.style.display = 'none';
+                if (guardarPresupuestoBtn) guardarPresupuestoBtn.style.display = 'none';
             }
             var herramientasBtn = document.getElementById('herramientasBtn');
             if (herramientasBtn) herramientasBtn.style.display = '';
@@ -934,6 +954,8 @@ class ScanAsYouShopApp {
             if (herramientasBtnGuest) herramientasBtnGuest.style.display = 'none';
             const panelControlBtnGuest = document.getElementById('panelControlBtn');
             if (panelControlBtnGuest) panelControlBtnGuest.style.display = 'none';
+            if (presupuestosBtn) presupuestosBtn.style.display = 'none';
+            if (guardarPresupuestoBtn) guardarPresupuestoBtn.style.display = 'none';
         }
         // Header: mostrar cliente representado junto a BATMAR para comercial/dependiente
         const headerTitle = document.getElementById('headerTitle');
@@ -3793,6 +3815,10 @@ class ScanAsYouShopApp {
             self.showScreenAdmin('proveedores');
             self.updateActiveNavAdmin('proveedores');
         });
+        document.getElementById('navAdminEmpresas')?.addEventListener('click', () => {
+            self.showScreenAdmin('empresas');
+            self.updateActiveNavAdmin('empresas');
+        });
         document.getElementById('navAdminProfile')?.addEventListener('click', () => {
             self.showScreenAdmin('profile');
             self.updateActiveNavAdmin('profile');
@@ -3817,6 +3843,13 @@ class ScanAsYouShopApp {
             self.showScreenAdmin('inicio');
             self.updateActiveNavAdmin('inicio');
         });
+        document.getElementById('adminEmpresasBackBtn')?.addEventListener('click', () => {
+            self.showScreenAdmin('inicio');
+            self.updateActiveNavAdmin('inicio');
+        });
+        document.getElementById('adminEmpresaGuardarBtn')?.addEventListener('click', () => {
+            self.saveAdminEmpresaForm();
+        });
 
         document.getElementById('adminLogoutBtn')?.addEventListener('click', () => {
             self.logout();
@@ -3825,7 +3858,7 @@ class ScanAsYouShopApp {
 
     /**
      * Muestra una pantalla del panel administracion y actualiza contenido si aplica.
-     * @param {string} screenName - 'inicio' | 'solicitudesList' | 'solicitudDetail' | 'proveedores' | 'profile'
+     * @param {string} screenName - 'inicio' | 'solicitudesList' | 'solicitudDetail' | 'proveedores' | 'empresas' | 'profile'
      * @param {string} [id] - UUID de solicitud para pantalla detalle
      */
     async showScreenAdmin(screenName, id) {
@@ -3851,6 +3884,10 @@ class ScanAsYouShopApp {
             const el = document.getElementById('adminProveedoresScreen');
             if (el) el.classList.add('screen-active');
             this.loadAdminProveedores();
+        } else if (screenName === 'empresas') {
+            const el = document.getElementById('adminEmpresasScreen');
+            if (el) el.classList.add('screen-active');
+            this.loadAdminEmpresas();
         } else if (screenName === 'profile') {
             const el = document.getElementById('adminProfileScreen');
             if (el) el.classList.add('screen-active');
@@ -3861,13 +3898,14 @@ class ScanAsYouShopApp {
      * Marca el item activo del bottom nav del panel administracion.
      */
     updateActiveNavAdmin(screenName) {
-        ['navAdminInicio', 'navAdminSolicitudes', 'navAdminProveedores', 'navAdminProfile'].forEach(navId => {
+        ['navAdminInicio', 'navAdminSolicitudes', 'navAdminProveedores', 'navAdminEmpresas', 'navAdminProfile'].forEach(navId => {
             const el = document.getElementById(navId);
             if (el) el.classList.toggle('active', false);
         });
         if (screenName === 'inicio') document.getElementById('navAdminInicio')?.classList.add('active');
         else if (screenName === 'solicitudesList' || screenName === 'solicitudDetail') document.getElementById('navAdminSolicitudes')?.classList.add('active');
         else if (screenName === 'proveedores') document.getElementById('navAdminProveedores')?.classList.add('active');
+        else if (screenName === 'empresas') document.getElementById('navAdminEmpresas')?.classList.add('active');
         else if (screenName === 'profile') document.getElementById('navAdminProfile')?.classList.add('active');
     }
 
@@ -4021,6 +4059,100 @@ class ScanAsYouShopApp {
                 }
             });
         }
+    }
+
+    async loadAdminEmpresas() {
+        const listEl = document.getElementById('adminEmpresasList');
+        const formBlock = document.getElementById('adminEmpresaFormBlock');
+        if (!listEl) return;
+        if (formBlock) formBlock.style.display = 'none';
+        listEl.innerHTML = '<p>Cargando...</p>';
+        const empresas = await window.supabaseClient.getEmpresasPorAlmacen();
+        if (!empresas || empresas.length === 0) {
+            listEl.innerHTML = '<p>No hay empresas por almacen configuradas aun.</p>';
+            return;
+        }
+        listEl.innerHTML = empresas.map((e) => {
+            const almacen = this.escapeForHtmlAttribute(e.almacen || '');
+            const razon = this.escapeForHtmlContentPreservingNewlines(e.razon_social || '');
+            const cif = this.escapeForHtmlContentPreservingNewlines(e.cif || '');
+            return '<button type="button" class="admin-solicitud-card admin-empresa-card" data-almacen="' + almacen + '">' +
+                '<span class="admin-solicitud-desc"><strong>' + almacen + '</strong> - ' + razon + '</span>' +
+                '<span class="admin-proveedor-alias-count">CIF ' + cif + '</span>' +
+                '</button>';
+        }).join('');
+        listEl.querySelectorAll('.admin-empresa-card').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const almacen = btn.getAttribute('data-almacen');
+                const row = empresas.find((x) => String(x.almacen || '') === String(almacen || ''));
+                this.renderAdminEmpresaForm(row || { almacen: almacen || '' });
+            });
+        });
+    }
+
+    renderAdminEmpresaForm(row) {
+        const formBlock = document.getElementById('adminEmpresaFormBlock');
+        const titleEl = document.getElementById('adminEmpresaFormTitle');
+        if (!formBlock || !titleEl || !row) return;
+        formBlock.style.display = 'block';
+        formBlock.dataset.almacen = row.almacen || '';
+        titleEl.textContent = 'Datos de empresa - Almacen ' + (row.almacen || '');
+        const set = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.value = value != null ? String(value) : '';
+        };
+        set('adminEmpresaRazonSocial', row.razon_social);
+        set('adminEmpresaCif', row.cif);
+        set('adminEmpresaDireccion', row.direccion);
+        set('adminEmpresaCp', row.cp);
+        set('adminEmpresaPoblacion', row.poblacion);
+        set('adminEmpresaProvincia', row.provincia);
+        set('adminEmpresaTelefono', row.telefono);
+        set('adminEmpresaEmail', row.email);
+        set('adminEmpresaWeb', row.web);
+        set('adminEmpresaLogoUrl', row.logo_url);
+        set('adminEmpresaCondiciones', row.condiciones_comerciales);
+    }
+
+    async saveAdminEmpresaForm() {
+        const formBlock = document.getElementById('adminEmpresaFormBlock');
+        if (!formBlock) return;
+        const almacen = (formBlock.dataset.almacen || '').trim();
+        if (!almacen) {
+            window.ui.showToast('Selecciona un almacen', 'warning');
+            return;
+        }
+        const get = (id) => {
+            const el = document.getElementById(id);
+            return el ? String(el.value || '').trim() : '';
+        };
+        const payload = {
+            almacen: almacen,
+            razon_social: get('adminEmpresaRazonSocial'),
+            cif: get('adminEmpresaCif'),
+            direccion: get('adminEmpresaDireccion'),
+            cp: get('adminEmpresaCp'),
+            poblacion: get('adminEmpresaPoblacion'),
+            provincia: get('adminEmpresaProvincia'),
+            telefono: get('adminEmpresaTelefono'),
+            email: get('adminEmpresaEmail'),
+            web: get('adminEmpresaWeb'),
+            logo_url: get('adminEmpresaLogoUrl'),
+            condiciones_comerciales: get('adminEmpresaCondiciones')
+        };
+        if (!payload.razon_social || !payload.cif || !payload.direccion || !payload.cp || !payload.poblacion || !payload.provincia) {
+            window.ui.showToast('Completa razon social, CIF, direccion, CP, poblacion y provincia', 'warning');
+            return;
+        }
+        window.ui.showLoading('Guardando empresa por almacen...');
+        const result = await window.supabaseClient.upsertEmpresaPorAlmacen(payload);
+        window.ui.hideLoading();
+        if (!result || !result.success) {
+            window.ui.showToast((result && result.message) || 'No se pudo guardar', 'error');
+            return;
+        }
+        window.ui.showToast('Datos de empresa guardados', 'success');
+        this.loadAdminEmpresas();
     }
 
     /**
@@ -5602,6 +5734,15 @@ class ScanAsYouShopApp {
                 this.loadPrepedidos();
             });
         }
+        const presupuestosBtn = document.getElementById('presupuestosBtn');
+        if (presupuestosBtn) {
+            presupuestosBtn.addEventListener('click', () => {
+                this.closeMenu();
+                this.showScreen('presupuestos');
+                this.updateActiveNav('presupuestos');
+                this.loadPresupuestos();
+            });
+        }
 
         // Herramientas: abre pantalla de herramientas (visible para todos los usuarios)
         const herramientasBtn = document.getElementById('herramientasBtn');
@@ -5987,6 +6128,12 @@ class ScanAsYouShopApp {
                 this.openPrepedidoObservacionesModal();
             });
         }
+        const guardarPresupuestoBtn = document.getElementById('guardarPresupuestoBtn');
+        if (guardarPresupuestoBtn) {
+            guardarPresupuestoBtn.addEventListener('click', () => {
+                this.openPresupuestoObservacionesModal();
+            });
+        }
         const closePrepedidoObservacionesModalBtn = document.getElementById('closePrepedidoObservacionesModalBtn');
         if (closePrepedidoObservacionesModalBtn) {
             closePrepedidoObservacionesModalBtn.addEventListener('click', () => {
@@ -6007,6 +6154,29 @@ class ScanAsYouShopApp {
             prepedidoObservacionesModal.addEventListener('click', (e) => {
                 if (e.target && (e.target.classList.contains('login-modal-overlay') || e.target.id === 'prepedidoObservacionesModal')) {
                     this.closePrepedidoObservacionesModal();
+                }
+            });
+        }
+        const closePresupuestoObservacionesModalBtn = document.getElementById('closePresupuestoObservacionesModalBtn');
+        if (closePresupuestoObservacionesModalBtn) {
+            closePresupuestoObservacionesModalBtn.addEventListener('click', () => {
+                this.closePresupuestoObservacionesModal();
+            });
+        }
+        const confirmarGuardarPresupuestoBtn = document.getElementById('confirmarGuardarPresupuestoBtn');
+        if (confirmarGuardarPresupuestoBtn) {
+            confirmarGuardarPresupuestoBtn.addEventListener('click', () => {
+                const input = document.getElementById('presupuestoObservacionesModalInput');
+                const observaciones = input ? String(input.value || '').trim() : '';
+                this.closePresupuestoObservacionesModal();
+                this.guardarPresupuestoDesdeCarrito(observaciones);
+            });
+        }
+        const presupuestoObservacionesModal = document.getElementById('presupuestoObservacionesModal');
+        if (presupuestoObservacionesModal) {
+            presupuestoObservacionesModal.addEventListener('click', (e) => {
+                if (e.target && (e.target.classList.contains('login-modal-overlay') || e.target.id === 'presupuestoObservacionesModal')) {
+                    this.closePresupuestoObservacionesModal();
                 }
             });
         }
@@ -6673,6 +6843,9 @@ class ScanAsYouShopApp {
 
             if (screenName === 'prepedidos') {
                 this.loadPrepedidos();
+            }
+            if (screenName === 'presupuestos') {
+                this.loadPresupuestos();
             }
 
         }
@@ -10030,6 +10203,355 @@ class ScanAsYouShopApp {
             window.ui.hideLoading();
             console.error('aceptarPrepedido:', error);
             window.ui.showToast(error.message || 'No se pudo aceptar el prepedido', 'error');
+        }
+    }
+
+    openPresupuestoObservacionesModal() {
+        const modal = document.getElementById('presupuestoObservacionesModal');
+        const input = document.getElementById('presupuestoObservacionesModalInput');
+        const title = document.getElementById('presupuestoObservacionesModalTitle');
+        const confirmBtn = document.getElementById('confirmarGuardarPresupuestoBtn');
+        if (!modal) return;
+        if (title) title.textContent = this.editingPresupuestoId ? 'Actualizar Presupuesto' : 'Guardar Presupuesto';
+        if (confirmBtn) confirmBtn.textContent = this.editingPresupuestoId ? 'Actualizar presupuesto' : 'Guardar presupuesto';
+        if (input) input.value = this.editingPresupuestoId ? String(this.editingPresupuestoObservaciones || '') : '';
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        if (input) setTimeout(() => input.focus(), 50);
+    }
+
+    closePresupuestoObservacionesModal() {
+        const modal = document.getElementById('presupuestoObservacionesModal');
+        if (!modal) return;
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+
+    setPresupuestoEditMode(presupuestoId, numero, observaciones) {
+        this.editingPresupuestoId = presupuestoId != null ? Number(presupuestoId) : null;
+        this.editingPresupuestoNumero = numero ? String(numero) : null;
+        this.editingPresupuestoObservaciones = observaciones != null ? String(observaciones) : '';
+        const hintEl = document.getElementById('presupuestoEditHint');
+        const saveBtn = document.getElementById('guardarPresupuestoBtn');
+        if (hintEl) {
+            hintEl.style.display = this.editingPresupuestoId ? 'block' : 'none';
+            if (this.editingPresupuestoId) {
+                hintEl.textContent = 'Editando presupuesto ' + (this.editingPresupuestoNumero || this.editingPresupuestoId);
+            }
+        }
+        if (saveBtn) {
+            saveBtn.textContent = this.editingPresupuestoId ? 'Actualizar Presupuesto' : 'Guardar Presupuesto';
+        }
+    }
+
+    resetPresupuestoEditMode() {
+        this.editingPresupuestoId = null;
+        this.editingPresupuestoNumero = null;
+        this.editingPresupuestoObservaciones = '';
+        const hintEl = document.getElementById('presupuestoEditHint');
+        const saveBtn = document.getElementById('guardarPresupuestoBtn');
+        if (hintEl) {
+            hintEl.style.display = 'none';
+            hintEl.textContent = 'Editando presupuesto guardado';
+        }
+        if (saveBtn) {
+            saveBtn.textContent = 'Guardar Presupuesto';
+        }
+    }
+
+    async guardarPresupuestoDesdeCarrito(observacionesManual) {
+        try {
+            if (!this.currentUser || !this.currentUser.is_comercial || !this.currentUser.comercial_id) {
+                window.ui.showToast('Solo un comercial puede guardar presupuestos', 'warning');
+                return;
+            }
+            if (!this.currentUser.cliente_representado_id) {
+                window.ui.showToast('Selecciona un cliente para guardar el presupuesto', 'warning');
+                this.showScreen('selectorCliente');
+                this.renderSelectorClienteScreen();
+                return;
+            }
+            const cart = window.cartManager.getCart();
+            if (!cart || !Array.isArray(cart.productos) || cart.productos.length === 0) {
+                window.ui.showToast('El carrito esta vacio', 'warning');
+                return;
+            }
+            let observacionesFinal = observacionesManual != null ? String(observacionesManual).trim() : '';
+            if (!observacionesFinal && this.currentUser.user_name) {
+                observacionesFinal = 'Presupuesto preparado por: ' + this.currentUser.user_name;
+            }
+            const almacen = this.getEffectiveAlmacenHabitual() || '';
+            window.ui.showLoading('Guardando presupuesto...');
+            let result = null;
+            if (this.editingPresupuestoId) {
+                result = await window.supabaseClient.actualizarPresupuesto(
+                    this.editingPresupuestoId,
+                    this.currentUser.comercial_id,
+                    almacen,
+                    observacionesFinal || null,
+                    cart
+                );
+            } else {
+                result = await window.supabaseClient.crearPresupuesto(
+                    this.currentUser.cliente_representado_id,
+                    this.currentUser.comercial_id,
+                    almacen,
+                    observacionesFinal || null,
+                    cart
+                );
+            }
+            window.ui.hideLoading();
+            if (!result || !result.success) {
+                window.ui.showToast((result && result.message) || 'No se pudo guardar el presupuesto', 'error');
+                return;
+            }
+            const wasEditing = !!this.editingPresupuestoId;
+            await window.cartManager.clearCart();
+            this.resetPresupuestoEditMode();
+            window.ui.updateCartBadge();
+            this.updateCartView();
+            window.ui.showToast(wasEditing ? 'Presupuesto actualizado correctamente' : 'Presupuesto guardado correctamente', 'success');
+        } catch (error) {
+            window.ui.hideLoading();
+            console.error('guardarPresupuestoDesdeCarrito:', error);
+            window.ui.showToast('Error al guardar presupuesto', 'error');
+        }
+    }
+
+    async loadPresupuestos() {
+        const loadingEl = document.getElementById('presupuestosLoading');
+        const emptyEl = document.getElementById('presupuestosEmpty');
+        const listEl = document.getElementById('presupuestosList');
+        const representandoBlock = document.getElementById('presupuestosRepresentandoBlock');
+        const representandoNombre = document.getElementById('presupuestosRepresentandoNombre');
+        if (!loadingEl || !emptyEl || !listEl) return;
+        if (!this.currentUser || !this.currentUser.is_comercial || !this.currentUser.comercial_id) {
+            loadingEl.style.display = 'none';
+            emptyEl.style.display = 'flex';
+            listEl.style.display = 'none';
+            return;
+        }
+        if (representandoBlock && representandoNombre) {
+            if (this.currentUser.cliente_representado_id && this.currentUser.cliente_representado_nombre) {
+                representandoBlock.style.display = 'block';
+                representandoNombre.textContent = this.currentUser.cliente_representado_nombre;
+            } else {
+                representandoBlock.style.display = 'none';
+            }
+        }
+        loadingEl.style.display = 'flex';
+        emptyEl.style.display = 'none';
+        listEl.style.display = 'none';
+        try {
+            const presupuestos = this.currentUser.cliente_representado_id
+                ? await window.supabaseClient.getPresupuestosUsuario(this.currentUser.cliente_representado_id)
+                : await window.supabaseClient.getPresupuestosComercial(this.currentUser.comercial_id);
+            loadingEl.style.display = 'none';
+            if (!presupuestos || presupuestos.length === 0) {
+                emptyEl.style.display = 'flex';
+                listEl.style.display = 'none';
+                return;
+            }
+            listEl.style.display = 'block';
+            emptyEl.style.display = 'none';
+            listEl.innerHTML = '';
+            for (const presupuesto of presupuestos) {
+                listEl.appendChild(this.createPresupuestoCard(presupuesto));
+            }
+        } catch (error) {
+            loadingEl.style.display = 'none';
+            emptyEl.style.display = 'flex';
+            listEl.style.display = 'none';
+            console.error('loadPresupuestos:', error);
+            window.ui.showToast('Error al cargar presupuestos', 'error');
+        }
+    }
+
+    createPresupuestoCard(presupuesto) {
+        const card = document.createElement('div');
+        card.className = 'order-card prepedido-card';
+        const idAttr = String(presupuesto.id);
+        const fechaFormateada = this.formatDateSpain(presupuesto.fecha);
+        const estado = String(presupuesto.estado || 'BORRADOR').toUpperCase();
+        const badge = estado === 'ACEPTADO' ? 'order-badge-success' : (estado === 'RECHAZADO' ? 'order-badge-error' : 'order-badge-pending');
+        const clienteNombreHtml = (presupuesto.cliente_nombre && String(presupuesto.cliente_nombre).trim() !== '')
+            ? `<div class="order-card-cliente">Cliente: ${this.escapeForHtmlContentPreservingNewlines(String(presupuesto.cliente_nombre).trim())}</div>`
+            : '';
+        card.innerHTML = `
+            <div class="order-card-main">
+                <div class="order-card-top">
+                    <span class="order-almacen">${this.escapeForHtmlAttribute(presupuesto.almacen_habitual || '-')}</span>
+                    <span class="order-type order-type-remote">Presupuesto</span>
+                    <span class="order-badge ${badge}">${this.escapeForHtmlAttribute(estado)}</span>
+                </div>
+                ${clienteNombreHtml}
+                <div class="order-card-meta">
+                    <span class="order-date">${fechaFormateada}</span>
+                    <span class="order-code">Numero: ${this.escapeForHtmlAttribute(presupuesto.numero_presupuesto || '-')}</span>
+                </div>
+                <div class="order-card-totals">
+                    <span class="order-items">${Number(presupuesto.total_lineas || 0)} linea${Number(presupuesto.total_lineas || 0) !== 1 ? 's' : ''}</span>
+                    <span class="order-total">${Number(presupuesto.total || 0).toFixed(2)} €</span>
+                </div>
+            </div>
+            <div class="prepedido-actions">
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="window.app.modificarPresupuesto(${idAttr})">Modificar</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="window.app.marcarPresupuestoEnviado(${idAttr})">Marcar enviado</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.app.compartirPresupuestoWhatsApp(${idAttr})">WhatsApp</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.app.compartirPresupuestoEmail(${idAttr})">Email</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.app.eliminarPresupuesto(${idAttr})">Eliminar</button>
+            </div>
+        `;
+        return card;
+    }
+
+    async modificarPresupuesto(presupuestoId) {
+        try {
+            window.ui.showLoading('Cargando presupuesto...');
+            const presupuesto = await window.supabaseClient.getPresupuestoDetalle(presupuestoId);
+            if (!presupuesto || !Array.isArray(presupuesto.lineas) || presupuesto.lineas.length === 0) {
+                window.ui.hideLoading();
+                window.ui.showToast('No se encontraron lineas del presupuesto', 'error');
+                return;
+            }
+            await window.cartManager.clearCart();
+            for (const linea of presupuesto.lineas) {
+                await window.cartManager.addProduct(
+                    { codigo: linea.codigo, descripcion: linea.descripcion || '', pvp: Number(linea.precio_unitario || 0) },
+                    Number(linea.cantidad || 0)
+                );
+            }
+            this.setPresupuestoEditMode(presupuesto.id, presupuesto.numero_presupuesto || '', presupuesto.observaciones || '');
+            window.ui.hideLoading();
+            this.showScreen('cart');
+            this.updateActiveNav('cart');
+            this.updateCartView();
+            window.ui.updateCartBadge();
+            window.ui.showToast('Presupuesto cargado en el carrito', 'success');
+        } catch (error) {
+            window.ui.hideLoading();
+            console.error('modificarPresupuesto:', error);
+            window.ui.showToast('No se pudo cargar el presupuesto', 'error');
+        }
+    }
+
+    async marcarPresupuestoEnviado(presupuestoId) {
+        try {
+            if (!this.currentUser || !this.currentUser.comercial_id) return;
+            window.ui.showLoading('Actualizando estado...');
+            const result = await window.supabaseClient.cambiarEstadoPresupuesto(presupuestoId, 'ENVIADO', this.currentUser.comercial_id);
+            window.ui.hideLoading();
+            if (!result || !result.success) {
+                window.ui.showToast((result && result.message) || 'No se pudo cambiar el estado', 'error');
+                return;
+            }
+            window.ui.showToast('Presupuesto marcado como ENVIADO', 'success');
+            await this.loadPresupuestos();
+        } catch (error) {
+            window.ui.hideLoading();
+            console.error('marcarPresupuestoEnviado:', error);
+            window.ui.showToast('Error al cambiar estado del presupuesto', 'error');
+        }
+    }
+
+    async eliminarPresupuesto(presupuestoId) {
+        try {
+            const ok = window.confirm('¿Quieres eliminar este presupuesto?');
+            if (!ok || !this.currentUser || !this.currentUser.comercial_id) return;
+            window.ui.showLoading('Eliminando presupuesto...');
+            const result = await window.supabaseClient.eliminarPresupuesto(presupuestoId, this.currentUser.comercial_id);
+            window.ui.hideLoading();
+            if (!result || !result.success) {
+                window.ui.showToast((result && result.message) || 'No se pudo eliminar el presupuesto', 'error');
+                return;
+            }
+            if (this.editingPresupuestoId && Number(this.editingPresupuestoId) === Number(presupuestoId)) {
+                this.resetPresupuestoEditMode();
+            }
+            window.ui.showToast('Presupuesto eliminado', 'success');
+            await this.loadPresupuestos();
+        } catch (error) {
+            window.ui.hideLoading();
+            console.error('eliminarPresupuesto:', error);
+            window.ui.showToast('Error al eliminar presupuesto', 'error');
+        }
+    }
+
+    async _getShareDataForPresupuesto(presupuestoId) {
+        const detail = await window.supabaseClient.getPresupuestoDetalle(presupuestoId);
+        if (!detail) return null;
+        const pdfResult = await window.supabaseClient.generarPdfPresupuesto(presupuestoId);
+        if (!pdfResult || !pdfResult.success || !pdfResult.blob) {
+            return { ok: false, message: (pdfResult && pdfResult.message) || 'No se pudo generar PDF' };
+        }
+        const title = 'Presupuesto ' + (detail.numero_presupuesto || presupuestoId);
+        const text = 'Te comparto el ' + title + '. Cliente: ' + (detail.cliente_nombre || '');
+        const fileName = (detail.numero_presupuesto || ('presupuesto-' + presupuestoId)) + '.pdf';
+        const file = new File([pdfResult.blob], fileName, { type: 'application/pdf' });
+        return { ok: true, title, text, file, blob: pdfResult.blob };
+    }
+
+    async compartirPresupuestoWhatsApp(presupuestoId) {
+        try {
+            window.ui.showLoading('Generando PDF...');
+            const shareData = await this._getShareDataForPresupuesto(presupuestoId);
+            window.ui.hideLoading();
+            if (!shareData || !shareData.ok) {
+                window.ui.showToast((shareData && shareData.message) || 'No se pudo compartir el presupuesto', 'error');
+                return;
+            }
+            if (navigator.canShare && navigator.canShare({ files: [shareData.file] }) && navigator.share) {
+                await navigator.share({ files: [shareData.file], title: shareData.title, text: shareData.text });
+                await window.supabaseClient.cambiarEstadoPresupuesto(presupuestoId, 'ENVIADO', this.currentUser.comercial_id);
+                await this.loadPresupuestos();
+                return;
+            }
+            const url = URL.createObjectURL(shareData.blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = shareData.file.name;
+            a.click();
+            window.open('https://wa.me/?text=' + encodeURIComponent(shareData.text), '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+            await window.supabaseClient.cambiarEstadoPresupuesto(presupuestoId, 'ENVIADO', this.currentUser.comercial_id);
+            await this.loadPresupuestos();
+        } catch (error) {
+            window.ui.hideLoading();
+            console.error('compartirPresupuestoWhatsApp:', error);
+            window.ui.showToast('No se pudo compartir por WhatsApp', 'error');
+        }
+    }
+
+    async compartirPresupuestoEmail(presupuestoId) {
+        try {
+            window.ui.showLoading('Generando PDF...');
+            const shareData = await this._getShareDataForPresupuesto(presupuestoId);
+            window.ui.hideLoading();
+            if (!shareData || !shareData.ok) {
+                window.ui.showToast((shareData && shareData.message) || 'No se pudo compartir el presupuesto', 'error');
+                return;
+            }
+            if (navigator.canShare && navigator.canShare({ files: [shareData.file] }) && navigator.share) {
+                await navigator.share({ files: [shareData.file], title: shareData.title, text: shareData.text });
+                await window.supabaseClient.cambiarEstadoPresupuesto(presupuestoId, 'ENVIADO', this.currentUser.comercial_id);
+                await this.loadPresupuestos();
+                return;
+            }
+            const url = URL.createObjectURL(shareData.blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = shareData.file.name;
+            a.click();
+            const asunto = encodeURIComponent(shareData.title);
+            const cuerpo = encodeURIComponent(shareData.text + '\n\nAdjunto presupuesto en PDF.');
+            window.location.href = 'mailto:?subject=' + asunto + '&body=' + cuerpo;
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+            await window.supabaseClient.cambiarEstadoPresupuesto(presupuestoId, 'ENVIADO', this.currentUser.comercial_id);
+            await this.loadPresupuestos();
+        } catch (error) {
+            window.ui.hideLoading();
+            console.error('compartirPresupuestoEmail:', error);
+            window.ui.showToast('No se pudo compartir por Email', 'error');
         }
     }
 
