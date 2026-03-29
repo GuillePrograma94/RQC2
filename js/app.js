@@ -1363,16 +1363,23 @@ class ScanAsYouShopApp {
 
     /**
      * Almacen cuyo texto_cabecera de empresas_por_almacen alimenta el titulo principal (#headerTitle).
+     * Dependiente: almacen de la tienda (almacen_tienda). Resto: almacen habitual efectivo (cliente representado si comercial).
      * @returns {string|null}
      */
     getAlmacenForHeaderEmpresa() {
         if (!this.currentUser) return null;
+        const isDependiente =
+            !!this.currentUser.is_dependiente || String(this.currentUser.tipo || '').toUpperCase() === 'DEPENDIENTE';
+        if (isDependiente) {
+            const t = this.currentUser.almacen_tienda;
+            if (t != null && String(t).trim() !== '') {
+                return String(t).trim();
+            }
+            return null;
+        }
         const h = this.getEffectiveAlmacenHabitual();
         if (h != null && String(h).trim() !== '') {
             return String(h).trim();
-        }
-        if (this.currentUser.almacen_tienda != null && String(this.currentUser.almacen_tienda).trim() !== '') {
-            return String(this.currentUser.almacen_tienda).trim();
         }
         return null;
     }
