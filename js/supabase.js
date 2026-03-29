@@ -2977,7 +2977,7 @@ class SupabaseClient {
             if (!this.client) return [];
             const { data, error } = await this.client
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, condiciones_comerciales, updated_at')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, condiciones_comerciales, texto_cabecera, updated_at')
                 .order('almacen', { ascending: true });
             if (error) throw error;
             return Array.isArray(data) ? data : [];
@@ -3002,7 +3002,11 @@ class SupabaseClient {
                 email: payload.email ? String(payload.email).trim() : null,
                 web: payload.web ? String(payload.web).trim() : null,
                 logo_url: payload.logo_url ? String(payload.logo_url).trim() : null,
-                condiciones_comerciales: payload.condiciones_comerciales ? String(payload.condiciones_comerciales).trim() : null
+                condiciones_comerciales: payload.condiciones_comerciales ? String(payload.condiciones_comerciales).trim() : null,
+                texto_cabecera:
+                    payload.texto_cabecera != null && String(payload.texto_cabecera).trim() !== ''
+                        ? String(payload.texto_cabecera).trim()
+                        : null
             };
             const { error } = await this.client.from('empresas_por_almacen').upsert([row], { onConflict: 'almacen' });
             if (error) throw error;
@@ -3024,7 +3028,7 @@ class SupabaseClient {
             const a = String(almacen).trim();
             const { data, error } = await this.client
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, condiciones_comerciales, updated_at')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, condiciones_comerciales, texto_cabecera, updated_at')
                 .eq('almacen', a)
                 .maybeSingle();
             if (error) throw error;

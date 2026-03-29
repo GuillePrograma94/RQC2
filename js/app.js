@@ -981,12 +981,13 @@ class ScanAsYouShopApp {
             if (presupuestosBtn) presupuestosBtn.style.display = 'none';
             if (guardarPresupuestoBtn) guardarPresupuestoBtn.style.display = 'none';
         }
-        // Header: mostrar cliente representado junto a BATMAR para comercial/dependiente
+        // Header: texto configurado en empresas_por_almacen.texto_cabecera o BATMAR; sufijo si representa cliente
         const headerTitle = document.getElementById('headerTitle');
         if (headerTitle) {
-            headerTitle.textContent = (this.currentUser && this.canRepresentClientes() && this.currentUser.cliente_representado_nombre)
-                ? ('BATMAR - ' + this.currentUser.cliente_representado_nombre)
-                : 'BATMAR';
+            headerTitle.textContent = this.buildHeaderTitleText(null);
+            this.refreshHeaderTitleFromEmpresa().catch(function (err) {
+                console.error('refreshHeaderTitleFromEmpresa:', err);
+            });
         }
     }
 
@@ -1361,6 +1362,61 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Almacen cuyo texto_cabecera de empresas_por_almacen alimenta el titulo principal (#headerTitle).
+     * @returns {string|null}
+     */
+    getAlmacenForHeaderEmpresa() {
+        if (!this.currentUser) return null;
+        const h = this.getEffectiveAlmacenHabitual();
+        if (h != null && String(h).trim() !== '') {
+            return String(h).trim();
+        }
+        if (this.currentUser.almacen_tienda != null && String(this.currentUser.almacen_tienda).trim() !== '') {
+            return String(this.currentUser.almacen_tienda).trim();
+        }
+        return null;
+    }
+
+    /**
+     * Titulo del header: texto_cabecera de empresa o BATMAR; si representa cliente, sufijo " - nombre".
+     * @param {object|null} empresaRow fila empresas_por_almacen o null
+     * @returns {string}
+     */
+    buildHeaderTitleText(empresaRow) {
+        const fallback = 'BATMAR';
+        const base =
+            empresaRow && empresaRow.texto_cabecera != null && String(empresaRow.texto_cabecera).trim() !== ''
+                ? String(empresaRow.texto_cabecera).trim()
+                : fallback;
+        if (this.currentUser && this.canRepresentClientes() && this.currentUser.cliente_representado_nombre) {
+            return base + ' - ' + this.currentUser.cliente_representado_nombre;
+        }
+        return base;
+    }
+
+    /**
+     * Carga empresas_por_almacen para el almacen efectivo y actualiza #headerTitle.
+     */
+    async refreshHeaderTitleFromEmpresa() {
+        const headerTitle = document.getElementById('headerTitle');
+        if (!headerTitle) return;
+        if (!this.currentUser) {
+            headerTitle.textContent = 'BATMAR';
+            return;
+        }
+        const alm = this.getAlmacenForHeaderEmpresa();
+        if (!alm) {
+            headerTitle.textContent = this.buildHeaderTitleText(null);
+            return;
+        }
+        let row = await window.supabaseClient.getEmpresaPorAlmacen(alm);
+        if (!row) {
+            row = await window.supabaseClient.getEmpresaPorAlmacen(String(alm).toUpperCase());
+        }
+        headerTitle.textContent = this.buildHeaderTitleText(row || null);
+    }
+
+    /**
      * Vista interna de la pantalla Datos de Empresa: hub | pick | form
      * @param {'hub'|'pick'|'form'} view
      */
@@ -1462,13 +1518,15 @@ class ScanAsYouShopApp {
                 email: '',
                 web: '',
                 logo_url: '',
-                condiciones_comerciales: ''
+                condiciones_comerciales: '',
+                texto_cabecera: ''
             };
         }
         const set = (id, value) => {
             const el = document.getElementById(id);
             if (el) el.value = value != null ? String(value) : '';
         };
+        set('panelEmpresaTextoCabecera', row.texto_cabecera);
         set('panelEmpresaRazonSocial', row.razon_social);
         set('panelEmpresaCif', row.cif);
         set('panelEmpresaDireccion', row.direccion);
@@ -4279,6 +4337,7 @@ class ScanAsYouShopApp {
         set('adminEmpresaWeb', row.web);
         set('adminEmpresaLogoUrl', row.logo_url);
         set('adminEmpresaCondiciones', row.condiciones_comerciales);
+        set('adminEmpresaTextoCabecera', row.texto_cabecera);
     }
 
     async saveAdminEmpresaForm() {
@@ -4305,7 +4364,8 @@ class ScanAsYouShopApp {
             email: get('adminEmpresaEmail'),
             web: get('adminEmpresaWeb'),
             logo_url: get('adminEmpresaLogoUrl'),
-            condiciones_comerciales: get('adminEmpresaCondiciones')
+            condiciones_comerciales: get('adminEmpresaCondiciones'),
+            texto_cabecera: get('adminEmpresaTextoCabecera')
         };
         if (!payload.razon_social || !payload.cif || !payload.direccion || !payload.cp || !payload.poblacion || !payload.provincia) {
             window.ui.showToast('Completa razon social, CIF, direccion, CP, poblacion y provincia', 'warning');
@@ -4320,6 +4380,9 @@ class ScanAsYouShopApp {
         }
         window.ui.showToast('Datos de empresa guardados', 'success');
         this.loadAdminEmpresas();
+        this.refreshHeaderTitleFromEmpresa().catch(function (err) {
+            console.error('refreshHeaderTitleFromEmpresa:', err);
+        });
     }
 
     /**
@@ -4359,6 +4422,7 @@ class ScanAsYouShopApp {
         }
         const payload = {
             almacen: almacen,
+            texto_cabecera: get('panelEmpresaTextoCabecera'),
             razon_social: get('panelEmpresaRazonSocial'),
             cif: get('panelEmpresaCif'),
             direccion: get('panelEmpresaDireccion'),
@@ -4391,6 +4455,9 @@ class ScanAsYouShopApp {
         this.showPanelDatosEmpresaView('hub');
         this.loadPanelDatosEmpresaHub().catch(function (err) {
             console.error('loadPanelDatosEmpresaHub:', err);
+        });
+        this.refreshHeaderTitleFromEmpresa().catch(function (err) {
+            console.error('refreshHeaderTitleFromEmpresa:', err);
         });
     }
 

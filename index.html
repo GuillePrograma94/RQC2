@@ -968,6 +968,10 @@
                     </div>
                     <form id="panelDatosEmpresaForm" class="panel-empresa-form" autocomplete="on">
                         <div class="admin-solicitud-field admin-solicitud-field-full">
+                            <label for="panelEmpresaTextoCabecera">Texto en cabecera de la app (opcional)</label>
+                            <input type="text" id="panelEmpresaTextoCabecera" maxlength="120" placeholder="Si vacio, se muestra BATMAR">
+                        </div>
+                        <div class="admin-solicitud-field admin-solicitud-field-full">
                             <label for="panelEmpresaRazonSocial">Nombre completo (razon social)</label>
                             <input type="text" id="panelEmpresaRazonSocial" maxlength="500" required>
                         </div>
@@ -1429,6 +1433,7 @@
                 <div id="adminEmpresaFormBlock" class="admin-detail-block" style="display: none;">
                     <h3 id="adminEmpresaFormTitle" class="admin-detail-completar-title"></h3>
                     <div class="admin-solicitud-fields">
+                        <div class="admin-solicitud-field admin-solicitud-field-full"><label for="adminEmpresaTextoCabecera">Texto en cabecera de la app (opcional)</label><input type="text" id="adminEmpresaTextoCabecera" maxlength="120" placeholder="Si vacio, BATMAR"></div>
                         <div class="admin-solicitud-field"><label for="adminEmpresaRazonSocial">Razon social</label><input type="text" id="adminEmpresaRazonSocial"></div>
                         <div class="admin-solicitud-field"><label for="adminEmpresaCif">CIF</label><input type="text" id="adminEmpresaCif"></div>
                         <div class="admin-solicitud-field admin-solicitud-field-full"><label for="adminEmpresaDireccion">Direccion</label><input type="text" id="adminEmpresaDireccion"></div>
