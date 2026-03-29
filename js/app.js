@@ -1731,6 +1731,126 @@ class ScanAsYouShopApp {
             imgEl.onerror = null;
             showPlaceholder();
         }
+        this.applyPdfPreviewZoom(prefix);
+    }
+
+    /**
+     * Aplica el zoom guardado a la capa de vista previa PDF (misma variable por prefijo).
+     * @param {'panelEmpresa'|'adminEmpresa'} prefix
+     */
+    applyPdfPreviewZoom(prefix) {
+        if (!this._pdfPreviewZoomByPrefix) {
+            this._pdfPreviewZoomByPrefix = { panelEmpresa: 1, adminEmpresa: 1 };
+        }
+        const z = this._pdfPreviewZoomByPrefix[prefix] != null ? this._pdfPreviewZoomByPrefix[prefix] : 1;
+        const layer = document.getElementById(prefix + 'PdfPreviewZoomLayer');
+        const valEl = document.getElementById(prefix + 'PdfPreviewZoomValue');
+        if (layer) {
+            layer.style.zoom = String(z);
+        }
+        if (valEl) {
+            valEl.textContent = Math.round(z * 100) + '%';
+        }
+    }
+
+    /**
+     * Multiplica o divide el zoom de la vista previa.
+     * @param {'panelEmpresa'|'adminEmpresa'} prefix
+     * @param {number} factor
+     */
+    pdfPreviewZoomStep(prefix, factor) {
+        if (!this._pdfPreviewZoomByPrefix) {
+            this._pdfPreviewZoomByPrefix = { panelEmpresa: 1, adminEmpresa: 1 };
+        }
+        let z = this._pdfPreviewZoomByPrefix[prefix] != null ? this._pdfPreviewZoomByPrefix[prefix] : 1;
+        z = Math.min(3, Math.max(0.25, z * factor));
+        this._pdfPreviewZoomByPrefix[prefix] = z;
+        this.applyPdfPreviewZoom(prefix);
+    }
+
+    /**
+     * Ajusta el zoom para que el ancho de la hoja A4 quepa en el viewport (util en pantalla ancha).
+     * @param {'panelEmpresa'|'adminEmpresa'} prefix
+     */
+    pdfPreviewZoomFitWidth(prefix) {
+        if (!this._pdfPreviewZoomByPrefix) {
+            this._pdfPreviewZoomByPrefix = { panelEmpresa: 1, adminEmpresa: 1 };
+        }
+        const vp = document.getElementById(prefix + 'PdfPreviewViewport');
+        const layer = document.getElementById(prefix + 'PdfPreviewZoomLayer');
+        const sheet = vp && vp.querySelector('.pdf-header-preview-sheet--a4');
+        if (!vp || !layer || !sheet) {
+            this.applyPdfPreviewZoom(prefix);
+            return;
+        }
+        layer.style.zoom = '1';
+        this._pdfPreviewZoomByPrefix[prefix] = 1;
+        const w = sheet.getBoundingClientRect().width;
+        if (w < 4) {
+            this.applyPdfPreviewZoom(prefix);
+            return;
+        }
+        const pad = 36;
+        const avail = Math.max(120, vp.clientWidth - pad);
+        let z = avail / w;
+        z = Math.min(3, Math.max(0.25, z));
+        this._pdfPreviewZoomByPrefix[prefix] = z;
+        layer.style.zoom = String(z);
+        const valEl = document.getElementById(prefix + 'PdfPreviewZoomValue');
+        if (valEl) {
+            valEl.textContent = Math.round(z * 100) + '%';
+        }
+        vp.scrollLeft = 0;
+        vp.scrollTop = 0;
+    }
+
+    /**
+     * Botones de zoom, ajustar ancho, 100%, y Ctrl+rueda sobre el viewport.
+     */
+    initPdfHeaderPreviewZoomControls() {
+        const self = this;
+        const wire = (prefix) => {
+            const outBtn = document.getElementById(prefix + 'PdfPreviewZoomOut');
+            const inBtn = document.getElementById(prefix + 'PdfPreviewZoomIn');
+            const fitBtn = document.getElementById(prefix + 'PdfPreviewZoomFit');
+            const z100Btn = document.getElementById(prefix + 'PdfPreviewZoom100');
+            const vp = document.getElementById(prefix + 'PdfPreviewViewport');
+            if (outBtn) {
+                outBtn.addEventListener('click', () => self.pdfPreviewZoomStep(prefix, 1 / 1.15));
+            }
+            if (inBtn) {
+                inBtn.addEventListener('click', () => self.pdfPreviewZoomStep(prefix, 1.15));
+            }
+            if (fitBtn) {
+                fitBtn.addEventListener('click', () => self.pdfPreviewZoomFitWidth(prefix));
+            }
+            if (z100Btn) {
+                z100Btn.addEventListener('click', () => {
+                    if (!self._pdfPreviewZoomByPrefix) {
+                        self._pdfPreviewZoomByPrefix = { panelEmpresa: 1, adminEmpresa: 1 };
+                    }
+                    self._pdfPreviewZoomByPrefix[prefix] = 1;
+                    self.applyPdfPreviewZoom(prefix);
+                    if (vp) {
+                        vp.scrollLeft = 0;
+                        vp.scrollTop = 0;
+                    }
+                });
+            }
+            if (vp) {
+                vp.addEventListener(
+                    'wheel',
+                    (e) => {
+                        if (!e.ctrlKey) return;
+                        e.preventDefault();
+                        self.pdfPreviewZoomStep(prefix, e.deltaY < 0 ? 1.08 : 1 / 1.08);
+                    },
+                    { passive: false }
+                );
+            }
+        };
+        wire('panelEmpresa');
+        wire('adminEmpresa');
     }
 
     /**
@@ -1797,6 +1917,8 @@ class ScanAsYouShopApp {
         bindPreviewOnly('adminEmpresaLogoUrl', 'adminEmpresa');
         bindPreviewOnly('adminEmpresaLogoPdfOffsetX', 'adminEmpresa');
         bindPreviewOnly('adminEmpresaLogoPdfOffsetY', 'adminEmpresa');
+
+        this.initPdfHeaderPreviewZoomControls();
     }
 
     handlePanelDatosEmpresaBack() {
@@ -4713,6 +4835,12 @@ class ScanAsYouShopApp {
         set('adminEmpresaTextoCabecera', row.texto_cabecera);
         this.fillLogoPdfEscalaFromDimensions('adminEmpresa');
         this.updateEmpresaPdfHeaderPreview('adminEmpresa');
+        const self = this;
+        requestAnimationFrame(function () {
+            if (window.matchMedia && window.matchMedia('(min-width: 900px)').matches) {
+                self.pdfPreviewZoomFitWidth('adminEmpresa');
+            }
+        });
     }
 
     async saveAdminEmpresaForm() {

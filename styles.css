@@ -4060,12 +4060,56 @@ body.gate-visible .app-container {
     line-height: 1.4;
 }
 
-.pdf-header-preview-scale {
-    overflow-x: auto;
-    overflow-y: auto;
+.pdf-header-preview-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.pdf-header-preview-zoom-value {
+    min-width: 3.5rem;
+    text-align: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    font-variant-numeric: tabular-nums;
+}
+
+.pdf-header-preview-viewport {
+    overflow: auto;
+    width: 100%;
+    max-height: min(88vh, 1200px);
+    min-height: 240px;
+    padding: 10px;
+    box-sizing: border-box;
+    background: var(--gray-100, #f1f5f9);
+    border-radius: 8px;
+    border: 1px solid var(--gray-200);
     -webkit-overflow-scrolling: touch;
-    max-height: min(90vh, 320mm);
-    padding-bottom: 0.25rem;
+}
+
+@media (min-width: 900px) {
+    .pdf-header-preview-viewport {
+        min-height: 65vh;
+        max-height: 88vh;
+        padding: 16px 20px;
+    }
+
+    .pdf-header-preview-toolbar {
+        margin-bottom: 0.65rem;
+    }
+}
+
+.pdf-header-preview-zoom-layer {
+    display: inline-block;
+    vertical-align: top;
+}
+
+.pdf-header-preview-scale {
+    display: inline-block;
+    vertical-align: top;
 }
 
 .pdf-header-preview-sheet {
