@@ -71,8 +71,8 @@ async function fetchImageBuffer(url) {
 }
 
 /**
- * Cabecera: logo con la misma altura que la linea del titulo PRESUPUESTO; debajo de N.|Fecha,
- * dos columnas: izquierda nombre+CIF empresa, derecha bloque CLIENTE (alineado a la derecha).
+ * Cabecera: logo (tamano fijo) con borde superior alineado al titulo PRESUPUESTO; debajo del logo solo CIF emisor;
+ * a la derecha N.|Fecha y bloque CLIENTE. La fila inferior empieza tras el logo o tras la fecha, lo que baje mas.
  */
 function drawHeader(doc, empresa, presupuesto, logoBuf) {
     const m = PAGE_MARGIN;
@@ -80,17 +80,15 @@ function drawHeader(doc, empresa, presupuesto, logoBuf) {
     const accent = THEME.accent;
     const y0 = m;
     const gapAfterLogo = 10;
-    const logoW = 92;
+    const logoW = 96;
+    const logoH = 50;
 
     const textX = logoBuf ? m + logoW + gapAfterLogo : m;
     const textW = pageW - m - textX;
 
-    doc.font('Helvetica-Bold').fontSize(17);
-    const titleLineH = doc.heightOfString('PRESUPUESTO', { width: textW, align: 'right' });
-
     if (logoBuf) {
         try {
-            doc.image(logoBuf, m, y0, { width: logoW, height: titleLineH, fit: [logoW, titleLineH] });
+            doc.image(logoBuf, m, y0, { width: logoW, height: logoH, fit: [logoW, logoH] });
         } catch (_) {
             /* empty */
         }
@@ -113,7 +111,10 @@ function drawHeader(doc, empresa, presupuesto, logoBuf) {
             y,
             { width: textW, align: 'right' }
         );
-    const yAfterMeta = doc.y + 4;
+    const yAfterFecha = doc.y;
+    const yAfterMeta = yAfterFecha + 4;
+    const logoBottom = logoBuf ? y0 + logoH : y0;
+    const ySplit = Math.max(logoBottom + 4, yAfterMeta);
 
     const colGap = 14;
     const lowerW = pageW - 2 * m - colGap;
@@ -122,10 +123,7 @@ function drawHeader(doc, empresa, presupuesto, logoBuf) {
     const leftColX = m;
     const rightColX = m + leftColW + colGap;
 
-    let yL = yAfterMeta;
-    doc.fillColor(THEME.text).font('Helvetica-Bold').fontSize(9)
-        .text(safeText(empresa.razon_social || 'BATMAR'), leftColX, yL, { width: leftColW, align: 'left' });
-    yL = doc.y + 1;
+    let yL = ySplit;
     const cifE = safeText(empresa.cif ? 'CIF: ' + empresa.cif : '');
     if (cifE) {
         doc.fillColor(THEME.textMuted).font('Helvetica').fontSize(8).text(cifE, leftColX, yL, { width: leftColW });
@@ -146,7 +144,7 @@ function drawHeader(doc, empresa, presupuesto, logoBuf) {
     const codC = safeText(presupuesto.cliente_codigo ? 'Cod. cliente: ' + presupuesto.cliente_codigo : '');
     if (codC) clienteLines.push(codC);
 
-    let yR = yAfterMeta;
+    let yR = ySplit;
     doc.fillColor(accent).font('Helvetica-Bold').fontSize(7.5)
         .text('CLIENTE', rightColX, yR, { width: rightColW, align: 'right' });
     yR = doc.y + 1;
