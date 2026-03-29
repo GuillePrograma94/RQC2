@@ -71,88 +71,51 @@ async function fetchImageBuffer(url) {
 }
 
 /**
- * Cabecera compacta: titulo centrado, numero/fecha en una linea, dos columnas (empresa+logo | cliente).
- * Logo sin marco (fondos blancos habituales).
+ * Cabecera: solo logo arriba izquierda; titulo, datos presupuesto y cliente arriba derecha (bloque compacto).
+ * Sin texto de empresa junto al logo (la marca va en el logo).
  */
-function drawHeader(doc, empresa, presupuesto, logoBuf) {
+function drawHeader(doc, _empresa, presupuesto, logoBuf) {
     const m = PAGE_MARGIN;
     const pageW = doc.page.width;
-    const w = pageW - 2 * m;
     const accent = THEME.accent;
-    let y = m;
+    const y0 = m;
 
-    doc.fillColor(accent).font('Helvetica-Bold').fontSize(18).text('PRESUPUESTO', m, y, { width: w, align: 'center' });
-    y = doc.y + 2;
-    doc.fillColor(THEME.textMuted).font('Helvetica').fontSize(8.5)
+    const logoW = 96;
+    const logoH = 50;
+    const gapAfterLogo = 12;
+    let leftBottom = y0;
+
+    if (logoBuf) {
+        try {
+            doc.image(logoBuf, m, y0, { width: logoW, height: logoH, fit: [logoW, logoH] });
+            leftBottom = y0 + logoH;
+        } catch (_) {
+            leftBottom = y0;
+        }
+    }
+
+    const textX = logoBuf ? m + logoW + gapAfterLogo : m;
+    const textW = pageW - m - textX;
+    let y = y0;
+
+    doc.fillColor(accent).font('Helvetica-Bold').fontSize(17)
+        .text('PRESUPUESTO', textX, y, { width: textW, align: 'right' });
+    y = doc.y + 1;
+    doc.fillColor(THEME.textMuted).font('Helvetica').fontSize(8)
         .text(
             'N. ' +
                 safeText(presupuesto.numero_presupuesto) +
-                '   |   Fecha: ' +
+                '  |  Fecha: ' +
                 new Date(presupuesto.fecha || Date.now()).toLocaleDateString('es-ES', {
                     day: '2-digit',
                     month: 'short',
                     year: 'numeric'
                 }),
-            m,
+            textX,
             y,
-            { width: w, align: 'center' }
+            { width: textW, align: 'right' }
         );
-    y = doc.y + 12;
-
-    const colGap = 14;
-    const leftW = (w - colGap) / 2;
-    const rightW = (w - colGap) / 2;
-    const leftX = m;
-    const rightX = m + leftW + colGap;
-
-    const logoW = 100;
-    const logoH = 58;
-    const rowTop = y;
-
-    let leftBottom = rowTop;
-    if (logoBuf) {
-        try {
-            doc.image(logoBuf, leftX, rowTop, { width: logoW, height: logoH, fit: [logoW, logoH] });
-            leftBottom = rowTop + logoH + 5;
-        } catch (_) {
-            leftBottom = rowTop;
-        }
-    }
-
-    doc.fillColor(THEME.text).font('Helvetica-Bold').fontSize(10.5)
-        .text(safeText(empresa.razon_social || 'BATMAR'), leftX, leftBottom, { width: leftW });
-    let ly = doc.y + 1;
-    doc.fillColor(THEME.textMuted).font('Helvetica').fontSize(8).lineGap(0.5);
-    const cifE = safeText(empresa.cif ? 'CIF: ' + empresa.cif : '');
-    if (cifE) {
-        doc.text(cifE, leftX, ly, { width: leftW });
-        ly = doc.y;
-    }
-    const dirE = safeText(empresa.direccion);
-    if (dirE) {
-        doc.text(dirE, leftX, ly, { width: leftW });
-        ly = doc.y;
-    }
-    const cpPobE = safeText([empresa.cp, empresa.poblacion].filter(Boolean).join(' · '));
-    if (cpPobE) {
-        doc.text(cpPobE, leftX, ly, { width: leftW });
-        ly = doc.y;
-    }
-    const provE = safeText(empresa.provincia);
-    if (provE) {
-        doc.text(provE, leftX, ly, { width: leftW });
-        ly = doc.y;
-    }
-    const contactBits = [
-        empresa.telefono ? 'Tel. ' + safeText(empresa.telefono) : '',
-        empresa.email ? safeText(empresa.email) : '',
-        empresa.web ? safeText(empresa.web) : ''
-    ].filter(Boolean);
-    if (contactBits.length) {
-        doc.fillColor(THEME.textLight).fontSize(7.5)
-            .text(contactBits.join('  |  '), leftX, ly + 2, { width: leftW });
-    }
-    leftBottom = doc.y;
+    y = doc.y + 5;
 
     const clienteLines = [];
     const nom = safeText(presupuesto.cliente_nombre);
@@ -168,22 +131,22 @@ function drawHeader(doc, empresa, presupuesto, logoBuf) {
     const codC = safeText(presupuesto.cliente_codigo ? 'Cod. cliente: ' + presupuesto.cliente_codigo : '');
     if (codC) clienteLines.push(codC);
 
-    doc.fillColor(accent).font('Helvetica-Bold').fontSize(8).text('CLIENTE', rightX, rowTop, { width: rightW });
-    let ry = doc.y + 2;
-    doc.fillColor(THEME.text).font('Helvetica').fontSize(8.5).lineGap(0.5);
+    doc.fillColor(accent).font('Helvetica-Bold').fontSize(7.5).text('CLIENTE', textX, y, { width: textW, align: 'left' });
+    y = doc.y + 1;
+    doc.fillColor(THEME.text).font('Helvetica').fontSize(8).lineGap(0.35);
     for (const line of clienteLines) {
         if (!line) continue;
-        doc.text(line, rightX, ry, { width: rightW });
-        ry = doc.y;
+        doc.text(line, textX, y, { width: textW, align: 'left' });
+        y = doc.y;
     }
-    const rightBottom = doc.y;
 
-    const blockBottom = Math.max(leftBottom, rightBottom) + 10;
+    const rightBottom = doc.y;
+    const blockBottom = Math.max(leftBottom, rightBottom) + 6;
     doc.save();
     doc.moveTo(m, blockBottom).lineTo(pageW - m, blockBottom).strokeColor(THEME.border).lineWidth(0.4).stroke();
     doc.restore();
 
-    return blockBottom + 12;
+    return blockBottom + 8;
 }
 
 function drawTableHeader(doc, y) {
