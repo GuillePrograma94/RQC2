@@ -4130,28 +4130,25 @@ body.gate-visible .app-container {
     border-radius: 2px;
 }
 
+/* Mismo PAGE_MARGIN que generate-pdf.js (48); texto titulo desplazado 130+10 pt como en PDF */
 .pdf-header-preview-inner {
+    position: relative;
     padding: 48pt 48pt 12pt 48pt;
 }
 
-/* Layout fijo: columna izquierda 130pt (zona logo), texto a la derecha; fila inferior no depende del alto del logo */
-.pdf-header-preview-top-grid {
-    display: grid;
-    grid-template-columns: 130pt 1fr;
-    gap: 10pt;
-    align-items: start;
-}
-
-.pdf-header-preview-logo-zone {
+/* Bloque PRESUPUESTO / fecha: mismo textX que PDF (margen + zona logo + gap) */
+.pdf-header-preview-header-text {
+    padding-left: 140pt;
+    box-sizing: border-box;
     position: relative;
-    min-height: 0;
-    width: 130pt;
+    z-index: 2;
 }
 
+/* Logo: coordenadas como en PDF (m + offsetX, m + offsetY desde esquina util); detras del texto (orden DOM + z-index) */
 .pdf-header-preview-logo-float {
     position: absolute;
-    left: 0;
-    top: 0;
+    left: 48pt;
+    top: 48pt;
     z-index: 0;
 }
 

@@ -1660,9 +1660,11 @@ class ScanAsYouShopApp {
         const ox = parseOffX(prefix + 'LogoPdfOffsetX');
         const oy = parseOffY(prefix + 'LogoPdfOffsetY');
         const floatEl = document.getElementById(prefix + 'PdfHeaderPreviewLogoFloat');
+        /* Mismo origen que generate-pdf.js: logo en (PAGE_MARGIN + offsetX, PAGE_MARGIN + offsetY) */
+        const PAGE_MARGIN_PREVIEW_PT = 48;
         if (floatEl) {
-            floatEl.style.left = ox + 'pt';
-            floatEl.style.top = oy + 'pt';
+            floatEl.style.left = PAGE_MARGIN_PREVIEW_PT + ox + 'pt';
+            floatEl.style.top = PAGE_MARGIN_PREVIEW_PT + oy + 'pt';
         }
 
         const imgEl = document.getElementById(prefix + 'PdfHeaderPreviewImg');
