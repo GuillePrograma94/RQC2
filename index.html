@@ -983,9 +983,43 @@
                                 <img id="panelEmpresaLogoPreview" class="panel-empresa-logo-preview" alt="Vista previa logo">
                             </div>
                         </div>
+                        <div class="admin-solicitud-field admin-solicitud-field-full logo-pdf-escala-field">
+                            <label for="panelEmpresaLogoPdfEscala">Escala proporcional respecto a 96×50 pt (%)</label>
+                            <div class="logo-pdf-escala-row">
+                                <input type="range" id="panelEmpresaLogoPdfEscalaRange" min="21" max="208" step="1" value="100" title="100% = tamano predeterminado del PDF">
+                                <input type="number" id="panelEmpresaLogoPdfEscala" min="21" max="208" step="1" value="100" title="100% = tamano predeterminado">
+                            </div>
+                        </div>
                         <div class="admin-solicitud-field"><label for="panelEmpresaLogoPdfAncho">Ancho logo en PDF (pt)</label><input type="number" id="panelEmpresaLogoPdfAncho" min="20" max="200" step="1" placeholder="Predeterminado 96" title="Puntos PDF; vacio = predeterminado (96x50)"></div>
                         <div class="admin-solicitud-field"><label for="panelEmpresaLogoPdfAlto">Alto logo en PDF (pt)</label><input type="number" id="panelEmpresaLogoPdfAlto" min="20" max="200" step="1" placeholder="Predeterminado 50" title="Puntos PDF; vacio = predeterminado"></div>
-                        <p class="panel-empresa-pdf-logo-hint">Tamano del logo en el presupuesto PDF (1 pt ~ 0,35 mm). Deja vacio para 96 x 50 pt.</p>
+                        <p class="panel-empresa-pdf-logo-hint">La escala ajusta ancho y alto a la vez (misma proporcion que 96×50 pt). Los pt son editables; al cambiar uno se recalcula el otro. Vacio en ancho/alto = predeterminado en el PDF.</p>
+                        <div class="pdf-header-preview-wrap" id="panelEmpresaPdfHeaderPreview" aria-hidden="true">
+                            <p class="pdf-header-preview-label">Vista previa cabecera PDF</p>
+                            <div class="pdf-header-preview-scale">
+                                <div class="pdf-header-preview-sheet">
+                                    <div class="pdf-header-preview-inner">
+                                        <div class="pdf-header-preview-upper">
+                                            <div class="pdf-header-preview-logo-cell">
+                                                <img id="panelEmpresaPdfHeaderPreviewImg" class="pdf-header-preview-logo" alt="">
+                                                <div id="panelEmpresaPdfHeaderPreviewPh" class="pdf-header-preview-logo-ph">Sin logo</div>
+                                            </div>
+                                            <div class="pdf-header-preview-right">
+                                                <div class="pdf-header-preview-h1">PRESUPUESTO</div>
+                                                <div class="pdf-header-preview-meta" id="panelEmpresaPdfHeaderPreviewMeta"></div>
+                                            </div>
+                                        </div>
+                                        <div class="pdf-header-preview-lower">
+                                            <div class="pdf-header-preview-cif" id="panelEmpresaPdfHeaderPreviewCif"></div>
+                                            <div class="pdf-header-preview-cliente-wrap">
+                                                <div class="pdf-header-preview-cliente-h">CLIENTE</div>
+                                                <div class="pdf-header-preview-cliente-lines" id="panelEmpresaPdfHeaderPreviewCliente"></div>
+                                            </div>
+                                        </div>
+                                        <div class="pdf-header-preview-rule" aria-hidden="true"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="admin-solicitud-field"><label for="panelEmpresaCif">CIF</label><input type="text" id="panelEmpresaCif" maxlength="50" required></div>
                         <div class="admin-solicitud-field admin-solicitud-field-full"><label for="panelEmpresaDireccion">Direccion</label><input type="text" id="panelEmpresaDireccion" maxlength="300" required></div>
                         <div class="admin-solicitud-field"><label for="panelEmpresaCp">CP</label><input type="text" id="panelEmpresaCp" maxlength="20" required></div>
@@ -1447,9 +1481,43 @@
                         <div class="admin-solicitud-field"><label for="adminEmpresaEmail">Email</label><input type="text" id="adminEmpresaEmail"></div>
                         <div class="admin-solicitud-field"><label for="adminEmpresaWeb">Web</label><input type="text" id="adminEmpresaWeb"></div>
                         <div class="admin-solicitud-field admin-solicitud-field-full"><label for="adminEmpresaLogoUrl">Logo URL</label><input type="text" id="adminEmpresaLogoUrl"></div>
+                        <div class="admin-solicitud-field admin-solicitud-field-full logo-pdf-escala-field">
+                            <label for="adminEmpresaLogoPdfEscala">Escala proporcional respecto a 96×50 pt (%)</label>
+                            <div class="logo-pdf-escala-row">
+                                <input type="range" id="adminEmpresaLogoPdfEscalaRange" min="21" max="208" step="1" value="100" title="100% = tamano predeterminado del PDF">
+                                <input type="number" id="adminEmpresaLogoPdfEscala" min="21" max="208" step="1" value="100" title="100% = tamano predeterminado">
+                            </div>
+                        </div>
                         <div class="admin-solicitud-field"><label for="adminEmpresaLogoPdfAncho">Ancho logo en PDF (pt)</label><input type="number" id="adminEmpresaLogoPdfAncho" min="20" max="200" step="1" placeholder="Predeterminado 96" title="Puntos PDF; vacio = predeterminado"></div>
                         <div class="admin-solicitud-field"><label for="adminEmpresaLogoPdfAlto">Alto logo en PDF (pt)</label><input type="number" id="adminEmpresaLogoPdfAlto" min="20" max="200" step="1" placeholder="Predeterminado 50" title="Puntos PDF; vacio = predeterminado"></div>
-                        <p class="panel-empresa-pdf-logo-hint">Tamano del logo en el presupuesto PDF (1 pt ~ 0,35 mm). Deja vacio para 96 x 50 pt.</p>
+                        <p class="panel-empresa-pdf-logo-hint">La escala ajusta ancho y alto a la vez (misma proporcion que 96×50 pt). Los pt son editables; al cambiar uno se recalcula el otro. Vacio en ancho/alto = predeterminado en el PDF.</p>
+                        <div class="pdf-header-preview-wrap" id="adminEmpresaPdfHeaderPreview" aria-hidden="true">
+                            <p class="pdf-header-preview-label">Vista previa cabecera PDF</p>
+                            <div class="pdf-header-preview-scale">
+                                <div class="pdf-header-preview-sheet">
+                                    <div class="pdf-header-preview-inner">
+                                        <div class="pdf-header-preview-upper">
+                                            <div class="pdf-header-preview-logo-cell">
+                                                <img id="adminEmpresaPdfHeaderPreviewImg" class="pdf-header-preview-logo" alt="">
+                                                <div id="adminEmpresaPdfHeaderPreviewPh" class="pdf-header-preview-logo-ph">Sin logo</div>
+                                            </div>
+                                            <div class="pdf-header-preview-right">
+                                                <div class="pdf-header-preview-h1">PRESUPUESTO</div>
+                                                <div class="pdf-header-preview-meta" id="adminEmpresaPdfHeaderPreviewMeta"></div>
+                                            </div>
+                                        </div>
+                                        <div class="pdf-header-preview-lower">
+                                            <div class="pdf-header-preview-cif" id="adminEmpresaPdfHeaderPreviewCif"></div>
+                                            <div class="pdf-header-preview-cliente-wrap">
+                                                <div class="pdf-header-preview-cliente-h">CLIENTE</div>
+                                                <div class="pdf-header-preview-cliente-lines" id="adminEmpresaPdfHeaderPreviewCliente"></div>
+                                            </div>
+                                        </div>
+                                        <div class="pdf-header-preview-rule" aria-hidden="true"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="admin-solicitud-field admin-solicitud-field-full"><label for="adminEmpresaCondiciones">Condiciones comerciales</label><textarea id="adminEmpresaCondiciones" rows="3"></textarea></div>
                     </div>
                     <div class="admin-detail-actions">

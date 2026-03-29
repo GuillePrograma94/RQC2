@@ -4017,6 +4017,169 @@ body.gate-visible .app-container {
     grid-column: 1 / -1;
 }
 
+.logo-pdf-escala-field {
+    grid-column: 1 / -1;
+}
+
+.logo-pdf-escala-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.logo-pdf-escala-row input[type="range"] {
+    flex: 1;
+    min-width: 0;
+    height: 1.5rem;
+}
+
+.logo-pdf-escala-row input[type="number"] {
+    width: 4.5rem;
+    flex-shrink: 0;
+    text-align: center;
+}
+
+/* Vista previa cabecera presupuesto PDF (alineada con api/quotes/generate-pdf.js drawHeader) */
+.pdf-header-preview-wrap {
+    margin: 0 0 1rem 0;
+    max-width: 36rem;
+    grid-column: 1 / -1;
+}
+
+.app-container-administracion .pdf-header-preview-wrap {
+    max-width: 100%;
+}
+
+.pdf-header-preview-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin: 0 0 0.5rem 0;
+}
+
+.pdf-header-preview-scale {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.25rem;
+}
+
+.pdf-header-preview-sheet {
+    box-sizing: border-box;
+    width: min(100%, 499pt);
+    min-width: 280px;
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 0;
+}
+
+.pdf-header-preview-inner {
+    padding: 48pt 48pt 12pt 48pt;
+}
+
+.pdf-header-preview-upper {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10pt;
+}
+
+.pdf-header-preview-logo-cell {
+    flex-shrink: 0;
+}
+
+.pdf-header-preview-logo {
+    display: block;
+    object-fit: contain;
+    vertical-align: top;
+    background: #fafbfc;
+}
+
+.pdf-header-preview-logo-ph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    background: #f1f5f9;
+    color: var(--gray-500);
+    font-size: 8pt;
+    border: 1px dashed var(--gray-300);
+    border-radius: 4px;
+}
+
+.pdf-header-preview-right {
+    flex: 1;
+    min-width: 0;
+    text-align: right;
+}
+
+.pdf-header-preview-h1 {
+    font-family: Helvetica, Arial, sans-serif;
+    font-weight: 700;
+    font-size: 17pt;
+    line-height: 1.1;
+    color: #1e3a5f;
+    margin: 0;
+    padding: 0;
+}
+
+.pdf-header-preview-meta {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 8pt;
+    line-height: 1.35;
+    color: #64748b;
+    margin-top: 2pt;
+}
+
+.pdf-header-preview-lower {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14pt;
+    margin-top: 4pt;
+}
+
+.pdf-header-preview-cif {
+    flex: 0 1 46%;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 8pt;
+    line-height: 1.35;
+    color: #64748b;
+}
+
+.pdf-header-preview-cliente-wrap {
+    flex: 0 1 54%;
+    text-align: right;
+}
+
+.pdf-header-preview-cliente-h {
+    font-family: Helvetica, Arial, sans-serif;
+    font-weight: 700;
+    font-size: 7.5pt;
+    line-height: 1.2;
+    color: #1e3a5f;
+    margin: 0 0 1pt 0;
+}
+
+.pdf-header-preview-cliente-lines {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 8pt;
+    line-height: 1.35;
+    color: #0f172a;
+}
+
+.pdf-header-preview-cliente-lines div {
+    margin: 0;
+}
+
+.pdf-header-preview-rule {
+    margin-top: 6pt;
+    height: 0;
+    border-top: 0.4pt solid #e2e8f0;
+}
+
 .panel-empresa-almacen-readonly-wrap {
     display: flex;
     align-items: center;

@@ -1443,6 +1443,332 @@ class ScanAsYouShopApp {
         }
     }
 
+    /**
+     * Dimensiones en pt del logo a partir del porcentaje de escala respecto a 96×50 (misma base que generate-pdf.js).
+     * @param {number} pct
+     * @returns {{ w: number, h: number }}
+     */
+    logoPdfDimensionsFromEscalaPercent(pct) {
+        let w = (96 * pct) / 100;
+        let h = (50 * pct) / 100;
+        let s = 1;
+        if (w > 200 || h > 200) {
+            s = Math.min(200 / w, 200 / h);
+        }
+        w *= s;
+        h *= s;
+        if (w < 20 || h < 20) {
+            const s2 = Math.max(20 / w, 20 / h);
+            w *= s2;
+            h *= s2;
+        }
+        return { w: Math.round(w), h: Math.round(h) };
+    }
+
+    /**
+     * Alinea el slider y el numero de escala (%) con los campos ancho/alto actuales.
+     * @param {'panelEmpresa'|'adminEmpresa'} prefix
+     */
+    fillLogoPdfEscalaFromDimensions(prefix) {
+        const anchoEl = document.getElementById(prefix + 'LogoPdfAncho');
+        const altoEl = document.getElementById(prefix + 'LogoPdfAlto');
+        const escalaEl = document.getElementById(prefix + 'LogoPdfEscala');
+        const rangeEl = document.getElementById(prefix + 'LogoPdfEscalaRange');
+        if (!escalaEl || !rangeEl) return;
+        const wS = anchoEl && String(anchoEl.value || '').trim();
+        const hS = altoEl && String(altoEl.value || '').trim();
+        let pct = 100;
+        if (wS === '' && hS === '') {
+            pct = 100;
+        } else if (wS !== '' && hS !== '') {
+            const w = parseInt(wS, 10);
+            const h = parseInt(hS, 10);
+            if (Number.isFinite(w) && Number.isFinite(h)) {
+                pct = Math.round(((w / 96 + h / 50) / 2) * 100);
+            }
+        } else if (wS !== '') {
+            const w = parseInt(wS, 10);
+            if (Number.isFinite(w)) pct = Math.round((w / 96) * 100);
+        } else if (hS !== '') {
+            const h = parseInt(hS, 10);
+            if (Number.isFinite(h)) pct = Math.round((h / 50) * 100);
+        }
+        pct = Math.min(208, Math.max(21, pct));
+        escalaEl.value = String(pct);
+        rangeEl.value = String(pct);
+    }
+
+    /**
+     * Aplica la escala (%): rellena ancho y alto en pt manteniendo proporcion 96:50.
+     * @param {'panelEmpresa'|'adminEmpresa'} prefix
+     */
+    syncLogoPdfFromEscala(prefix) {
+        if (this._logoPdfSyncing) return;
+        this._logoPdfSyncing = true;
+        try {
+            const escalaEl = document.getElementById(prefix + 'LogoPdfEscala');
+            const rangeEl = document.getElementById(prefix + 'LogoPdfEscalaRange');
+            const anchoEl = document.getElementById(prefix + 'LogoPdfAncho');
+            const altoEl = document.getElementById(prefix + 'LogoPdfAlto');
+            let pct = parseFloat(escalaEl && escalaEl.value);
+            if (!Number.isFinite(pct)) pct = 100;
+            pct = Math.min(208, Math.max(21, pct));
+            if (escalaEl) escalaEl.value = String(Math.round(pct));
+            if (rangeEl) rangeEl.value = String(Math.round(pct));
+            const dims = this.logoPdfDimensionsFromEscalaPercent(pct);
+            if (anchoEl) anchoEl.value = String(dims.w);
+            if (altoEl) altoEl.value = String(dims.h);
+            this.updateEmpresaPdfHeaderPreview(prefix);
+        } finally {
+            this._logoPdfSyncing = false;
+        }
+    }
+
+    /**
+     * Al editar ancho (pt): recalcula alto y escala (%).
+     * @param {'panelEmpresa'|'adminEmpresa'} prefix
+     */
+    syncLogoPdfFromAncho(prefix) {
+        if (this._logoPdfSyncing) return;
+        this._logoPdfSyncing = true;
+        try {
+            const anchoEl = document.getElementById(prefix + 'LogoPdfAncho');
+            const altoEl = document.getElementById(prefix + 'LogoPdfAlto');
+            const escalaEl = document.getElementById(prefix + 'LogoPdfEscala');
+            const rangeEl = document.getElementById(prefix + 'LogoPdfEscalaRange');
+            const s = anchoEl && String(anchoEl.value || '').trim();
+            if (!s) {
+                if (altoEl) altoEl.value = '';
+                this.fillLogoPdfEscalaFromDimensions(prefix);
+                this.updateEmpresaPdfHeaderPreview(prefix);
+                return;
+            }
+            let w = parseInt(s, 10);
+            if (!Number.isFinite(w)) {
+                this.fillLogoPdfEscalaFromDimensions(prefix);
+                this.updateEmpresaPdfHeaderPreview(prefix);
+                return;
+            }
+            w = Math.min(200, Math.max(20, w));
+            let h = Math.round((w * 50) / 96);
+            if (h > 200) {
+                h = 200;
+                w = Math.min(200, Math.max(20, Math.round((h * 96) / 50)));
+            }
+            if (h < 20) {
+                h = 20;
+                w = Math.min(200, Math.max(20, Math.round((h * 96) / 50)));
+            }
+            anchoEl.value = String(w);
+            altoEl.value = String(h);
+            const pct = Math.min(208, Math.max(21, Math.round((w / 96) * 100)));
+            if (escalaEl) escalaEl.value = String(pct);
+            if (rangeEl) rangeEl.value = String(pct);
+            this.updateEmpresaPdfHeaderPreview(prefix);
+        } finally {
+            this._logoPdfSyncing = false;
+        }
+    }
+
+    /**
+     * Al editar alto (pt): recalcula ancho y escala (%).
+     * @param {'panelEmpresa'|'adminEmpresa'} prefix
+     */
+    syncLogoPdfFromAlto(prefix) {
+        if (this._logoPdfSyncing) return;
+        this._logoPdfSyncing = true;
+        try {
+            const anchoEl = document.getElementById(prefix + 'LogoPdfAncho');
+            const altoEl = document.getElementById(prefix + 'LogoPdfAlto');
+            const escalaEl = document.getElementById(prefix + 'LogoPdfEscala');
+            const rangeEl = document.getElementById(prefix + 'LogoPdfEscalaRange');
+            const s = altoEl && String(altoEl.value || '').trim();
+            if (!s) {
+                if (anchoEl) anchoEl.value = '';
+                this.fillLogoPdfEscalaFromDimensions(prefix);
+                this.updateEmpresaPdfHeaderPreview(prefix);
+                return;
+            }
+            let h = parseInt(s, 10);
+            if (!Number.isFinite(h)) {
+                this.fillLogoPdfEscalaFromDimensions(prefix);
+                this.updateEmpresaPdfHeaderPreview(prefix);
+                return;
+            }
+            h = Math.min(200, Math.max(20, h));
+            let w = Math.round((h * 96) / 50);
+            if (w > 200) {
+                w = 200;
+                h = Math.min(200, Math.max(20, Math.round((w * 50) / 96)));
+            }
+            if (w < 20) {
+                w = 20;
+                h = Math.min(200, Math.max(20, Math.round((w * 50) / 96)));
+            }
+            anchoEl.value = String(w);
+            altoEl.value = String(h);
+            const pct = Math.min(208, Math.max(21, Math.round((h / 50) * 100)));
+            if (escalaEl) escalaEl.value = String(pct);
+            if (rangeEl) rangeEl.value = String(pct);
+            this.updateEmpresaPdfHeaderPreview(prefix);
+        } finally {
+            this._logoPdfSyncing = false;
+        }
+    }
+
+    /**
+     * Vista previa de la cabecera del PDF de presupuesto al editar tamano del logo (coherente con api/quotes/generate-pdf.js).
+     * @param {'panelEmpresa'|'adminEmpresa'} prefix
+     */
+    updateEmpresaPdfHeaderPreview(prefix) {
+        const defaultW = 96;
+        const defaultH = 50;
+        const minPt = 20;
+        const maxPt = 200;
+        const parsePt = (id) => {
+            const el = document.getElementById(id);
+            if (!el) return null;
+            const s = String(el.value || '').trim();
+            if (s === '') return null;
+            const n = parseInt(s, 10);
+            if (!Number.isFinite(n) || n <= 0) return null;
+            return Math.min(maxPt, Math.max(minPt, n));
+        };
+        const wRaw = parsePt(prefix + 'LogoPdfAncho');
+        const hRaw = parsePt(prefix + 'LogoPdfAlto');
+        const w = wRaw != null ? wRaw : defaultW;
+        const h = hRaw != null ? hRaw : defaultH;
+
+        const imgEl = document.getElementById(prefix + 'PdfHeaderPreviewImg');
+        const phEl = document.getElementById(prefix + 'PdfHeaderPreviewPh');
+        const metaEl = document.getElementById(prefix + 'PdfHeaderPreviewMeta');
+        const cifEl = document.getElementById(prefix + 'PdfHeaderPreviewCif');
+        const cifInput = document.getElementById(prefix + 'Cif');
+
+        let src = '';
+        if (prefix === 'panelEmpresa') {
+            const prev = document.getElementById('panelEmpresaLogoPreview');
+            if (prev && prev.getAttribute('src')) {
+                src = String(prev.getAttribute('src') || '').trim();
+            }
+            if (!src) {
+                const u = document.getElementById('panelEmpresaLogoUrl');
+                if (u && String(u.value || '').trim()) src = String(u.value).trim();
+            }
+        } else {
+            const u = document.getElementById('adminEmpresaLogoUrl');
+            if (u && String(u.value || '').trim()) src = String(u.value).trim();
+        }
+
+        if (metaEl) {
+            const d = new Date();
+            const fecha = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+            metaEl.textContent = 'N. PRES-2026-000001  |  Fecha: ' + fecha;
+        }
+
+        const clienteEl = document.getElementById(prefix + 'PdfHeaderPreviewCliente');
+        if (clienteEl) {
+            clienteEl.innerHTML =
+                '<div>Cliente ejemplo SL</div><div>Localidad</div><div>Cod. cliente: 12345</div>';
+        }
+
+        if (cifEl && cifInput) {
+            const c = String(cifInput.value || '').trim();
+            cifEl.textContent = c ? 'CIF: ' + c : 'CIF: (sin CIF)';
+        }
+
+        if (!imgEl || !phEl) return;
+
+        const showPlaceholder = () => {
+            imgEl.removeAttribute('src');
+            imgEl.style.display = 'none';
+            phEl.style.display = 'flex';
+            phEl.style.width = w + 'pt';
+            phEl.style.height = h + 'pt';
+        };
+
+        imgEl.onerror = function () {
+            showPlaceholder();
+        };
+
+        if (src) {
+            phEl.style.display = 'none';
+            imgEl.style.display = 'block';
+            imgEl.style.width = w + 'pt';
+            imgEl.style.height = h + 'pt';
+            imgEl.style.objectFit = 'contain';
+            imgEl.src = src;
+            if (String(src).indexOf('data:') === 0) {
+                imgEl.onerror = null;
+            }
+        } else {
+            imgEl.onerror = null;
+            showPlaceholder();
+        }
+    }
+
+    /**
+     * Escucha escala proporcional, ancho/alto (sincronizados), CIF y logo para la vista previa de cabecera PDF.
+     */
+    initEmpresaPdfHeaderPreviewListeners() {
+        const self = this;
+        const bindPreviewOnly = (id, p) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', () => self.updateEmpresaPdfHeaderPreview(p));
+            el.addEventListener('change', () => self.updateEmpresaPdfHeaderPreview(p));
+        };
+        const wireEscala = (prefix) => {
+            const escalaEl = document.getElementById(prefix + 'LogoPdfEscala');
+            const rangeEl = document.getElementById(prefix + 'LogoPdfEscalaRange');
+            if (escalaEl && rangeEl) {
+                rangeEl.addEventListener('input', () => {
+                    escalaEl.value = rangeEl.value;
+                    self.syncLogoPdfFromEscala(prefix);
+                });
+                rangeEl.addEventListener('change', () => {
+                    escalaEl.value = rangeEl.value;
+                    self.syncLogoPdfFromEscala(prefix);
+                });
+                escalaEl.addEventListener('input', () => {
+                    rangeEl.value = escalaEl.value;
+                    self.syncLogoPdfFromEscala(prefix);
+                });
+                escalaEl.addEventListener('change', () => {
+                    rangeEl.value = escalaEl.value;
+                    self.syncLogoPdfFromEscala(prefix);
+                });
+            }
+        };
+        wireEscala('panelEmpresa');
+        wireEscala('adminEmpresa');
+
+        const anchoPanel = document.getElementById('panelEmpresaLogoPdfAncho');
+        if (anchoPanel) {
+            anchoPanel.addEventListener('input', () => self.syncLogoPdfFromAncho('panelEmpresa'));
+            anchoPanel.addEventListener('change', () => self.syncLogoPdfFromAncho('panelEmpresa'));
+        }
+        const altoPanel = document.getElementById('panelEmpresaLogoPdfAlto');
+        if (altoPanel) {
+            altoPanel.addEventListener('input', () => self.syncLogoPdfFromAlto('panelEmpresa'));
+            altoPanel.addEventListener('change', () => self.syncLogoPdfFromAlto('panelEmpresa'));
+        }
+        const anchoAdmin = document.getElementById('adminEmpresaLogoPdfAncho');
+        if (anchoAdmin) {
+            anchoAdmin.addEventListener('input', () => self.syncLogoPdfFromAncho('adminEmpresa'));
+            anchoAdmin.addEventListener('change', () => self.syncLogoPdfFromAncho('adminEmpresa'));
+        }
+        const altoAdmin = document.getElementById('adminEmpresaLogoPdfAlto');
+        if (altoAdmin) {
+            altoAdmin.addEventListener('input', () => self.syncLogoPdfFromAlto('adminEmpresa'));
+            altoAdmin.addEventListener('change', () => self.syncLogoPdfFromAlto('adminEmpresa'));
+        }
+
+        bindPreviewOnly('panelEmpresaCif', 'panelEmpresa');
+        bindPreviewOnly('adminEmpresaCif', 'adminEmpresa');
+        bindPreviewOnly('adminEmpresaLogoUrl', 'adminEmpresa');
+    }
+
     handlePanelDatosEmpresaBack() {
         const v = this._panelDatosEmpresaView || 'hub';
         if (v === 'hub') {
@@ -1559,6 +1885,8 @@ class ScanAsYouShopApp {
             if (wrap) wrap.style.display = 'none';
             if (img) img.removeAttribute('src');
         }
+        this.fillLogoPdfEscalaFromDimensions('panelEmpresa');
+        this.updateEmpresaPdfHeaderPreview('panelEmpresa');
         return true;
     }
 
@@ -4349,6 +4677,8 @@ class ScanAsYouShopApp {
         set('adminEmpresaLogoPdfAlto', row.logo_pdf_alto_pt);
         set('adminEmpresaCondiciones', row.condiciones_comerciales);
         set('adminEmpresaTextoCabecera', row.texto_cabecera);
+        this.fillLogoPdfEscalaFromDimensions('adminEmpresa');
+        this.updateEmpresaPdfHeaderPreview('adminEmpresa');
     }
 
     async saveAdminEmpresaForm() {
@@ -6192,16 +6522,20 @@ class ScanAsYouShopApp {
                 if (!file) {
                     wrap.style.display = 'none';
                     img.removeAttribute('src');
+                    this.updateEmpresaPdfHeaderPreview('panelEmpresa');
                     return;
                 }
                 const reader = new FileReader();
-                reader.onload = function (e) {
+                reader.onload = (e) => {
                     img.src = e.target && e.target.result ? e.target.result : '';
                     wrap.style.display = 'block';
+                    this.updateEmpresaPdfHeaderPreview('panelEmpresa');
                 };
                 reader.readAsDataURL(file);
             });
         }
+
+        this.initEmpresaPdfHeaderPreviewListeners();
 
         // Familias Inicio (admin): Volver al Panel de Control
         const familiasCatalogoAdminBackBtn = document.getElementById('familiasCatalogoAdminBackBtn');
