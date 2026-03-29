@@ -156,17 +156,6 @@ class ScanAsYouShopApp {
             if (this.currentUser.is_dependiente === undefined && this.currentUser.tipo) {
                 this.currentUser.is_dependiente = String(this.currentUser.tipo).toUpperCase() === 'DEPENDIENTE';
             }
-            // #region agent log
-            console.log('[DBG28c925 H1]', {
-                user_name: this.currentUser && this.currentUser.user_name ? this.currentUser.user_name : '',
-                tipo: this.currentUser && this.currentUser.tipo ? this.currentUser.tipo : '',
-                is_comercial: !!(this.currentUser && this.currentUser.is_comercial),
-                is_dependiente: !!(this.currentUser && this.currentUser.is_dependiente),
-                comercial_id: this.currentUser && this.currentUser.comercial_id != null ? this.currentUser.comercial_id : null,
-                user_id: this.currentUser && this.currentUser.user_id != null ? this.currentUser.user_id : null
-            });
-            fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28c925'},body:JSON.stringify({sessionId:'28c925',runId:'run1',hypothesisId:'H1',location:'app.js:initialize(saved-session)',message:'Sesion cargada y roles derivados',data:{user_name:this.currentUser&&this.currentUser.user_name?this.currentUser.user_name:'',tipo:this.currentUser&&this.currentUser.tipo?this.currentUser.tipo:'',is_comercial:!!(this.currentUser&&this.currentUser.is_comercial),is_dependiente:!!(this.currentUser&&this.currentUser.is_dependiente),comercial_id:this.currentUser&&this.currentUser.comercial_id!=null?this.currentUser.comercial_id:null,user_id:this.currentUser&&this.currentUser.user_id!=null?this.currentUser.user_id:null},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
             this.updateUserUI();
 
             // Refresco periodico del JWT para evitar 42501 tras ~1h trabajando
@@ -850,18 +839,6 @@ class ScanAsYouShopApp {
         if (this.currentUser) {
             const isComercialRole = !!this.currentUser.is_comercial || String(this.currentUser.tipo || '').toUpperCase() === 'COMERCIAL';
             const isDependienteRole = !!this.currentUser.is_dependiente || String(this.currentUser.tipo || '').toUpperCase() === 'DEPENDIENTE';
-            // #region agent log
-            console.log('[DBG28c925 H2]', {
-                tipo: this.currentUser && this.currentUser.tipo ? this.currentUser.tipo : '',
-                is_comercial_flag: !!this.currentUser.is_comercial,
-                isComercialRole: !!isComercialRole,
-                is_dependiente_flag: !!this.currentUser.is_dependiente,
-                isDependienteRole: !!isDependienteRole,
-                comercial_id: this.currentUser && this.currentUser.comercial_id != null ? this.currentUser.comercial_id : null,
-                cliente_representado_id: this.currentUser && this.currentUser.cliente_representado_id != null ? this.currentUser.cliente_representado_id : null
-            });
-            fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28c925'},body:JSON.stringify({sessionId:'28c925',runId:'run1',hypothesisId:'H2',location:'app.js:updateUserUI',message:'Resolucion de rol para visibilidad presupuestos',data:{tipo:this.currentUser&&this.currentUser.tipo?this.currentUser.tipo:'',is_comercial_flag:!!this.currentUser.is_comercial,isComercialRole:!!isComercialRole,is_dependiente_flag:!!this.currentUser.is_dependiente,isDependienteRole:!!isDependienteRole,comercial_id:this.currentUser&&this.currentUser.comercial_id!=null?this.currentUser.comercial_id:null,cliente_representado_id:this.currentUser&&this.currentUser.cliente_representado_id!=null?this.currentUser.cliente_representado_id:null},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
             // Usuario logueado
             if (menuGuest) menuGuest.style.display = 'none';
             if (menuUser) menuUser.style.display = 'block';
@@ -901,8 +878,8 @@ class ScanAsYouShopApp {
                 if (menuCommercialCard) menuCommercialCard.style.display = 'none';
                 var myOrdersBtn = document.getElementById('myOrdersBtn');
                 if (myOrdersBtn) myOrdersBtn.style.display = '';
-                if (presupuestosBtn) presupuestosBtn.style.display = isComercialRole ? '' : 'none';
-                if (guardarPresupuestoBtn) guardarPresupuestoBtn.style.display = isComercialRole ? '' : 'none';
+                if (presupuestosBtn) presupuestosBtn.style.display = isComercialRole || isDependienteRole ? '' : 'none';
+                if (guardarPresupuestoBtn) guardarPresupuestoBtn.style.display = isComercialRole || isDependienteRole ? '' : 'none';
             } else if (this.currentUser.is_operario) {
                 // Operario: nombre empresa (grande) + nombre operario (pequeño); bloque solo informativo, no botón
                 if (menuUserName) {
@@ -1382,6 +1359,52 @@ class ScanAsYouShopApp {
             return String(h).trim();
         }
         return null;
+    }
+
+    /**
+     * Almacen que debe persistirse en presupuestos.almacen_habitual (empresa del PDF): tienda si dependiente, habitual efectivo si comercial.
+     * @returns {string}
+     */
+    getAlmacenParaPresupuestoDocumento() {
+        const fromHeader = this.getAlmacenForHeaderEmpresa();
+        if (fromHeader != null && String(fromHeader).trim() !== '') {
+            return String(fromHeader).trim();
+        }
+        const h = this.getEffectiveAlmacenHabitual();
+        return h != null && String(h).trim() !== '' ? String(h).trim() : '';
+    }
+
+    /**
+     * comercial_id para RPC de presupuestos; dependiente envia null (cabecera con creado_por en servidor).
+     * @returns {number|null}
+     */
+    getComercialIdParaRpcPresupuesto() {
+        if (!this.currentUser) return null;
+        const isDep =
+            !!this.currentUser.is_dependiente || String(this.currentUser.tipo || '').toUpperCase() === 'DEPENDIENTE';
+        if (isDep) return null;
+        const cid = this.currentUser.comercial_id;
+        return cid != null ? cid : null;
+    }
+
+    /**
+     * Si la sesion puede crear/listar/gestionar presupuestos como representante (comercial o dependiente con tienda).
+     * @returns {boolean}
+     */
+    sesionPuedeGestionarPresupuestosRepresentante() {
+        if (!this.currentUser) return false;
+        const isDep =
+            !!this.currentUser.is_dependiente || String(this.currentUser.tipo || '').toUpperCase() === 'DEPENDIENTE';
+        if (isDep) {
+            const uid = this.currentUser.user_id;
+            const tienda = this.currentUser.almacen_tienda;
+            return (
+                uid != null &&
+                tienda != null &&
+                String(tienda).trim() !== ''
+            );
+        }
+        return !!(this.currentUser.is_comercial && this.currentUser.comercial_id);
     }
 
     /**
@@ -11228,8 +11251,8 @@ class ScanAsYouShopApp {
                     this.saveUserSession(this.currentUser, this.currentSession);
                 }
             }
-            if (!this.currentUser || !this.currentUser.is_comercial || !this.currentUser.comercial_id) {
-                window.ui.showToast('Solo un comercial puede guardar presupuestos', 'warning');
+            if (!this.currentUser || !this.sesionPuedeGestionarPresupuestosRepresentante()) {
+                window.ui.showToast('No se puede guardar el presupuesto con esta sesion', 'warning');
                 return;
             }
             if (!this.currentUser.cliente_representado_id) {
@@ -11247,18 +11270,23 @@ class ScanAsYouShopApp {
             if (!observacionesFinal && this.currentUser.user_name) {
                 observacionesFinal = 'Presupuesto preparado por: ' + this.currentUser.user_name;
             }
-            const almacen = this.getEffectiveAlmacenHabitual() || '';
+            const almacen = this.getAlmacenParaPresupuestoDocumento() || '';
+            if (!almacen) {
+                window.ui.showToast('No hay almacen de tienda o habitual para el documento', 'warning');
+                return;
+            }
             const lineasPresupuesto = await this.buildLineasPresupuestoDesdeCarrito(cart);
             if (!lineasPresupuesto.length) {
                 window.ui.showToast('El presupuesto no tiene lineas validas', 'warning');
                 return;
             }
+            const comercialIdRpc = this.getComercialIdParaRpcPresupuesto();
             window.ui.showLoading('Guardando presupuesto...');
             let result = null;
             if (this.editingPresupuestoId) {
                 result = await window.supabaseClient.actualizarPresupuesto(
                     this.editingPresupuestoId,
-                    this.currentUser.comercial_id,
+                    comercialIdRpc,
                     almacen,
                     observacionesFinal || null,
                     lineasPresupuesto
@@ -11266,7 +11294,7 @@ class ScanAsYouShopApp {
             } else {
                 result = await window.supabaseClient.crearPresupuesto(
                     this.currentUser.cliente_representado_id,
-                    this.currentUser.comercial_id,
+                    comercialIdRpc,
                     almacen,
                     observacionesFinal || null,
                     lineasPresupuesto
@@ -11300,6 +11328,12 @@ class ScanAsYouShopApp {
                 'No se ha podido identificar el comercial en la sesion. Cierra sesion y vuelve a entrar, o contacta con administracion.';
             return;
         }
+        if (mode === 'no_dependiente') {
+            titleEl.textContent = 'No se puede cargar la lista';
+            textEl.textContent =
+                'Falta tienda en la sesion del dependiente. Cierra sesion y vuelve a entrar, o contacta con administracion.';
+            return;
+        }
         titleEl.textContent = 'No tienes presupuestos guardados';
         textEl.textContent = 'Guarda presupuestos desde el carrito para poder compartirlos con el cliente';
     }
@@ -11311,7 +11345,9 @@ class ScanAsYouShopApp {
         const representandoBlock = document.getElementById('presupuestosRepresentandoBlock');
         const representandoNombre = document.getElementById('presupuestosRepresentandoNombre');
         if (!loadingEl || !emptyEl || !listEl) return;
-        if (!this.currentUser || !this.currentUser.is_comercial) {
+        const isDep =
+            !!this.currentUser.is_dependiente || String(this.currentUser.tipo || '').toUpperCase() === 'DEPENDIENTE';
+        if (!this.currentUser || (!this.currentUser.is_comercial && !isDep)) {
             loadingEl.style.display = 'none';
             emptyEl.style.display = 'flex';
             listEl.style.display = 'none';
@@ -11321,7 +11357,7 @@ class ScanAsYouShopApp {
         loadingEl.style.display = 'flex';
         emptyEl.style.display = 'none';
         listEl.style.display = 'none';
-        if (!this.currentUser.comercial_id && window.supabaseClient) {
+        if (this.currentUser.is_comercial && !this.currentUser.comercial_id && window.supabaseClient) {
             const fallbackNumero =
                 this.currentUser.comercial_numero != null
                     ? this.currentUser.comercial_numero
@@ -11332,11 +11368,18 @@ class ScanAsYouShopApp {
                 this.saveUserSession(this.currentUser, this.currentSession);
             }
         }
-        if (!this.currentUser.comercial_id) {
+        if (this.currentUser.is_comercial && !this.currentUser.comercial_id) {
             loadingEl.style.display = 'none';
             emptyEl.style.display = 'flex';
             listEl.style.display = 'none';
             this._setPresupuestosEmptyMessage('no_comercial');
+            return;
+        }
+        if (isDep && (!this.currentUser.user_id || !this.currentUser.almacen_tienda)) {
+            loadingEl.style.display = 'none';
+            emptyEl.style.display = 'flex';
+            listEl.style.display = 'none';
+            this._setPresupuestosEmptyMessage('no_dependiente');
             return;
         }
         this._setPresupuestosEmptyMessage('default');
@@ -11349,9 +11392,16 @@ class ScanAsYouShopApp {
             }
         }
         try {
-            const presupuestos = this.currentUser.cliente_representado_id
-                ? await window.supabaseClient.getPresupuestosUsuario(this.currentUser.cliente_representado_id)
-                : await window.supabaseClient.getPresupuestosComercial(this.currentUser.comercial_id);
+            let presupuestos = [];
+            if (this.currentUser.cliente_representado_id) {
+                presupuestos = await window.supabaseClient.getPresupuestosUsuario(
+                    this.currentUser.cliente_representado_id
+                );
+            } else if (isDep && this.currentUser.user_id) {
+                presupuestos = await window.supabaseClient.getPresupuestosPorCreador(this.currentUser.user_id);
+            } else if (this.currentUser.comercial_id) {
+                presupuestos = await window.supabaseClient.getPresupuestosComercial(this.currentUser.comercial_id);
+            }
             loadingEl.style.display = 'none';
             if (!presupuestos || presupuestos.length === 0) {
                 emptyEl.style.display = 'flex';
@@ -11535,9 +11585,13 @@ class ScanAsYouShopApp {
 
     async marcarPresupuestoEnviado(presupuestoId) {
         try {
-            if (!this.currentUser || !this.currentUser.comercial_id) return;
+            if (!this.currentUser || !this.sesionPuedeGestionarPresupuestosRepresentante()) return;
             window.ui.showLoading('Actualizando estado...');
-            const result = await window.supabaseClient.cambiarEstadoPresupuesto(presupuestoId, 'ENVIADO', this.currentUser.comercial_id);
+            const result = await window.supabaseClient.cambiarEstadoPresupuesto(
+                presupuestoId,
+                'ENVIADO',
+                this.getComercialIdParaRpcPresupuesto()
+            );
             window.ui.hideLoading();
             if (!result || !result.success) {
                 window.ui.showToast((result && result.message) || 'No se pudo cambiar el estado', 'error');
@@ -11555,9 +11609,12 @@ class ScanAsYouShopApp {
     async eliminarPresupuesto(presupuestoId) {
         try {
             const ok = window.confirm('¿Quieres eliminar este presupuesto?');
-            if (!ok || !this.currentUser || !this.currentUser.comercial_id) return;
+            if (!ok || !this.currentUser || !this.sesionPuedeGestionarPresupuestosRepresentante()) return;
             window.ui.showLoading('Eliminando presupuesto...');
-            const result = await window.supabaseClient.eliminarPresupuesto(presupuestoId, this.currentUser.comercial_id);
+            const result = await window.supabaseClient.eliminarPresupuesto(
+                presupuestoId,
+                this.getComercialIdParaRpcPresupuesto()
+            );
             window.ui.hideLoading();
             if (!result || !result.success) {
                 window.ui.showToast((result && result.message) || 'No se pudo eliminar el presupuesto', 'error');
@@ -11600,7 +11657,11 @@ class ScanAsYouShopApp {
             }
             if (navigator.canShare && navigator.canShare({ files: [shareData.file] }) && navigator.share) {
                 await navigator.share({ files: [shareData.file], title: shareData.title, text: shareData.text });
-                await window.supabaseClient.cambiarEstadoPresupuesto(presupuestoId, 'ENVIADO', this.currentUser.comercial_id);
+                await window.supabaseClient.cambiarEstadoPresupuesto(
+                    presupuestoId,
+                    'ENVIADO',
+                    this.getComercialIdParaRpcPresupuesto()
+                );
                 await this.loadPresupuestos();
                 return;
             }
@@ -11611,7 +11672,11 @@ class ScanAsYouShopApp {
             a.click();
             window.open('https://wa.me/?text=' + encodeURIComponent(shareData.text), '_blank');
             setTimeout(() => URL.revokeObjectURL(url), 4000);
-            await window.supabaseClient.cambiarEstadoPresupuesto(presupuestoId, 'ENVIADO', this.currentUser.comercial_id);
+            await window.supabaseClient.cambiarEstadoPresupuesto(
+                presupuestoId,
+                'ENVIADO',
+                this.getComercialIdParaRpcPresupuesto()
+            );
             await this.loadPresupuestos();
         } catch (error) {
             window.ui.hideLoading();
@@ -11631,7 +11696,11 @@ class ScanAsYouShopApp {
             }
             if (navigator.canShare && navigator.canShare({ files: [shareData.file] }) && navigator.share) {
                 await navigator.share({ files: [shareData.file], title: shareData.title, text: shareData.text });
-                await window.supabaseClient.cambiarEstadoPresupuesto(presupuestoId, 'ENVIADO', this.currentUser.comercial_id);
+                await window.supabaseClient.cambiarEstadoPresupuesto(
+                    presupuestoId,
+                    'ENVIADO',
+                    this.getComercialIdParaRpcPresupuesto()
+                );
                 await this.loadPresupuestos();
                 return;
             }
@@ -11644,7 +11713,11 @@ class ScanAsYouShopApp {
             const cuerpo = encodeURIComponent(shareData.text + '\n\nAdjunto presupuesto en PDF.');
             window.location.href = 'mailto:?subject=' + asunto + '&body=' + cuerpo;
             setTimeout(() => URL.revokeObjectURL(url), 4000);
-            await window.supabaseClient.cambiarEstadoPresupuesto(presupuestoId, 'ENVIADO', this.currentUser.comercial_id);
+            await window.supabaseClient.cambiarEstadoPresupuesto(
+                presupuestoId,
+                'ENVIADO',
+                this.getComercialIdParaRpcPresupuesto()
+            );
             await this.loadPresupuestos();
         } catch (error) {
             window.ui.hideLoading();

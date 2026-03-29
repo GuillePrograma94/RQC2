@@ -351,6 +351,7 @@ module.exports = async (req, res) => {
 
         const authUserId = userRow && userRow.auth_user_id ? userRow.auth_user_id : null;
 
+        const tipoTitularSync = (row.tipo && String(row.tipo).toUpperCase()) || 'CLIENTE';
         const syncTitular = await syncAuthUserCredentials(supabase, {
             email,
             password,
@@ -358,6 +359,7 @@ module.exports = async (req, res) => {
                 usuario_id: userId,
                 es_administrador: esAdministrador,
                 es_administracion: esAdministracion,
+                es_dependiente: tipoTitularSync === 'DEPENDIENTE',
                 almacen_habitual: row.almacen_habitual != null ? String(row.almacen_habitual).trim() : null,
                 almacen_tienda: row.almacen_tienda != null ? String(row.almacen_tienda).trim() : null
             },

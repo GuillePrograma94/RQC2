@@ -2034,6 +2034,22 @@ class SupabaseClient {
         }
     }
 
+    async getPresupuestosPorCreador(creadorUsuarioId) {
+        try {
+            if (!this.client || creadorUsuarioId == null) return [];
+            const id = typeof creadorUsuarioId === 'string' ? parseInt(creadorUsuarioId, 10) : creadorUsuarioId;
+            if (isNaN(id)) return [];
+            const { data, error } = await this.client.rpc('get_presupuestos_por_creador', {
+                p_creador_usuario_id: id
+            });
+            if (error) throw error;
+            return Array.isArray(data) ? data : [];
+        } catch (error) {
+            console.error('getPresupuestosPorCreador:', error);
+            return [];
+        }
+    }
+
     async getPresupuestoDetalle(presupuestoId) {
         try {
             if (!this.client || !presupuestoId) return null;

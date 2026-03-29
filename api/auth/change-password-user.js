@@ -141,10 +141,12 @@ module.exports = async (req, res) => {
 
     // 2) Sincronizar Supabase Auth
     const email = authEmail(userRow.codigo_usuario);
+    const tipoTitular = String(userRow.tipo || '').toUpperCase();
     const appMetadata = {
         usuario_id: userRow.id,
-        es_administrador: String(userRow.tipo || '').toUpperCase() === 'ADMINISTRADOR',
-        es_administracion: String(userRow.tipo || '').toUpperCase() === 'ADMINISTRACION',
+        es_administrador: tipoTitular === 'ADMINISTRADOR',
+        es_administracion: tipoTitular === 'ADMINISTRACION',
+        es_dependiente: tipoTitular === 'DEPENDIENTE',
         almacen_habitual: userRow.almacen_habitual != null ? String(userRow.almacen_habitual).trim() : null,
         almacen_tienda: userRow.almacen_tienda != null ? String(userRow.almacen_tienda).trim() : null
     };
