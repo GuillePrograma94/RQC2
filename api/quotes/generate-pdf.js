@@ -18,6 +18,8 @@ const LOGO_OFFSET_X_MIN = -80;
 const LOGO_OFFSET_X_MAX = 160;
 const LOGO_OFFSET_Y_MIN = -40;
 const LOGO_OFFSET_Y_MAX = 100;
+/** Espacio extra (pt) entre el borde derecho del PDF y la columna de importes EUR */
+const TOTALS_VALUE_RIGHT_PAD = 12;
 
 /** Paleta documento presupuesto por defecto (ONTINYENT, GANDIA y resto de almacenes) */
 const THEME_DEFAULT = {
@@ -344,8 +346,10 @@ function drawTotalsBlock(doc, y, presupuesto, theme) {
     const m = PAGE_MARGIN;
     const pageW = doc.page.width;
     const colW = 118;
-    const labelX = pageW - m - colW - 102;
-    const valX = pageW - m - colW;
+    const pad = TOTALS_VALUE_RIGHT_PAD;
+    const rightInner = pageW - m - pad;
+    const valX = rightInner - colW;
+    const labelX = valX - 102;
 
     doc.save();
     doc.roundedRect(labelX - 10, y, colW + 112, 76, 6).fill(theme.totalBand);
