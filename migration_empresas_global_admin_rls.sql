@@ -1,8 +1,9 @@
--- Migracion: empresas_por_almacen escritura para ADMINISTRADOR (fila GLOBAL) + Storage logos_empresa
--- Ejecutar en Supabase SQL Editor despues de migration_presupuestos.sql
+-- Migracion: empresa GLOBAL para ADMINISTRADOR (sin depender de almacen_habitual en JWT)
+-- Contenido alineado con migration_empresas_por_almacen_admin_rls.sql (version actual).
+-- Ejecutar solo si desplegaste una version antigua de admin_rls basada en JWT y necesitas sustituir politicas.
 --
--- Clave GLOBAL: almacen = 'GLOBAL' (datos de empresa unicos; no requiere almacen_habitual en JWT).
--- 1) RLS: INSERT/UPDATE/DELETE si es_administracion O (es_administrador y almacen = GLOBAL)
+-- Clave reservada: almacen = 'GLOBAL' (datos de empresa unicos para toda la organizacion).
+-- es_administrador solo puede escribir filas donde upper(trim(almacen)) = 'GLOBAL'.
 
 DROP POLICY IF EXISTS "empresas_por_almacen_insert_admin" ON empresas_por_almacen;
 CREATE POLICY "empresas_por_almacen_insert_admin"
@@ -46,20 +47,6 @@ CREATE POLICY "empresas_por_almacen_delete_admin"
             AND upper(trim(almacen)) = 'GLOBAL'
         )
     );
-
--- 2) Bucket publico para URLs en logo_url (lectura anonima para PDF / img src)
-
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('logos_empresa', 'logos_empresa', true)
-ON CONFLICT (id) DO UPDATE SET public = true;
-
--- Politicas storage.objects (evitar duplicados si se re-ejecuta)
-
-DROP POLICY IF EXISTS "logos_empresa_select_public" ON storage.objects;
-CREATE POLICY "logos_empresa_select_public"
-    ON storage.objects FOR SELECT
-    TO public
-    USING (bucket_id = 'logos_empresa');
 
 DROP POLICY IF EXISTS "logos_empresa_insert_admin" ON storage.objects;
 CREATE POLICY "logos_empresa_insert_admin"

@@ -127,13 +127,29 @@ module.exports = async (req, res) => {
             return;
         }
 
-        const { data: empresa, error: empresaError } = await supabase
-            .from('empresas_por_almacen')
-            .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, condiciones_comerciales')
-            .eq('almacen', presupuesto.almacen_habitual)
-            .maybeSingle();
-        if (empresaError) {
-            console.error('[quotes/generate-pdf] error empresas_por_almacen:', empresaError.message || empresaError);
+        let empresa = null;
+        const almacenCab = presupuesto.almacen_habitual != null ? String(presupuesto.almacen_habitual).trim() : '';
+        if (almacenCab) {
+            const { data: empPorAlmacen, error: errAlm } = await supabase
+                .from('empresas_por_almacen')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, condiciones_comerciales')
+                .eq('almacen', almacenCab)
+                .maybeSingle();
+            if (errAlm) {
+                console.error('[quotes/generate-pdf] error empresas_por_almacen por almacen:', errAlm.message || errAlm);
+            }
+            empresa = empPorAlmacen || null;
+        }
+        if (!empresa) {
+            const { data: empGlobal, error: errGlob } = await supabase
+                .from('empresas_por_almacen')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, condiciones_comerciales')
+                .eq('almacen', 'GLOBAL')
+                .maybeSingle();
+            if (errGlob) {
+                console.error('[quotes/generate-pdf] error empresas_por_almacen GLOBAL:', errGlob.message || errGlob);
+            }
+            empresa = empGlobal || null;
         }
 
         const doc = new PDFDocument({ size: 'A4', margin: 40 });

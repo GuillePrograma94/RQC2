@@ -1353,15 +1353,12 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Almacen para configuracion de empresa (Panel de Control): solo datos del usuario conectado, sin cliente representado.
-     * @returns {string|null}
+     * Clave de fila en empresas_por_almacen para datos globales (Panel de Control, ADMINISTRADOR).
+     * No depende de almacen habitual ni tienda asignados al usuario.
+     * @returns {string}
      */
     getAlmacenForEmpresaConfig() {
-        if (!this.currentUser) return null;
-        const h = this.currentUser.almacen_habitual != null ? String(this.currentUser.almacen_habitual).trim() : '';
-        if (h) return h;
-        const t = this.currentUser.almacen_tienda != null ? String(this.currentUser.almacen_tienda).trim() : '';
-        return t || null;
+        return 'GLOBAL';
     }
 
     /**
@@ -4192,21 +4189,12 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Carga el formulario Datos de Empresa (Panel de Control) para el almacen del usuario administrador.
+     * Carga el formulario Datos de Empresa (Panel de Control): fila global GLOBAL en empresas_por_almacen.
      */
     async loadPanelDatosEmpresaScreen() {
         const introEl = document.getElementById('panelDatosEmpresaAlmacenIntro');
         const almacen = this.getAlmacenForEmpresaConfig();
-        if (!almacen) {
-            if (introEl) introEl.textContent = '';
-            window.ui.showToast('No tienes almacen habitual ni tienda asignados. No se puede configurar la empresa.', 'warning');
-            this.showScreen('panelControl');
-            return;
-        }
         let row = await window.supabaseClient.getEmpresaPorAlmacen(almacen);
-        if (!row && almacen !== String(almacen).toUpperCase()) {
-            row = await window.supabaseClient.getEmpresaPorAlmacen(String(almacen).toUpperCase());
-        }
         if (!row) {
             row = {
                 almacen: almacen,
@@ -4223,11 +4211,9 @@ class ScanAsYouShopApp {
                 condiciones_comerciales: ''
             };
         }
-        this._panelEmpresaAlmacenGuardar = row.almacen != null && String(row.almacen).trim() !== ''
-            ? String(row.almacen).trim()
-            : almacen;
+        this._panelEmpresaAlmacenGuardar = String(row.almacen || almacen).trim() || almacen;
         if (introEl) {
-            introEl.textContent = 'Almacen asociado: ' + this._panelEmpresaAlmacenGuardar + '. Estos datos se usan en presupuestos PDF para este almacen.';
+            introEl.textContent = 'Datos de empresa globales (presupuestos PDF: si no hay fila por almacen, se usa esta configuracion).';
         }
         const set = (id, value) => {
             const el = document.getElementById(id);
@@ -4262,12 +4248,11 @@ class ScanAsYouShopApp {
      * Guarda empresas_por_almacen desde Panel de Control (subida opcional de logo).
      */
     async savePanelDatosEmpresaForm() {
-        const almacenSession = this.getAlmacenForEmpresaConfig();
         const almacen = (this._panelEmpresaAlmacenGuardar && String(this._panelEmpresaAlmacenGuardar).trim() !== '')
             ? String(this._panelEmpresaAlmacenGuardar).trim()
-            : almacenSession;
-        if (!almacen || !almacenSession) {
-            window.ui.showToast('No tienes almacen asignado.', 'warning');
+            : this.getAlmacenForEmpresaConfig();
+        if (!almacen) {
+            window.ui.showToast('Error interno: clave de empresa.', 'warning');
             return;
         }
         const get = (id) => {
