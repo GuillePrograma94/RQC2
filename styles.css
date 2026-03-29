@@ -4040,10 +4040,10 @@ body.gate-visible .app-container {
     text-align: center;
 }
 
-/* Vista previa cabecera presupuesto PDF (alineada con api/quotes/generate-pdf.js drawHeader) */
+/* Vista previa presupuesto PDF: hoja A4 real (210mm x 297mm = mismo tamano que PDFKit size A4). Unidades en pt = puntos PDF (1/72 pulgada). */
 .pdf-header-preview-wrap {
     margin: 0 0 1rem 0;
-    max-width: 36rem;
+    max-width: 100%;
     grid-column: 1 / -1;
 }
 
@@ -4056,22 +4056,34 @@ body.gate-visible .app-container {
     font-weight: 600;
     color: var(--gray-700);
     margin: 0 0 0.5rem 0;
+    max-width: 42rem;
+    line-height: 1.4;
 }
 
 .pdf-header-preview-scale {
     overflow-x: auto;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    max-height: min(90vh, 320mm);
     padding-bottom: 0.25rem;
 }
 
 .pdf-header-preview-sheet {
     box-sizing: border-box;
-    width: min(100%, 499pt);
-    min-width: 280px;
     background: #fff;
     border: 1px solid var(--gray-200);
     border-radius: 8px;
     padding: 0;
+}
+
+/* Tamano fisico DIN A4 (coincide con impresion/PDF; desplazar si la pantalla es mas estrecha que la hoja) */
+.pdf-header-preview-sheet--a4 {
+    width: 210mm;
+    min-width: 210mm;
+    min-height: 297mm;
+    max-width: none;
+    flex-shrink: 0;
+    border-radius: 2px;
 }
 
 .pdf-header-preview-inner {
