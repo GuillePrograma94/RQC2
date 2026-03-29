@@ -4,7 +4,7 @@
 --
 -- Cambios:
 -- 1) Columna presupuestos.creado_por_usuario_id cuando comercial_id es NULL (dependiente).
--- 2) crear_presupuesto: p_comercial_id NULL solo si JWT es dependiente activo; almacen documento = almacen_tienda; cliente en ambito tienda.
+-- 2) crear_presupuesto: p_comercial_id NULL solo si JWT es dependiente activo; almacen documento = almacen_tienda del trabajador (empresa PDF). El cliente puede ser cualquiera (no se exige que su almacen habitual coincida con la tienda).
 -- 3) actualizar_presupuesto / cambiar_estado_presupuesto / eliminar_presupuesto: autorizacion dependiente + cierre de hueco p_comercial_id NULL.
 -- 4) get_presupuestos_por_creador: listado cuando el dependiente no tiene cliente seleccionado.
 -- 5) RLS: acceso por creado_por_usuario_id para dependientes.
@@ -83,19 +83,6 @@ BEGIN
             v_alm_doc := NULLIF(TRIM(UPPER(COALESCE(p_almacen_habitual, ''))), '');
             IF v_alm_doc IS NULL OR TRIM(UPPER(v_tienda)) IS DISTINCT FROM v_alm_doc THEN
                 RETURN QUERY SELECT NULL::BIGINT, NULL::TEXT, FALSE, 'Almacen del documento debe coincidir con la tienda del dependiente'::TEXT;
-                RETURN;
-            END IF;
-            IF NOT EXISTS (
-                SELECT 1
-                FROM usuarios_dependientes ud
-                JOIN usuarios u ON u.id = p_usuario_id_cliente
-                WHERE ud.usuario_id = v_jwt_usuario_id
-                  AND ud.activo IS TRUE
-                  AND TRIM(UPPER(u.almacen_habitual)) = TRIM(UPPER(ud.almacen_tienda))
-                  AND (u.activo IS NULL OR u.activo IS TRUE)
-                  AND COALESCE(u.tipo, 'CLIENTE') IN ('CLIENTE', 'ADMINISTRADOR')
-            ) THEN
-                RETURN QUERY SELECT NULL::BIGINT, NULL::TEXT, FALSE, 'Cliente fuera del ambito de tu tienda'::TEXT;
                 RETURN;
             END IF;
             v_allowed := TRUE;

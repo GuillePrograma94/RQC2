@@ -56,6 +56,7 @@ class ScanAsYouShopApp {
         this.editingPresupuestoId = null;
         this.editingPresupuestoNumero = null;
         this.editingPresupuestoObservaciones = '';
+        this._presupuestoSaveInFlight = false;
     }
 
     /**
@@ -7100,11 +7101,16 @@ class ScanAsYouShopApp {
         }
         const confirmarGuardarPresupuestoBtn = document.getElementById('confirmarGuardarPresupuestoBtn');
         if (confirmarGuardarPresupuestoBtn) {
-            confirmarGuardarPresupuestoBtn.addEventListener('click', () => {
+            confirmarGuardarPresupuestoBtn.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                if (typeof ev.stopImmediatePropagation === 'function') {
+                    ev.stopImmediatePropagation();
+                }
                 const input = document.getElementById('presupuestoObservacionesModalInput');
                 const observaciones = input ? String(input.value || '').trim() : '';
                 this.closePresupuestoObservacionesModal();
-                this.guardarPresupuestoDesdeCarrito(observaciones);
+                void this.guardarPresupuestoDesdeCarrito(observaciones);
             });
         }
         const presupuestoObservacionesModal = document.getElementById('presupuestoObservacionesModal');
@@ -11152,9 +11158,14 @@ class ScanAsYouShopApp {
         const input = document.getElementById('presupuestoObservacionesModalInput');
         const title = document.getElementById('presupuestoObservacionesModalTitle');
         const confirmBtn = document.getElementById('confirmarGuardarPresupuestoBtn');
+        const guardarCartBtn = document.getElementById('guardarPresupuestoBtn');
         if (!modal) return;
         if (title) title.textContent = this.editingPresupuestoId ? 'Actualizar Presupuesto' : 'Guardar Presupuesto';
-        if (confirmBtn) confirmBtn.textContent = this.editingPresupuestoId ? 'Actualizar presupuesto' : 'Guardar presupuesto';
+        if (confirmBtn) {
+            confirmBtn.textContent = this.editingPresupuestoId ? 'Actualizar presupuesto' : 'Guardar presupuesto';
+            confirmBtn.disabled = false;
+        }
+        if (guardarCartBtn) guardarCartBtn.disabled = false;
         if (input) input.value = this.editingPresupuestoId ? String(this.editingPresupuestoObservaciones || '') : '';
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -11240,7 +11251,16 @@ class ScanAsYouShopApp {
     }
 
     async guardarPresupuestoDesdeCarrito(observacionesManual) {
+        if (this._presupuestoSaveInFlight) {
+            return;
+        }
+        this._presupuestoSaveInFlight = true;
+        const confirmBtn = document.getElementById('confirmarGuardarPresupuestoBtn');
+        const guardarCartBtn = document.getElementById('guardarPresupuestoBtn');
         try {
+            if (confirmBtn) confirmBtn.disabled = true;
+            if (guardarCartBtn) guardarCartBtn.disabled = true;
+
             if (this.currentUser && this.currentUser.is_comercial && !this.currentUser.comercial_id && window.supabaseClient) {
                 const fallbackNumero = this.currentUser.comercial_numero != null
                     ? this.currentUser.comercial_numero
@@ -11315,6 +11335,10 @@ class ScanAsYouShopApp {
             window.ui.hideLoading();
             console.error('guardarPresupuestoDesdeCarrito:', error);
             window.ui.showToast('Error al guardar presupuesto', 'error');
+        } finally {
+            this._presupuestoSaveInFlight = false;
+            if (confirmBtn) confirmBtn.disabled = false;
+            if (guardarCartBtn) guardarCartBtn.disabled = false;
         }
     }
 
