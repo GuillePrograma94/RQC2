@@ -11,6 +11,13 @@ const LOGO_PDF_DEFAULT_W = 96;
 const LOGO_PDF_DEFAULT_H = 50;
 const LOGO_PDF_MIN_PT = 20;
 const LOGO_PDF_MAX_PT = 200;
+/** Ancho fijo (pt) reservado a la izquierda para el logo; el texto PRESUPUESTO no depende del tamano del logo */
+const HEADER_LOGO_ZONE_WIDTH_PT = 130;
+const GAP_AFTER_LOGO_ZONE_PT = 10;
+const LOGO_OFFSET_X_MIN = -80;
+const LOGO_OFFSET_X_MAX = 160;
+const LOGO_OFFSET_Y_MIN = -40;
+const LOGO_OFFSET_Y_MAX = 100;
 
 /** Paleta documento presupuesto (aspecto profesional / moderno) */
 const THEME = {
@@ -72,6 +79,18 @@ function resolveLogoPdfSize(empresa) {
     return { logoW, logoH };
 }
 
+/**
+ * @param {object|null|undefined} empresa
+ * @returns {{ offX: number, offY: number }}
+ */
+function resolveLogoPdfOffsets(empresa) {
+    const ox = Number(empresa && empresa.logo_pdf_offset_x_pt);
+    const oy = Number(empresa && empresa.logo_pdf_offset_y_pt);
+    const offX = Number.isFinite(ox) ? Math.min(LOGO_OFFSET_X_MAX, Math.max(LOGO_OFFSET_X_MIN, ox)) : 0;
+    const offY = Number.isFinite(oy) ? Math.min(LOGO_OFFSET_Y_MAX, Math.max(LOGO_OFFSET_Y_MIN, oy)) : 0;
+    return { offX, offY };
+}
+
 async function fetchImageBuffer(url) {
     const u = safeText(url);
     if (!u || (!u.startsWith('http://') && !u.startsWith('https://'))) {
@@ -90,27 +109,19 @@ async function fetchImageBuffer(url) {
 }
 
 /**
- * Cabecera: logo (tamano fijo) con borde superior alineado al titulo PRESUPUESTO; debajo del logo solo CIF emisor;
- * a la derecha N.|Fecha y bloque CLIENTE. La fila inferior empieza tras el logo o tras la fecha, lo que baje mas.
+ * Cabecera: bloque de texto (PRESUPUESTO, fecha, CIF, CLIENTE) con layout fijo (no depende del tamano del logo).
+ * El logo se dibuja despues en posicion independiente (tamano + offsets X/Y desde margen).
  */
 function drawHeader(doc, empresa, presupuesto, logoBuf) {
     const m = PAGE_MARGIN;
     const pageW = doc.page.width;
     const accent = THEME.accent;
     const y0 = m;
-    const gapAfterLogo = 10;
     const { logoW, logoH } = resolveLogoPdfSize(empresa);
+    const { offX, offY } = resolveLogoPdfOffsets(empresa);
 
-    const textX = logoBuf ? m + logoW + gapAfterLogo : m;
+    const textX = m + HEADER_LOGO_ZONE_WIDTH_PT + GAP_AFTER_LOGO_ZONE_PT;
     const textW = pageW - m - textX;
-
-    if (logoBuf) {
-        try {
-            doc.image(logoBuf, m, y0, { width: logoW, height: logoH, fit: [logoW, logoH] });
-        } catch (_) {
-            /* empty */
-        }
-    }
 
     doc.fillColor(accent).font('Helvetica-Bold').fontSize(17)
         .text('PRESUPUESTO', textX, y0, { width: textW, align: 'right' });
@@ -131,8 +142,7 @@ function drawHeader(doc, empresa, presupuesto, logoBuf) {
         );
     const yAfterFecha = doc.y;
     const yAfterMeta = yAfterFecha + 4;
-    const logoBottom = logoBuf ? y0 + logoH : y0;
-    const ySplit = Math.max(logoBottom + 4, yAfterMeta);
+    const ySplit = yAfterMeta;
 
     const colGap = 14;
     const lowerW = pageW - 2 * m - colGap;
@@ -179,6 +189,16 @@ function drawHeader(doc, empresa, presupuesto, logoBuf) {
     doc.save();
     doc.moveTo(m, blockBottom).lineTo(pageW - m, blockBottom).strokeColor(THEME.border).lineWidth(0.4).stroke();
     doc.restore();
+
+    if (logoBuf) {
+        try {
+            const logoX = m + offX;
+            const logoY = y0 + offY;
+            doc.image(logoBuf, logoX, logoY, { width: logoW, height: logoH, fit: [logoW, logoH] });
+        } catch (_) {
+            /* empty */
+        }
+    }
 
     return blockBottom + 8;
 }
@@ -392,7 +412,7 @@ module.exports = async (req, res) => {
         if (almacenCab) {
             const { data: empPorAlmacen, error: errAlm } = await supabase
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, condiciones_comerciales')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales')
                 .eq('almacen', almacenCab)
                 .maybeSingle();
             if (errAlm) {
@@ -402,7 +422,7 @@ module.exports = async (req, res) => {
             if (!empresa) {
                 const { data: empUpper, error: errUp } = await supabase
                     .from('empresas_por_almacen')
-                    .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, condiciones_comerciales')
+                    .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales')
                     .eq('almacen', almacenCab.toUpperCase())
                     .maybeSingle();
                 if (errUp) {
@@ -414,7 +434,7 @@ module.exports = async (req, res) => {
         if (!empresa) {
             const { data: empGlobal, error: errGlob } = await supabase
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, condiciones_comerciales')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales')
                 .eq('almacen', 'GLOBAL')
                 .maybeSingle();
             if (errGlob) {

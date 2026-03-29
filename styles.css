@@ -4078,15 +4078,25 @@ body.gate-visible .app-container {
     padding: 48pt 48pt 12pt 48pt;
 }
 
-.pdf-header-preview-upper {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
+/* Layout fijo: columna izquierda 130pt (zona logo), texto a la derecha; fila inferior no depende del alto del logo */
+.pdf-header-preview-top-grid {
+    display: grid;
+    grid-template-columns: 130pt 1fr;
     gap: 10pt;
+    align-items: start;
 }
 
-.pdf-header-preview-logo-cell {
-    flex-shrink: 0;
+.pdf-header-preview-logo-zone {
+    position: relative;
+    min-height: 0;
+    width: 130pt;
+}
+
+.pdf-header-preview-logo-float {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
 }
 
 .pdf-header-preview-logo {
@@ -4139,6 +4149,7 @@ body.gate-visible .app-container {
     justify-content: space-between;
     gap: 14pt;
     margin-top: 4pt;
+    clear: both;
 }
 
 .pdf-header-preview-cif {

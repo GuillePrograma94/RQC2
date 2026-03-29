@@ -2977,7 +2977,7 @@ class SupabaseClient {
             if (!this.client) return [];
             const { data, error } = await this.client
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, condiciones_comerciales, texto_cabecera, updated_at')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, updated_at')
                 .order('almacen', { ascending: true });
             if (error) throw error;
             return Array.isArray(data) ? data : [];
@@ -2996,6 +2996,18 @@ class SupabaseClient {
                 if (!Number.isFinite(n) || n <= 0) return null;
                 return Math.min(200, Math.max(20, n));
             };
+            const logoPdfOffsetX = function (v) {
+                if (v == null || String(v).trim() === '') return null;
+                const n = parseInt(String(v).trim(), 10);
+                if (!Number.isFinite(n)) return null;
+                return Math.min(160, Math.max(-80, n));
+            };
+            const logoPdfOffsetY = function (v) {
+                if (v == null || String(v).trim() === '') return null;
+                const n = parseInt(String(v).trim(), 10);
+                if (!Number.isFinite(n)) return null;
+                return Math.min(100, Math.max(-40, n));
+            };
             const row = {
                 almacen: String(payload.almacen).trim(),
                 razon_social: payload.razon_social ? String(payload.razon_social).trim() : '',
@@ -3010,6 +3022,8 @@ class SupabaseClient {
                 logo_url: payload.logo_url ? String(payload.logo_url).trim() : null,
                 logo_pdf_ancho_pt: logoPdfPt(payload.logo_pdf_ancho_pt),
                 logo_pdf_alto_pt: logoPdfPt(payload.logo_pdf_alto_pt),
+                logo_pdf_offset_x_pt: logoPdfOffsetX(payload.logo_pdf_offset_x_pt),
+                logo_pdf_offset_y_pt: logoPdfOffsetY(payload.logo_pdf_offset_y_pt),
                 condiciones_comerciales: payload.condiciones_comerciales ? String(payload.condiciones_comerciales).trim() : null,
                 texto_cabecera:
                     payload.texto_cabecera != null && String(payload.texto_cabecera).trim() !== ''
@@ -3036,7 +3050,7 @@ class SupabaseClient {
             const a = String(almacen).trim();
             const { data, error } = await this.client
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, condiciones_comerciales, texto_cabecera, updated_at')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, updated_at')
                 .eq('almacen', a)
                 .maybeSingle();
             if (error) throw error;

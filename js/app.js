@@ -1639,6 +1639,32 @@ class ScanAsYouShopApp {
         const w = wRaw != null ? wRaw : defaultW;
         const h = hRaw != null ? hRaw : defaultH;
 
+        const parseOffX = (id) => {
+            const el = document.getElementById(id);
+            if (!el) return 0;
+            const s = String(el.value || '').trim();
+            if (s === '') return 0;
+            const n = parseInt(s, 10);
+            if (!Number.isFinite(n)) return 0;
+            return Math.min(160, Math.max(-80, n));
+        };
+        const parseOffY = (id) => {
+            const el = document.getElementById(id);
+            if (!el) return 0;
+            const s = String(el.value || '').trim();
+            if (s === '') return 0;
+            const n = parseInt(s, 10);
+            if (!Number.isFinite(n)) return 0;
+            return Math.min(100, Math.max(-40, n));
+        };
+        const ox = parseOffX(prefix + 'LogoPdfOffsetX');
+        const oy = parseOffY(prefix + 'LogoPdfOffsetY');
+        const floatEl = document.getElementById(prefix + 'PdfHeaderPreviewLogoFloat');
+        if (floatEl) {
+            floatEl.style.left = ox + 'pt';
+            floatEl.style.top = oy + 'pt';
+        }
+
         const imgEl = document.getElementById(prefix + 'PdfHeaderPreviewImg');
         const phEl = document.getElementById(prefix + 'PdfHeaderPreviewPh');
         const metaEl = document.getElementById(prefix + 'PdfHeaderPreviewMeta');
@@ -1765,8 +1791,12 @@ class ScanAsYouShopApp {
         }
 
         bindPreviewOnly('panelEmpresaCif', 'panelEmpresa');
+        bindPreviewOnly('panelEmpresaLogoPdfOffsetX', 'panelEmpresa');
+        bindPreviewOnly('panelEmpresaLogoPdfOffsetY', 'panelEmpresa');
         bindPreviewOnly('adminEmpresaCif', 'adminEmpresa');
         bindPreviewOnly('adminEmpresaLogoUrl', 'adminEmpresa');
+        bindPreviewOnly('adminEmpresaLogoPdfOffsetX', 'adminEmpresa');
+        bindPreviewOnly('adminEmpresaLogoPdfOffsetY', 'adminEmpresa');
     }
 
     handlePanelDatosEmpresaBack() {
@@ -1872,6 +1902,8 @@ class ScanAsYouShopApp {
         set('panelEmpresaLogoUrl', row.logo_url);
         set('panelEmpresaLogoPdfAncho', row.logo_pdf_ancho_pt);
         set('panelEmpresaLogoPdfAlto', row.logo_pdf_alto_pt);
+        set('panelEmpresaLogoPdfOffsetX', row.logo_pdf_offset_x_pt);
+        set('panelEmpresaLogoPdfOffsetY', row.logo_pdf_offset_y_pt);
         set('panelEmpresaCondiciones', row.condiciones_comerciales);
         const fileInput = document.getElementById('panelEmpresaLogoFile');
         if (fileInput) fileInput.value = '';
@@ -4675,6 +4707,8 @@ class ScanAsYouShopApp {
         set('adminEmpresaLogoUrl', row.logo_url);
         set('adminEmpresaLogoPdfAncho', row.logo_pdf_ancho_pt);
         set('adminEmpresaLogoPdfAlto', row.logo_pdf_alto_pt);
+        set('adminEmpresaLogoPdfOffsetX', row.logo_pdf_offset_x_pt);
+        set('adminEmpresaLogoPdfOffsetY', row.logo_pdf_offset_y_pt);
         set('adminEmpresaCondiciones', row.condiciones_comerciales);
         set('adminEmpresaTextoCabecera', row.texto_cabecera);
         this.fillLogoPdfEscalaFromDimensions('adminEmpresa');
@@ -4707,6 +4741,8 @@ class ScanAsYouShopApp {
             logo_url: get('adminEmpresaLogoUrl'),
             logo_pdf_ancho_pt: get('adminEmpresaLogoPdfAncho'),
             logo_pdf_alto_pt: get('adminEmpresaLogoPdfAlto'),
+            logo_pdf_offset_x_pt: get('adminEmpresaLogoPdfOffsetX'),
+            logo_pdf_offset_y_pt: get('adminEmpresaLogoPdfOffsetY'),
             condiciones_comerciales: get('adminEmpresaCondiciones'),
             texto_cabecera: get('adminEmpresaTextoCabecera')
         };
@@ -4778,6 +4814,8 @@ class ScanAsYouShopApp {
             logo_url: logoUrl || null,
             logo_pdf_ancho_pt: get('panelEmpresaLogoPdfAncho'),
             logo_pdf_alto_pt: get('panelEmpresaLogoPdfAlto'),
+            logo_pdf_offset_x_pt: get('panelEmpresaLogoPdfOffsetX'),
+            logo_pdf_offset_y_pt: get('panelEmpresaLogoPdfOffsetY'),
             condiciones_comerciales: get('panelEmpresaCondiciones')
         };
         if (!payload.razon_social || !payload.cif || !payload.direccion || !payload.cp || !payload.poblacion || !payload.provincia) {
