@@ -3897,6 +3897,88 @@ body.gate-visible .app-container {
     gap: 1rem;
 }
 
+/* Panel Datos de Empresa (ADMINISTRADOR) */
+.panel-empresa-almacen-intro {
+    padding: 0 1rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    margin: 0;
+    line-height: 1.4;
+}
+
+#panelDatosEmpresaScreen .panel-empresa-form {
+    padding: 0 1rem 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    max-width: 36rem;
+}
+
+#panelDatosEmpresaScreen .admin-solicitud-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+#panelDatosEmpresaScreen .admin-solicitud-field-full {
+    grid-column: 1 / -1;
+}
+
+#panelDatosEmpresaScreen .admin-solicitud-field label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+#panelDatosEmpresaScreen .admin-solicitud-field input,
+#panelDatosEmpresaScreen .admin-solicitud-field textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 0.9375rem;
+}
+
+#panelDatosEmpresaScreen .admin-solicitud-field input:focus,
+#panelDatosEmpresaScreen .admin-solicitud-field textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(120, 81, 169, 0.2);
+}
+
+#panelDatosEmpresaScreen .admin-solicitud-field textarea {
+    resize: vertical;
+    min-height: 3rem;
+}
+
+.panel-empresa-logo-preview-wrap {
+    margin-top: 0.35rem;
+}
+
+.panel-empresa-logo-preview {
+    max-width: 200px;
+    max-height: 120px;
+    object-fit: contain;
+    border-radius: 8px;
+    border: 1px solid var(--gray-200);
+    background: var(--white);
+}
+
+.panel-empresa-form-actions {
+    padding-top: 0.5rem;
+}
+
+@media (min-width: 480px) {
+    #panelDatosEmpresaScreen .panel-empresa-form {
+        grid-template-columns: 1fr 1fr;
+    }
+    #panelDatosEmpresaScreen .admin-solicitud-field-full,
+    #panelDatosEmpresaScreen .panel-empresa-logo-block {
+        grid-column: 1 / -1;
+    }
+}
+
 /* ========================================
    PANTALLA SOLICITUD ARTICULO NUEVO (estetica PC / Android / iPhone)
    ======================================== */

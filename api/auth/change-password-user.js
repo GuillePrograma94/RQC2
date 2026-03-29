@@ -98,7 +98,7 @@ module.exports = async (req, res) => {
 
     let userQuery = supabase
         .from('usuarios')
-        .select('id,codigo_usuario,password_hash,auth_user_id,activo,tipo');
+        .select('id,codigo_usuario,password_hash,auth_user_id,activo,tipo,almacen_habitual,almacen_tienda');
 
     if (codigoUsuario) {
         userQuery = userQuery.eq('codigo_usuario', codigoUsuario);
@@ -144,7 +144,9 @@ module.exports = async (req, res) => {
     const appMetadata = {
         usuario_id: userRow.id,
         es_administrador: String(userRow.tipo || '').toUpperCase() === 'ADMINISTRADOR',
-        es_administracion: String(userRow.tipo || '').toUpperCase() === 'ADMINISTRACION'
+        es_administracion: String(userRow.tipo || '').toUpperCase() === 'ADMINISTRACION',
+        almacen_habitual: userRow.almacen_habitual != null ? String(userRow.almacen_habitual).trim() : null,
+        almacen_tienda: userRow.almacen_tienda != null ? String(userRow.almacen_tienda).trim() : null
     };
 
     let authUserId = userRow.auth_user_id ? String(userRow.auth_user_id) : null;

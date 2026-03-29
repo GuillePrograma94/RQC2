@@ -1353,6 +1353,18 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Almacen para configuracion de empresa (Panel de Control): solo datos del usuario conectado, sin cliente representado.
+     * @returns {string|null}
+     */
+    getAlmacenForEmpresaConfig() {
+        if (!this.currentUser) return null;
+        const h = this.currentUser.almacen_habitual != null ? String(this.currentUser.almacen_habitual).trim() : '';
+        if (h) return h;
+        const t = this.currentUser.almacen_tienda != null ? String(this.currentUser.almacen_tienda).trim() : '';
+        return t || null;
+    }
+
+    /**
      * Devuelve el grupo_cliente a usar: el del cliente representado (representante) o el del usuario (ofertas, precios).
      */
     getEffectiveGrupoCliente() {
@@ -4180,6 +4192,133 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Carga el formulario Datos de Empresa (Panel de Control) para el almacen del usuario administrador.
+     */
+    async loadPanelDatosEmpresaScreen() {
+        const introEl = document.getElementById('panelDatosEmpresaAlmacenIntro');
+        const almacen = this.getAlmacenForEmpresaConfig();
+        if (!almacen) {
+            if (introEl) introEl.textContent = '';
+            window.ui.showToast('No tienes almacen habitual ni tienda asignados. No se puede configurar la empresa.', 'warning');
+            this.showScreen('panelControl');
+            return;
+        }
+        let row = await window.supabaseClient.getEmpresaPorAlmacen(almacen);
+        if (!row && almacen !== String(almacen).toUpperCase()) {
+            row = await window.supabaseClient.getEmpresaPorAlmacen(String(almacen).toUpperCase());
+        }
+        if (!row) {
+            row = {
+                almacen: almacen,
+                razon_social: '',
+                cif: '',
+                direccion: '',
+                cp: '',
+                poblacion: '',
+                provincia: '',
+                telefono: '',
+                email: '',
+                web: '',
+                logo_url: '',
+                condiciones_comerciales: ''
+            };
+        }
+        this._panelEmpresaAlmacenGuardar = row.almacen != null && String(row.almacen).trim() !== ''
+            ? String(row.almacen).trim()
+            : almacen;
+        if (introEl) {
+            introEl.textContent = 'Almacen asociado: ' + this._panelEmpresaAlmacenGuardar + '. Estos datos se usan en presupuestos PDF para este almacen.';
+        }
+        const set = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.value = value != null ? String(value) : '';
+        };
+        set('panelEmpresaRazonSocial', row.razon_social);
+        set('panelEmpresaCif', row.cif);
+        set('panelEmpresaDireccion', row.direccion);
+        set('panelEmpresaCp', row.cp);
+        set('panelEmpresaPoblacion', row.poblacion);
+        set('panelEmpresaProvincia', row.provincia);
+        set('panelEmpresaTelefono', row.telefono);
+        set('panelEmpresaEmail', row.email);
+        set('panelEmpresaWeb', row.web);
+        set('panelEmpresaLogoUrl', row.logo_url);
+        set('panelEmpresaCondiciones', row.condiciones_comerciales);
+        const fileInput = document.getElementById('panelEmpresaLogoFile');
+        if (fileInput) fileInput.value = '';
+        this._panelEmpresaLogoPendingFile = null;
+        const wrap = document.getElementById('panelEmpresaLogoPreviewWrap');
+        const img = document.getElementById('panelEmpresaLogoPreview');
+        if (row.logo_url && String(row.logo_url).trim() !== '') {
+            if (img) img.src = String(row.logo_url).trim();
+            if (wrap) wrap.style.display = 'block';
+        } else {
+            if (wrap) wrap.style.display = 'none';
+            if (img) img.removeAttribute('src');
+        }
+    }
+
+    /**
+     * Guarda empresas_por_almacen desde Panel de Control (subida opcional de logo).
+     */
+    async savePanelDatosEmpresaForm() {
+        const almacenSession = this.getAlmacenForEmpresaConfig();
+        const almacen = (this._panelEmpresaAlmacenGuardar && String(this._panelEmpresaAlmacenGuardar).trim() !== '')
+            ? String(this._panelEmpresaAlmacenGuardar).trim()
+            : almacenSession;
+        if (!almacen || !almacenSession) {
+            window.ui.showToast('No tienes almacen asignado.', 'warning');
+            return;
+        }
+        const get = (id) => {
+            const el = document.getElementById(id);
+            return el ? String(el.value || '').trim() : '';
+        };
+        let logoUrl = get('panelEmpresaLogoUrl');
+        if (this._panelEmpresaLogoPendingFile) {
+            window.ui.showLoading('Subiendo logo...');
+            const up = await window.supabaseClient.uploadLogoEmpresa(almacen, this._panelEmpresaLogoPendingFile);
+            window.ui.hideLoading();
+            if (!up || !up.success) {
+                window.ui.showToast((up && up.message) || 'No se pudo subir el logo', 'error');
+                return;
+            }
+            logoUrl = up.publicUrl || logoUrl;
+        }
+        const payload = {
+            almacen: almacen,
+            razon_social: get('panelEmpresaRazonSocial'),
+            cif: get('panelEmpresaCif'),
+            direccion: get('panelEmpresaDireccion'),
+            cp: get('panelEmpresaCp'),
+            poblacion: get('panelEmpresaPoblacion'),
+            provincia: get('panelEmpresaProvincia'),
+            telefono: get('panelEmpresaTelefono'),
+            email: get('panelEmpresaEmail'),
+            web: get('panelEmpresaWeb'),
+            logo_url: logoUrl || null,
+            condiciones_comerciales: get('panelEmpresaCondiciones')
+        };
+        if (!payload.razon_social || !payload.cif || !payload.direccion || !payload.cp || !payload.poblacion || !payload.provincia) {
+            window.ui.showToast('Completa nombre completo, CIF, direccion, CP, poblacion y provincia', 'warning');
+            return;
+        }
+        window.ui.showLoading('Guardando datos de empresa...');
+        const result = await window.supabaseClient.upsertEmpresaPorAlmacen(payload);
+        window.ui.hideLoading();
+        if (!result || !result.success) {
+            window.ui.showToast((result && result.message) || 'No se pudo guardar', 'error');
+            return;
+        }
+        this._panelEmpresaLogoPendingFile = null;
+        const fileInput = document.getElementById('panelEmpresaLogoFile');
+        if (fileInput) fileInput.value = '';
+        const hiddenLogo = document.getElementById('panelEmpresaLogoUrl');
+        if (hiddenLogo && payload.logo_url) hiddenLogo.value = payload.logo_url;
+        window.ui.showToast('Datos de empresa guardados', 'success');
+    }
+
+    /**
      * Rellena la pantalla de detalle de una solicitud: layout tipo pagina de producto (PC),
      * foto con URL firmada, campos editables para que administracion confirme o corrija,
      * botones Aprobar/Rechazar y bloque Completar solicitud (SKU, articulo ya existente, fabricante).
@@ -5817,6 +5956,50 @@ class ScanAsYouShopApp {
             });
         }
 
+        const panelControlDatosEmpresaBtn = document.getElementById('panelControlDatosEmpresaBtn');
+        if (panelControlDatosEmpresaBtn) {
+            panelControlDatosEmpresaBtn.addEventListener('click', () => {
+                this.showScreen('panelDatosEmpresa');
+            });
+        }
+
+        const panelDatosEmpresaBackBtn = document.getElementById('panelDatosEmpresaBackBtn');
+        if (panelDatosEmpresaBackBtn) {
+            panelDatosEmpresaBackBtn.addEventListener('click', () => {
+                this.showScreen('panelControl');
+            });
+        }
+
+        const panelDatosEmpresaGuardarBtn = document.getElementById('panelDatosEmpresaGuardarBtn');
+        if (panelDatosEmpresaGuardarBtn) {
+            panelDatosEmpresaGuardarBtn.addEventListener('click', () => {
+                this.savePanelDatosEmpresaForm();
+            });
+        }
+
+        const panelEmpresaLogoFile = document.getElementById('panelEmpresaLogoFile');
+        if (panelEmpresaLogoFile) {
+            panelEmpresaLogoFile.addEventListener('change', (ev) => {
+                const input = ev.target;
+                const file = input && input.files && input.files[0] ? input.files[0] : null;
+                this._panelEmpresaLogoPendingFile = file || null;
+                const wrap = document.getElementById('panelEmpresaLogoPreviewWrap');
+                const img = document.getElementById('panelEmpresaLogoPreview');
+                if (!wrap || !img) return;
+                if (!file) {
+                    wrap.style.display = 'none';
+                    img.removeAttribute('src');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    img.src = e.target && e.target.result ? e.target.result : '';
+                    wrap.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
         // Familias Inicio (admin): Volver al Panel de Control
         const familiasCatalogoAdminBackBtn = document.getElementById('familiasCatalogoAdminBackBtn');
         if (familiasCatalogoAdminBackBtn) {
@@ -6870,6 +7053,12 @@ class ScanAsYouShopApp {
             }
             if (screenName === 'presupuestos') {
                 this.loadPresupuestos();
+            }
+
+            if (screenName === 'panelDatosEmpresa') {
+                this.loadPanelDatosEmpresaScreen().catch(function (err) {
+                    console.error('loadPanelDatosEmpresaScreen:', err);
+                });
             }
 
         }

@@ -3014,6 +3014,82 @@ class SupabaseClient {
     }
 
     /**
+     * Una fila de empresas_por_almacen por codigo de almacen (exacto).
+     * @param {string} almacen
+     * @returns {Promise<object|null>}
+     */
+    async getEmpresaPorAlmacen(almacen) {
+        try {
+            if (!this.client || almacen == null || String(almacen).trim() === '') return null;
+            const a = String(almacen).trim();
+            const { data, error } = await this.client
+                .from('empresas_por_almacen')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, condiciones_comerciales, updated_at')
+                .eq('almacen', a)
+                .maybeSingle();
+            if (error) throw error;
+            return data || null;
+        } catch (error) {
+            console.error('getEmpresaPorAlmacen:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Sube logo de empresa al bucket logos_empresa; primera carpeta = almacen (RLS).
+     * @param {string} almacen
+     * @param {File|Blob} file
+     * @returns {Promise<{ success: boolean, message?: string, publicUrl?: string|null }>}
+     */
+    async uploadLogoEmpresa(almacen, file) {
+        try {
+            if (!this.client || !file || almacen == null || String(almacen).trim() === '') {
+                return { success: false, message: 'Datos incompletos', publicUrl: null };
+            }
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) {
+                return { success: false, message: 'Sesion expirada o no autenticado', publicUrl: null };
+            }
+            const folder = String(almacen).trim().replace(/\//g, '_');
+            const mime = (file.type && String(file.type).trim()) || 'application/octet-stream';
+            const extMap = {
+                'image/jpeg': 'jpg',
+                'image/jpg': 'jpg',
+                'image/png': 'png',
+                'image/webp': 'webp',
+                'image/gif': 'gif'
+            };
+            const ext = extMap[mime.toLowerCase()] || 'png';
+            const path = folder + '/logo_' + Date.now() + '.' + ext;
+            let up = await this.client.storage.from('logos_empresa').upload(path, file, {
+                upsert: true,
+                contentType: mime.indexOf('image/') === 0 ? mime : 'image/png',
+                cacheControl: '3600'
+            });
+            if (up.error) {
+                const refresh = await this.client.auth.refreshSession();
+                if (!refresh.error && refresh.data && refresh.data.session) {
+                    up = await this.client.storage.from('logos_empresa').upload(path, file, {
+                        upsert: true,
+                        contentType: mime.indexOf('image/') === 0 ? mime : 'image/png',
+                        cacheControl: '3600'
+                    });
+                }
+            }
+            if (up.error) {
+                console.error('uploadLogoEmpresa:', up.error);
+                return { success: false, message: up.error.message || 'Error al subir el logo', publicUrl: null };
+            }
+            const { data: urlData } = this.client.storage.from('logos_empresa').getPublicUrl(path);
+            const publicUrl = urlData && urlData.publicUrl ? urlData.publicUrl : null;
+            return { success: true, publicUrl: publicUrl };
+        } catch (err) {
+            console.error('uploadLogoEmpresa:', err);
+            return { success: false, message: 'Error al subir el logo', publicUrl: null };
+        }
+    }
+
+    /**
      * Lista todos los alias de proveedores (para combobox de busqueda).
      * @returns {Promise<Array<{codigo_proveedor: string, alias: string}>>}
      */

@@ -307,7 +307,13 @@ module.exports = async (req, res) => {
         const syncOperario = await syncAuthUserCredentials(supabase, {
             email,
             password,
-            appMetadata: { usuario_id: userId, es_operario: true, es_administrador: esAdministrador },
+            appMetadata: {
+                usuario_id: userId,
+                es_operario: true,
+                es_administrador: esAdministrador,
+                almacen_habitual: row.almacen_habitual != null ? String(row.almacen_habitual).trim() : null,
+                almacen_tienda: row.almacen_tienda != null ? String(row.almacen_tienda).trim() : null
+            },
             authUserId: authUserId,
             label: 'operario auth sync',
             onLinked: async function (uid) {
@@ -348,7 +354,13 @@ module.exports = async (req, res) => {
         const syncTitular = await syncAuthUserCredentials(supabase, {
             email,
             password,
-            appMetadata: { usuario_id: userId, es_administrador: esAdministrador, es_administracion: esAdministracion },
+            appMetadata: {
+                usuario_id: userId,
+                es_administrador: esAdministrador,
+                es_administracion: esAdministracion,
+                almacen_habitual: row.almacen_habitual != null ? String(row.almacen_habitual).trim() : null,
+                almacen_tienda: row.almacen_tienda != null ? String(row.almacen_tienda).trim() : null
+            },
             authUserId: authUserId,
             label: 'titular auth sync',
             onLinked: async function (uid) {

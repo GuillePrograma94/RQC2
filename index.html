@@ -916,7 +916,47 @@
                     <button type="button" id="panelControlWcConjuntosBtn" class="btn btn-primary btn-lg">Configurar conjuntos WC</button>
                     <button type="button" id="panelControlRecambiosBtn" class="btn btn-primary btn-lg">Configurar recambios</button>
                     <button type="button" id="panelControlFamiliasCatalogoBtn" class="btn btn-primary btn-lg">Familias en Inicio (imagenes)</button>
+                    <button type="button" id="panelControlDatosEmpresaBtn" class="btn btn-primary btn-lg">Datos de Empresa</button>
                 </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA DATOS DE EMPRESA (admin: empresas_por_almacen + logos_empresa)
+             ================================ -->
+        <div id="panelDatosEmpresaScreen" class="screen">
+            <main class="screen-content">
+                <div class="profile-header">
+                    <button type="button" id="panelDatosEmpresaBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title">Datos de Empresa</h2>
+                </div>
+                <p id="panelDatosEmpresaAlmacenIntro" class="panel-empresa-almacen-intro" aria-live="polite"></p>
+                <form id="panelDatosEmpresaForm" class="panel-empresa-form" autocomplete="on">
+                    <div class="admin-solicitud-field admin-solicitud-field-full">
+                        <label for="panelEmpresaRazonSocial">Nombre completo (razon social)</label>
+                        <input type="text" id="panelEmpresaRazonSocial" maxlength="500" required>
+                    </div>
+                    <div class="admin-solicitud-field panel-empresa-logo-block">
+                        <label for="panelEmpresaLogoFile">Logo de empresa</label>
+                        <input type="file" id="panelEmpresaLogoFile" accept="image/jpeg,image/png,image/webp,image/gif">
+                        <input type="hidden" id="panelEmpresaLogoUrl" value="">
+                        <div id="panelEmpresaLogoPreviewWrap" class="panel-empresa-logo-preview-wrap" style="display: none;">
+                            <img id="panelEmpresaLogoPreview" class="panel-empresa-logo-preview" alt="Vista previa logo">
+                        </div>
+                    </div>
+                    <div class="admin-solicitud-field"><label for="panelEmpresaCif">CIF</label><input type="text" id="panelEmpresaCif" maxlength="50" required></div>
+                    <div class="admin-solicitud-field admin-solicitud-field-full"><label for="panelEmpresaDireccion">Direccion</label><input type="text" id="panelEmpresaDireccion" maxlength="300" required></div>
+                    <div class="admin-solicitud-field"><label for="panelEmpresaCp">CP</label><input type="text" id="panelEmpresaCp" maxlength="20" required></div>
+                    <div class="admin-solicitud-field"><label for="panelEmpresaPoblacion">Poblacion</label><input type="text" id="panelEmpresaPoblacion" maxlength="120" required></div>
+                    <div class="admin-solicitud-field"><label for="panelEmpresaProvincia">Provincia</label><input type="text" id="panelEmpresaProvincia" maxlength="120" required></div>
+                    <div class="admin-solicitud-field"><label for="panelEmpresaTelefono">Telefono</label><input type="text" id="panelEmpresaTelefono" maxlength="80"></div>
+                    <div class="admin-solicitud-field"><label for="panelEmpresaEmail">Email</label><input type="text" id="panelEmpresaEmail" maxlength="200"></div>
+                    <div class="admin-solicitud-field"><label for="panelEmpresaWeb">Web</label><input type="text" id="panelEmpresaWeb" maxlength="300"></div>
+                    <div class="admin-solicitud-field admin-solicitud-field-full"><label for="panelEmpresaCondiciones">Condiciones comerciales</label><textarea id="panelEmpresaCondiciones" rows="3" maxlength="4000"></textarea></div>
+                    <div class="panel-empresa-form-actions">
+                        <button type="button" id="panelDatosEmpresaGuardarBtn" class="btn btn-primary btn-lg">Guardar</button>
+                    </div>
+                </form>
             </main>
         </div>
 
