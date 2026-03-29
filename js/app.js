@@ -10526,7 +10526,7 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * HTML del desglose de lineas y observaciones para el panel expandible del presupuesto.
+     * HTML del desglose de lineas y observaciones para el panel expandible del presupuesto (mismo aspecto que pedidos).
      */
     _renderPresupuestoDetalleExpandContent(detalle) {
         if (!detalle) {
@@ -10550,32 +10550,19 @@ class ScanAsYouShopApp {
             html += '<div class="order-details-error">No hay lineas en este presupuesto.</div>';
             return html;
         }
-        html += `
-            <div class="presupuesto-lines-head" aria-hidden="true">
-                <span class="pl-col-cod">Codigo</span>
-                <span class="pl-col-desc">Descripcion</span>
-                <span class="pl-col-num">Ud.</span>
-                <span class="pl-col-num">PVP</span>
-                <span class="pl-col-num">Dto%</span>
-                <span class="pl-col-num">Importe</span>
-            </div>`;
+        html += '<div class="order-products-list">';
         for (const l of lineas) {
-            const cod = this.escapeForHtmlAttribute(String(l.codigo || ''));
-            const desc = this.escapeForHtmlContentPreservingNewlines(String(l.descripcion || ''));
-            const cant = Number(l.cantidad || 0);
-            const pvp = Number(l.precio_unitario || 0);
-            const dto = Number(l.dto_pct || 0);
-            const imp = Number(l.importe_linea || 0);
-            html += `
-            <div class="presupuesto-detail-line">
-                <span class="pl-col-cod">${cod}</span>
-                <span class="pl-col-desc">${desc}</span>
-                <span class="pl-col-num">${cant.toFixed(2)}</span>
-                <span class="pl-col-num">${pvp.toFixed(4)}</span>
-                <span class="pl-col-num">${dto.toFixed(2)}</span>
-                <span class="pl-col-num">${imp.toFixed(2)}</span>
-            </div>`;
+            const lineaPedidoLike = {
+                codigo_producto: l.codigo,
+                descripcion_producto: l.descripcion,
+                cantidad: l.cantidad,
+                precio_unitario: l.precio_unitario,
+                dto_pct: l.dto_pct,
+                importe_linea: l.importe_linea
+            };
+            html += this.buildOrderProductItemHtml(lineaPedidoLike, { mode: 'presupuesto', showReorderButton: false });
         }
+        html += '</div>';
         html += `
             <div class="presupuesto-detail-totals">
                 <span>Subtotal (sin IVA)</span><strong>${Number(detalle.subtotal || 0).toFixed(2)} EUR</strong>
@@ -11315,7 +11302,7 @@ class ScanAsYouShopApp {
                     subtotal: precio * qty
                 };
             });
-            this.renderOrderProducts(detailsDiv, productos);
+            await this.renderOrderProducts(detailsDiv, productos);
             return;
         }
 
@@ -11324,8 +11311,8 @@ class ScanAsYouShopApp {
             
             if (productos && productos.length > 0) {
                 // Mostrar productos del caché inmediatamente
-                this.renderOrderProducts(detailsDiv, productos);
-                console.log(`📱 Productos del pedido ${orderId} mostrados desde caché`);
+                await this.renderOrderProducts(detailsDiv, productos);
+                console.log('Productos del pedido mostrados desde cache orderId=' + orderId);
             } else {
                 // Mantener el loading si no hay caché
                 detailsDiv.innerHTML = '<div class="order-details-loading"><div class="spinner-small"></div><span>Cargando productos...</span></div>';
@@ -11340,14 +11327,14 @@ class ScanAsYouShopApp {
                     await window.cartManager.saveOrderProductsToCache(orderId, productosOnline);
                     
                     // Actualizar vista con datos frescos
-                    this.renderOrderProducts(detailsDiv, productosOnline);
-                    console.log(`🌐 Productos del pedido ${orderId} actualizados desde Supabase`);
+                    await this.renderOrderProducts(detailsDiv, productosOnline);
+                    console.log('Productos del pedido actualizados desde Supabase orderId=' + orderId);
                 } else if (!productos || productos.length === 0) {
                     detailsDiv.innerHTML = '<p class="order-no-products">No se encontraron productos</p>';
                 }
             } catch (onlineError) {
                 // Si falla la conexión pero ya mostramos el caché, no hacer nada
-                console.log(`📱 Modo offline - mostrando productos del pedido ${orderId} desde caché`);
+                console.log('Modo offline: productos del pedido desde cache orderId=' + orderId);
                 
                 // Si no había caché y falló la conexión
                 if (!productos || productos.length === 0) {
@@ -11362,53 +11349,133 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Renderiza la lista de productos de un pedido
+     * Enriquece lineas de pedido con dto% estimado si el precio guardado es inferior al PVP del catalogo.
      */
-    renderOrderProducts(detailsDiv, productos) {
-        let productosHTML = '<div class="order-products-list">';
-        
-        // Botón para reordenar todo el pedido
-        productosHTML += `
-            <div class="order-reorder-actions">
-                <button class="btn-reorder-all" onclick="window.app.reorderAllProducts(${JSON.stringify(productos).replace(/"/g, '&quot;')})">
-                    🔄 Volver a Pedir Todo
-                </button>
-            </div>
-        `;
-        
-        for (const producto of productos) {
-            const precioConIVA = producto.precio_unitario * 1.21;
-            const subtotalConIVA = producto.subtotal * 1.21;
-            const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo_producto}_1.JPG`;
+    async enrichOrderProductsForDisplay(productos) {
+        if (!Array.isArray(productos) || productos.length === 0) return [];
+        const out = [];
+        for (const p of productos) {
+            const row = { ...p };
+            row._dto_pct = null;
+            const cod = String(p.codigo_producto || p.codigo || '').trim();
+            const precio = Number(p.precio_unitario != null ? p.precio_unitario : 0);
+            if (cod && precio >= 0) {
+                try {
+                    const cat = await this.resolveProductoCatalogoConDescuento(cod);
+                    const pvp = cat && cat.pvp != null ? Number(cat.pvp) : null;
+                    if (pvp != null && pvp > 0.0001 && precio < pvp - 0.0001) {
+                        const pct = (1 - precio / pvp) * 100;
+                        if (pct > 0.05) {
+                            row._dto_pct = Math.round(pct * 100) / 100;
+                        }
+                    }
+                } catch (_) {
+                    /* ignorar fallos de catalogo */
+                }
+            }
+            out.push(row);
+        }
+        return out;
+    }
 
-            productosHTML += `
-                <div class="order-product-item">
-                    <div class="order-product-image">
-                        <img src="${imageUrl}" 
-                             alt="${producto.descripcion_producto}"
-                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                        <div class="order-product-placeholder" style="display: none;">📦</div>
-                    </div>
-                    <div class="order-product-info">
-                        <div class="order-product-name">${producto.descripcion_producto}</div>
-                        <div class="order-product-code">Código: ${producto.codigo_producto}</div>
-                        <div class="order-product-details">
-                            <span class="order-product-qty">x${producto.cantidad}</span>
-                            <span class="order-product-price">${precioConIVA.toFixed(2)} €/ud</span>
-                            <span class="order-product-subtotal">${subtotalConIVA.toFixed(2)} €</span>
-                        </div>
-                    </div>
-                    <button class="btn-reorder-product" 
-                            onclick="window.app.reorderSingleProduct('${producto.codigo_producto}', ${producto.cantidad})"
-                            title="Añadir este producto al carrito">
+    /**
+     * Tarjeta de producto estilo pedidos (imagen, texto, precios). Reutilizable en presupuestos.
+     * @param {Object} producto - linea pedido o presupuesto normalizada
+     * @param {{ mode?: 'pedido'|'presupuesto', showReorderButton?: boolean }} options
+     */
+    buildOrderProductItemHtml(producto, options = {}) {
+        const mode = options.mode || 'pedido';
+        const showReorder = options.showReorderButton !== false;
+        const codigo = String(producto.codigo_producto || producto.codigo || '').trim();
+        const descripcion = String(producto.descripcion_producto || producto.descripcion || '-');
+        const cantidad = Number(producto.cantidad != null ? producto.cantidad : 0);
+
+        let precioConIVA;
+        let subtotalConIVA;
+        let discountHtml = '';
+
+        if (mode === 'presupuesto') {
+            const pvpBase = Number(producto.precio_unitario || 0);
+            const dto = Number(producto.dto_pct || 0);
+            const imp = Number(producto.importe_linea != null ? producto.importe_linea : 0);
+            const unitNet = pvpBase * (1 - Math.min(100, Math.max(0, dto)) / 100);
+            precioConIVA = unitNet * 1.21;
+            subtotalConIVA = imp * 1.21;
+            if (dto > 0.001) {
+                const d = dto % 1 === 0 ? dto.toFixed(0) : dto.toFixed(1);
+                discountHtml = `<span class="order-product-discount" title="Descuento sobre PVP">-${d}%</span>`;
+            }
+        } else {
+            const pu = Number(producto.precio_unitario != null ? producto.precio_unitario : 0);
+            const sub = Number(
+                producto.subtotal != null ? producto.subtotal : pu * (producto.cantidad != null ? producto.cantidad : 0)
+            );
+            precioConIVA = pu * 1.21;
+            subtotalConIVA = sub * 1.21;
+            const dto = producto._dto_pct != null ? Number(producto._dto_pct) : null;
+            if (dto != null && !Number.isNaN(dto) && dto > 0.001) {
+                const d = dto % 1 === 0 ? dto.toFixed(0) : dto.toFixed(1);
+                discountHtml = `<span class="order-product-discount" title="Descuento respecto al PVP del catalogo">-${d}%</span>`;
+            }
+        }
+
+        const safeCodAttr = this.escapeForHtmlAttribute(codigo);
+        const safeDesc = this.escapeForHtmlContentPreservingNewlines(descripcion);
+        const safeDescAlt = this.escapeForHtmlAttribute(descripcion);
+        const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${safeCodAttr}_1.JPG`;
+
+        const reorderBtn = showReorder
+            ? `<button type="button" class="btn-reorder-product" 
+                            onclick="window.app.reorderSingleProduct(${JSON.stringify(codigo)}, ${cantidad})"
+                            title="Anadir este producto al carrito">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="9" cy="21" r="1"/>
                             <circle cx="20" cy="21" r="1"/>
                             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
                         </svg>
-                    </button>
+                    </button>`
+            : '';
+
+        return `
+                <div class="order-product-item${showReorder ? '' : ' order-product-item--no-reorder'}">
+                    <div class="order-product-image">
+                        <img src="${imageUrl}"
+                             alt="${safeDescAlt}"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="order-product-placeholder" style="display: none;">-</div>
+                    </div>
+                    <div class="order-product-info">
+                        <div class="order-product-name">${safeDesc}</div>
+                        <div class="order-product-code">Codigo: ${safeCodAttr}</div>
+                        <div class="order-product-details">
+                            <span class="order-product-qty">x${cantidad}</span>
+                            ${discountHtml}
+                            <span class="order-product-price">${precioConIVA.toFixed(2)} EUR/ud</span>
+                            <span class="order-product-subtotal">${subtotalConIVA.toFixed(2)} EUR</span>
+                        </div>
+                    </div>
+                    ${reorderBtn}
                 </div>
             `;
+    }
+
+    /**
+     * Renderiza la lista de productos de un pedido
+     */
+    async renderOrderProducts(detailsDiv, productos) {
+        const enriched = await this.enrichOrderProductsForDisplay(productos || []);
+        let productosHTML = '<div class="order-products-list">';
+
+        productosHTML += `
+            <div class="order-reorder-actions">
+                <button type="button" class="btn-reorder-all" onclick="window.app.reorderAllProducts(${JSON.stringify(productos).replace(/"/g, '&quot;')})">
+                    Volver a pedir todo
+                </button>
+            </div>
+        `;
+
+        for (const producto of enriched) {
+            productosHTML += this.buildOrderProductItemHtml(producto, { mode: 'pedido', showReorderButton: true });
         }
 
         productosHTML += '</div>';
