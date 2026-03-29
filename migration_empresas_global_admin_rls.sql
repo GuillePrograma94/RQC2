@@ -1,9 +1,6 @@
--- Migracion: empresa GLOBAL para ADMINISTRADOR (sin depender de almacen_habitual en JWT)
--- Contenido alineado con migration_empresas_por_almacen_admin_rls.sql (version actual).
--- Ejecutar solo si desplegaste una version antigua de admin_rls basada en JWT y necesitas sustituir politicas.
---
--- Clave reservada: almacen = 'GLOBAL' (datos de empresa unicos para toda la organizacion).
--- es_administrador solo puede escribir filas donde upper(trim(almacen)) = 'GLOBAL'.
+-- Parche: sustituye politicas GLOBAL por catalogo ONTINYENT / GANDIA / ALZIRA / REQUENA
+-- Ejecutar en Supabase si solo tenias aplicada la version GLOBAL.
+-- Contenido equivalente a migration_empresas_por_almacen_admin_rls.sql (seccion RLS + storage).
 
 DROP POLICY IF EXISTS "empresas_por_almacen_insert_admin" ON empresas_por_almacen;
 CREATE POLICY "empresas_por_almacen_insert_admin"
@@ -13,7 +10,7 @@ CREATE POLICY "empresas_por_almacen_insert_admin"
         ((auth.jwt() -> 'app_metadata') ->> 'es_administracion')::BOOLEAN IS TRUE
         OR (
             ((auth.jwt() -> 'app_metadata') ->> 'es_administrador')::BOOLEAN IS TRUE
-            AND upper(trim(almacen)) = 'GLOBAL'
+            AND upper(trim(almacen)) IN ('ONTINYENT', 'GANDIA', 'ALZIRA', 'REQUENA')
         )
     );
 
@@ -25,14 +22,14 @@ CREATE POLICY "empresas_por_almacen_update_admin"
         ((auth.jwt() -> 'app_metadata') ->> 'es_administracion')::BOOLEAN IS TRUE
         OR (
             ((auth.jwt() -> 'app_metadata') ->> 'es_administrador')::BOOLEAN IS TRUE
-            AND upper(trim(almacen)) = 'GLOBAL'
+            AND upper(trim(almacen)) IN ('ONTINYENT', 'GANDIA', 'ALZIRA', 'REQUENA')
         )
     )
     WITH CHECK (
         ((auth.jwt() -> 'app_metadata') ->> 'es_administracion')::BOOLEAN IS TRUE
         OR (
             ((auth.jwt() -> 'app_metadata') ->> 'es_administrador')::BOOLEAN IS TRUE
-            AND upper(trim(almacen)) = 'GLOBAL'
+            AND upper(trim(almacen)) IN ('ONTINYENT', 'GANDIA', 'ALZIRA', 'REQUENA')
         )
     );
 
@@ -44,7 +41,7 @@ CREATE POLICY "empresas_por_almacen_delete_admin"
         ((auth.jwt() -> 'app_metadata') ->> 'es_administracion')::BOOLEAN IS TRUE
         OR (
             ((auth.jwt() -> 'app_metadata') ->> 'es_administrador')::BOOLEAN IS TRUE
-            AND upper(trim(almacen)) = 'GLOBAL'
+            AND upper(trim(almacen)) IN ('ONTINYENT', 'GANDIA', 'ALZIRA', 'REQUENA')
         )
     );
 
@@ -58,7 +55,7 @@ CREATE POLICY "logos_empresa_insert_admin"
             ((auth.jwt() -> 'app_metadata') ->> 'es_administracion')::BOOLEAN IS TRUE
             OR (
                 ((auth.jwt() -> 'app_metadata') ->> 'es_administrador')::BOOLEAN IS TRUE
-                AND upper(trim(split_part(name, '/', 1))) = 'GLOBAL'
+                AND upper(trim(split_part(name, '/', 1))) IN ('ONTINYENT', 'GANDIA', 'ALZIRA', 'REQUENA')
             )
         )
     );
@@ -73,7 +70,7 @@ CREATE POLICY "logos_empresa_update_admin"
             ((auth.jwt() -> 'app_metadata') ->> 'es_administracion')::BOOLEAN IS TRUE
             OR (
                 ((auth.jwt() -> 'app_metadata') ->> 'es_administrador')::BOOLEAN IS TRUE
-                AND upper(trim(split_part(name, '/', 1))) = 'GLOBAL'
+                AND upper(trim(split_part(name, '/', 1))) IN ('ONTINYENT', 'GANDIA', 'ALZIRA', 'REQUENA')
             )
         )
     );
@@ -88,7 +85,7 @@ CREATE POLICY "logos_empresa_delete_admin"
             ((auth.jwt() -> 'app_metadata') ->> 'es_administracion')::BOOLEAN IS TRUE
             OR (
                 ((auth.jwt() -> 'app_metadata') ->> 'es_administrador')::BOOLEAN IS TRUE
-                AND upper(trim(split_part(name, '/', 1))) = 'GLOBAL'
+                AND upper(trim(split_part(name, '/', 1))) IN ('ONTINYENT', 'GANDIA', 'ALZIRA', 'REQUENA')
             )
         )
     );

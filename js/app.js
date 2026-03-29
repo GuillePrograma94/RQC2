@@ -1353,12 +1353,146 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Clave de fila en empresas_por_almacen para datos globales (Panel de Control, ADMINISTRADOR).
-     * No depende de almacen habitual ni tienda asignados al usuario.
-     * @returns {string}
+     * Almacenes del catalogo enlazados a empresas_por_almacen (mismo criterio que almacen habitual en BD).
+     * @returns {string[]}
      */
-    getAlmacenForEmpresaConfig() {
-        return 'GLOBAL';
+    getEmpresaAlmacenesCatalogo() {
+        return ['ONTINYENT', 'GANDIA', 'ALZIRA', 'REQUENA'];
+    }
+
+    /**
+     * Vista interna de la pantalla Datos de Empresa: hub | pick | form
+     * @param {'hub'|'pick'|'form'} view
+     */
+    showPanelDatosEmpresaView(view) {
+        this._panelDatosEmpresaView = view;
+        const hub = document.getElementById('panelDatosEmpresaHub');
+        const pick = document.getElementById('panelDatosEmpresaPickAlmacen');
+        const formWrap = document.getElementById('panelDatosEmpresaFormWrap');
+        if (hub) hub.style.display = view === 'hub' ? '' : 'none';
+        if (pick) pick.style.display = view === 'pick' ? '' : 'none';
+        if (formWrap) formWrap.style.display = view === 'form' ? '' : 'none';
+        const titleEl = document.getElementById('panelDatosEmpresaTitle');
+        if (titleEl) {
+            if (view === 'hub') titleEl.textContent = 'Datos de Empresa';
+            else if (view === 'pick') titleEl.textContent = 'Nuevos datos de empresa';
+            else titleEl.textContent = 'Editar datos de empresa';
+        }
+    }
+
+    handlePanelDatosEmpresaBack() {
+        const v = this._panelDatosEmpresaView || 'hub';
+        if (v === 'hub') {
+            this.showScreen('panelControl');
+            return;
+        }
+        this.showPanelDatosEmpresaView('hub');
+        this.loadPanelDatosEmpresaHub().catch(function (err) {
+            console.error('loadPanelDatosEmpresaHub:', err);
+        });
+    }
+
+    /**
+     * Lista resumida por almacen del catalogo (hub).
+     */
+    async loadPanelDatosEmpresaHub() {
+        const listEl = document.getElementById('panelDatosEmpresaHubList');
+        if (!listEl) return;
+        const cat = this.getEmpresaAlmacenesCatalogo();
+        listEl.innerHTML = '<p class="panel-empresa-hub-loading">Cargando...</p>';
+        let rows = [];
+        try {
+            rows = await window.supabaseClient.getEmpresasPorAlmacen();
+        } catch (e) {
+            console.error('loadPanelDatosEmpresaHub:', e);
+        }
+        const byAlm = {};
+        if (Array.isArray(rows)) {
+            rows.forEach((r) => {
+                if (r && r.almacen != null) {
+                    byAlm[String(r.almacen).trim().toUpperCase()] = r;
+                }
+            });
+        }
+        let html = '';
+        cat.forEach((a) => {
+            const row = byAlm[a];
+            const tieneDatos = row && String(row.razon_social || '').trim() !== '';
+            const nombre = tieneDatos
+                ? this.escapeForHtmlContentPreservingNewlines(String(row.razon_social).trim())
+                : '<span class="panel-empresa-hub-sin-datos">(sin configurar)</span>';
+            html += '<div class="panel-empresa-hub-row">';
+            html += '<span class="panel-empresa-hub-code">' + this.escapeForHtmlContentPreservingNewlines(a) + '</span>';
+            html += '<span class="panel-empresa-hub-nombre">' + nombre + '</span>';
+            html += '<button type="button" class="btn btn-secondary btn-sm panel-empresa-hub-edit-btn" data-almacen="' +
+                this.escapeForHtmlAttribute(a) + '">Editar</button>';
+            html += '</div>';
+        });
+        listEl.innerHTML = html || '<p>No hay entradas.</p>';
+    }
+
+    /**
+     * Carga el formulario para un almacen concreto (clave empresas_por_almacen).
+     * @param {string} almacen
+     */
+    async loadPanelDatosEmpresaFormForAlmacen(almacen) {
+        const cat = this.getEmpresaAlmacenesCatalogo();
+        const a = almacen != null ? String(almacen).trim().toUpperCase() : '';
+        if (!a || cat.indexOf(a) < 0) {
+            window.ui.showToast('Almacen no valido.', 'warning');
+            return false;
+        }
+        this._panelEmpresaAlmacenEditando = a;
+        const labelEl = document.getElementById('panelEmpresaAlmacenReadonly');
+        if (labelEl) labelEl.textContent = a;
+        let row = await window.supabaseClient.getEmpresaPorAlmacen(a);
+        if (!row) {
+            row = await window.supabaseClient.getEmpresaPorAlmacen(String(a).toUpperCase());
+        }
+        if (!row) {
+            row = {
+                almacen: a,
+                razon_social: '',
+                cif: '',
+                direccion: '',
+                cp: '',
+                poblacion: '',
+                provincia: '',
+                telefono: '',
+                email: '',
+                web: '',
+                logo_url: '',
+                condiciones_comerciales: ''
+            };
+        }
+        const set = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.value = value != null ? String(value) : '';
+        };
+        set('panelEmpresaRazonSocial', row.razon_social);
+        set('panelEmpresaCif', row.cif);
+        set('panelEmpresaDireccion', row.direccion);
+        set('panelEmpresaCp', row.cp);
+        set('panelEmpresaPoblacion', row.poblacion);
+        set('panelEmpresaProvincia', row.provincia);
+        set('panelEmpresaTelefono', row.telefono);
+        set('panelEmpresaEmail', row.email);
+        set('panelEmpresaWeb', row.web);
+        set('panelEmpresaLogoUrl', row.logo_url);
+        set('panelEmpresaCondiciones', row.condiciones_comerciales);
+        const fileInput = document.getElementById('panelEmpresaLogoFile');
+        if (fileInput) fileInput.value = '';
+        this._panelEmpresaLogoPendingFile = null;
+        const wrap = document.getElementById('panelEmpresaLogoPreviewWrap');
+        const img = document.getElementById('panelEmpresaLogoPreview');
+        if (row.logo_url && String(row.logo_url).trim() !== '') {
+            if (img) img.src = String(row.logo_url).trim();
+            if (wrap) wrap.style.display = 'block';
+        } else {
+            if (wrap) wrap.style.display = 'none';
+            if (img) img.removeAttribute('src');
+        }
+        return true;
     }
 
     /**
@@ -4189,70 +4323,23 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Carga el formulario Datos de Empresa (Panel de Control): fila global GLOBAL en empresas_por_almacen.
+     * Entrada a la pantalla Datos de Empresa: hub con lista y boton Nuevos datos.
      */
     async loadPanelDatosEmpresaScreen() {
-        const introEl = document.getElementById('panelDatosEmpresaAlmacenIntro');
-        const almacen = this.getAlmacenForEmpresaConfig();
-        let row = await window.supabaseClient.getEmpresaPorAlmacen(almacen);
-        if (!row) {
-            row = {
-                almacen: almacen,
-                razon_social: '',
-                cif: '',
-                direccion: '',
-                cp: '',
-                poblacion: '',
-                provincia: '',
-                telefono: '',
-                email: '',
-                web: '',
-                logo_url: '',
-                condiciones_comerciales: ''
-            };
-        }
-        this._panelEmpresaAlmacenGuardar = String(row.almacen || almacen).trim() || almacen;
-        if (introEl) {
-            introEl.textContent = 'Datos de empresa globales (presupuestos PDF: si no hay fila por almacen, se usa esta configuracion).';
-        }
-        const set = (id, value) => {
-            const el = document.getElementById(id);
-            if (el) el.value = value != null ? String(value) : '';
-        };
-        set('panelEmpresaRazonSocial', row.razon_social);
-        set('panelEmpresaCif', row.cif);
-        set('panelEmpresaDireccion', row.direccion);
-        set('panelEmpresaCp', row.cp);
-        set('panelEmpresaPoblacion', row.poblacion);
-        set('panelEmpresaProvincia', row.provincia);
-        set('panelEmpresaTelefono', row.telefono);
-        set('panelEmpresaEmail', row.email);
-        set('panelEmpresaWeb', row.web);
-        set('panelEmpresaLogoUrl', row.logo_url);
-        set('panelEmpresaCondiciones', row.condiciones_comerciales);
-        const fileInput = document.getElementById('panelEmpresaLogoFile');
-        if (fileInput) fileInput.value = '';
-        this._panelEmpresaLogoPendingFile = null;
-        const wrap = document.getElementById('panelEmpresaLogoPreviewWrap');
-        const img = document.getElementById('panelEmpresaLogoPreview');
-        if (row.logo_url && String(row.logo_url).trim() !== '') {
-            if (img) img.src = String(row.logo_url).trim();
-            if (wrap) wrap.style.display = 'block';
-        } else {
-            if (wrap) wrap.style.display = 'none';
-            if (img) img.removeAttribute('src');
-        }
+        await this.loadPanelDatosEmpresaHub();
+        this.showPanelDatosEmpresaView('hub');
     }
 
     /**
      * Guarda empresas_por_almacen desde Panel de Control (subida opcional de logo).
      */
     async savePanelDatosEmpresaForm() {
-        const almacen = (this._panelEmpresaAlmacenGuardar && String(this._panelEmpresaAlmacenGuardar).trim() !== '')
-            ? String(this._panelEmpresaAlmacenGuardar).trim()
-            : this.getAlmacenForEmpresaConfig();
-        if (!almacen) {
-            window.ui.showToast('Error interno: clave de empresa.', 'warning');
+        const cat = this.getEmpresaAlmacenesCatalogo();
+        const almacen = this._panelEmpresaAlmacenEditando != null
+            ? String(this._panelEmpresaAlmacenEditando).trim().toUpperCase()
+            : '';
+        if (!almacen || cat.indexOf(almacen) < 0) {
+            window.ui.showToast('Almacen no valido. Vuelve al listado y elige almacen.', 'warning');
             return;
         }
         const get = (id) => {
@@ -4301,6 +4388,10 @@ class ScanAsYouShopApp {
         const hiddenLogo = document.getElementById('panelEmpresaLogoUrl');
         if (hiddenLogo && payload.logo_url) hiddenLogo.value = payload.logo_url;
         window.ui.showToast('Datos de empresa guardados', 'success');
+        this.showPanelDatosEmpresaView('hub');
+        this.loadPanelDatosEmpresaHub().catch(function (err) {
+            console.error('loadPanelDatosEmpresaHub:', err);
+        });
     }
 
     /**
@@ -5951,7 +6042,52 @@ class ScanAsYouShopApp {
         const panelDatosEmpresaBackBtn = document.getElementById('panelDatosEmpresaBackBtn');
         if (panelDatosEmpresaBackBtn) {
             panelDatosEmpresaBackBtn.addEventListener('click', () => {
-                this.showScreen('panelControl');
+                this.handlePanelDatosEmpresaBack();
+            });
+        }
+
+        const panelDatosEmpresaNuevoBtn = document.getElementById('panelDatosEmpresaNuevoBtn');
+        if (panelDatosEmpresaNuevoBtn) {
+            panelDatosEmpresaNuevoBtn.addEventListener('click', () => {
+                const cat = this.getEmpresaAlmacenesCatalogo();
+                const pickSel = document.getElementById('panelEmpresaAlmacenPickSelect');
+                if (pickSel && cat.length) pickSel.value = cat[0];
+                this.showPanelDatosEmpresaView('pick');
+            });
+        }
+
+        const panelDatosEmpresaPickContinuarBtn = document.getElementById('panelDatosEmpresaPickContinuarBtn');
+        if (panelDatosEmpresaPickContinuarBtn) {
+            panelDatosEmpresaPickContinuarBtn.addEventListener('click', async () => {
+                const cat = this.getEmpresaAlmacenesCatalogo();
+                const pickSel = document.getElementById('panelEmpresaAlmacenPickSelect');
+                const v = pickSel && pickSel.value ? String(pickSel.value).trim().toUpperCase() : '';
+                if (!v || cat.indexOf(v) < 0) {
+                    window.ui.showToast('Selecciona un almacen valido.', 'warning');
+                    return;
+                }
+                try {
+                    const ok = await this.loadPanelDatosEmpresaFormForAlmacen(v);
+                    if (ok) this.showPanelDatosEmpresaView('form');
+                } catch (err) {
+                    console.error('loadPanelDatosEmpresaFormForAlmacen:', err);
+                }
+            });
+        }
+
+        const panelDatosEmpresaHubList = document.getElementById('panelDatosEmpresaHubList');
+        if (panelDatosEmpresaHubList) {
+            panelDatosEmpresaHubList.addEventListener('click', async (ev) => {
+                const btn = ev.target && ev.target.closest ? ev.target.closest('.panel-empresa-hub-edit-btn') : null;
+                if (!btn) return;
+                const alm = btn.getAttribute('data-almacen');
+                if (!alm) return;
+                try {
+                    const ok = await this.loadPanelDatosEmpresaFormForAlmacen(alm);
+                    if (ok) this.showPanelDatosEmpresaView('form');
+                } catch (err) {
+                    console.error('loadPanelDatosEmpresaFormForAlmacen:', err);
+                }
             });
         }
 

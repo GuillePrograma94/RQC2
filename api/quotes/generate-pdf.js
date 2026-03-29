@@ -139,6 +139,17 @@ module.exports = async (req, res) => {
                 console.error('[quotes/generate-pdf] error empresas_por_almacen por almacen:', errAlm.message || errAlm);
             }
             empresa = empPorAlmacen || null;
+            if (!empresa) {
+                const { data: empUpper, error: errUp } = await supabase
+                    .from('empresas_por_almacen')
+                    .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, condiciones_comerciales')
+                    .eq('almacen', almacenCab.toUpperCase())
+                    .maybeSingle();
+                if (errUp) {
+                    console.error('[quotes/generate-pdf] error empresas_por_almacen upper:', errUp.message || errUp);
+                }
+                empresa = empUpper || null;
+            }
         }
         if (!empresa) {
             const { data: empGlobal, error: errGlob } = await supabase

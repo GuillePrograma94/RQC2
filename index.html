@@ -928,35 +928,71 @@
             <main class="screen-content">
                 <div class="profile-header">
                     <button type="button" id="panelDatosEmpresaBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
-                    <h2 class="profile-title">Datos de Empresa</h2>
+                    <h2 id="panelDatosEmpresaTitle" class="profile-title">Datos de Empresa</h2>
                 </div>
-                <p id="panelDatosEmpresaAlmacenIntro" class="panel-empresa-almacen-intro" aria-live="polite"></p>
-                <form id="panelDatosEmpresaForm" class="panel-empresa-form" autocomplete="on">
+
+                <div id="panelDatosEmpresaHub" class="panel-datos-empresa-hub">
+                    <div class="panel-empresa-hub-intro">
+                        <p>El codigo de <strong>almacen</strong> debe coincidir con el que usa la aplicacion segun el tipo de usuario:</p>
+                        <ul class="panel-empresa-hub-list-rules">
+                            <li><strong>Cliente</strong>: <code>usuarios.almacen_habitual</code></li>
+                            <li><strong>Dependiente</strong>: tienda en <code>usuarios_dependientes.almacen_tienda</code> (sesion: almacen tienda)</li>
+                            <li><strong>Comercial</strong> (cliente representado): <code>almacen_habitual</code> de ese cliente</li>
+                        </ul>
+                    </div>
+                    <button type="button" id="panelDatosEmpresaNuevoBtn" class="btn btn-primary btn-lg panel-empresa-nuevo-btn">Nuevos datos de empresa</button>
+                    <h3 class="panel-empresa-hub-subtitle">Configuracion por almacen</h3>
+                    <div id="panelDatosEmpresaHubList" class="panel-empresa-hub-list" aria-live="polite"></div>
+                </div>
+
+                <div id="panelDatosEmpresaPickAlmacen" class="panel-datos-empresa-pick" style="display: none;">
+                    <p class="panel-empresa-pick-intro">Indica para que <strong>almacen</strong> vas a crear o actualizar los datos de empresa (mismo codigo que en base de datos).</p>
                     <div class="admin-solicitud-field admin-solicitud-field-full">
-                        <label for="panelEmpresaRazonSocial">Nombre completo (razon social)</label>
-                        <input type="text" id="panelEmpresaRazonSocial" maxlength="500" required>
+                        <label for="panelEmpresaAlmacenPickSelect">Almacen</label>
+                        <select id="panelEmpresaAlmacenPickSelect" class="panel-empresa-almacen-select">
+                            <option value="ONTINYENT">ONTINYENT</option>
+                            <option value="GANDIA">GANDIA</option>
+                            <option value="ALZIRA">ALZIRA</option>
+                            <option value="REQUENA">REQUENA</option>
+                        </select>
                     </div>
-                    <div class="admin-solicitud-field panel-empresa-logo-block">
-                        <label for="panelEmpresaLogoFile">Logo de empresa</label>
-                        <input type="file" id="panelEmpresaLogoFile" accept="image/jpeg,image/png,image/webp,image/gif">
-                        <input type="hidden" id="panelEmpresaLogoUrl" value="">
-                        <div id="panelEmpresaLogoPreviewWrap" class="panel-empresa-logo-preview-wrap" style="display: none;">
-                            <img id="panelEmpresaLogoPreview" class="panel-empresa-logo-preview" alt="Vista previa logo">
+                    <div class="panel-empresa-pick-actions">
+                        <button type="button" id="panelDatosEmpresaPickContinuarBtn" class="btn btn-primary btn-lg">Continuar</button>
+                    </div>
+                </div>
+
+                <div id="panelDatosEmpresaFormWrap" class="panel-datos-empresa-form-wrap" style="display: none;">
+                    <div class="panel-empresa-almacen-readonly-wrap">
+                        <span class="panel-empresa-almacen-readonly-label">Almacen</span>
+                        <span id="panelEmpresaAlmacenReadonly" class="panel-empresa-almacen-readonly" aria-live="polite"></span>
+                    </div>
+                    <form id="panelDatosEmpresaForm" class="panel-empresa-form" autocomplete="on">
+                        <div class="admin-solicitud-field admin-solicitud-field-full">
+                            <label for="panelEmpresaRazonSocial">Nombre completo (razon social)</label>
+                            <input type="text" id="panelEmpresaRazonSocial" maxlength="500" required>
                         </div>
-                    </div>
-                    <div class="admin-solicitud-field"><label for="panelEmpresaCif">CIF</label><input type="text" id="panelEmpresaCif" maxlength="50" required></div>
-                    <div class="admin-solicitud-field admin-solicitud-field-full"><label for="panelEmpresaDireccion">Direccion</label><input type="text" id="panelEmpresaDireccion" maxlength="300" required></div>
-                    <div class="admin-solicitud-field"><label for="panelEmpresaCp">CP</label><input type="text" id="panelEmpresaCp" maxlength="20" required></div>
-                    <div class="admin-solicitud-field"><label for="panelEmpresaPoblacion">Poblacion</label><input type="text" id="panelEmpresaPoblacion" maxlength="120" required></div>
-                    <div class="admin-solicitud-field"><label for="panelEmpresaProvincia">Provincia</label><input type="text" id="panelEmpresaProvincia" maxlength="120" required></div>
-                    <div class="admin-solicitud-field"><label for="panelEmpresaTelefono">Telefono</label><input type="text" id="panelEmpresaTelefono" maxlength="80"></div>
-                    <div class="admin-solicitud-field"><label for="panelEmpresaEmail">Email</label><input type="text" id="panelEmpresaEmail" maxlength="200"></div>
-                    <div class="admin-solicitud-field"><label for="panelEmpresaWeb">Web</label><input type="text" id="panelEmpresaWeb" maxlength="300"></div>
-                    <div class="admin-solicitud-field admin-solicitud-field-full"><label for="panelEmpresaCondiciones">Condiciones comerciales</label><textarea id="panelEmpresaCondiciones" rows="3" maxlength="4000"></textarea></div>
-                    <div class="panel-empresa-form-actions">
-                        <button type="button" id="panelDatosEmpresaGuardarBtn" class="btn btn-primary btn-lg">Guardar</button>
-                    </div>
-                </form>
+                        <div class="admin-solicitud-field panel-empresa-logo-block">
+                            <label for="panelEmpresaLogoFile">Logo de empresa</label>
+                            <input type="file" id="panelEmpresaLogoFile" accept="image/jpeg,image/png,image/webp,image/gif">
+                            <input type="hidden" id="panelEmpresaLogoUrl" value="">
+                            <div id="panelEmpresaLogoPreviewWrap" class="panel-empresa-logo-preview-wrap" style="display: none;">
+                                <img id="panelEmpresaLogoPreview" class="panel-empresa-logo-preview" alt="Vista previa logo">
+                            </div>
+                        </div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaCif">CIF</label><input type="text" id="panelEmpresaCif" maxlength="50" required></div>
+                        <div class="admin-solicitud-field admin-solicitud-field-full"><label for="panelEmpresaDireccion">Direccion</label><input type="text" id="panelEmpresaDireccion" maxlength="300" required></div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaCp">CP</label><input type="text" id="panelEmpresaCp" maxlength="20" required></div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaPoblacion">Poblacion</label><input type="text" id="panelEmpresaPoblacion" maxlength="120" required></div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaProvincia">Provincia</label><input type="text" id="panelEmpresaProvincia" maxlength="120" required></div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaTelefono">Telefono</label><input type="text" id="panelEmpresaTelefono" maxlength="80"></div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaEmail">Email</label><input type="text" id="panelEmpresaEmail" maxlength="200"></div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaWeb">Web</label><input type="text" id="panelEmpresaWeb" maxlength="300"></div>
+                        <div class="admin-solicitud-field admin-solicitud-field-full"><label for="panelEmpresaCondiciones">Condiciones comerciales</label><textarea id="panelEmpresaCondiciones" rows="3" maxlength="4000"></textarea></div>
+                        <div class="panel-empresa-form-actions">
+                            <button type="button" id="panelDatosEmpresaGuardarBtn" class="btn btn-primary btn-lg">Guardar</button>
+                        </div>
+                    </form>
+                </div>
             </main>
         </div>
 
