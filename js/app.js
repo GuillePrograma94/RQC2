@@ -10283,6 +10283,64 @@ class ScanAsYouShopApp {
         }
     }
 
+    /**
+     * Lineas para RPC presupuesto: PVP base (sin IVA) y dto_pct del cliente efectivo
+     * (misma logica que precios en carrito: tarifa claves o pacto).
+     */
+    async buildLineasPresupuestoDesdeCarrito(cart) {
+        const productos = cart && Array.isArray(cart.productos) ? cart.productos : [];
+        const lineas = [];
+        for (const p of productos) {
+            const codigo = String(p.codigo_producto || p.codigo || '').trim();
+            const cantidad = Number(p.cantidad || 0);
+            if (!codigo || cantidad <= 0) continue;
+            const catalogo = await this.resolveProductoCatalogoConDescuento(codigo);
+            const basePvp =
+                catalogo && catalogo.pvp != null && Number.isFinite(Number(catalogo.pvp))
+                    ? Number(catalogo.pvp)
+                    : Number(p.precio_unitario || p.pvp || 0);
+            let dtoPct = 0;
+            if (this.mostrarPreciosConDescuento && catalogo) {
+                const dto = this.getPorcentajeDtoTarifaParaProducto(catalogo);
+                if (dto != null && Number.isFinite(Number(dto)) && Number(dto) > 0) {
+                    dtoPct = Math.min(100, Math.max(0, Number(dto)));
+                }
+            }
+            lineas.push({
+                codigo,
+                descripcion: String(
+                    p.descripcion_producto || p.descripcion || (catalogo && catalogo.descripcion) || ''
+                ).trim(),
+                cantidad,
+                precio_unitario: basePvp,
+                dto_pct: Math.round(dtoPct * 1000) / 1000
+            });
+        }
+        // #region agent log
+        const sample = lineas.length ? lineas[0] : null;
+        fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '28c925' },
+            body: JSON.stringify({
+                sessionId: '28c925',
+                runId: 'post-fix',
+                hypothesisId: 'H6',
+                location: 'app.js:buildLineasPresupuestoDesdeCarrito',
+                message: 'Lineas presupuesto con dto cliente',
+                data: {
+                    lineasCount: lineas.length,
+                    mostrarPreciosConDescuento: !!this.mostrarPreciosConDescuento,
+                    firstCodigo: sample ? sample.codigo : null,
+                    firstPrecio: sample ? sample.precio_unitario : null,
+                    firstDtoPct: sample ? sample.dto_pct : null
+                },
+                timestamp: Date.now()
+            })
+        }).catch(() => {});
+        // #endregion
+        return lineas;
+    }
+
     async guardarPresupuestoDesdeCarrito(observacionesManual) {
         try {
             // #region agent log
@@ -10341,6 +10399,11 @@ class ScanAsYouShopApp {
                 observacionesFinal = 'Presupuesto preparado por: ' + this.currentUser.user_name;
             }
             const almacen = this.getEffectiveAlmacenHabitual() || '';
+            const lineasPresupuesto = await this.buildLineasPresupuestoDesdeCarrito(cart);
+            if (!lineasPresupuesto.length) {
+                window.ui.showToast('El presupuesto no tiene lineas validas', 'warning');
+                return;
+            }
             window.ui.showLoading('Guardando presupuesto...');
             let result = null;
             if (this.editingPresupuestoId) {
@@ -10349,7 +10412,7 @@ class ScanAsYouShopApp {
                     this.currentUser.comercial_id,
                     almacen,
                     observacionesFinal || null,
-                    cart
+                    lineasPresupuesto
                 );
             } else {
                 result = await window.supabaseClient.crearPresupuesto(
@@ -10357,7 +10420,7 @@ class ScanAsYouShopApp {
                     this.currentUser.comercial_id,
                     almacen,
                     observacionesFinal || null,
-                    cart
+                    lineasPresupuesto
                 );
             }
             window.ui.hideLoading();

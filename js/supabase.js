@@ -1932,16 +1932,17 @@ class SupabaseClient {
         }
     }
 
-    async crearPresupuesto(usuarioIdCliente, comercialId, almacenHabitual, observaciones, cart) {
+    async crearPresupuesto(usuarioIdCliente, comercialId, almacenHabitual, observaciones, lineasPreparadas) {
         try {
             if (!this.client) throw new Error('Cliente de Supabase no inicializado');
-            const lineas = ((cart && Array.isArray(cart.productos)) ? cart.productos : [])
+            const raw = Array.isArray(lineasPreparadas) ? lineasPreparadas : [];
+            const lineas = raw
                 .map((p) => ({
-                    codigo: p.codigo_producto || p.codigo || '',
-                    descripcion: p.descripcion_producto || p.descripcion || '',
+                    codigo: p.codigo || p.codigo_producto || '',
+                    descripcion: p.descripcion || p.descripcion_producto || '',
                     cantidad: Number(p.cantidad || 0),
-                    precio_unitario: Number(p.precio_unitario || p.pvp || 0),
-                    dto_pct: Number(p.dto_pct || 0)
+                    precio_unitario: Number(p.precio_unitario != null ? p.precio_unitario : p.pvp || 0),
+                    dto_pct: Number(p.dto_pct != null && p.dto_pct !== '' ? p.dto_pct : 0)
                 }))
                 .filter((l) => l.codigo && l.cantidad > 0);
             if (!lineas.length) {
@@ -1971,16 +1972,17 @@ class SupabaseClient {
         }
     }
 
-    async actualizarPresupuesto(presupuestoId, comercialId, almacenHabitual, observaciones, cart) {
+    async actualizarPresupuesto(presupuestoId, comercialId, almacenHabitual, observaciones, lineasPreparadas) {
         try {
             if (!this.client) throw new Error('Cliente de Supabase no inicializado');
-            const lineas = ((cart && Array.isArray(cart.productos)) ? cart.productos : [])
+            const raw = Array.isArray(lineasPreparadas) ? lineasPreparadas : [];
+            const lineas = raw
                 .map((p) => ({
-                    codigo: p.codigo_producto || p.codigo || '',
-                    descripcion: p.descripcion_producto || p.descripcion || '',
+                    codigo: p.codigo || p.codigo_producto || '',
+                    descripcion: p.descripcion || p.descripcion_producto || '',
                     cantidad: Number(p.cantidad || 0),
-                    precio_unitario: Number(p.precio_unitario || p.pvp || 0),
-                    dto_pct: Number(p.dto_pct || 0)
+                    precio_unitario: Number(p.precio_unitario != null ? p.precio_unitario : p.pvp || 0),
+                    dto_pct: Number(p.dto_pct != null && p.dto_pct !== '' ? p.dto_pct : 0)
                 }))
                 .filter((l) => l.codigo && l.cantidad > 0);
             if (!lineas.length) {

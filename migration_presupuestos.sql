@@ -251,12 +251,16 @@ RETURNS TABLE (
     message TEXT
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
 AS $$
 DECLARE
     v_presupuesto_id BIGINT;
     v_numero TEXT;
     v_linea JSONB;
     v_orden INTEGER := 0;
+    v_jwt_usuario_id INTEGER;
+    v_jwt_comercial_id INTEGER;
+    v_allowed BOOLEAN := FALSE;
 BEGIN
     IF p_usuario_id_cliente IS NULL OR p_comercial_id IS NULL THEN
         RETURN QUERY SELECT NULL::BIGINT, NULL::TEXT, FALSE, 'Usuario o comercial no valido'::TEXT;
@@ -264,6 +268,25 @@ BEGIN
     END IF;
     IF p_lineas IS NULL OR jsonb_typeof(p_lineas) <> 'array' OR jsonb_array_length(p_lineas) = 0 THEN
         RETURN QUERY SELECT NULL::BIGINT, NULL::TEXT, FALSE, 'El presupuesto no tiene lineas'::TEXT;
+        RETURN;
+    END IF;
+
+    v_jwt_usuario_id := NULLIF((auth.jwt() -> 'app_metadata' ->> 'usuario_id'), '')::INTEGER;
+    v_jwt_comercial_id := NULLIF((auth.jwt() -> 'app_metadata' ->> 'comercial_id'), '')::INTEGER;
+
+    IF v_jwt_comercial_id IS NOT NULL AND v_jwt_comercial_id = p_comercial_id THEN
+        v_allowed := TRUE;
+    ELSE
+        SELECT EXISTS(
+            SELECT 1
+            FROM usuarios_comerciales uc
+            WHERE uc.id = p_comercial_id
+              AND uc.usuario_id = v_jwt_usuario_id
+        ) INTO v_allowed;
+    END IF;
+
+    IF NOT v_allowed AND (((auth.jwt() -> 'app_metadata') ->> 'es_administracion')::BOOLEAN IS DISTINCT FROM TRUE) THEN
+        RETURN QUERY SELECT NULL::BIGINT, NULL::TEXT, FALSE, 'No autorizado para crear presupuestos con ese comercial_id'::TEXT;
         RETURN;
     END IF;
 
@@ -339,13 +362,36 @@ RETURNS TABLE (
     message TEXT
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
 AS $$
 DECLARE
     v_linea JSONB;
     v_orden INTEGER := 0;
+    v_jwt_usuario_id INTEGER;
+    v_jwt_comercial_id INTEGER;
+    v_allowed BOOLEAN := FALSE;
 BEGIN
     IF p_lineas IS NULL OR jsonb_typeof(p_lineas) <> 'array' OR jsonb_array_length(p_lineas) = 0 THEN
         RETURN QUERY SELECT NULL::BIGINT, FALSE, 'El presupuesto no tiene lineas'::TEXT;
+        RETURN;
+    END IF;
+
+    v_jwt_usuario_id := NULLIF((auth.jwt() -> 'app_metadata' ->> 'usuario_id'), '')::INTEGER;
+    v_jwt_comercial_id := NULLIF((auth.jwt() -> 'app_metadata' ->> 'comercial_id'), '')::INTEGER;
+
+    IF v_jwt_comercial_id IS NOT NULL AND v_jwt_comercial_id = p_comercial_id THEN
+        v_allowed := TRUE;
+    ELSE
+        SELECT EXISTS(
+            SELECT 1
+            FROM usuarios_comerciales uc
+            WHERE uc.id = p_comercial_id
+              AND uc.usuario_id = v_jwt_usuario_id
+        ) INTO v_allowed;
+    END IF;
+
+    IF NOT v_allowed AND (((auth.jwt() -> 'app_metadata') ->> 'es_administracion')::BOOLEAN IS DISTINCT FROM TRUE) THEN
+        RETURN QUERY SELECT NULL::BIGINT, FALSE, 'No autorizado para actualizar presupuestos con ese comercial_id'::TEXT;
         RETURN;
     END IF;
 
