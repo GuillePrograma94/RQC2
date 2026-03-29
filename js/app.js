@@ -10691,7 +10691,7 @@ class ScanAsYouShopApp {
                 }
             }
             const imgBase = this._wcProductImageBase();
-            const imagenUrl = imgBase ? `${imgBase}${cod}_1.JPG` : '';
+            const imagenUrl = imgBase ? `${imgBase}${codigo}_1.JPG` : '';
             lineas.push({
                 codigo,
                 descripcion: String(
@@ -10705,6 +10705,23 @@ class ScanAsYouShopApp {
         }
         // #region agent log
         const sample = lineas.length ? lineas[0] : null;
+        fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a04ce3' },
+            body: JSON.stringify({
+                sessionId: 'a04ce3',
+                runId: 'post-fix',
+                hypothesisId: 'H1',
+                location: 'app.js:buildLineasPresupuestoDesdeCarrito',
+                message: 'Lineas presupuesto listas',
+                data: {
+                    lineasCount: lineas.length,
+                    firstCodigo: sample ? sample.codigo : null,
+                    firstImagenUrlSuffix: sample && sample.imagen_url ? sample.imagen_url.slice(-12) : null
+                },
+                timestamp: Date.now()
+            })
+        }).catch(() => {});
         fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '28c925' },
