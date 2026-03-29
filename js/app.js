@@ -10703,87 +10703,22 @@ class ScanAsYouShopApp {
                 imagen_url: imagenUrl
             });
         }
-        // #region agent log
-        const sample = lineas.length ? lineas[0] : null;
-        fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a04ce3' },
-            body: JSON.stringify({
-                sessionId: 'a04ce3',
-                runId: 'post-fix',
-                hypothesisId: 'H1',
-                location: 'app.js:buildLineasPresupuestoDesdeCarrito',
-                message: 'Lineas presupuesto listas',
-                data: {
-                    lineasCount: lineas.length,
-                    firstCodigo: sample ? sample.codigo : null,
-                    firstImagenUrlSuffix: sample && sample.imagen_url ? sample.imagen_url.slice(-12) : null
-                },
-                timestamp: Date.now()
-            })
-        }).catch(() => {});
-        fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '28c925' },
-            body: JSON.stringify({
-                sessionId: '28c925',
-                runId: 'post-fix',
-                hypothesisId: 'H6',
-                location: 'app.js:buildLineasPresupuestoDesdeCarrito',
-                message: 'Lineas presupuesto con dto cliente',
-                data: {
-                    lineasCount: lineas.length,
-                    mostrarPreciosConDescuento: !!this.mostrarPreciosConDescuento,
-                    firstCodigo: sample ? sample.codigo : null,
-                    firstPrecio: sample ? sample.precio_unitario : null,
-                    firstDtoPct: sample ? sample.dto_pct : null
-                },
-                timestamp: Date.now()
-            })
-        }).catch(() => {});
-        // #endregion
         return lineas;
     }
 
     async guardarPresupuestoDesdeCarrito(observacionesManual) {
         try {
-            // #region agent log
-            console.log('[DBG28c925 H3]', {
-                hasCurrentUser: !!this.currentUser,
-                tipo: this.currentUser && this.currentUser.tipo ? this.currentUser.tipo : '',
-                is_comercial: !!(this.currentUser && this.currentUser.is_comercial),
-                comercial_id: this.currentUser && this.currentUser.comercial_id != null ? this.currentUser.comercial_id : null,
-                cliente_representado_id: this.currentUser && this.currentUser.cliente_representado_id != null ? this.currentUser.cliente_representado_id : null
-            });
-            fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28c925'},body:JSON.stringify({sessionId:'28c925',runId:'run1',hypothesisId:'H3',location:'app.js:guardarPresupuestoDesdeCarrito(entry)',message:'Entrada guardar presupuesto',data:{hasCurrentUser:!!this.currentUser,tipo:this.currentUser&&this.currentUser.tipo?this.currentUser.tipo:'',is_comercial:!!(this.currentUser&&this.currentUser.is_comercial),comercial_id:this.currentUser&&this.currentUser.comercial_id!=null?this.currentUser.comercial_id:null,cliente_representado_id:this.currentUser&&this.currentUser.cliente_representado_id!=null?this.currentUser.cliente_representado_id:null},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
             if (this.currentUser && this.currentUser.is_comercial && !this.currentUser.comercial_id && window.supabaseClient) {
                 const fallbackNumero = this.currentUser.comercial_numero != null
                     ? this.currentUser.comercial_numero
                     : parseInt(this.currentUser.codigo_usuario, 10);
                 const resolvedComercialId = await window.supabaseClient.getComercialIdByNumero(fallbackNumero);
-                // #region agent log
-                console.log('[DBG28c925 H5]', {
-                    fallbackNumero: fallbackNumero,
-                    resolvedComercialId: resolvedComercialId
-                });
-                fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28c925'},body:JSON.stringify({sessionId:'28c925',runId:'post-fix',hypothesisId:'H5',location:'app.js:guardarPresupuestoDesdeCarrito(resolve-comercial-id)',message:'Resolucion fallback comercial_id por numero',data:{fallbackNumero:fallbackNumero,resolvedComercialId:resolvedComercialId},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
                 if (resolvedComercialId) {
                     this.currentUser.comercial_id = resolvedComercialId;
                     this.saveUserSession(this.currentUser, this.currentSession);
                 }
             }
             if (!this.currentUser || !this.currentUser.is_comercial || !this.currentUser.comercial_id) {
-                // #region agent log
-                console.log('[DBG28c925 H4]', {
-                    hasCurrentUser: !!this.currentUser,
-                    tipo: this.currentUser && this.currentUser.tipo ? this.currentUser.tipo : '',
-                    is_comercial: !!(this.currentUser && this.currentUser.is_comercial),
-                    comercial_id: this.currentUser && this.currentUser.comercial_id != null ? this.currentUser.comercial_id : null
-                });
-                fetch('http://127.0.0.1:7686/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28c925'},body:JSON.stringify({sessionId:'28c925',runId:'run1',hypothesisId:'H4',location:'app.js:guardarPresupuestoDesdeCarrito(role-guard)',message:'Bloqueo por rol comercial',data:{hasCurrentUser:!!this.currentUser,tipo:this.currentUser&&this.currentUser.tipo?this.currentUser.tipo:'',is_comercial:!!(this.currentUser&&this.currentUser.is_comercial),comercial_id:this.currentUser&&this.currentUser.comercial_id!=null?this.currentUser.comercial_id:null},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
                 window.ui.showToast('Solo un comercial puede guardar presupuestos', 'warning');
                 return;
             }

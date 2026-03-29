@@ -18,7 +18,6 @@ const THEME = {
     borderStrong: '#cbd5e1',
     tableHeaderBg: '#f1f5f9',
     rowStripe: '#fafbfc',
-    metaBoxBg: '#f8fafc',
     totalBand: '#f1f5f9',
     totalStrong: '#1e3a5f'
 };
@@ -72,134 +71,119 @@ async function fetchImageBuffer(url) {
 }
 
 /**
- * Cabecera: franja marca, empresa a la izquierda, bloque documento a la derecha.
+ * Cabecera compacta: titulo centrado, numero/fecha en una linea, dos columnas (empresa+logo | cliente).
+ * Logo sin marco (fondos blancos habituales).
  */
 function drawHeader(doc, empresa, presupuesto, logoBuf) {
     const m = PAGE_MARGIN;
     const pageW = doc.page.width;
     const w = pageW - 2 * m;
     const accent = THEME.accent;
+    let y = m;
 
-    doc.save();
-    doc.rect(m, m, w, 5).fill(accent);
-    doc.restore();
-
-    const contentTop = m + 22;
-    const metaW = 198;
-    const metaX = pageW - m - metaW;
-    const metaH = 78;
-
-    doc.save();
-    doc.roundedRect(metaX, contentTop, metaW, metaH, 5).fill(THEME.metaBoxBg);
-    doc.roundedRect(metaX, contentTop, metaW, metaH, 5).strokeColor(THEME.border).lineWidth(0.5).stroke();
-    doc.restore();
-
-    doc.fillColor(accent).font('Helvetica-Bold').fontSize(20).text('PRESUPUESTO', metaX + 14, contentTop + 14, {
-        width: metaW - 28,
-        align: 'right'
-    });
-    doc.fillColor(THEME.textMuted).font('Helvetica').fontSize(9)
-        .text('N. ' + safeText(presupuesto.numero_presupuesto), metaX + 14, doc.y + 6, {
-            width: metaW - 28,
-            align: 'right'
-        })
+    doc.fillColor(accent).font('Helvetica-Bold').fontSize(18).text('PRESUPUESTO', m, y, { width: w, align: 'center' });
+    y = doc.y + 2;
+    doc.fillColor(THEME.textMuted).font('Helvetica').fontSize(8.5)
         .text(
-            'Fecha: ' + new Date(presupuesto.fecha || Date.now()).toLocaleDateString('es-ES', {
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric'
-            }),
-            metaX + 14,
-            doc.y + 4,
-            { width: metaW - 28, align: 'right' }
+            'N. ' +
+                safeText(presupuesto.numero_presupuesto) +
+                '   |   Fecha: ' +
+                new Date(presupuesto.fecha || Date.now()).toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                }),
+            m,
+            y,
+            { width: w, align: 'center' }
         );
+    y = doc.y + 12;
 
-    let leftX = m;
-    const leftY = contentTop + 4;
-    const logoW = 68;
-    const logoH = 50;
+    const colGap = 14;
+    const leftW = (w - colGap) / 2;
+    const rightW = (w - colGap) / 2;
+    const leftX = m;
+    const rightX = m + leftW + colGap;
+
+    const logoW = 100;
+    const logoH = 58;
+    const rowTop = y;
+
+    let leftBottom = rowTop;
     if (logoBuf) {
         try {
-            doc.save();
-            doc.roundedRect(leftX, leftY, logoW, logoH, 4).clip();
-            doc.image(logoBuf, leftX, leftY, { width: logoW, height: logoH, fit: [logoW, logoH] });
-            doc.restore();
-            doc.roundedRect(leftX, leftY, logoW, logoH, 4).strokeColor(THEME.border).lineWidth(0.35).stroke();
-            leftX = m + logoW + 16;
+            doc.image(logoBuf, leftX, rowTop, { width: logoW, height: logoH, fit: [logoW, logoH] });
+            leftBottom = rowTop + logoH + 5;
         } catch (_) {
-            leftX = m;
+            leftBottom = rowTop;
         }
     }
 
-    const textMaxW = metaX - leftX - 16;
-    doc.fillColor(THEME.text).font('Helvetica-Bold').fontSize(13)
-        .text(safeText(empresa.razon_social || 'BATMAR'), leftX, leftY + 2, { width: textMaxW });
-    doc.fillColor(THEME.textMuted).font('Helvetica').fontSize(8.5).lineGap(1)
-        .text(safeText(empresa.cif ? ('CIF / NIF: ' + empresa.cif) : ''), leftX)
-        .text(safeText(empresa.direccion), leftX)
-        .text(safeText([empresa.cp, empresa.poblacion].filter(Boolean).join(' · ')), leftX)
-        .text(safeText(empresa.provincia), leftX);
-
+    doc.fillColor(THEME.text).font('Helvetica-Bold').fontSize(10.5)
+        .text(safeText(empresa.razon_social || 'BATMAR'), leftX, leftBottom, { width: leftW });
+    let ly = doc.y + 1;
+    doc.fillColor(THEME.textMuted).font('Helvetica').fontSize(8).lineGap(0.5);
+    const cifE = safeText(empresa.cif ? 'CIF: ' + empresa.cif : '');
+    if (cifE) {
+        doc.text(cifE, leftX, ly, { width: leftW });
+        ly = doc.y;
+    }
+    const dirE = safeText(empresa.direccion);
+    if (dirE) {
+        doc.text(dirE, leftX, ly, { width: leftW });
+        ly = doc.y;
+    }
+    const cpPobE = safeText([empresa.cp, empresa.poblacion].filter(Boolean).join(' · '));
+    if (cpPobE) {
+        doc.text(cpPobE, leftX, ly, { width: leftW });
+        ly = doc.y;
+    }
+    const provE = safeText(empresa.provincia);
+    if (provE) {
+        doc.text(provE, leftX, ly, { width: leftW });
+        ly = doc.y;
+    }
     const contactBits = [
         empresa.telefono ? 'Tel. ' + safeText(empresa.telefono) : '',
         empresa.email ? safeText(empresa.email) : '',
         empresa.web ? safeText(empresa.web) : ''
     ].filter(Boolean);
     if (contactBits.length) {
-        doc.fillColor(THEME.textLight).fontSize(8)
-            .text(contactBits.join('  |  '), leftX, doc.y + 4, { width: textMaxW });
+        doc.fillColor(THEME.textLight).fontSize(7.5)
+            .text(contactBits.join('  |  '), leftX, ly + 2, { width: leftW });
     }
+    leftBottom = doc.y;
 
-    const headerBottom = Math.max(contentTop + metaH, doc.y) + 18;
-    doc.save();
-    doc.moveTo(m, headerBottom).lineTo(pageW - m, headerBottom).strokeColor(THEME.borderStrong).lineWidth(0.75).stroke();
-    doc.restore();
+    const clienteLines = [];
+    const nom = safeText(presupuesto.cliente_nombre);
+    if (nom) clienteLines.push(nom);
+    const cifC = safeText(presupuesto.cliente_cif ? 'CIF: ' + presupuesto.cliente_cif : '');
+    if (cifC) clienteLines.push(cifC);
+    const dirC = safeText(presupuesto.cliente_direccion);
+    if (dirC) clienteLines.push(dirC);
+    const cpPobC = safeText([presupuesto.cliente_cp, presupuesto.cliente_poblacion].filter(Boolean).join(' · '));
+    if (cpPobC) clienteLines.push(cpPobC);
+    const provC = safeText(presupuesto.cliente_provincia);
+    if (provC) clienteLines.push(provC);
+    const codC = safeText(presupuesto.cliente_codigo ? 'Cod. cliente: ' + presupuesto.cliente_codigo : '');
+    if (codC) clienteLines.push(codC);
 
-    return headerBottom + 16;
-}
-
-function drawClientBox(doc, presupuesto, startY) {
-    const m = PAGE_MARGIN;
-    const pageW = doc.page.width;
-    const w = pageW - 2 * m;
-    const accent = THEME.accent;
-    const pad = 14;
-    const innerLeft = m + pad + 6;
-
-    doc.font('Helvetica').fontSize(9);
-    const lines = [];
-    lines.push(safeText(presupuesto.cliente_nombre));
-    const cifLine = safeText(presupuesto.cliente_cif ? ('CIF / NIF: ' + presupuesto.cliente_cif) : '');
-    if (cifLine) lines.push(cifLine);
-    const dir = safeText(presupuesto.cliente_direccion);
-    if (dir) lines.push(dir);
-    const cpPob = safeText([presupuesto.cliente_cp, presupuesto.cliente_poblacion].filter(Boolean).join(' · '));
-    if (cpPob) lines.push(cpPob);
-    const prov = safeText(presupuesto.cliente_provincia);
-    if (prov) lines.push(prov);
-    const codCli = safeText(presupuesto.cliente_codigo ? ('Cod. cliente: ' + presupuesto.cliente_codigo) : '');
-    if (codCli) lines.push(codCli);
-
-    const contentLines = Math.max(1, lines.filter((x) => x).length);
-    const boxH = Math.max(86, 28 + contentLines * 12 + pad);
-
-    doc.save();
-    doc.rect(m + 3, startY, 4, boxH).fill(accent);
-    doc.roundedRect(m, startY, w, boxH, 6).fill(THEME.metaBoxBg);
-    doc.roundedRect(m, startY, w, boxH, 6).strokeColor(THEME.border).lineWidth(0.5).stroke();
-    doc.restore();
-
-    doc.fillColor(accent).font('Helvetica-Bold').fontSize(8)
-        .text('CLIENTE', innerLeft, startY + 12);
-    doc.fillColor(THEME.text).font('Helvetica').fontSize(9.5).lineGap(2);
-    let y = startY + 28;
-    for (const line of lines) {
+    doc.fillColor(accent).font('Helvetica-Bold').fontSize(8).text('CLIENTE', rightX, rowTop, { width: rightW });
+    let ry = doc.y + 2;
+    doc.fillColor(THEME.text).font('Helvetica').fontSize(8.5).lineGap(0.5);
+    for (const line of clienteLines) {
         if (!line) continue;
-        doc.text(line, innerLeft, y, { width: w - pad * 2 - 10 });
-        y = doc.y + 1;
+        doc.text(line, rightX, ry, { width: rightW });
+        ry = doc.y;
     }
+    const rightBottom = doc.y;
 
-    return startY + boxH + 18;
+    const blockBottom = Math.max(leftBottom, rightBottom) + 10;
+    doc.save();
+    doc.moveTo(m, blockBottom).lineTo(pageW - m, blockBottom).strokeColor(THEME.border).lineWidth(0.4).stroke();
+    doc.restore();
+
+    return blockBottom + 12;
 }
 
 function drawTableHeader(doc, y) {
@@ -452,7 +436,7 @@ module.exports = async (req, res) => {
         });
 
         const headerEndY = drawHeader(doc, empresa || {}, presupuesto, logoBuf);
-        let y = drawClientBox(doc, presupuesto, headerEndY);
+        let y = headerEndY;
 
         y = ensureSpace(doc, y, 48);
         drawTableHeader(doc, y);
