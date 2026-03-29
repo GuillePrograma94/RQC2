@@ -10441,6 +10441,20 @@ class ScanAsYouShopApp {
         }
     }
 
+    _setPresupuestosEmptyMessage(mode) {
+        const titleEl = document.getElementById('presupuestosEmptyTitle');
+        const textEl = document.getElementById('presupuestosEmptyText');
+        if (!titleEl || !textEl) return;
+        if (mode === 'no_comercial') {
+            titleEl.textContent = 'No se puede cargar la lista';
+            textEl.textContent =
+                'No se ha podido identificar el comercial en la sesion. Cierra sesion y vuelve a entrar, o contacta con administracion.';
+            return;
+        }
+        titleEl.textContent = 'No tienes presupuestos guardados';
+        textEl.textContent = 'Guarda presupuestos desde el carrito para poder compartirlos con el cliente';
+    }
+
     async loadPresupuestos() {
         const loadingEl = document.getElementById('presupuestosLoading');
         const emptyEl = document.getElementById('presupuestosEmpty');
@@ -10448,12 +10462,35 @@ class ScanAsYouShopApp {
         const representandoBlock = document.getElementById('presupuestosRepresentandoBlock');
         const representandoNombre = document.getElementById('presupuestosRepresentandoNombre');
         if (!loadingEl || !emptyEl || !listEl) return;
-        if (!this.currentUser || !this.currentUser.is_comercial || !this.currentUser.comercial_id) {
+        if (!this.currentUser || !this.currentUser.is_comercial) {
             loadingEl.style.display = 'none';
             emptyEl.style.display = 'flex';
             listEl.style.display = 'none';
+            this._setPresupuestosEmptyMessage('default');
             return;
         }
+        loadingEl.style.display = 'flex';
+        emptyEl.style.display = 'none';
+        listEl.style.display = 'none';
+        if (!this.currentUser.comercial_id && window.supabaseClient) {
+            const fallbackNumero =
+                this.currentUser.comercial_numero != null
+                    ? this.currentUser.comercial_numero
+                    : parseInt(this.currentUser.codigo_usuario, 10);
+            const resolvedComercialId = await window.supabaseClient.getComercialIdByNumero(fallbackNumero);
+            if (resolvedComercialId) {
+                this.currentUser.comercial_id = resolvedComercialId;
+                this.saveUserSession(this.currentUser, this.currentSession);
+            }
+        }
+        if (!this.currentUser.comercial_id) {
+            loadingEl.style.display = 'none';
+            emptyEl.style.display = 'flex';
+            listEl.style.display = 'none';
+            this._setPresupuestosEmptyMessage('no_comercial');
+            return;
+        }
+        this._setPresupuestosEmptyMessage('default');
         if (representandoBlock && representandoNombre) {
             if (this.currentUser.cliente_representado_id && this.currentUser.cliente_representado_nombre) {
                 representandoBlock.style.display = 'block';
@@ -10462,9 +10499,6 @@ class ScanAsYouShopApp {
                 representandoBlock.style.display = 'none';
             }
         }
-        loadingEl.style.display = 'flex';
-        emptyEl.style.display = 'none';
-        listEl.style.display = 'none';
         try {
             const presupuestos = this.currentUser.cliente_representado_id
                 ? await window.supabaseClient.getPresupuestosUsuario(this.currentUser.cliente_representado_id)
@@ -10485,9 +10519,97 @@ class ScanAsYouShopApp {
             loadingEl.style.display = 'none';
             emptyEl.style.display = 'flex';
             listEl.style.display = 'none';
+            this._setPresupuestosEmptyMessage('default');
             console.error('loadPresupuestos:', error);
             window.ui.showToast('Error al cargar presupuestos', 'error');
         }
+    }
+
+    /**
+     * HTML del desglose de lineas y observaciones para el panel expandible del presupuesto.
+     */
+    _renderPresupuestoDetalleExpandContent(detalle) {
+        if (!detalle) {
+            return '<div class="order-details-error">No se pudo cargar el detalle.</div>';
+        }
+        let lineasRaw = detalle.lineas;
+        if (typeof lineasRaw === 'string') {
+            try {
+                lineasRaw = JSON.parse(lineasRaw);
+            } catch (_) {
+                lineasRaw = [];
+            }
+        }
+        const lineas = Array.isArray(lineasRaw) ? lineasRaw : [];
+        const obsRaw = detalle.observaciones != null ? String(detalle.observaciones).trim() : '';
+        let html = '';
+        if (obsRaw) {
+            html += `<div class="order-observaciones">${this.escapeForHtmlContentPreservingNewlines(obsRaw)}</div>`;
+        }
+        if (!lineas.length) {
+            html += '<div class="order-details-error">No hay lineas en este presupuesto.</div>';
+            return html;
+        }
+        html += `
+            <div class="presupuesto-lines-head" aria-hidden="true">
+                <span class="pl-col-cod">Codigo</span>
+                <span class="pl-col-desc">Descripcion</span>
+                <span class="pl-col-num">Ud.</span>
+                <span class="pl-col-num">PVP</span>
+                <span class="pl-col-num">Dto%</span>
+                <span class="pl-col-num">Importe</span>
+            </div>`;
+        for (const l of lineas) {
+            const cod = this.escapeForHtmlAttribute(String(l.codigo || ''));
+            const desc = this.escapeForHtmlContentPreservingNewlines(String(l.descripcion || ''));
+            const cant = Number(l.cantidad || 0);
+            const pvp = Number(l.precio_unitario || 0);
+            const dto = Number(l.dto_pct || 0);
+            const imp = Number(l.importe_linea || 0);
+            html += `
+            <div class="presupuesto-detail-line">
+                <span class="pl-col-cod">${cod}</span>
+                <span class="pl-col-desc">${desc}</span>
+                <span class="pl-col-num">${cant.toFixed(2)}</span>
+                <span class="pl-col-num">${pvp.toFixed(4)}</span>
+                <span class="pl-col-num">${dto.toFixed(2)}</span>
+                <span class="pl-col-num">${imp.toFixed(2)}</span>
+            </div>`;
+        }
+        html += `
+            <div class="presupuesto-detail-totals">
+                <span>Subtotal (sin IVA)</span><strong>${Number(detalle.subtotal || 0).toFixed(2)} EUR</strong>
+                <span>IVA 21%</span><strong>${Number(detalle.impuestos || 0).toFixed(2)} EUR</strong>
+                <span>Total</span><strong>${Number(detalle.total || 0).toFixed(2)} EUR</strong>
+            </div>`;
+        return html;
+    }
+
+    async togglePresupuestoDetails(presupuestoId) {
+        const idStr = String(presupuestoId);
+        const detailsDiv = document.getElementById(`presupuestoDetails-${idStr}`);
+        const cardEl = document.querySelector(`[data-presupuesto-id="${idStr}"]`);
+        const arrow = cardEl ? cardEl.querySelector('.order-card-arrow svg') : null;
+        const triggerLabel = cardEl ? cardEl.querySelector('.order-card-trigger-label') : null;
+        if (!detailsDiv) return;
+        if (detailsDiv.style.display === 'none') {
+            detailsDiv.style.display = 'block';
+            if (arrow) arrow.style.transform = 'rotate(180deg)';
+            if (triggerLabel) triggerLabel.textContent = 'Ocultar';
+            if (detailsDiv.querySelector('.order-details-loading')) {
+                try {
+                    const detalle = await window.supabaseClient.getPresupuestoDetalle(presupuestoId);
+                    detailsDiv.innerHTML = this._renderPresupuestoDetalleExpandContent(detalle);
+                } catch (e) {
+                    console.error('togglePresupuestoDetails:', e);
+                    detailsDiv.innerHTML = '<div class="order-details-error">Error al cargar lineas.</div>';
+                }
+            }
+            return;
+        }
+        detailsDiv.style.display = 'none';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+        if (triggerLabel) triggerLabel.textContent = 'Ver detalles';
     }
 
     createPresupuestoCard(presupuesto) {
@@ -10501,28 +10623,44 @@ class ScanAsYouShopApp {
             ? `<div class="order-card-cliente">Cliente: ${this.escapeForHtmlContentPreservingNewlines(String(presupuesto.cliente_nombre).trim())}</div>`
             : '';
         card.innerHTML = `
-            <div class="order-card-main">
-                <div class="order-card-top">
-                    <span class="order-almacen">${this.escapeForHtmlAttribute(presupuesto.almacen_habitual || '-')}</span>
-                    <span class="order-type order-type-remote">Presupuesto</span>
-                    <span class="order-badge ${badge}">${this.escapeForHtmlAttribute(estado)}</span>
+            <div class="order-card-header" onclick="window.app.togglePresupuestoDetails(${idAttr})">
+                <div class="order-card-main">
+                    <div class="order-card-top">
+                        <span class="order-almacen">${this.escapeForHtmlAttribute(presupuesto.almacen_habitual || '-')}</span>
+                        <span class="order-type order-type-remote">Presupuesto</span>
+                        <span class="order-badge ${badge}">${this.escapeForHtmlAttribute(estado)}</span>
+                    </div>
+                    ${clienteNombreHtml}
+                    <div class="order-card-meta">
+                        <span class="order-date">${fechaFormateada}</span>
+                        <span class="order-code">Numero: ${this.escapeForHtmlAttribute(presupuesto.numero_presupuesto || '-')}</span>
+                    </div>
+                    <div class="order-card-totals">
+                        <span class="order-items">${Number(presupuesto.total_lineas || 0)} linea${Number(presupuesto.total_lineas || 0) !== 1 ? 's' : ''}</span>
+                        <span class="order-total">${Number(presupuesto.total || 0).toFixed(2)} EUR</span>
+                    </div>
                 </div>
-                ${clienteNombreHtml}
-                <div class="order-card-meta">
-                    <span class="order-date">${fechaFormateada}</span>
-                    <span class="order-code">Numero: ${this.escapeForHtmlAttribute(presupuesto.numero_presupuesto || '-')}</span>
+                <div class="order-card-trigger" data-presupuesto-id="${this.escapeForHtmlAttribute(idAttr)}">
+                    <span class="order-card-trigger-label">Ver detalles</span>
+                    <span class="order-card-arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </span>
                 </div>
-                <div class="order-card-totals">
-                    <span class="order-items">${Number(presupuesto.total_lineas || 0)} linea${Number(presupuesto.total_lineas || 0) !== 1 ? 's' : ''}</span>
-                    <span class="order-total">${Number(presupuesto.total || 0).toFixed(2)} €</span>
+            </div>
+            <div class="order-card-details" id="presupuestoDetails-${idAttr}" style="display: none;">
+                <div class="order-details-loading">
+                    <div class="spinner-small"></div>
+                    <span>Cargando lineas...</span>
                 </div>
             </div>
             <div class="prepedido-actions">
-                <button type="button" class="btn btn-outline-primary btn-sm" onclick="window.app.modificarPresupuesto(${idAttr})">Modificar</button>
-                <button type="button" class="btn btn-primary btn-sm" onclick="window.app.marcarPresupuestoEnviado(${idAttr})">Marcar enviado</button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="window.app.compartirPresupuestoWhatsApp(${idAttr})">WhatsApp</button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="window.app.compartirPresupuestoEmail(${idAttr})">Email</button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="window.app.eliminarPresupuesto(${idAttr})">Eliminar</button>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="event.stopPropagation(); window.app.modificarPresupuesto(${idAttr})">Modificar</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window.app.marcarPresupuestoEnviado(${idAttr})">Marcar enviado</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window.app.compartirPresupuestoWhatsApp(${idAttr})">WhatsApp</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window.app.compartirPresupuestoEmail(${idAttr})">Email</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window.app.eliminarPresupuesto(${idAttr})">Eliminar</button>
             </div>
         `;
         return card;

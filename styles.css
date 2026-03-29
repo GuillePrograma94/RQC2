@@ -3780,6 +3780,73 @@ body.gate-visible .app-container {
     width: 100%;
 }
 
+#presupuestosScreen .presupuesto-lines-head,
+#presupuestosScreen .presupuesto-detail-line {
+    display: grid;
+    grid-template-columns: minmax(3.2rem, 0.7fr) minmax(0, 1.4fr) 2.1rem 3.2rem 2.2rem 3.4rem;
+    gap: 0.35rem 0.25rem;
+    align-items: start;
+    font-size: 0.68rem;
+    padding: 0.35rem 0.65rem;
+    line-height: 1.25;
+}
+
+#presupuestosScreen .presupuesto-lines-head {
+    font-weight: 600;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    border-bottom: 1px solid var(--gray-200);
+    padding-bottom: 0.45rem;
+    margin-bottom: 0.25rem;
+}
+
+#presupuestosScreen .presupuesto-detail-line {
+    background: var(--white);
+    border-radius: 8px;
+    margin-bottom: 0.35rem;
+    border: 1px solid var(--gray-100);
+}
+
+#presupuestosScreen .pl-col-desc {
+    word-break: break-word;
+    hyphens: auto;
+}
+
+#presupuestosScreen .pl-col-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+#presupuestosScreen .order-card-details .order-observaciones {
+    margin: 0.65rem 0.65rem 0.5rem;
+}
+
+#presupuestosScreen .presupuesto-detail-totals {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.35rem 1rem;
+    font-size: 0.78rem;
+    padding: 0.65rem 0.65rem 0.85rem;
+    margin-top: 0.35rem;
+    border-top: 1px dashed var(--gray-200);
+    align-items: center;
+}
+
+#presupuestosScreen .presupuesto-detail-totals strong {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 380px) {
+    #presupuestosScreen .presupuesto-lines-head,
+    #presupuestosScreen .presupuesto-detail-line {
+        font-size: 0.62rem;
+        grid-template-columns: minmax(2.6rem, 0.65fr) minmax(0, 1.2fr) 1.9rem 2.8rem 1.9rem 3rem;
+    }
+}
+
 /* Tarjeta comercial en menú (debajo de datos del cliente) */
 .menu-commercial-card.commercial-card {
     display: flex;
