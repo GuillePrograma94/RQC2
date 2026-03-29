@@ -109,8 +109,8 @@ async function fetchImageBuffer(url) {
 }
 
 /**
- * Cabecera: bloque de texto (PRESUPUESTO, fecha, CIF, CLIENTE) con layout fijo (no depende del tamano del logo).
- * El logo se dibuja despues en posicion independiente (tamano + offsets X/Y desde margen).
+ * Cabecera: logo primero (detras); despues texto (PRESUPUESTO, fecha, CIF, CLIENTE) encima si hay solape.
+ * Layout del texto fijo; tamano y posicion del logo independientes (offsets desde margen).
  */
 function drawHeader(doc, empresa, presupuesto, logoBuf) {
     const m = PAGE_MARGIN;
@@ -119,6 +119,16 @@ function drawHeader(doc, empresa, presupuesto, logoBuf) {
     const y0 = m;
     const { logoW, logoH } = resolveLogoPdfSize(empresa);
     const { offX, offY } = resolveLogoPdfOffsets(empresa);
+
+    if (logoBuf) {
+        try {
+            const logoX = m + offX;
+            const logoY = y0 + offY;
+            doc.image(logoBuf, logoX, logoY, { width: logoW, height: logoH, fit: [logoW, logoH] });
+        } catch (_) {
+            /* empty */
+        }
+    }
 
     const textX = m + HEADER_LOGO_ZONE_WIDTH_PT + GAP_AFTER_LOGO_ZONE_PT;
     const textW = pageW - m - textX;
@@ -189,16 +199,6 @@ function drawHeader(doc, empresa, presupuesto, logoBuf) {
     doc.save();
     doc.moveTo(m, blockBottom).lineTo(pageW - m, blockBottom).strokeColor(THEME.border).lineWidth(0.4).stroke();
     doc.restore();
-
-    if (logoBuf) {
-        try {
-            const logoX = m + offX;
-            const logoY = y0 + offY;
-            doc.image(logoBuf, logoX, logoY, { width: logoW, height: logoH, fit: [logoW, logoH] });
-        } catch (_) {
-            /* empty */
-        }
-    }
 
     return blockBottom + 8;
 }

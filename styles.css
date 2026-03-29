@@ -4096,7 +4096,7 @@ body.gate-visible .app-container {
     position: absolute;
     left: 0;
     top: 0;
-    z-index: 1;
+    z-index: 0;
 }
 
 .pdf-header-preview-logo {
@@ -4122,6 +4122,8 @@ body.gate-visible .app-container {
     flex: 1;
     min-width: 0;
     text-align: right;
+    position: relative;
+    z-index: 2;
 }
 
 .pdf-header-preview-h1 {
@@ -4150,6 +4152,8 @@ body.gate-visible .app-container {
     gap: 14pt;
     margin-top: 4pt;
     clear: both;
+    position: relative;
+    z-index: 2;
 }
 
 .pdf-header-preview-cif {
