@@ -7,6 +7,11 @@ const TABLE_IMG_COL = 36;
 const ROW_MIN_H = 36;
 const PRODUCT_IMG_BASE = 'https://www.saneamiento-martinez.com/imagenes/articulos/';
 
+const LOGO_PDF_DEFAULT_W = 96;
+const LOGO_PDF_DEFAULT_H = 50;
+const LOGO_PDF_MIN_PT = 20;
+const LOGO_PDF_MAX_PT = 200;
+
 /** Paleta documento presupuesto (aspecto profesional / moderno) */
 const THEME = {
     accent: '#1e3a5f',
@@ -53,6 +58,20 @@ function defaultProductImageUrlForCodigo(codigo) {
 /**
  * @returns {Promise<Buffer|null>}
  */
+/**
+ * @param {object|null|undefined} empresa
+ * @returns {{ logoW: number, logoH: number }}
+ */
+function resolveLogoPdfSize(empresa) {
+    const w = Number(empresa && empresa.logo_pdf_ancho_pt);
+    const h = Number(empresa && empresa.logo_pdf_alto_pt);
+    const logoW =
+        Number.isFinite(w) && w > 0 ? Math.min(LOGO_PDF_MAX_PT, Math.max(LOGO_PDF_MIN_PT, w)) : LOGO_PDF_DEFAULT_W;
+    const logoH =
+        Number.isFinite(h) && h > 0 ? Math.min(LOGO_PDF_MAX_PT, Math.max(LOGO_PDF_MIN_PT, h)) : LOGO_PDF_DEFAULT_H;
+    return { logoW, logoH };
+}
+
 async function fetchImageBuffer(url) {
     const u = safeText(url);
     if (!u || (!u.startsWith('http://') && !u.startsWith('https://'))) {
@@ -80,8 +99,7 @@ function drawHeader(doc, empresa, presupuesto, logoBuf) {
     const accent = THEME.accent;
     const y0 = m;
     const gapAfterLogo = 10;
-    const logoW = 96;
-    const logoH = 50;
+    const { logoW, logoH } = resolveLogoPdfSize(empresa);
 
     const textX = logoBuf ? m + logoW + gapAfterLogo : m;
     const textW = pageW - m - textX;
@@ -374,7 +392,7 @@ module.exports = async (req, res) => {
         if (almacenCab) {
             const { data: empPorAlmacen, error: errAlm } = await supabase
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, condiciones_comerciales')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, condiciones_comerciales')
                 .eq('almacen', almacenCab)
                 .maybeSingle();
             if (errAlm) {
@@ -384,7 +402,7 @@ module.exports = async (req, res) => {
             if (!empresa) {
                 const { data: empUpper, error: errUp } = await supabase
                     .from('empresas_por_almacen')
-                    .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, condiciones_comerciales')
+                    .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, condiciones_comerciales')
                     .eq('almacen', almacenCab.toUpperCase())
                     .maybeSingle();
                 if (errUp) {
@@ -396,7 +414,7 @@ module.exports = async (req, res) => {
         if (!empresa) {
             const { data: empGlobal, error: errGlob } = await supabase
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, condiciones_comerciales')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, condiciones_comerciales')
                 .eq('almacen', 'GLOBAL')
                 .maybeSingle();
             if (errGlob) {

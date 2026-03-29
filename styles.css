@@ -4008,6 +4008,15 @@ body.gate-visible .app-container {
     padding: 0 1rem 1rem;
 }
 
+.panel-empresa-pdf-logo-hint {
+    font-size: 0.8125rem;
+    color: var(--gray-600);
+    line-height: 1.4;
+    margin: -0.25rem 0 0.75rem 0;
+    max-width: 36rem;
+    grid-column: 1 / -1;
+}
+
 .panel-empresa-almacen-readonly-wrap {
     display: flex;
     align-items: center;

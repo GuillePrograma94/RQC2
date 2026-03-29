@@ -1544,6 +1544,8 @@ class ScanAsYouShopApp {
         set('panelEmpresaEmail', row.email);
         set('panelEmpresaWeb', row.web);
         set('panelEmpresaLogoUrl', row.logo_url);
+        set('panelEmpresaLogoPdfAncho', row.logo_pdf_ancho_pt);
+        set('panelEmpresaLogoPdfAlto', row.logo_pdf_alto_pt);
         set('panelEmpresaCondiciones', row.condiciones_comerciales);
         const fileInput = document.getElementById('panelEmpresaLogoFile');
         if (fileInput) fileInput.value = '';
@@ -4343,6 +4345,8 @@ class ScanAsYouShopApp {
         set('adminEmpresaEmail', row.email);
         set('adminEmpresaWeb', row.web);
         set('adminEmpresaLogoUrl', row.logo_url);
+        set('adminEmpresaLogoPdfAncho', row.logo_pdf_ancho_pt);
+        set('adminEmpresaLogoPdfAlto', row.logo_pdf_alto_pt);
         set('adminEmpresaCondiciones', row.condiciones_comerciales);
         set('adminEmpresaTextoCabecera', row.texto_cabecera);
     }
@@ -4371,6 +4375,8 @@ class ScanAsYouShopApp {
             email: get('adminEmpresaEmail'),
             web: get('adminEmpresaWeb'),
             logo_url: get('adminEmpresaLogoUrl'),
+            logo_pdf_ancho_pt: get('adminEmpresaLogoPdfAncho'),
+            logo_pdf_alto_pt: get('adminEmpresaLogoPdfAlto'),
             condiciones_comerciales: get('adminEmpresaCondiciones'),
             texto_cabecera: get('adminEmpresaTextoCabecera')
         };
@@ -4440,6 +4446,8 @@ class ScanAsYouShopApp {
             email: get('panelEmpresaEmail'),
             web: get('panelEmpresaWeb'),
             logo_url: logoUrl || null,
+            logo_pdf_ancho_pt: get('panelEmpresaLogoPdfAncho'),
+            logo_pdf_alto_pt: get('panelEmpresaLogoPdfAlto'),
             condiciones_comerciales: get('panelEmpresaCondiciones')
         };
         if (!payload.razon_social || !payload.cif || !payload.direccion || !payload.cp || !payload.poblacion || !payload.provincia) {
