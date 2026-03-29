@@ -1,6 +1,28 @@
 const PDFDocument = require('pdfkit');
 const { createClient } = require('@supabase/supabase-js');
 
+const PAGE_MARGIN = 48;
+const PAGE_BOTTOM_SAFE = 80;
+const TABLE_IMG_COL = 36;
+const ROW_MIN_H = 36;
+const PRODUCT_IMG_BASE = 'https://www.saneamiento-martinez.com/imagenes/articulos/';
+
+/** Paleta documento presupuesto (aspecto profesional / moderno) */
+const THEME = {
+    accent: '#1e3a5f',
+    accentSoft: '#e8eef5',
+    text: '#0f172a',
+    textMuted: '#64748b',
+    textLight: '#94a3b8',
+    border: '#e2e8f0',
+    borderStrong: '#cbd5e1',
+    tableHeaderBg: '#f1f5f9',
+    rowStripe: '#fafbfc',
+    metaBoxBg: '#f8fafc',
+    totalBand: '#f1f5f9',
+    totalStrong: '#1e3a5f'
+};
+
 function parseRequestBody(req) {
     if (!req || req.body == null) return {};
     if (typeof req.body === 'string') {
@@ -23,64 +45,321 @@ function safeText(value) {
     return String(value).trim();
 }
 
-function drawHeader(doc, empresa, presupuesto) {
-    doc.fontSize(20).font('Helvetica-Bold').text('PRESUPUESTO', { align: 'right' });
-    doc.moveDown(0.2);
-    doc.fontSize(10).font('Helvetica')
-        .text('Numero: ' + safeText(presupuesto.numero_presupuesto), { align: 'right' })
-        .text('Fecha: ' + new Date(presupuesto.fecha || Date.now()).toLocaleDateString('es-ES'), { align: 'right' });
-
-    doc.moveTo(40, 95).lineTo(555, 95).strokeColor('#CFCFCF').stroke();
-
-    doc.fillColor('#000000');
-    doc.fontSize(12).font('Helvetica-Bold').text(safeText(empresa.razon_social || 'BATMAR'));
-    doc.fontSize(10).font('Helvetica')
-        .text(safeText(empresa.cif ? ('CIF: ' + empresa.cif) : ''))
-        .text(safeText(empresa.direccion))
-        .text(safeText([empresa.cp, empresa.poblacion].filter(Boolean).join(' ')))
-        .text(safeText(empresa.provincia))
-        .text(safeText(empresa.telefono ? ('Tel: ' + empresa.telefono) : ''))
-        .text(safeText(empresa.email ? ('Email: ' + empresa.email) : ''))
-        .text(safeText(empresa.web || ''));
+function defaultProductImageUrlForCodigo(codigo) {
+    const c = safeText(codigo);
+    if (!c) return '';
+    return PRODUCT_IMG_BASE + c + '_1.JPG';
 }
 
-function drawClientBox(doc, presupuesto) {
-    const startY = 170;
-    doc.roundedRect(40, startY, 515, 110, 6).strokeColor('#DADADA').stroke();
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#000000').text('Cliente', 52, startY + 12);
-    doc.fontSize(10).font('Helvetica')
-        .text(safeText(presupuesto.cliente_nombre), 52, startY + 32)
-        .text(safeText(presupuesto.cliente_cif ? ('CIF: ' + presupuesto.cliente_cif) : ''), 52)
-        .text(safeText(presupuesto.cliente_direccion), 52)
-        .text(safeText([presupuesto.cliente_cp, presupuesto.cliente_poblacion].filter(Boolean).join(' ')), 52)
-        .text(safeText(presupuesto.cliente_provincia), 52)
-        .text(safeText(presupuesto.cliente_codigo ? ('Codigo cliente: ' + presupuesto.cliente_codigo) : ''), 52);
+/**
+ * @returns {Promise<Buffer|null>}
+ */
+async function fetchImageBuffer(url) {
+    const u = safeText(url);
+    if (!u || (!u.startsWith('http://') && !u.startsWith('https://'))) {
+        return null;
+    }
+    try {
+        const res = await fetch(u, { redirect: 'follow' });
+        if (!res.ok) return null;
+        const ab = await res.arrayBuffer();
+        const buf = Buffer.from(ab);
+        if (!buf.length) return null;
+        return buf;
+    } catch (_) {
+        return null;
+    }
+}
+
+/**
+ * Cabecera: franja marca, empresa a la izquierda, bloque documento a la derecha.
+ */
+function drawHeader(doc, empresa, presupuesto, logoBuf) {
+    const m = PAGE_MARGIN;
+    const pageW = doc.page.width;
+    const w = pageW - 2 * m;
+    const accent = THEME.accent;
+
+    doc.save();
+    doc.rect(m, m, w, 5).fill(accent);
+    doc.restore();
+
+    const contentTop = m + 22;
+    const metaW = 198;
+    const metaX = pageW - m - metaW;
+    const metaH = 78;
+
+    doc.save();
+    doc.roundedRect(metaX, contentTop, metaW, metaH, 5).fill(THEME.metaBoxBg);
+    doc.roundedRect(metaX, contentTop, metaW, metaH, 5).strokeColor(THEME.border).lineWidth(0.5).stroke();
+    doc.restore();
+
+    doc.fillColor(accent).font('Helvetica-Bold').fontSize(20).text('PRESUPUESTO', metaX + 14, contentTop + 14, {
+        width: metaW - 28,
+        align: 'right'
+    });
+    doc.fillColor(THEME.textMuted).font('Helvetica').fontSize(9)
+        .text('N. ' + safeText(presupuesto.numero_presupuesto), metaX + 14, doc.y + 6, {
+            width: metaW - 28,
+            align: 'right'
+        })
+        .text(
+            'Fecha: ' + new Date(presupuesto.fecha || Date.now()).toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric'
+            }),
+            metaX + 14,
+            doc.y + 4,
+            { width: metaW - 28, align: 'right' }
+        );
+
+    let leftX = m;
+    const leftY = contentTop + 4;
+    const logoW = 68;
+    const logoH = 50;
+    if (logoBuf) {
+        try {
+            doc.save();
+            doc.roundedRect(leftX, leftY, logoW, logoH, 4).clip();
+            doc.image(logoBuf, leftX, leftY, { width: logoW, height: logoH, fit: [logoW, logoH] });
+            doc.restore();
+            doc.roundedRect(leftX, leftY, logoW, logoH, 4).strokeColor(THEME.border).lineWidth(0.35).stroke();
+            leftX = m + logoW + 16;
+        } catch (_) {
+            leftX = m;
+        }
+    }
+
+    const textMaxW = metaX - leftX - 16;
+    doc.fillColor(THEME.text).font('Helvetica-Bold').fontSize(13)
+        .text(safeText(empresa.razon_social || 'BATMAR'), leftX, leftY + 2, { width: textMaxW });
+    doc.fillColor(THEME.textMuted).font('Helvetica').fontSize(8.5).lineGap(1)
+        .text(safeText(empresa.cif ? ('CIF / NIF: ' + empresa.cif) : ''), leftX)
+        .text(safeText(empresa.direccion), leftX)
+        .text(safeText([empresa.cp, empresa.poblacion].filter(Boolean).join(' · ')), leftX)
+        .text(safeText(empresa.provincia), leftX);
+
+    const contactBits = [
+        empresa.telefono ? 'Tel. ' + safeText(empresa.telefono) : '',
+        empresa.email ? safeText(empresa.email) : '',
+        empresa.web ? safeText(empresa.web) : ''
+    ].filter(Boolean);
+    if (contactBits.length) {
+        doc.fillColor(THEME.textLight).fontSize(8)
+            .text(contactBits.join('  |  '), leftX, doc.y + 4, { width: textMaxW });
+    }
+
+    const headerBottom = Math.max(contentTop + metaH, doc.y) + 18;
+    doc.save();
+    doc.moveTo(m, headerBottom).lineTo(pageW - m, headerBottom).strokeColor(THEME.borderStrong).lineWidth(0.75).stroke();
+    doc.restore();
+
+    return headerBottom + 16;
+}
+
+function drawClientBox(doc, presupuesto, startY) {
+    const m = PAGE_MARGIN;
+    const pageW = doc.page.width;
+    const w = pageW - 2 * m;
+    const accent = THEME.accent;
+    const pad = 14;
+    const innerLeft = m + pad + 6;
+
+    doc.font('Helvetica').fontSize(9);
+    const lines = [];
+    lines.push(safeText(presupuesto.cliente_nombre));
+    const cifLine = safeText(presupuesto.cliente_cif ? ('CIF / NIF: ' + presupuesto.cliente_cif) : '');
+    if (cifLine) lines.push(cifLine);
+    const dir = safeText(presupuesto.cliente_direccion);
+    if (dir) lines.push(dir);
+    const cpPob = safeText([presupuesto.cliente_cp, presupuesto.cliente_poblacion].filter(Boolean).join(' · '));
+    if (cpPob) lines.push(cpPob);
+    const prov = safeText(presupuesto.cliente_provincia);
+    if (prov) lines.push(prov);
+    const codCli = safeText(presupuesto.cliente_codigo ? ('Cod. cliente: ' + presupuesto.cliente_codigo) : '');
+    if (codCli) lines.push(codCli);
+
+    const contentLines = Math.max(1, lines.filter((x) => x).length);
+    const boxH = Math.max(86, 28 + contentLines * 12 + pad);
+
+    doc.save();
+    doc.rect(m + 3, startY, 4, boxH).fill(accent);
+    doc.roundedRect(m, startY, w, boxH, 6).fill(THEME.metaBoxBg);
+    doc.roundedRect(m, startY, w, boxH, 6).strokeColor(THEME.border).lineWidth(0.5).stroke();
+    doc.restore();
+
+    doc.fillColor(accent).font('Helvetica-Bold').fontSize(8)
+        .text('CLIENTE', innerLeft, startY + 12);
+    doc.fillColor(THEME.text).font('Helvetica').fontSize(9.5).lineGap(2);
+    let y = startY + 28;
+    for (const line of lines) {
+        if (!line) continue;
+        doc.text(line, innerLeft, y, { width: w - pad * 2 - 10 });
+        y = doc.y + 1;
+    }
+
+    return startY + boxH + 18;
 }
 
 function drawTableHeader(doc, y) {
-    doc.rect(40, y, 515, 24).fill('#F4F4F4');
-    doc.fillColor('#000000').fontSize(9).font('Helvetica-Bold');
-    doc.text('Codigo', 46, y + 7, { width: 70 });
-    doc.text('Descripcion', 120, y + 7, { width: 205 });
-    doc.text('Cant.', 330, y + 7, { width: 45, align: 'right' });
-    doc.text('Precio', 380, y + 7, { width: 70, align: 'right' });
-    doc.text('Dto%', 455, y + 7, { width: 40, align: 'right' });
-    doc.text('Importe', 498, y + 7, { width: 52, align: 'right' });
+    const m = PAGE_MARGIN;
+    const w = doc.page.width - 2 * m;
+    const h = 26;
+    doc.save();
+    doc.rect(m, y, w, h).fill(THEME.tableHeaderBg);
+    doc.moveTo(m, y + h).lineTo(m + w, y + h).strokeColor(THEME.accent).lineWidth(1.25).stroke();
+    doc.restore();
+
+    doc.fillColor(THEME.accent).font('Helvetica-Bold').fontSize(8);
+    const x0 = m + 6;
+    doc.text('', x0, y + 8, { width: TABLE_IMG_COL });
+    doc.text('Codigo', x0 + TABLE_IMG_COL, y + 8, { width: 54 });
+    doc.text('Descripcion', x0 + TABLE_IMG_COL + 56, y + 8, { width: 166 });
+    doc.text('Ud.', x0 + TABLE_IMG_COL + 226, y + 8, { width: 36, align: 'right' });
+    doc.text('P. unit.', x0 + TABLE_IMG_COL + 266, y + 8, { width: 54, align: 'right' });
+    doc.text('Dto %', x0 + TABLE_IMG_COL + 324, y + 8, { width: 34, align: 'right' });
+    doc.text('Importe', x0 + TABLE_IMG_COL + 362, y + 8, { width: 54, align: 'right' });
 }
 
-function drawLine(doc, line, y) {
+/**
+ * @returns {number} next Y
+ */
+function drawLine(doc, line, y, thumbBuf, rowIndex) {
     const cantidad = Number(line.cantidad || 0);
     const precio = Number(line.precio_unitario || 0);
     const dto = Number(line.dto_pct || 0);
     const importe = Number(line.importe_linea || 0);
 
-    doc.fontSize(9).font('Helvetica').fillColor('#000000');
-    doc.text(safeText(line.codigo), 46, y, { width: 70 });
-    doc.text(safeText(line.descripcion), 120, y, { width: 205, ellipsis: true });
-    doc.text(cantidad.toFixed(2), 330, y, { width: 45, align: 'right' });
-    doc.text(toCurrency(precio), 380, y, { width: 70, align: 'right' });
-    doc.text(dto.toFixed(2), 455, y, { width: 40, align: 'right' });
-    doc.text(toCurrency(importe), 498, y, { width: 52, align: 'right' });
+    const m = PAGE_MARGIN;
+    const pageW = doc.page.width;
+    const w = pageW - 2 * m;
+    const x0 = m + 6;
+    const thumbSize = 30;
+    const rowTop = y;
+    const rowPad = 5;
+
+    const cellTop = rowTop + rowPad;
+    const descW = 166;
+
+    doc.font('Helvetica').fontSize(8);
+    const descH = doc.heightOfString(safeText(line.descripcion) || '-', {
+        width: descW,
+        lineGap: 0.5,
+        ellipsis: true
+    });
+    const contentH = Math.max(descH + 8, thumbSize + 8, 24);
+    const rowH = Math.max(contentH + rowPad * 2, ROW_MIN_H + rowPad);
+
+    if (rowIndex % 2 === 1) {
+        doc.save();
+        doc.rect(m, rowTop, w, rowH).fill(THEME.rowStripe);
+        doc.restore();
+    }
+
+    doc.save();
+    doc.moveTo(m, rowTop + rowH).lineTo(m + w, rowTop + rowH).strokeColor(THEME.border).lineWidth(0.25).stroke();
+    doc.restore();
+
+    const numY = cellTop + Math.max(4, (contentH - 9) / 2);
+
+    if (thumbBuf) {
+        try {
+            doc.save();
+            doc.roundedRect(x0, cellTop + 2, thumbSize, thumbSize, 3).clip();
+            doc.image(thumbBuf, x0, cellTop + 2, { width: thumbSize, height: thumbSize, fit: [thumbSize, thumbSize] });
+            doc.restore();
+            doc.roundedRect(x0, cellTop + 2, thumbSize, thumbSize, 3).strokeColor(THEME.border).lineWidth(0.35).stroke();
+        } catch (_) {
+            /* empty */
+        }
+    } else {
+        doc.save();
+        doc.roundedRect(x0, cellTop + 2, thumbSize, thumbSize, 3).fill('#f1f5f9');
+        doc.roundedRect(x0, cellTop + 2, thumbSize, thumbSize, 3).strokeColor(THEME.border).lineWidth(0.35).stroke();
+        doc.restore();
+    }
+
+    doc.fillColor(THEME.text).font('Helvetica').fontSize(8)
+        .text(safeText(line.codigo), x0 + TABLE_IMG_COL, numY, { width: 54 });
+    doc.fillColor(THEME.text).font('Helvetica').fontSize(8)
+        .text(safeText(line.descripcion), x0 + TABLE_IMG_COL + 56, cellTop + 6, {
+            width: descW,
+            lineGap: 0.5,
+            ellipsis: true
+        });
+    doc.fillColor(THEME.textMuted).font('Helvetica').fontSize(8)
+        .text(cantidad.toFixed(2), x0 + TABLE_IMG_COL + 226, numY, { width: 36, align: 'right' });
+    doc.text(toCurrency(precio), x0 + TABLE_IMG_COL + 266, numY, { width: 54, align: 'right' });
+    doc.text(dto.toFixed(2), x0 + TABLE_IMG_COL + 324, numY, { width: 34, align: 'right' });
+    doc.fillColor(THEME.text).font('Helvetica-Bold').fontSize(8)
+        .text(toCurrency(importe), x0 + TABLE_IMG_COL + 362, numY, { width: 54, align: 'right' });
+
+    return rowTop + rowH;
+}
+
+function ensureSpace(doc, y, needed) {
+    const limit = doc.page.height - PAGE_BOTTOM_SAFE;
+    if (y + needed > limit) {
+        doc.addPage();
+        return PAGE_MARGIN;
+    }
+    return y;
+}
+
+function drawTotalsBlock(doc, y, presupuesto) {
+    const m = PAGE_MARGIN;
+    const pageW = doc.page.width;
+    const colW = 118;
+    const labelX = pageW - m - colW - 102;
+    const valX = pageW - m - colW;
+
+    doc.save();
+    doc.roundedRect(labelX - 10, y, colW + 112, 76, 6).fill(THEME.totalBand);
+    doc.roundedRect(labelX - 10, y, colW + 112, 76, 6).strokeColor(THEME.border).lineWidth(0.5).stroke();
+    doc.restore();
+
+    let ty = y + 14;
+    doc.fillColor(THEME.textMuted).font('Helvetica').fontSize(9);
+    doc.text('Subtotal (sin IVA)', labelX, ty, { width: 100, align: 'right' });
+    doc.text(toCurrency(presupuesto.subtotal), valX, ty, { width: colW, align: 'right' });
+    ty += 16;
+    doc.text('IVA 21 %', labelX, ty, { width: 100, align: 'right' });
+    doc.text(toCurrency(presupuesto.impuestos), valX, ty, { width: colW, align: 'right' });
+    ty += 18;
+
+    doc.save();
+    doc.moveTo(labelX - 6, ty).lineTo(valX + colW, ty).strokeColor(THEME.borderStrong).lineWidth(0.75).stroke();
+    doc.restore();
+
+    ty += 8;
+    doc.fillColor(THEME.totalStrong).font('Helvetica-Bold').fontSize(11.5);
+    doc.text('TOTAL', labelX, ty, { width: 100, align: 'right' });
+    doc.text(toCurrency(presupuesto.total), valX, ty, { width: colW, align: 'right' });
+
+    return y + 76;
+}
+
+function drawFooter(doc, y) {
+    const m = PAGE_MARGIN;
+    const pageW = doc.page.width;
+    const w = pageW - 2 * m;
+    const limit = doc.page.height - PAGE_BOTTOM_SAFE;
+    let footY = y + 20;
+    if (footY > limit - 32) {
+        doc.addPage();
+        footY = m + 12;
+    }
+    doc.save();
+    doc.moveTo(m, footY).lineTo(m + w, footY).strokeColor(THEME.border).lineWidth(0.5).stroke();
+    doc.restore();
+    doc.fontSize(7.5).fillColor(THEME.textLight).font('Helvetica')
+        .text(
+            'Documento generado automaticamente por BATMAR',
+            m,
+            footY + 8,
+            { align: 'center', width: w }
+        );
 }
 
 module.exports = async (req, res) => {
@@ -163,56 +442,58 @@ module.exports = async (req, res) => {
             empresa = empGlobal || null;
         }
 
-        const doc = new PDFDocument({ size: 'A4', margin: 40 });
+        const logoBuf = empresa && empresa.logo_url ? await fetchImageBuffer(empresa.logo_url) : null;
+
+        const doc = new PDFDocument({ size: 'A4', margin: PAGE_MARGIN });
         const chunks = [];
         doc.on('data', (chunk) => chunks.push(chunk));
         doc.on('error', (err) => {
             console.error('[quotes/generate-pdf] error pdf stream:', err && err.message ? err.message : err);
         });
 
-        drawHeader(doc, empresa || {}, presupuesto);
-        drawClientBox(doc, presupuesto);
+        const headerEndY = drawHeader(doc, empresa || {}, presupuesto, logoBuf);
+        let y = drawClientBox(doc, presupuesto, headerEndY);
 
-        let y = 300;
+        y = ensureSpace(doc, y, 48);
         drawTableHeader(doc, y);
-        y += 32;
+        y += 28;
 
         const lineas = Array.isArray(presupuesto.lineas) ? presupuesto.lineas : [];
         for (let i = 0; i < lineas.length; i++) {
-            if (y > 740) {
-                doc.addPage();
-                y = 40;
+            const line = lineas[i];
+            const urlTry =
+                safeText(line.imagen_url) || defaultProductImageUrlForCodigo(line.codigo);
+            const thumbBuf = urlTry ? await fetchImageBuffer(urlTry) : null;
+
+            const prevY = y;
+            y = ensureSpace(doc, y, ROW_MIN_H + 16);
+            if (y === PAGE_MARGIN && prevY !== PAGE_MARGIN) {
                 drawTableHeader(doc, y);
-                y += 32;
+                y += 28;
             }
-            drawLine(doc, lineas[i], y);
-            y += 22;
+            y = drawLine(doc, line, y, thumbBuf, i);
         }
 
-        y += 10;
-        doc.moveTo(330, y).lineTo(555, y).strokeColor('#DADADA').stroke();
-        y += 10;
-        doc.fontSize(10).font('Helvetica').fillColor('#000000')
-            .text('Subtotal:', 390, y, { width: 90, align: 'right' })
-            .text(toCurrency(presupuesto.subtotal), 485, y, { width: 70, align: 'right' });
-        y += 16;
-        doc.text('IVA (21%):', 390, y, { width: 90, align: 'right' })
-            .text(toCurrency(presupuesto.impuestos), 485, y, { width: 70, align: 'right' });
-        y += 18;
-        doc.font('Helvetica-Bold').fontSize(11)
-            .text('TOTAL:', 390, y, { width: 90, align: 'right' })
-            .text(toCurrency(presupuesto.total), 485, y, { width: 70, align: 'right' });
+        y += 14;
+        y = ensureSpace(doc, y, 96);
+        y = drawTotalsBlock(doc, y, presupuesto);
+        y += 8;
+        y = ensureSpace(doc, y, 72);
 
         const condiciones = safeText((empresa && empresa.condiciones_comerciales) || '');
         if (condiciones) {
-            y += 36;
-            doc.fontSize(10).font('Helvetica-Bold').text('Condiciones comerciales', 40, y);
-            y += 16;
-            doc.fontSize(9).font('Helvetica').text(condiciones, 40, y, { width: 515 });
+            y += 4;
+            y = ensureSpace(doc, y, 48);
+            doc.fillColor(THEME.accent).font('Helvetica-Bold').fontSize(10).text('Condiciones comerciales', PAGE_MARGIN, y);
+            y += 14;
+            doc.fillColor(THEME.textMuted).font('Helvetica').fontSize(9).lineGap(2)
+                .text(condiciones, PAGE_MARGIN, y, {
+                    width: doc.page.width - 2 * PAGE_MARGIN
+                });
+            y = doc.y + 10;
         }
 
-        doc.fontSize(8).fillColor('#444444')
-            .text('Documento generado automaticamente por BATMAR', 40, 810, { align: 'center', width: 515 });
+        drawFooter(doc, y);
 
         doc.end();
 

@@ -10690,6 +10690,8 @@ class ScanAsYouShopApp {
                     dtoPct = Math.min(100, Math.max(0, Number(dto)));
                 }
             }
+            const imgBase = this._wcProductImageBase();
+            const imagenUrl = imgBase ? `${imgBase}${cod}_1.JPG` : '';
             lineas.push({
                 codigo,
                 descripcion: String(
@@ -10697,7 +10699,8 @@ class ScanAsYouShopApp {
                 ).trim(),
                 cantidad,
                 precio_unitario: basePvp,
-                dto_pct: Math.round(dtoPct * 1000) / 1000
+                dto_pct: Math.round(dtoPct * 1000) / 1000,
+                imagen_url: imagenUrl
             });
         }
         // #region agent log
@@ -10942,7 +10945,8 @@ class ScanAsYouShopApp {
                 cantidad: l.cantidad,
                 precio_unitario: l.precio_unitario,
                 dto_pct: l.dto_pct,
-                importe_linea: l.importe_linea
+                importe_linea: l.importe_linea,
+                imagen_url: l.imagen_url != null && String(l.imagen_url).trim() !== '' ? String(l.imagen_url).trim() : null
             };
             html += this.buildOrderProductItemHtml(lineaPedidoLike, { mode: 'presupuesto', showReorderButton: false });
         }
@@ -11806,7 +11810,13 @@ class ScanAsYouShopApp {
         const safeCodAttr = this.escapeForHtmlAttribute(codigo);
         const safeDesc = this.escapeForHtmlContentPreservingNewlines(descripcion);
         const safeDescAlt = this.escapeForHtmlAttribute(descripcion);
-        const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${safeCodAttr}_1.JPG`;
+        const explicitImg =
+            producto.imagen_url != null && String(producto.imagen_url).trim() !== ''
+                ? String(producto.imagen_url).trim()
+                : null;
+        const imageUrl =
+            explicitImg ||
+            `https://www.saneamiento-martinez.com/imagenes/articulos/${safeCodAttr}_1.JPG`;
 
         const reorderBtn = showReorder
             ? `<button type="button" class="btn-reorder-product" 

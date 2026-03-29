@@ -1,12 +1,108 @@
--- Requiere haber ejecutado antes migration_presupuestos_pdf_cliente_imagenes.sql
--- (columna presupuestos_lineas.imagen_url y columnas opcionales en usuarios para el PDF),
--- o al menos los ALTER TABLE de ese archivo. Sin imagen_url el INSERT fallara.
---
--- Fix robusto para crear/actualizar presupuestos con JWT comercial heterogeneo:
--- - Evita dependencia estricta de RLS en INSERT/UPDATE de presupuestos
--- - Autoriza por app_metadata.comercial_id o por vinculo usuarios_comerciales.usuario_id
--- Ejecutar despues de migration_presupuestos.sql.
+-- Migracion: datos fiscales/direccion en usuarios para PDF presupuesto + imagen_url por linea
+-- Ejecutar en Supabase despues de migration_presupuestos.sql y migration_presupuestos_fix_security_definer.sql
+-- Fecha: 2026-03-29
 
+-- ============================================
+-- 1) Columnas opcionales en usuarios (PDF cliente)
+-- ============================================
+ALTER TABLE usuarios
+    ADD COLUMN IF NOT EXISTS direccion TEXT,
+    ADD COLUMN IF NOT EXISTS cp TEXT,
+    ADD COLUMN IF NOT EXISTS provincia TEXT,
+    ADD COLUMN IF NOT EXISTS cif TEXT;
+
+COMMENT ON COLUMN usuarios.direccion IS 'Direccion fiscal/comercial (presupuesto PDF, etc.)';
+COMMENT ON COLUMN usuarios.cp IS 'Codigo postal';
+COMMENT ON COLUMN usuarios.provincia IS 'Provincia';
+COMMENT ON COLUMN usuarios.cif IS 'CIF/NIF del cliente';
+
+-- ============================================
+-- 2) Miniatura por linea de presupuesto (URL publica)
+-- ============================================
+ALTER TABLE presupuestos_lineas
+    ADD COLUMN IF NOT EXISTS imagen_url TEXT;
+
+COMMENT ON COLUMN presupuestos_lineas.imagen_url IS 'URL publica de miniatura de producto para PDF/UI; opcional.';
+
+-- ============================================
+-- 3) RPC get_presupuesto_detalle: cliente + imagen en lineas
+-- ============================================
+CREATE OR REPLACE FUNCTION get_presupuesto_detalle(p_presupuesto_id BIGINT)
+RETURNS TABLE (
+    id BIGINT,
+    numero_presupuesto TEXT,
+    fecha TIMESTAMPTZ,
+    estado TEXT,
+    usuario_id_cliente INTEGER,
+    cliente_nombre TEXT,
+    cliente_codigo TEXT,
+    cliente_direccion TEXT,
+    cliente_cp TEXT,
+    cliente_poblacion TEXT,
+    cliente_provincia TEXT,
+    cliente_cif TEXT,
+    comercial_id INTEGER,
+    almacen_habitual TEXT,
+    observaciones TEXT,
+    subtotal NUMERIC,
+    impuestos NUMERIC,
+    total NUMERIC,
+    lineas JSONB
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT
+        p.id,
+        p.numero_presupuesto,
+        p.fecha,
+        p.estado,
+        p.usuario_id_cliente,
+        u.nombre AS cliente_nombre,
+        u.codigo_usuario AS cliente_codigo,
+        NULLIF(TRIM(COALESCE(u.direccion, '')), '') AS cliente_direccion,
+        NULLIF(TRIM(COALESCE(u.cp, '')), '') AS cliente_cp,
+        NULLIF(TRIM(COALESCE(u.poblacion, '')), '') AS cliente_poblacion,
+        NULLIF(TRIM(COALESCE(u.provincia, '')), '') AS cliente_provincia,
+        NULLIF(TRIM(COALESCE(u.cif, '')), '') AS cliente_cif,
+        p.comercial_id,
+        p.almacen_habitual,
+        p.observaciones,
+        p.subtotal,
+        p.impuestos,
+        p.total,
+        COALESCE(
+            (
+                SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'id', l.id,
+                        'orden', l.orden,
+                        'codigo', l.codigo,
+                        'descripcion', l.descripcion,
+                        'cantidad', l.cantidad,
+                        'precio_unitario', l.precio_unitario,
+                        'dto_pct', l.dto_pct,
+                        'importe_linea', l.importe_linea,
+                        'imagen_url', l.imagen_url
+                    )
+                    ORDER BY l.orden
+                )
+                FROM presupuestos_lineas l
+                WHERE l.presupuesto_id = p.id
+            ),
+            '[]'::JSONB
+        ) AS lineas
+    FROM presupuestos p
+    JOIN usuarios u ON u.id = p.usuario_id_cliente
+    WHERE p.id = p_presupuesto_id
+    LIMIT 1;
+$$;
+
+-- ============================================
+-- 4) crear_presupuesto / actualizar_presupuesto: persistir imagen_url (fix security definer)
+-- ============================================
 CREATE OR REPLACE FUNCTION crear_presupuesto(
     p_usuario_id_cliente INTEGER,
     p_comercial_id INTEGER,
@@ -22,6 +118,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     v_presupuesto_id BIGINT;
@@ -135,6 +232,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     v_linea JSONB;
