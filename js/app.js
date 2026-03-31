@@ -6420,8 +6420,17 @@ class ScanAsYouShopApp {
 
         const syncStandaloneFooterOffset = () => {
             const vv = window.visualViewport;
-            const offset = vv ? Math.max(0, Math.round(vv.offsetTop || 0)) : 0;
-            document.documentElement.style.setProperty('--ios-standalone-footer-offset', offset + 'px');
+            if (!vv) {
+                document.documentElement.style.setProperty('--ios-standalone-footer-offset', '0px');
+                return;
+            }
+            // Hueco entre el borde inferior del visualViewport y window.innerHeight (layout).
+            // offsetTop + height = borde inferior del viewport visible; el resto es gap inferior.
+            const bottomGap = Math.max(
+                0,
+                Math.round(window.innerHeight - (vv.offsetTop || 0) - (vv.height || 0))
+            );
+            document.documentElement.style.setProperty('--ios-standalone-footer-offset', bottomGap + 'px');
         };
 
         syncStandaloneFooterOffset();
@@ -6429,6 +6438,7 @@ class ScanAsYouShopApp {
             window.visualViewport.addEventListener('resize', syncStandaloneFooterOffset, { passive: true });
             window.visualViewport.addEventListener('scroll', syncStandaloneFooterOffset, { passive: true });
         }
+        window.addEventListener('resize', syncStandaloneFooterOffset, { passive: true });
 
         bottomNav.addEventListener('touchmove', (event) => {
             // Bloqueo total de gesto de arrastre sobre la barra;
