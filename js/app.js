@@ -6401,7 +6401,6 @@ class ScanAsYouShopApp {
 
     /**
      * En iPhone PWA standalone, bloquea gesto de arrastre sobre la barra inferior
-     * otra
      * sin afectar al tap de los botones de navegacion.
      */
     setupStandaloneBottomNavGestureLock() {
@@ -6420,7 +6419,8 @@ class ScanAsYouShopApp {
         if (!bottomNav || bottomNav.dataset.gestureLockBound === '1') return;
 
         bottomNav.addEventListener('touchmove', (event) => {
-            if (event.target && event.target.closest('.nav-item')) return;
+            // Bloqueo total de gesto de arrastre sobre la barra;
+            // los taps siguen funcionando porque no se cancela touchstart/touchend.
             event.preventDefault();
         }, { passive: false });
 

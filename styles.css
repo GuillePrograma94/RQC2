@@ -2054,7 +2054,7 @@ body.gate-visible .app-container {
         }
 
         .app-container {
-            bottom: calc(var(--footer-height) + env(safe-area-inset-bottom));
+            bottom: calc(58px + env(safe-area-inset-bottom));
         }
 
         .bottom-nav {
@@ -2063,15 +2063,17 @@ body.gate-visible .app-container {
             right: 0;
             bottom: 0;
             z-index: 10050;
-            height: calc(var(--footer-height) + env(safe-area-inset-bottom));
+            height: calc(58px + env(safe-area-inset-bottom));
             padding-top: 0;
-            padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+            padding-bottom: env(safe-area-inset-bottom);
             align-items: flex-end;
             touch-action: none;
             overscroll-behavior: none;
             -webkit-overflow-scrolling: auto;
             -webkit-user-select: none;
             user-select: none;
+            transform: none !important;
+            -webkit-transform: none !important;
         }
 
         .bottom-nav .nav-item {
