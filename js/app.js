@@ -6401,6 +6401,7 @@ class ScanAsYouShopApp {
 
     /**
      * En iPhone PWA standalone, bloquea gesto de arrastre sobre la barra inferior
+     * otra
      * sin afectar al tap de los botones de navegacion.
      */
     setupStandaloneBottomNavGestureLock() {
