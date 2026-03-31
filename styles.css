@@ -3924,6 +3924,11 @@ body.gate-visible .app-container {
     gap: 1rem;
 }
 
+.panel-control-global-config {
+    padding: 0 1rem 1rem;
+    max-width: 40rem;
+}
+
 /* Panel Datos de Empresa (ADMINISTRADOR) */
 .panel-empresa-almacen-intro {
     padding: 0 1rem 0.75rem;

@@ -3059,7 +3059,7 @@ class SupabaseClient {
             if (!this.client) return [];
             const { data, error } = await this.client
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, whatsapp_soporte_errores, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, updated_at')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, updated_at')
                 .order('almacen', { ascending: true });
             if (error) throw error;
             return Array.isArray(data) ? data : [];
@@ -3101,7 +3101,6 @@ class SupabaseClient {
                 telefono: payload.telefono ? String(payload.telefono).trim() : null,
                 email: payload.email ? String(payload.email).trim() : null,
                 web: payload.web ? String(payload.web).trim() : null,
-                whatsapp_soporte_errores: payload.whatsapp_soporte_errores ? String(payload.whatsapp_soporte_errores).trim() : null,
                 logo_url: payload.logo_url ? String(payload.logo_url).trim() : null,
                 logo_pdf_ancho_pt: logoPdfPt(payload.logo_pdf_ancho_pt),
                 logo_pdf_alto_pt: logoPdfPt(payload.logo_pdf_alto_pt),
@@ -3133,7 +3132,7 @@ class SupabaseClient {
             const a = String(almacen).trim();
             const { data, error } = await this.client
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, whatsapp_soporte_errores, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, updated_at')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, updated_at')
                 .eq('almacen', a)
                 .maybeSingle();
             if (error) throw error;
@@ -3141,6 +3140,42 @@ class SupabaseClient {
         } catch (error) {
             console.error('getEmpresaPorAlmacen:', error);
             return null;
+        }
+    }
+
+    async getAppConfigGlobal() {
+        try {
+            if (!this.client) return null;
+            const { data, error } = await this.client
+                .from('app_config_global')
+                .select('id, whatsapp_soporte_errores, updated_at')
+                .eq('id', 1)
+                .maybeSingle();
+            if (error) throw error;
+            return data || { id: 1, whatsapp_soporte_errores: null };
+        } catch (error) {
+            console.error('getAppConfigGlobal:', error);
+            return null;
+        }
+    }
+
+    async upsertAppConfigGlobal(payload) {
+        try {
+            if (!this.client) return { success: false, message: 'Cliente no inicializado' };
+            const row = {
+                id: 1,
+                whatsapp_soporte_errores:
+                    payload && payload.whatsapp_soporte_errores
+                        ? String(payload.whatsapp_soporte_errores).trim()
+                        : null,
+                updated_at: new Date().toISOString()
+            };
+            const { error } = await this.client.from('app_config_global').upsert([row], { onConflict: 'id' });
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error('upsertAppConfigGlobal:', error);
+            return { success: false, message: 'No se pudo guardar la configuracion global' };
         }
     }
 

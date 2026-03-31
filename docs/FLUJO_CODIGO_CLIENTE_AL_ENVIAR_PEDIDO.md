@@ -137,8 +137,8 @@ RETURN QUERY SELECT
 
 **Numero destino:**
 
-- Sale del campo `whatsapp_soporte_errores` en `empresas_por_almacen`.
-- Se configura en Panel de Control > Datos de Empresa (`panelEmpresaWhatsappSoporteErrores`).
+- Sale del campo global `app_config_global.whatsapp_soporte_errores`.
+- Se configura en `Panel de Control` (`panelControlWhatsappSoporteErrores`), no depende de empresa ni de almacen.
 
 **Tabla y columna:**
 

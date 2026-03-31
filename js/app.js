@@ -2036,7 +2036,6 @@ class ScanAsYouShopApp {
                 telefono: '',
                 email: '',
                 web: '',
-                whatsapp_soporte_errores: '',
                 logo_url: '',
                 condiciones_comerciales: '',
                 texto_cabecera: ''
@@ -2056,7 +2055,6 @@ class ScanAsYouShopApp {
         set('panelEmpresaTelefono', row.telefono);
         set('panelEmpresaEmail', row.email);
         set('panelEmpresaWeb', row.web);
-        set('panelEmpresaWhatsappSoporteErrores', row.whatsapp_soporte_errores);
         set('panelEmpresaLogoUrl', row.logo_url);
         set('panelEmpresaLogoPdfAncho', row.logo_pdf_ancho_pt);
         set('panelEmpresaLogoPdfAlto', row.logo_pdf_alto_pt);
@@ -4862,7 +4860,6 @@ class ScanAsYouShopApp {
         set('adminEmpresaTelefono', row.telefono);
         set('adminEmpresaEmail', row.email);
         set('adminEmpresaWeb', row.web);
-        set('adminEmpresaWhatsappSoporteErrores', row.whatsapp_soporte_errores);
         set('adminEmpresaLogoUrl', row.logo_url);
         set('adminEmpresaLogoPdfAncho', row.logo_pdf_ancho_pt);
         set('adminEmpresaLogoPdfAlto', row.logo_pdf_alto_pt);
@@ -4903,7 +4900,6 @@ class ScanAsYouShopApp {
             telefono: get('adminEmpresaTelefono'),
             email: get('adminEmpresaEmail'),
             web: get('adminEmpresaWeb'),
-            whatsapp_soporte_errores: get('adminEmpresaWhatsappSoporteErrores'),
             logo_url: get('adminEmpresaLogoUrl'),
             logo_pdf_ancho_pt: get('adminEmpresaLogoPdfAncho'),
             logo_pdf_alto_pt: get('adminEmpresaLogoPdfAlto'),
@@ -4936,6 +4932,29 @@ class ScanAsYouShopApp {
     async loadPanelDatosEmpresaScreen() {
         await this.loadPanelDatosEmpresaHub();
         this.showPanelDatosEmpresaView('hub');
+    }
+
+    async loadPanelControlGlobalConfig() {
+        const input = document.getElementById('panelControlWhatsappSoporteErrores');
+        if (!input || !window.supabaseClient || typeof window.supabaseClient.getAppConfigGlobal !== 'function') return;
+        const cfg = await window.supabaseClient.getAppConfigGlobal();
+        input.value = cfg && cfg.whatsapp_soporte_errores ? String(cfg.whatsapp_soporte_errores) : '';
+    }
+
+    async savePanelControlGlobalConfig() {
+        const input = document.getElementById('panelControlWhatsappSoporteErrores');
+        if (!input || !window.supabaseClient || typeof window.supabaseClient.upsertAppConfigGlobal !== 'function') return;
+        const value = String(input.value || '').trim();
+        window.ui.showLoading('Guardando configuracion global...');
+        const result = await window.supabaseClient.upsertAppConfigGlobal({
+            whatsapp_soporte_errores: value || null
+        });
+        window.ui.hideLoading();
+        if (!result || !result.success) {
+            window.ui.showToast((result && result.message) || 'No se pudo guardar la configuracion global', 'error');
+            return;
+        }
+        window.ui.showToast('WhatsApp de soporte global guardado', 'success');
     }
 
     /**
@@ -4977,7 +4996,6 @@ class ScanAsYouShopApp {
             telefono: get('panelEmpresaTelefono'),
             email: get('panelEmpresaEmail'),
             web: get('panelEmpresaWeb'),
-            whatsapp_soporte_errores: get('panelEmpresaWhatsappSoporteErrores'),
             logo_url: logoUrl || null,
             logo_pdf_ancho_pt: get('panelEmpresaLogoPdfAncho'),
             logo_pdf_alto_pt: get('panelEmpresaLogoPdfAlto'),
@@ -6615,6 +6633,9 @@ class ScanAsYouShopApp {
             panelControlBtn.addEventListener('click', () => {
                 this.closeMenu();
                 this.showScreen('panelControl');
+                this.loadPanelControlGlobalConfig().catch((err) => {
+                    console.error('loadPanelControlGlobalConfig:', err);
+                });
             });
         }
 
@@ -6653,6 +6674,12 @@ class ScanAsYouShopApp {
         if (panelControlDatosEmpresaBtn) {
             panelControlDatosEmpresaBtn.addEventListener('click', () => {
                 this.showScreen('panelDatosEmpresa');
+            });
+        }
+        const panelControlGuardarWhatsappSoporteBtn = document.getElementById('panelControlGuardarWhatsappSoporteBtn');
+        if (panelControlGuardarWhatsappSoporteBtn) {
+            panelControlGuardarWhatsappSoporteBtn.addEventListener('click', () => {
+                this.savePanelControlGlobalConfig();
             });
         }
 
@@ -7840,6 +7867,12 @@ class ScanAsYouShopApp {
             if (screenName === 'panelDatosEmpresa') {
                 this.loadPanelDatosEmpresaScreen().catch(function (err) {
                     console.error('loadPanelDatosEmpresaScreen:', err);
+                });
+            }
+
+            if (screenName === 'panelControl') {
+                this.loadPanelControlGlobalConfig().catch(function (err) {
+                    console.error('loadPanelControlGlobalConfig:', err);
                 });
             }
 
@@ -11943,23 +11976,15 @@ class ScanAsYouShopApp {
     }
 
     async resolveWhatsAppSoporteErrores() {
-        const panelValue = document.getElementById('panelEmpresaWhatsappSoporteErrores');
-        if (panelValue && String(panelValue.value || '').trim() !== '') {
-            return this.sanitizeWhatsAppNumber(panelValue.value);
+        const globalInput = document.getElementById('panelControlWhatsappSoporteErrores');
+        if (globalInput && String(globalInput.value || '').trim() !== '') {
+            return this.sanitizeWhatsAppNumber(globalInput.value);
         }
-        const adminValue = document.getElementById('adminEmpresaWhatsappSoporteErrores');
-        if (adminValue && String(adminValue.value || '').trim() !== '') {
-            return this.sanitizeWhatsAppNumber(adminValue.value);
-        }
-        if (!this.currentUser || !window.supabaseClient || typeof window.supabaseClient.getEmpresaPorAlmacen !== 'function') {
+        if (!window.supabaseClient || typeof window.supabaseClient.getAppConfigGlobal !== 'function') {
             return '';
         }
-        const almacen = this.getEffectiveAlmacenHabitual
-            ? this.getEffectiveAlmacenHabitual()
-            : (this.currentUser.almacen_habitual || this.currentUser.almacen_tienda || '');
-        if (!almacen) return '';
-        const row = await window.supabaseClient.getEmpresaPorAlmacen(almacen);
-        return this.sanitizeWhatsAppNumber(row && row.whatsapp_soporte_errores ? row.whatsapp_soporte_errores : '');
+        const cfg = await window.supabaseClient.getAppConfigGlobal();
+        return this.sanitizeWhatsAppNumber(cfg && cfg.whatsapp_soporte_errores ? cfg.whatsapp_soporte_errores : '');
     }
 
     buildWhatsAppErrorReportText() {
