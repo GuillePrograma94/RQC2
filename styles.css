@@ -2061,7 +2061,7 @@ body.gate-visible .app-container {
             position: fixed;
             left: 0;
             right: 0;
-            bottom: 0;
+            bottom: calc(0px - var(--ios-standalone-footer-offset, 0px));
             z-index: 10050;
             height: calc(58px + env(safe-area-inset-bottom));
             padding-top: 0;

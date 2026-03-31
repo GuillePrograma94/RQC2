@@ -6418,6 +6418,18 @@ class ScanAsYouShopApp {
         const bottomNav = document.querySelector('#appContainerTienda .bottom-nav');
         if (!bottomNav || bottomNav.dataset.gestureLockBound === '1') return;
 
+        const syncStandaloneFooterOffset = () => {
+            const vv = window.visualViewport;
+            const offset = vv ? Math.max(0, Math.round(vv.offsetTop || 0)) : 0;
+            document.documentElement.style.setProperty('--ios-standalone-footer-offset', offset + 'px');
+        };
+
+        syncStandaloneFooterOffset();
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', syncStandaloneFooterOffset, { passive: true });
+            window.visualViewport.addEventListener('scroll', syncStandaloneFooterOffset, { passive: true });
+        }
+
         bottomNav.addEventListener('touchmove', (event) => {
             // Bloqueo total de gesto de arrastre sobre la barra;
             // los taps siguen funcionando porque no se cancela touchstart/touchend.
