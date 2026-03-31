@@ -31,6 +31,11 @@
 
 /* iPhone/iOS: pequeño margen extra para que el botón menú no quede bajo iconos del sistema */
 @supports (-webkit-touch-callout: none) {
+    html,
+    body {
+        background-color: var(--white);
+    }
+
     :root {
         --ios-header-touch-offset: 12px;
     }
@@ -2011,7 +2016,8 @@ body.gate-visible .app-container {
         -webkit-tap-highlight-color: transparent;
     }
     .bottom-nav {
-        padding-bottom: calc(0.65rem + env(safe-area-inset-bottom));
+        padding-top: 0.35rem;
+        padding-bottom: env(safe-area-inset-bottom);
         /* Footer fijo real en iPhone: evita arrastre/gesto de scroll sobre la barra */
         touch-action: none;
         overscroll-behavior: none;
@@ -2019,6 +2025,8 @@ body.gate-visible .app-container {
         user-select: none;
         transform: translate3d(0, 0, 0);
         -webkit-transform: translate3d(0, 0, 0);
+        background: var(--white);
+        align-items: flex-end;
     }
     .bottom-nav .nav-item {
         /* Permite tap sin activar gestos de pan/drag */
