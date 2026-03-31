@@ -427,17 +427,19 @@ body.gate-visible .app-container {
     color: var(--white);
 }
 
-/* Solo cuando la webapp esta instalada (Guardar en inicio / PWA standalone): subir header para quitar hueco del sistema.
+/* Solo iOS + webapp instalada (standalone): subir header para quitar hueco del sistema.
    Si sigue viendo padding en el movil, aumentar el valor (ej. -32px o -40px) y la misma cantidad en padding-top y en el calc de .app-container. */
-@media (display-mode: standalone) {
-    .app-header-fixed {
-        top: -24px;
-    }
-    .header-content {
-        padding-top: calc(24px + min(env(safe-area-inset-top, 0px), 24px) + var(--ios-header-touch-offset));
-    }
-    .app-container {
-        top: calc(52px + 0.5rem + min(env(safe-area-inset-top, 0px), 32px) - 24px + var(--ios-header-touch-offset));
+@supports (-webkit-touch-callout: none) {
+    @media (display-mode: standalone) {
+        .app-header-fixed {
+            top: -24px;
+        }
+        .header-content {
+            padding-top: calc(24px + min(env(safe-area-inset-top, 0px), 24px) + var(--ios-header-touch-offset));
+        }
+        .app-container {
+            top: calc(52px + 0.5rem + min(env(safe-area-inset-top, 0px), 32px) - 24px + var(--ios-header-touch-offset));
+        }
     }
 }
 
