@@ -2024,6 +2024,14 @@ body.gate-visible .app-container {
         /* Permite tap sin activar gestos de pan/drag */
         touch-action: manipulation;
     }
+
+    /* Forzar separación superior del botón X del menú burger en iPhone */
+    .menu-sidebar .menu-header {
+        padding-top: calc(1.5rem + min(env(safe-area-inset-top, 0px), 28px));
+    }
+    .menu-sidebar .close-menu-btn {
+        margin-top: 0.5rem;
+    }
 }
 
 /* ========================================
