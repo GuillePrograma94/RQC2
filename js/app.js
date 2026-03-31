@@ -7032,6 +7032,36 @@ class ScanAsYouShopApp {
             });
         }
 
+        // DEPENDIENTE: Imprimir Pedido (almacén = tienda del dependiente)
+        const imprimirPedidoBtn = document.getElementById('imprimirPedidoBtn');
+        if (imprimirPedidoBtn) {
+            imprimirPedidoBtn.addEventListener('click', () => {
+                if (this.isEnviarPedidoModalOpen()) this.closeEnviarPedidoModal();
+                const almacenTienda = this.currentUser && this.currentUser.almacen_tienda ? this.currentUser.almacen_tienda : null;
+                if (!almacenTienda) {
+                    window.ui.showToast('No hay tienda asignada para este dependiente.', 'warning');
+                    return;
+                }
+                this.showAlmacenObservacionesModal(almacenTienda);
+            });
+        }
+
+        // DEPENDIENTE: Generar sin imprimir (almacén = tienda del dependiente)
+        const generarSinImprimirBtn = document.getElementById('generarSinImprimirBtn');
+        if (generarSinImprimirBtn) {
+            generarSinImprimirBtn.addEventListener('click', () => {
+                if (this.isEnviarPedidoModalOpen()) this.closeEnviarPedidoModal();
+                const almacenTienda = this.currentUser && this.currentUser.almacen_tienda ? this.currentUser.almacen_tienda : null;
+                if (!almacenTienda) {
+                    window.ui.showToast('No hay tienda asignada para este dependiente.', 'warning');
+                    return;
+                }
+                this.showAlmacenObservacionesModal(almacenTienda);
+                const modal = document.getElementById('almacenObservacionesModal');
+                if (modal) modal.setAttribute('data-order-action', 'sin_imprimir');
+            });
+        }
+
         // Escanear en Mostrador: cierra modal Enviar Pedido si está abierto y abre pantalla con QR y código manual
         const escanearEnMostradorBtn = document.getElementById('escanearEnMostradorBtn');
         if (escanearEnMostradorBtn) {
@@ -7474,7 +7504,12 @@ class ScanAsYouShopApp {
                 if (this.currentUser && this.currentUser.nombre_operario) {
                     observaciones += '\n\nPedido realizado por: ' + this.currentUser.nombre_operario;
                 }
-                this.sendRemoteOrder(almacen, observaciones);
+                const orderAction = observacionesModal ? observacionesModal.getAttribute('data-order-action') : null;
+                if (orderAction === 'sin_imprimir') {
+                    this.sendRemoteOrder(almacen, observaciones, { sinImprimir: true });
+                } else {
+                    this.sendRemoteOrder(almacen, observaciones);
+                }
             });
         }
 
@@ -9811,6 +9846,23 @@ class ScanAsYouShopApp {
         if (remoteOrderSection) {
             remoteOrderSection.style.display = this.currentUser ? 'block' : 'none';
         }
+        // Botones específicos para DEPENDIENTE dentro del mismo DOM reutilizado.
+        const isDependiente =
+            !!(this.currentUser && (this.currentUser.is_dependiente || String(this.currentUser.tipo || '').toUpperCase() === 'DEPENDIENTE'));
+        const normalButtons = document.getElementById('remoteOrderButtonsNormal');
+        const dependienteButtons = document.getElementById('dependienteOrderButtons');
+        const yaEnAlmacenWrap = document.getElementById('yaEnAlmacenWrap');
+        if (normalButtons && dependienteButtons && yaEnAlmacenWrap) {
+            if (isDependiente) {
+                normalButtons.style.display = 'none';
+                dependienteButtons.style.display = 'block';
+                yaEnAlmacenWrap.style.display = 'none';
+            } else {
+                normalButtons.style.display = 'block';
+                dependienteButtons.style.display = 'none';
+                yaEnAlmacenWrap.style.display = 'block';
+            }
+        }
         modal.style.display = 'flex';
     }
 
@@ -10267,6 +10319,9 @@ class ScanAsYouShopApp {
         const modal = document.getElementById('almacenObservacionesModal');
         if (!modal) return;
         modal.setAttribute('data-selected-almacen', almacen);
+        // Por defecto, el flujo equivale a imprimir (si el modal se usa para ese caso).
+        // El botón DEPENDIENTE "Generar sin imprimir" lo sobreescribe con data-order-action.
+        modal.removeAttribute('data-order-action');
 
         const titleEl = document.getElementById('almacenObservacionesModalTitle');
         if (titleEl) {
@@ -10440,12 +10495,13 @@ class ScanAsYouShopApp {
      * @param {string} almacen - Código del almacén (ONTINYENT, GANDIA, ALZIRA, REQUENA).
      * @param {string} [observaciones] - Observaciones para el pedido (opcional).
      */
-    async sendRemoteOrder(almacen, observaciones) {
+    async sendRemoteOrder(almacen, observaciones, options = {}) {
         try {
             if (!this.currentUser) {
                 window.ui.showToast('Debes iniciar sesion', 'error');
                 return;
             }
+            const sinImprimir = !!options.sinImprimir;
 
             if (this.canRepresentClientes() && !this.currentUser.cliente_representado_id) {
                 this.hideAlmacenModal();
@@ -10478,7 +10534,13 @@ class ScanAsYouShopApp {
 
             window.ui.showLoading(`Enviando pedido a ${almacen}...`);
 
-            const result = await window.supabaseClient.crearPedidoRemoto(
+            const crearPedidoFn =
+                sinImprimir && window.supabaseClient && typeof window.supabaseClient.crearPedidoRemotoSinImprimir === 'function'
+                    ? window.supabaseClient.crearPedidoRemotoSinImprimir
+                    : window.supabaseClient.crearPedidoRemoto;
+
+            const result = await crearPedidoFn.call(
+                window.supabaseClient,
                 effectiveUserId,
                 almacen,
                 observacionesFinal || null,
@@ -10492,6 +10554,7 @@ class ScanAsYouShopApp {
                         usuario_id: effectiveUserId,
                         almacen: almacen,
                         observaciones: observacionesFinal,
+                        sin_imprimir: sinImprimir,
                         cart: {
                             productos: (cart.productos || []).map((p) => ({
                                 codigo_producto: p.codigo_producto || p.codigo,
@@ -10666,6 +10729,7 @@ class ScanAsYouShopApp {
                         usuario_id: effectiveUserIdCatch || this.currentUser.user_id,
                         almacen: almacen,
                         observaciones: observacionesFinalCatch,
+                        sin_imprimir: sinImprimir,
                         cart: {
                             productos: (cart.productos || []).map((p) => ({
                                 codigo_producto: p.codigo_producto || p.codigo,

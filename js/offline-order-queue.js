@@ -74,6 +74,7 @@ class OfflineOrderQueue {
         const duplicate = existing.find(function (x) {
             return x.usuario_id === record.usuario_id &&
                 x.almacen === record.almacen &&
+                x.sin_imprimir === record.sin_imprimir &&
                 (now - (x.createdAt || 0)) < windowMs;
         });
         if (duplicate) {
@@ -135,12 +136,22 @@ class OfflineOrderQueue {
                     }
                     let result;
                 try {
-                    result = await window.supabaseClient.crearPedidoRemoto(
-                        item.usuario_id,
-                        item.almacen,
-                        item.observaciones != null ? String(item.observaciones) : null,
-                        item.user_snapshot && item.user_snapshot.is_operario ? (item.user_snapshot.nombre_operario || null) : null
-                    );
+                    const nombreOperario = item.user_snapshot && item.user_snapshot.is_operario ? (item.user_snapshot.nombre_operario || null) : null;
+                    if (item.sin_imprimir && window.supabaseClient && typeof window.supabaseClient.crearPedidoRemotoSinImprimir === 'function') {
+                        result = await window.supabaseClient.crearPedidoRemotoSinImprimir(
+                            item.usuario_id,
+                            item.almacen,
+                            item.observaciones != null ? String(item.observaciones) : null,
+                            nombreOperario
+                        );
+                    } else {
+                        result = await window.supabaseClient.crearPedidoRemoto(
+                            item.usuario_id,
+                            item.almacen,
+                            item.observaciones != null ? String(item.observaciones) : null,
+                            nombreOperario
+                        );
+                    }
                 } catch (e) {
                     try {
                         await this.enqueue(item);

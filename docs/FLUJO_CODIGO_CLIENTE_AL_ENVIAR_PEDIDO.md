@@ -44,6 +44,8 @@ const result = await window.supabaseClient.crearPedidoRemoto(
 
 **Valor simulado:** `this.currentUser.user_id` = `42` (ejemplo; es el `usuarios.id` del titular, tanto si quien envia es titular como operario).
 
+**Caso DEPENDIENTE - Generar sin imprimir:** si se pulsa "Generar sin imprimir" (DEPENDIENTE), la app llama `sendRemoteOrder(almacen, observaciones, { sinImprimir: true })`, usando `window.supabaseClient.crearPedidoRemotoSinImprimir`. Esa ruta invoca la RPC `crear_pedido_remoto_sin_imprimir`, que inserta el carrito en `estado='en_preparacion'` con `estado_procesamiento='procesando'`.
+
 ---
 
 ## Paso 2: supabase.js invoca la RPC crear_pedido_remoto
@@ -110,6 +112,8 @@ RETURN QUERY SELECT
     TRUE,
     'Pedido remoto creado exitosamente'::TEXT;
 ```
+
+**Variación RPC `crear_pedido_remoto_sin_imprimir`:** inserta `estado='en_preparacion'` y `estado_procesamiento='procesando'` (en lugar de `estado='enviado'` y `estado_procesamiento='procesando'`).
 
 **Tabla y columna:**
 

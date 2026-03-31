@@ -1773,6 +1773,62 @@ class SupabaseClient {
         }
     }
 
+    /**
+     * Crea un pedido remoto "sin impresión automática" para checkout_pc.
+     * Se inserta con estado en_preparacion/procesando y pc_id no-nulo para que checkout_pc no lo reclame para imprimir.
+     * @param {number} usuarioId - ID del usuario titular
+     * @param {string} almacenDestino - Código del almacén destino
+     * @param {string} [observaciones] - Observaciones del pedido (opcional)
+     * @param {string} [nombreOperario] - Nombre del operario si el pedido lo hace un operario (opcional)
+     */
+    async crearPedidoRemotoSinImprimir(usuarioId, almacenDestino, observaciones, nombreOperario) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            const { data, error } = await this.client.rpc(
+                'crear_pedido_remoto_sin_imprimir',
+                {
+                    p_usuario_id: usuarioId,
+                    p_almacen_destino: almacenDestino,
+                    p_observaciones: observaciones != null ? String(observaciones).trim() || null : null,
+                    p_nombre_operario: nombreOperario != null ? String(nombreOperario).trim() || null : null
+                }
+            );
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                const result = data[0];
+                if (result.success) {
+                    return {
+                        success: true,
+                        carrito_id: result.carrito_id,
+                        codigo_qr: result.codigo_qr,
+                        codigo_cliente_usuario: result.codigo_cliente_usuario || null
+                    };
+                }
+
+                return {
+                    success: false,
+                    message: result.message
+                };
+            }
+
+            return {
+                success: false,
+                message: 'No se recibio respuesta del servidor'
+            };
+        } catch (error) {
+            console.error('Error al crear pedido remoto sin imprimir:', error);
+            return {
+                success: false,
+                message: 'Error de conexion. Intenta de nuevo.'
+            };
+        }
+    }
+
     async crearPrepedido(usuarioId, almacenDestino, observaciones, nombreOperario, cart) {
         try {
             if (!this.client) {
