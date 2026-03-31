@@ -1045,6 +1045,7 @@
                         <div class="admin-solicitud-field"><label for="panelEmpresaTelefono">Telefono</label><input type="text" id="panelEmpresaTelefono" maxlength="80"></div>
                         <div class="admin-solicitud-field"><label for="panelEmpresaEmail">Email</label><input type="text" id="panelEmpresaEmail" maxlength="200"></div>
                         <div class="admin-solicitud-field"><label for="panelEmpresaWeb">Web</label><input type="text" id="panelEmpresaWeb" maxlength="300"></div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaWhatsappSoporteErrores">WhatsApp soporte errores</label><input type="text" id="panelEmpresaWhatsappSoporteErrores" maxlength="80" placeholder="Ej: 34600111222"></div>
                         <div class="admin-solicitud-field admin-solicitud-field-full"><label for="panelEmpresaCondiciones">Condiciones comerciales</label><textarea id="panelEmpresaCondiciones" rows="3" maxlength="4000"></textarea></div>
                         <div class="panel-empresa-form-actions">
                             <button type="button" id="panelDatosEmpresaGuardarBtn" class="btn btn-primary btn-lg">Guardar</button>
@@ -1497,6 +1498,7 @@
                         <div class="admin-solicitud-field"><label for="adminEmpresaTelefono">Telefono</label><input type="text" id="adminEmpresaTelefono"></div>
                         <div class="admin-solicitud-field"><label for="adminEmpresaEmail">Email</label><input type="text" id="adminEmpresaEmail"></div>
                         <div class="admin-solicitud-field"><label for="adminEmpresaWeb">Web</label><input type="text" id="adminEmpresaWeb"></div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaWhatsappSoporteErrores">WhatsApp soporte errores</label><input type="text" id="adminEmpresaWhatsappSoporteErrores" maxlength="80" placeholder="Ej: 34600111222"></div>
                         <div class="admin-solicitud-field admin-solicitud-field-full"><label for="adminEmpresaLogoUrl">Logo URL</label><input type="text" id="adminEmpresaLogoUrl"></div>
                         <div class="admin-solicitud-field admin-solicitud-field-full logo-pdf-escala-field">
                             <label for="adminEmpresaLogoPdfEscala">Escala proporcional respecto a 96×50 pt (%)</label>
@@ -1599,6 +1601,19 @@
             </p>
             <div class="confirm-buttons">
                 <button id="erpErrorModalOkBtn" class="confirm-btn confirm-btn-ok">Entendido</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Error Soporte WhatsApp (movil/iPhone) -->
+    <div id="mobileErrorReportModal" class="confirm-dialog mobile-error-report-modal" style="display: none;">
+        <div class="confirm-overlay"></div>
+        <div class="confirm-content mobile-error-report-content">
+            <h3 class="confirm-title" id="mobileErrorReportTitle">Ha ocurrido un error</h3>
+            <p class="confirm-message" id="mobileErrorReportMessage">Pulsa "Enviar Detalles" para enviar el reporte por WhatsApp a soporte.</p>
+            <div class="confirm-buttons">
+                <button id="mobileErrorReportCancelBtn" class="confirm-btn confirm-btn-cancel">Cancelar</button>
+                <button id="mobileErrorReportSendBtn" class="confirm-btn confirm-btn-ok">Enviar Detalles</button>
             </div>
         </div>
     </div>

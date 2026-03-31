@@ -13,6 +13,12 @@ class SupabaseClient {
         this.OFERTAS_CACHE_TARGET_VERSION_KEY = 'ofertas_cache_target_version_hash';
     }
 
+    isNetworkError(errorLike) {
+        if (errorLike == null) return false;
+        const msg = String(errorLike && (errorLike.message || errorLike.error_description || errorLike) || '');
+        return /network|failed to fetch|load failed|timeout|timed out|err_connection|connection reset|dns|offline|fetch failed/i.test(msg);
+    }
+
     /**
      * Inicializa el cliente de Supabase
      */
@@ -1766,9 +1772,11 @@ class SupabaseClient {
 
         } catch (error) {
             console.error('Error al crear pedido remoto:', error);
+            const msg = (error && (error.message || error.error_description || String(error))) ? String(error.message || error.error_description || error) : 'Error de conexion. Intenta de nuevo.';
             return {
                 success: false,
-                message: 'Error de conexion. Intenta de nuevo.'
+                message: msg,
+                is_connection_error: this.isNetworkError(error)
             };
         }
     }
@@ -1822,9 +1830,11 @@ class SupabaseClient {
             };
         } catch (error) {
             console.error('Error al crear pedido remoto sin imprimir:', error);
+            const msg = (error && (error.message || error.error_description || String(error))) ? String(error.message || error.error_description || error) : 'Error de conexion. Intenta de nuevo.';
             return {
                 success: false,
-                message: 'Error de conexion. Intenta de nuevo.'
+                message: msg,
+                is_connection_error: this.isNetworkError(error)
             };
         }
     }
@@ -3049,7 +3059,7 @@ class SupabaseClient {
             if (!this.client) return [];
             const { data, error } = await this.client
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, updated_at')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, whatsapp_soporte_errores, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, updated_at')
                 .order('almacen', { ascending: true });
             if (error) throw error;
             return Array.isArray(data) ? data : [];
@@ -3091,6 +3101,7 @@ class SupabaseClient {
                 telefono: payload.telefono ? String(payload.telefono).trim() : null,
                 email: payload.email ? String(payload.email).trim() : null,
                 web: payload.web ? String(payload.web).trim() : null,
+                whatsapp_soporte_errores: payload.whatsapp_soporte_errores ? String(payload.whatsapp_soporte_errores).trim() : null,
                 logo_url: payload.logo_url ? String(payload.logo_url).trim() : null,
                 logo_pdf_ancho_pt: logoPdfPt(payload.logo_pdf_ancho_pt),
                 logo_pdf_alto_pt: logoPdfPt(payload.logo_pdf_alto_pt),
@@ -3122,7 +3133,7 @@ class SupabaseClient {
             const a = String(almacen).trim();
             const { data, error } = await this.client
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, updated_at')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, whatsapp_soporte_errores, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, updated_at')
                 .eq('almacen', a)
                 .maybeSingle();
             if (error) throw error;

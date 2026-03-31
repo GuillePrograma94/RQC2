@@ -57,6 +57,13 @@ class ScanAsYouShopApp {
         this.editingPresupuestoNumero = null;
         this.editingPresupuestoObservaciones = '';
         this._presupuestoSaveInFlight = false;
+        this._errorReportBuffer = [];
+        this._errorReportMaxEntries = 8;
+        this._globalErrorReportingReady = false;
+        this._mobileErrorModalOpen = false;
+        this._pendingErrorReportContext = null;
+        this._lastErrorFingerprint = '';
+        this._lastErrorAt = 0;
     }
 
     /**
@@ -105,6 +112,7 @@ class ScanAsYouShopApp {
 
             // Inicializar UI primero (para poder usar showLoading)
             window.ui.initialize();
+            this.setupGlobalErrorReporting();
             window.ui.showLoading('Iniciando aplicacion...');
 
             // Configurar pantalla de acceso (gate) y modal de login (debe estar antes del gate para que el submit no recargue la pagina)
@@ -2028,6 +2036,7 @@ class ScanAsYouShopApp {
                 telefono: '',
                 email: '',
                 web: '',
+                whatsapp_soporte_errores: '',
                 logo_url: '',
                 condiciones_comerciales: '',
                 texto_cabecera: ''
@@ -2047,6 +2056,7 @@ class ScanAsYouShopApp {
         set('panelEmpresaTelefono', row.telefono);
         set('panelEmpresaEmail', row.email);
         set('panelEmpresaWeb', row.web);
+        set('panelEmpresaWhatsappSoporteErrores', row.whatsapp_soporte_errores);
         set('panelEmpresaLogoUrl', row.logo_url);
         set('panelEmpresaLogoPdfAncho', row.logo_pdf_ancho_pt);
         set('panelEmpresaLogoPdfAlto', row.logo_pdf_alto_pt);
@@ -4852,6 +4862,7 @@ class ScanAsYouShopApp {
         set('adminEmpresaTelefono', row.telefono);
         set('adminEmpresaEmail', row.email);
         set('adminEmpresaWeb', row.web);
+        set('adminEmpresaWhatsappSoporteErrores', row.whatsapp_soporte_errores);
         set('adminEmpresaLogoUrl', row.logo_url);
         set('adminEmpresaLogoPdfAncho', row.logo_pdf_ancho_pt);
         set('adminEmpresaLogoPdfAlto', row.logo_pdf_alto_pt);
@@ -4892,6 +4903,7 @@ class ScanAsYouShopApp {
             telefono: get('adminEmpresaTelefono'),
             email: get('adminEmpresaEmail'),
             web: get('adminEmpresaWeb'),
+            whatsapp_soporte_errores: get('adminEmpresaWhatsappSoporteErrores'),
             logo_url: get('adminEmpresaLogoUrl'),
             logo_pdf_ancho_pt: get('adminEmpresaLogoPdfAncho'),
             logo_pdf_alto_pt: get('adminEmpresaLogoPdfAlto'),
@@ -4965,6 +4977,7 @@ class ScanAsYouShopApp {
             telefono: get('panelEmpresaTelefono'),
             email: get('panelEmpresaEmail'),
             web: get('panelEmpresaWeb'),
+            whatsapp_soporte_errores: get('panelEmpresaWhatsappSoporteErrores'),
             logo_url: logoUrl || null,
             logo_pdf_ancho_pt: get('panelEmpresaLogoPdfAncho'),
             logo_pdf_alto_pt: get('panelEmpresaLogoPdfAlto'),
@@ -10548,7 +10561,7 @@ class ScanAsYouShopApp {
             );
 
             if (!result.success) {
-                if (this.isConnectionError(result.message) && window.offlineOrderQueue) {
+                if (result.is_connection_error === true && window.offlineOrderQueue) {
                     const cart = window.cartManager.getCart();
                     const offlineItem = {
                         usuario_id: effectiveUserId,
@@ -10610,6 +10623,11 @@ class ScanAsYouShopApp {
 
             if (erpError) {
                 const isValidationError = this.isErpValidationError(erpError);
+                this.registerErrorForSupport('sendRemoteOrder.erp', erpError, {
+                    almacen: almacen,
+                    sin_imprimir: sinImprimir,
+                    validacion: isValidationError
+                });
                 try {
                     await window.supabaseClient.updateCarritoEstadoProcesamiento(result.carrito_id, 'error_erp');
                 } catch (e) {
@@ -10763,6 +10781,10 @@ class ScanAsYouShopApp {
                     }
                 }
             }
+            this.registerErrorForSupport('sendRemoteOrder.catch', error, {
+                almacen: almacen,
+                sin_imprimir: sinImprimir
+            });
             window.ui.hideLoading();
             window.ui.showToast('Error al enviar pedido. Intenta de nuevo.', 'error');
         }
@@ -11814,6 +11836,173 @@ class ScanAsYouShopApp {
         }
     }
 
+    isMobileDeviceForErrorReport() {
+        const ua = navigator.userAgent || '';
+        const isIOS = /iPad|iPhone|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isAndroid = /Android/i.test(ua);
+        const isMobileViewport = window.matchMedia ? window.matchMedia('(max-width: 900px)').matches : window.innerWidth <= 900;
+        return isIOS || isAndroid || isMobileViewport;
+    }
+
+    setupGlobalErrorReporting() {
+        if (this._globalErrorReportingReady) return;
+        this._globalErrorReportingReady = true;
+
+        const sendBtn = document.getElementById('mobileErrorReportSendBtn');
+        const cancelBtn = document.getElementById('mobileErrorReportCancelBtn');
+        if (sendBtn) {
+            sendBtn.addEventListener('click', () => {
+                this.sendMobileErrorReportToWhatsApp();
+            });
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                this.closeMobileErrorReportModal();
+            });
+        }
+
+        window.addEventListener('error', (event) => {
+            try {
+                const err = event && event.error ? event.error : new Error(event && event.message ? event.message : 'Error global');
+                this.registerErrorForSupport('window.onerror', err, {
+                    filename: event && event.filename ? event.filename : '',
+                    lineno: event && event.lineno ? event.lineno : null,
+                    colno: event && event.colno ? event.colno : null
+                });
+            } catch (_) {}
+        });
+
+        window.addEventListener('unhandledrejection', (event) => {
+            try {
+                const reason = event && event.reason ? event.reason : 'Rechazo no gestionado';
+                this.registerErrorForSupport('window.onunhandledrejection', reason);
+            } catch (_) {}
+        });
+    }
+
+    registerErrorForSupport(source, errorLike, extraContext = {}) {
+        try {
+            const message = errorLike && errorLike.message ? String(errorLike.message) : String(errorLike || 'Error desconocido');
+            const stack = errorLike && errorLike.stack ? String(errorLike.stack) : '';
+            const now = Date.now();
+            const fingerprint = `${source}|${message}|${stack ? stack.slice(0, 120) : ''}`;
+            if (fingerprint === this._lastErrorFingerprint && (now - this._lastErrorAt) < 2000) {
+                return;
+            }
+            this._lastErrorFingerprint = fingerprint;
+            this._lastErrorAt = now;
+
+            const record = {
+                source: source || 'unknown',
+                message: message,
+                stack: stack,
+                timestamp: new Date(now).toISOString(),
+                screen: this.currentScreen || '',
+                user_id: this.currentUser && this.currentUser.user_id ? this.currentUser.user_id : null,
+                user_name: this.currentUser && this.currentUser.user_name ? this.currentUser.user_name : '',
+                almacen: this.getEffectiveAlmacenHabitual ? (this.getEffectiveAlmacenHabitual() || '') : '',
+                extra: extraContext || {}
+            };
+            this._errorReportBuffer.push(record);
+            if (this._errorReportBuffer.length > this._errorReportMaxEntries) {
+                this._errorReportBuffer.shift();
+            }
+
+            if (this.isMobileDeviceForErrorReport()) {
+                this.openMobileErrorReportModal(record);
+            }
+        } catch (e) {
+            console.warn('registerErrorForSupport:', e);
+        }
+    }
+
+    openMobileErrorReportModal(record) {
+        if (this._mobileErrorModalOpen) return;
+        const modal = document.getElementById('mobileErrorReportModal');
+        const messageEl = document.getElementById('mobileErrorReportMessage');
+        if (!modal) return;
+        this._mobileErrorModalOpen = true;
+        this._pendingErrorReportContext = record || null;
+        if (messageEl) {
+            const base = 'Pulsa "Enviar Detalles" para enviar el reporte por WhatsApp a soporte.';
+            messageEl.textContent = record && record.message ? `${base}\n\n${record.message}` : base;
+        }
+        modal.style.display = 'flex';
+    }
+
+    closeMobileErrorReportModal() {
+        const modal = document.getElementById('mobileErrorReportModal');
+        if (modal) modal.style.display = 'none';
+        this._mobileErrorModalOpen = false;
+        this._pendingErrorReportContext = null;
+    }
+
+    sanitizeWhatsAppNumber(raw) {
+        if (!raw) return '';
+        return String(raw).replace(/[^\d]/g, '');
+    }
+
+    async resolveWhatsAppSoporteErrores() {
+        const panelValue = document.getElementById('panelEmpresaWhatsappSoporteErrores');
+        if (panelValue && String(panelValue.value || '').trim() !== '') {
+            return this.sanitizeWhatsAppNumber(panelValue.value);
+        }
+        const adminValue = document.getElementById('adminEmpresaWhatsappSoporteErrores');
+        if (adminValue && String(adminValue.value || '').trim() !== '') {
+            return this.sanitizeWhatsAppNumber(adminValue.value);
+        }
+        if (!this.currentUser || !window.supabaseClient || typeof window.supabaseClient.getEmpresaPorAlmacen !== 'function') {
+            return '';
+        }
+        const almacen = this.getEffectiveAlmacenHabitual
+            ? this.getEffectiveAlmacenHabitual()
+            : (this.currentUser.almacen_habitual || this.currentUser.almacen_tienda || '');
+        if (!almacen) return '';
+        const row = await window.supabaseClient.getEmpresaPorAlmacen(almacen);
+        return this.sanitizeWhatsAppNumber(row && row.whatsapp_soporte_errores ? row.whatsapp_soporte_errores : '');
+    }
+
+    buildWhatsAppErrorReportText() {
+        const entries = this._errorReportBuffer.slice(-4);
+        const active = this._pendingErrorReportContext || (entries.length > 0 ? entries[entries.length - 1] : null);
+        const lines = [];
+        lines.push('Scan Client Mobile - Reporte de error');
+        lines.push('Fecha: ' + new Date().toISOString());
+        lines.push('Pantalla: ' + (this.currentScreen || ''));
+        lines.push('Usuario: ' + (this.currentUser && this.currentUser.user_name ? this.currentUser.user_name : ''));
+        lines.push('User ID: ' + (this.currentUser && this.currentUser.user_id ? this.currentUser.user_id : ''));
+        if (active) {
+            lines.push('Origen: ' + (active.source || ''));
+            lines.push('Mensaje: ' + (active.message || ''));
+            if (active.stack) lines.push('Stack: ' + active.stack);
+        }
+        if (entries.length > 1) {
+            lines.push('Contexto reciente:');
+            for (let i = 0; i < entries.length; i++) {
+                const e = entries[i];
+                lines.push(`- ${e.timestamp} | ${e.source} | ${e.message}`);
+            }
+        }
+        return lines.join('\n');
+    }
+
+    async sendMobileErrorReportToWhatsApp() {
+        try {
+            const number = await this.resolveWhatsAppSoporteErrores();
+            if (!number) {
+                window.ui.showToast('No hay numero de WhatsApp de soporte configurado para este almacen.', 'warning');
+                return;
+            }
+            const text = this.buildWhatsAppErrorReportText();
+            const url = `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
+            window.open(url, '_blank', 'noopener');
+            this.closeMobileErrorReportModal();
+        } catch (error) {
+            console.error('sendMobileErrorReportToWhatsApp:', error);
+            window.ui.showToast('No se pudo preparar el envio a WhatsApp.', 'error');
+        }
+    }
+
     /**
      * Detecta si el error del ERP es de validacion/datos (400, obligatorio, etc.).
      * En ese caso el pedido NO debe darse por creado y se muestra modal de error.
@@ -11830,7 +12019,7 @@ class ScanAsYouShopApp {
     isConnectionError(message) {
         if (message == null) return false;
         const msg = String(message);
-        return /conexion|conexión|intenta de nuevo|network|failed to fetch|load failed|err_connection/i.test(msg);
+        return /network|failed to fetch|load failed|timeout|timed out|err_connection|connection reset|dns|offline|fetch failed|conexión|conexion/i.test(msg);
     }
 
     /**

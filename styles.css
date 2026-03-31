@@ -2362,6 +2362,20 @@ body.gate-visible .app-container {
     text-decoration: underline;
 }
 
+.mobile-error-report-modal .confirm-content {
+    max-width: 95%;
+    width: 360px;
+}
+
+.mobile-error-report-modal .confirm-title {
+    color: var(--danger);
+}
+
+.mobile-error-report-modal .confirm-message {
+    text-align: left;
+    margin-bottom: 1rem;
+}
+
 .confirm-buttons {
     display: flex;
     gap: 0.75rem;
@@ -3067,6 +3081,19 @@ body.gate-visible .app-container {
     color: var(--white);
     transform: scale(0.95);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* iOS Safari: evita desajuste entre hitbox y posición visual en botones +/- */
+@supports (-webkit-touch-callout: none) {
+    #addToCartModal .qty-btn-modal {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        line-height: 1;
+    }
+
+    #addToCartModal .qty-btn-modal:active {
+        transform: none;
+    }
 }
 
 .qty-input-modal {
@@ -6037,6 +6064,13 @@ body.gate-visible .app-container {
     flex-wrap: wrap;
     gap: 0.75rem;
     justify-content: center;
+}
+
+/* Dependiente (vista PC): separa más los dos botones de acción */
+@media (min-width: 900px) {
+    #dependienteOrderButtons {
+        gap: 1.25rem;
+    }
 }
 
 .remote-order-section .btn-success {

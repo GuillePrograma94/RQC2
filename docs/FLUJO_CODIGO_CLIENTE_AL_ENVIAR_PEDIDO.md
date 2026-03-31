@@ -44,7 +44,7 @@ const result = await window.supabaseClient.crearPedidoRemoto(
 
 **Valor simulado:** `this.currentUser.user_id` = `42` (ejemplo; es el `usuarios.id` del titular, tanto si quien envia es titular como operario).
 
-**Caso DEPENDIENTE - Generar sin imprimir:** si se pulsa "Generar sin imprimir" (DEPENDIENTE), la app llama `sendRemoteOrder(almacen, observaciones, { sinImprimir: true })`, usando `window.supabaseClient.crearPedidoRemotoSinImprimir`. Esa ruta invoca la RPC `crear_pedido_remoto_sin_imprimir`, que inserta el carrito en `estado='en_preparacion'` con `estado_procesamiento='procesando'`.
+**Caso DEPENDIENTE - Generar sin imprimir:** si se pulsa "Generar sin imprimir" (DEPENDIENTE), la app llama `sendRemoteOrder(almacen, observaciones, { sinImprimir: true })`, usando `window.supabaseClient.crearPedidoRemotoSinImprimir`. Esa ruta invoca la RPC `crear_pedido_remoto_sin_imprimir`, que inserta el carrito en `estado='en_preparacion'`, `estado_procesamiento='procesando'` y `pc_id='NO_IMPRIMIR'`.
 
 ---
 
@@ -68,6 +68,8 @@ const { data, error } = await this.client.rpc(
 ```
 
 **Tabla/columna:** Se envia `p_usuario_id`, `p_almacen_destino`, `p_observaciones` y `p_nombre_operario` a la RPC; esta guarda en `carritos_clientes`.
+
+**Criterio de conectividad (envio de pedido):** la app solo considera `offline/red` cuando la capa de Supabase devuelve `is_connection_error = true` (patrones reales de red). Ya no se usa texto genérico del mensaje (por ejemplo, `"intenta de nuevo"`) para decidir si encola offline.
 
 ---
 
@@ -113,7 +115,30 @@ RETURN QUERY SELECT
     'Pedido remoto creado exitosamente'::TEXT;
 ```
 
-**Variación RPC `crear_pedido_remoto_sin_imprimir`:** inserta `estado='en_preparacion'` y `estado_procesamiento='procesando'` (en lugar de `estado='enviado'` y `estado_procesamiento='procesando'`).
+**Variación RPC `crear_pedido_remoto_sin_imprimir`:** inserta `estado='en_preparacion'`, `estado_procesamiento='procesando'` y `pc_id='NO_IMPRIMIR'` (en lugar de `estado='enviado'` y `estado_procesamiento='procesando'`).
+
+---
+
+## Paso 7: Captura de errores y reporte por WhatsApp (movil/iPhone)
+
+**Fichero:** `scan_client_mobile/js/app.js`
+
+**Origen de errores que disparan modal:**
+
+- Global JS: `window.onerror` y `window.onunhandledrejection`.
+- Criticos del envio: errores en `sendRemoteOrder` (Supabase/ERP).
+
+**Comportamiento:**
+
+1. Se guarda un buffer de contexto (`source`, `message`, `stack`, `timestamp`, `screen`, `user_id`, `almacen`).
+2. Si el dispositivo es movil/iPhone, se abre el modal **"Ha ocurrido un error"**.
+3. `Cancelar` cierra el modal.
+4. `Enviar Detalles` arma el texto y abre `https://wa.me/<numero>?text=...`.
+
+**Numero destino:**
+
+- Sale del campo `whatsapp_soporte_errores` en `empresas_por_almacen`.
+- Se configura en Panel de Control > Datos de Empresa (`panelEmpresaWhatsappSoporteErrores`).
 
 **Tabla y columna:**
 
