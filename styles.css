@@ -83,7 +83,7 @@ html {
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background-color: var(--primary); /* Fondo morado para que no se vea negro */
+    background-color: var(--white); /* Evita franja morada visible en rebote iOS PWA */
     color: var(--gray-900);
     line-height: 1.6;
     overflow-x: hidden;
@@ -2024,13 +2024,33 @@ body.gate-visible .app-container {
         margin-top: 0.5rem;
     }
 
-    /* Solo webapp instalada en iPhone: footer fijo sin arrastre */
+    /* Solo webapp instalada en iPhone: footer fijo, al borde inferior y sin arrastre */
     @media (display-mode: standalone) {
+        html {
+            height: 100%;
+            min-height: -webkit-fill-available;
+            overscroll-behavior-y: none;
+        }
+
+        body {
+            min-height: 100%;
+            min-height: -webkit-fill-available;
+            overscroll-behavior-y: none;
+        }
+
         html,
         body,
         .app-container,
         .bottom-nav {
             background: var(--white);
+        }
+
+        #appContainerTienda {
+            overscroll-behavior: contain;
+        }
+
+        #appContainerTienda .screen-content {
+            overscroll-behavior-y: contain;
         }
 
         .app-container {
@@ -2042,17 +2062,16 @@ body.gate-visible .app-container {
             left: 0;
             right: 0;
             bottom: 0;
+            z-index: 10050;
             height: calc(var(--footer-height) + env(safe-area-inset-bottom));
-            padding-top: 0.15rem;
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-top: 0;
+            padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
             align-items: flex-end;
             touch-action: none;
             overscroll-behavior: none;
             -webkit-overflow-scrolling: auto;
             -webkit-user-select: none;
             user-select: none;
-            transform: translate3d(0, 0, 0);
-            -webkit-transform: translate3d(0, 0, 0);
         }
 
         .bottom-nav .nav-item {

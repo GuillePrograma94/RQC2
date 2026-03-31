@@ -6400,6 +6400,33 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * En iPhone PWA standalone, bloquea gesto de arrastre sobre la barra inferior
+     * sin afectar al tap de los botones de navegacion.
+     */
+    setupStandaloneBottomNavGestureLock() {
+        const isStandalone = (() => {
+            try {
+                return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+                    || window.navigator.standalone === true;
+            } catch (_) {
+                return window.navigator.standalone === true;
+            }
+        })();
+
+        if (!isStandalone) return;
+
+        const bottomNav = document.querySelector('#appContainerTienda .bottom-nav');
+        if (!bottomNav || bottomNav.dataset.gestureLockBound === '1') return;
+
+        bottomNav.addEventListener('touchmove', (event) => {
+            if (event.target && event.target.closest('.nav-item')) return;
+            event.preventDefault();
+        }, { passive: false });
+
+        bottomNav.dataset.gestureLockBound = '1';
+    }
+
+    /**
      * Configura las pantallas y navegación
      */
     setupScreens() {
@@ -6450,6 +6477,8 @@ class ScanAsYouShopApp {
                 this.updateActiveNav('scan');
             });
         }
+
+        this.setupStandaloneBottomNavGestureLock();
 
         // Menu Sidebar
         const menuBtn = document.getElementById('menuBtn');
