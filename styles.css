@@ -2015,21 +2015,6 @@ body.gate-visible .app-container {
     .nav-item {
         -webkit-tap-highlight-color: transparent;
     }
-    .bottom-nav {
-        padding-bottom: env(safe-area-inset-bottom);
-        /* Footer fijo real en iPhone: evita arrastre/gesto de scroll sobre la barra */
-        touch-action: none;
-        overscroll-behavior: none;
-        -webkit-user-select: none;
-        user-select: none;
-        transform: translate3d(0, 0, 0);
-        -webkit-transform: translate3d(0, 0, 0);
-        background: var(--white);
-    }
-    .bottom-nav .nav-item {
-        /* Permite tap sin activar gestos de pan/drag */
-        touch-action: manipulation;
-    }
 
     /* Forzar separación superior del botón X del menú burger en iPhone */
     .menu-sidebar .menu-header {
@@ -2037,6 +2022,42 @@ body.gate-visible .app-container {
     }
     .menu-sidebar .close-menu-btn {
         margin-top: 0.5rem;
+    }
+
+    /* Solo webapp instalada en iPhone: footer fijo sin arrastre */
+    @media (display-mode: standalone) {
+        html,
+        body,
+        .app-container,
+        .bottom-nav {
+            background: var(--white);
+        }
+
+        .app-container {
+            bottom: calc(var(--footer-height) + env(safe-area-inset-bottom));
+        }
+
+        .bottom-nav {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: calc(var(--footer-height) + env(safe-area-inset-bottom));
+            padding-top: 0.15rem;
+            padding-bottom: env(safe-area-inset-bottom);
+            align-items: flex-end;
+            touch-action: none;
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: auto;
+            -webkit-user-select: none;
+            user-select: none;
+            transform: translate3d(0, 0, 0);
+            -webkit-transform: translate3d(0, 0, 0);
+        }
+
+        .bottom-nav .nav-item {
+            touch-action: manipulation;
+        }
     }
 }
 
