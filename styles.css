@@ -78,7 +78,7 @@
 html {
     margin: 0;
     padding: 0;
-    background-color: var(--primary); /* Fondo morado */
+    background-color: var(--white);
 }
 
 body {
@@ -2016,7 +2016,6 @@ body.gate-visible .app-container {
         -webkit-tap-highlight-color: transparent;
     }
     .bottom-nav {
-        padding-top: 0.35rem;
         padding-bottom: env(safe-area-inset-bottom);
         /* Footer fijo real en iPhone: evita arrastre/gesto de scroll sobre la barra */
         touch-action: none;
@@ -2026,7 +2025,6 @@ body.gate-visible .app-container {
         transform: translate3d(0, 0, 0);
         -webkit-transform: translate3d(0, 0, 0);
         background: var(--white);
-        align-items: flex-end;
     }
     .bottom-nav .nav-item {
         /* Permite tap sin activar gestos de pan/drag */
