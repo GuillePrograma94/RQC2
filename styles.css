@@ -429,6 +429,8 @@ body.gate-visible .app-container {
 
 /* Solo iOS + webapp instalada (standalone): subir header para quitar hueco del sistema.
 
+  Yes
+
    Si sigue viendo padding en el movil, aumentar el valor (ej. -32px o -40px) y la misma cantidad en padding-top y en el calc de .app-container. */
 @supports (-webkit-touch-callout: none) {
     @media (display-mode: standalone) {
