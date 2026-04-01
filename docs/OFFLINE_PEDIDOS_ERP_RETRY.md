@@ -19,11 +19,13 @@ offlineOrderQueue.processAll()
   ├── supabaseClient.crearPedidoRemoto() → crea 1 pedido en Supabase
   ├── supabaseClient.addProductToRemoteOrder() × N líneas
   └── erpClient.createRemoteOrder(erpPayload)
-        ├── OK: updatePedidoErp + registrarHistorialDesdeCarrito
+        ├── OK: updatePedidoErp + marcarPedidoRemotoEnviado + registrarHistorialDesdeCarrito
         └── Error red/timeout: erpRetryQueue.enqueue() → flujo B
 ```
 
 **Deduplicación en `enqueue()`:** Si ya existe un item del mismo `usuario_id` + `almacen` creado hace menos de 90 segundos, no se añade otro (protección contra doble clic).
+
+**Estado tras ERP OK:** En `supabase.js` el metodo expuesto para pasar a `estado_procesamiento = 'procesando'` es `marcarPedidoRemotoEnviado` (A1/A4). Delega en `marcarPedidoRemotoComoEnviado`; las colas y `app.js` deben usar el nombre corto para no dejar el pedido en `pendiente_erp` con `pedido_erp` ya rellenado.
 
 ---
 

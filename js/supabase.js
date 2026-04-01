@@ -2285,6 +2285,16 @@ class SupabaseClient {
     }
 
     /**
+     * Nombre estable usado por la app y la cola ERP (erp-retry-queue, retryEnvioErp).
+     * Delega en marcarPedidoRemotoComoEnviado (misma actualizacion A1/A4).
+     * @param {string|number} carritoId
+     * @returns {Promise<boolean>}
+     */
+    async marcarPedidoRemotoEnviado(carritoId) {
+        return this.marcarPedidoRemotoComoEnviado(carritoId);
+    }
+
+    /**
      * Actualiza el estado de procesamiento de un pedido remoto (error_erp o pendiente_erp).
      * @param {number} carritoId - ID del carrito
      * @param {string} estadoProcesamiento - 'error_erp' | 'pendiente_erp'

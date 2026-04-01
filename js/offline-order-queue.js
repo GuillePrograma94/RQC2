@@ -208,6 +208,7 @@ class OfflineOrderQueue {
                     if (pedidoErp) {
                         await window.supabaseClient.updatePedidoErp(carritoId, pedidoErp);
                     }
+                    await window.supabaseClient.marcarPedidoRemotoEnviado(carritoId);
                     try {
                         await window.supabaseClient.registrarHistorialDesdeCarrito(carritoId);
                     } catch (e) {

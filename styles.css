@@ -2059,7 +2059,7 @@ body.gate-visible .app-container {
         }
 
         .app-container {
-            bottom: calc(58px + env(safe-area-inset-bottom));
+            bottom: calc(50px + env(safe-area-inset-bottom));
         }
 
         .bottom-nav {
@@ -2068,7 +2068,7 @@ body.gate-visible .app-container {
             right: 0;
             bottom: calc(0px - var(--ios-standalone-footer-offset, 0px));
             z-index: 10050;
-            height: calc(58px + env(safe-area-inset-bottom));
+            height: calc(50px + env(safe-area-inset-bottom));
             padding-top: 0;
             padding-bottom: env(safe-area-inset-bottom);
             align-items: flex-end;
@@ -2083,6 +2083,10 @@ body.gate-visible .app-container {
 
         .bottom-nav .nav-item {
             touch-action: manipulation;
+            justify-content: flex-end;
+            padding-top: 0.2rem;
+            padding-bottom: 0.15rem;
+            gap: 0.15rem;
         }
     }
 }
