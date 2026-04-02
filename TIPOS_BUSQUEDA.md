@@ -218,7 +218,7 @@ Si no existe en principales:
 ### **Optimizaciones Implementadas**
 - ✅ **Índices compuestos**: Búsquedas ultra-rápidas
 - ✅ **Cache de historial**: 95%+ hit rate en búsquedas repetidas
-- ✅ **Búsqueda híbrida**: Local primero, Supabase como fallback
+- ✅ **Búsqueda híbrida en sincronización**: Durante descarga local, combina resultados remoto + local y deduplica por SKU
 - ✅ **Deduplicación**: Evita resultados duplicados
 
 ---
@@ -233,10 +233,16 @@ Si no existe en principales:
 
 ### **Comportamiento Inteligente**
 - **Solo código**: Búsqueda unificada por código principal (exacto/parcial), por EAN/código secundario exacto, o por referencia de fabricante (parcial en códigos secundarios no EAN). Un solo campo cubre los tres casos.
-- **Solo descripción**: Búsqueda por todas las palabras
-- **Código + descripción**: Búsqueda combinada (descripción → filtro por código)
+- **Solo descripción**: Búsqueda por todas las palabras en `descripcion` y `sinonimos`, insensible a mayúsculas y acentos
+- **Código + descripción**: Búsqueda combinada con lógica AND, en modo híbrido uniendo remoto + local
 - **Con `Solo mis compras`**: Búsqueda en historial personal del usuario, manteniendo activos el resto de chips (fabricante, oferta y precio)
 - **Refresco inmediato de chips**: al pulsar `Solo mis compras` o `Solo en oferta`, la búsqueda se relanza automáticamente (sin pulsar `Buscar`) cuando ya hay criterio o resultados en pantalla
+
+### **Modo Híbrido durante Sincronización**
+- Cuando el catálogo local todavía se está descargando y hay conexión, la app consulta también Supabase para no perder cobertura.
+- La búsqueda remota de catálogo usa código, descripción y sinónimos con normalización de acentos.
+- Los resultados remotos y locales se combinan y se deduplican por SKU para evitar repeticiones.
+- Si la RPC de búsqueda avanzada no está desplegada todavía, la app cae automáticamente al fallback legacy sin romper la pantalla.
 
 ---
 

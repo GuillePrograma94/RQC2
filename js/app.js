@@ -8093,38 +8093,45 @@ class ScanAsYouShopApp {
             } else if (codigoProveedor && !code && !description) {
                 productos = await window.cartManager.getProductosPorCodigoProveedor(codigoProveedor);
             } else {
+                let productosRemotos = [];
                 if (hybridMode && (code || description)) {
-                    if (code && !description) {
-                        const productoRemoto = await window.supabaseClient.searchProductByCode(code);
-                        if (productoRemoto) {
-                            productos = [productoRemoto];
-                        }
-                    } else if (typeof window.supabaseClient.searchProductsRemoteCatalog === 'function') {
-                        productos = await window.supabaseClient.searchProductsRemoteCatalog({
+                    if (typeof window.supabaseClient.searchProductsRemoteCatalog === 'function') {
+                        productosRemotos = await window.supabaseClient.searchProductsRemoteCatalog({
                             code: code,
                             description: description,
                             limit: 300
                         });
                     }
+                    if (code && !description && productosRemotos.length === 0) {
+                        const productoRemoto = await window.supabaseClient.searchProductByCode(code);
+                        if (productoRemoto) {
+                            productosRemotos = [productoRemoto];
+                        }
+                    }
                 }
 
                 // Búsqueda en el catálogo completo (código y/o descripción)
-                if (productos.length === 0 && code && description) {
+                if (code && description) {
                     const productosPorDescripcion = await window.cartManager.searchByDescriptionAllWords(description);
                     const codeUpper = code.toUpperCase().trim();
-                    productos = productosPorDescripcion.filter(p =>
+                    const productosLocales = productosPorDescripcion.filter(p =>
                         p.codigo.toUpperCase().includes(codeUpper)
                     );
-                } else if (productos.length === 0 && code) {
-                    productos = await window.cartManager.searchByCodeUnified(code);
-                    if (hybridMode && productos.length === 0) {
-                        const productoRemoto = await window.supabaseClient.searchProductByCode(code);
-                        if (productoRemoto) {
-                            productos = [productoRemoto];
-                        }
-                    }
-                } else if (productos.length === 0 && description) {
-                    productos = await window.cartManager.searchByDescriptionAllWords(description);
+                    productos = hybridMode
+                        ? this.deduplicateProductsBySku([...(productosRemotos || []), ...(productosLocales || [])])
+                        : productosLocales;
+                } else if (code) {
+                    const productosLocales = await window.cartManager.searchByCodeUnified(code);
+                    productos = hybridMode
+                        ? this.deduplicateProductsBySku([...(productosRemotos || []), ...(productosLocales || [])])
+                        : productosLocales;
+                } else if (description) {
+                    const productosLocales = await window.cartManager.searchByDescriptionAllWords(description);
+                    productos = hybridMode
+                        ? this.deduplicateProductsBySku([...(productosRemotos || []), ...(productosLocales || [])])
+                        : productosLocales;
+                } else {
+                    productos = productosRemotos;
                 }
             }
 

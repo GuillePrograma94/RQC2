@@ -718,6 +718,46 @@ class SupabaseClient {
                 return [];
             }
 
+            // Ruta preferente: RPC con busqueda por descripcion/sinonimos y sin acentos.
+            // Si la RPC no existe aun en el entorno, cae a fallback legacy.
+            try {
+                const { data: rpcData, error: rpcError } = await this.client.rpc(
+                    'buscar_productos_catalogo_hibrido',
+                    {
+                        p_code: code || null,
+                        p_description: rawDescription || null,
+                        p_limit: limit
+                    }
+                );
+
+                if (!rpcError) {
+                    return rpcData || [];
+                }
+
+                const rpcMsg = String((rpcError && rpcError.message) || '').toLowerCase();
+                const rpcCode = String((rpcError && rpcError.code) || '').toLowerCase();
+                const rpcMissing =
+                    rpcCode === '42883' ||
+                    rpcMsg.includes('does not exist') ||
+                    rpcMsg.includes('function') ||
+                    rpcMsg.includes('buscar_productos_catalogo_hibrido');
+
+                if (!rpcMissing) {
+                    throw rpcError;
+                }
+
+                console.warn('RPC buscar_productos_catalogo_hibrido no disponible; usando fallback legacy.');
+            } catch (rpcCallError) {
+                const rpcMsg = String((rpcCallError && rpcCallError.message) || '').toLowerCase();
+                const rpcMissing =
+                    rpcMsg.includes('does not exist') ||
+                    rpcMsg.includes('buscar_productos_catalogo_hibrido');
+                if (!rpcMissing) {
+                    throw rpcCallError;
+                }
+                console.warn('RPC buscar_productos_catalogo_hibrido no disponible; usando fallback legacy.');
+            }
+
             let query = this.client
                 .from('productos')
                 .select('*')

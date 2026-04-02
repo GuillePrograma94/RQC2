@@ -83,21 +83,42 @@ class ScannerManager {
         try {
             // Buscar primero en almacenamiento local (rápido)
             let productos = await window.cartManager.searchProductsLocal(searchTerm);
+            const hybridMode = !!(
+                window.app &&
+                typeof window.app.isHybridCatalogReadModeEnabled === 'function' &&
+                window.app.isHybridCatalogReadModeEnabled()
+            );
 
             // Mostrar resultados locales inmediatamente
-            if (productos.length > 0) {
+            if (productos.length > 0 && !hybridMode) {
                 this.displaySearchResults(productos);
                 return;
             }
 
-            // Si no hay resultados locales, buscar en Supabase en tiempo real
-            if (navigator.onLine) {
+            // En modo hibrido, combinar con remoto para cubrir catalogo no descargado aun.
+            // Fuera de modo hibrido, solo consultar remoto si no hubo resultados locales.
+            if (navigator.onLine && (hybridMode || productos.length === 0)) {
                 window.ui.showLoading('Buscando en servidor...');
-                
-                const producto = await window.supabaseClient.searchProductByCode(searchTerm);
-                if (producto) {
-                    productos = [producto];
+
+                let productosRemotos = [];
+                if (typeof window.supabaseClient.searchProductsRemoteCatalog === 'function') {
+                    productosRemotos = await window.supabaseClient.searchProductsRemoteCatalog({
+                        code: searchTerm,
+                        description: searchTerm,
+                        limit: 100
+                    });
                 }
+
+                if (productosRemotos.length === 0) {
+                    const producto = await window.supabaseClient.searchProductByCode(searchTerm);
+                    if (producto) {
+                        productosRemotos = [producto];
+                    }
+                }
+
+                productos = window.app && typeof window.app.deduplicateProductsBySku === 'function'
+                    ? window.app.deduplicateProductsBySku([...(productos || []), ...(productosRemotos || [])])
+                    : [...(productos || []), ...(productosRemotos || [])];
 
                 window.ui.hideLoading();
             }
