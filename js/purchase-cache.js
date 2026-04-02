@@ -92,22 +92,34 @@ class PurchaseHistoryCache {
         
         // Filter by description if provided (same logic as searchByDescriptionAllWords)
         if (descripcion) {
-            const words = descripcion
-                .toLowerCase()
-                .trim()
+            const normalizedQuery = this.normalizeText(descripcion);
+            const words = normalizedQuery
                 .split(/\s+/)
                 .filter(w => w.length > 0);
             
             if (words.length > 0) {
                 results = results.filter(item => {
-                    const textToSearch = ((item.descripcion || '') + ' ' + (item.sinonimos || '')).toLowerCase();
+                    const textToSearch = this.normalizeText(((item.descripcion || '') + ' ' + (item.sinonimos || '')));
                     return words.every(word => textToSearch.includes(word));
                 });
             }
         }
         
-        console.log(`🔍 Local search: ${fullHistory.length} total → ${results.length} filtered`);
+        console.log(`Local search: ${fullHistory.length} total -> ${results.length} filtered`);
         return results;
+    }
+
+    /**
+     * Normaliza texto para búsqueda (insensible a acentos, case-insensitive y espacios normalizados).
+     */
+    normalizeText(text) {
+        if (!text) return '';
+        return text
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Eliminar diacríticos (acentos)
+            .replace(/\s+/g, ' ') // Normalizar espacios
+            .trim();
     }
 
     /**
@@ -155,7 +167,7 @@ class PurchaseHistoryCache {
             // Remove oldest entry
             const firstKey = this.cache.keys().next().value;
             this.cache.delete(firstKey);
-            console.log(`🗑️ Cache evicted oldest entry (size: ${this.cache.size})`);
+            console.log(`Cache evicted oldest entry (size: ${this.cache.size})`);
         }
     }
 
@@ -180,7 +192,7 @@ class PurchaseHistoryCache {
             }
         }
         if (deleted > 0) {
-            console.log(`🔄 Invalidated ${deleted} cache entries for user ${userId}`);
+            console.log(`Invalidated ${deleted} cache entries for user ${userId}`);
         }
     }
 
@@ -192,7 +204,7 @@ class PurchaseHistoryCache {
         const size = this.cache.size;
         this.cache.clear();
         this.stats = { hits: 0, misses: 0, totalQueries: 0 };
-        console.log(`🗑️ Cache cleared (${size} entries removed)`);
+        console.log(`Cache cleared (${size} entries removed)`);
     }
 
     /**
@@ -212,7 +224,7 @@ class PurchaseHistoryCache {
      * Updates cache without blocking current search
      */
     async refreshInBackground(userId) {
-        console.log(`🔄 Background refresh for user ${userId}...`);
+        console.log(`Background refresh for user ${userId}...`);
         
         try {
             // Fetch fresh data from server
@@ -226,7 +238,7 @@ class PurchaseHistoryCache {
             const fullHistoryKey = `user_${userId}_full`;
             this.setCache(fullHistoryKey, data);
             
-            console.log(`✅ Background refresh completed for user ${userId} (${data.length} products)`);
+            console.log(`Background refresh completed for user ${userId} (${data.length} products)`);
             
         } catch (error) {
             console.error('Error refreshing cache in background:', error);
@@ -238,7 +250,7 @@ class PurchaseHistoryCache {
      * Fetches data in background without waiting
      */
     async preload(userId) {
-        console.log(`🚀 Preloading purchase history for user ${userId}...`);
+        console.log(`Preloading purchase history for user ${userId}...`);
         
         // Fire and forget - don't wait for result
         this.getUserHistory(userId, null, null).catch(err => {
@@ -249,5 +261,5 @@ class PurchaseHistoryCache {
 
 // Create global instance
 window.purchaseCache = new PurchaseHistoryCache();
-console.log('🛒 Purchase Cache Manager loaded');
+console.log('Purchase Cache Manager loaded');
 

@@ -1125,12 +1125,18 @@ class CartManager {
             return new Promise((resolve, reject) => {
                 request.onsuccess = () => {
                     const productos = request.result;
-                    const searchLower = searchTerm.toLowerCase();
+                    const searchLower = String(searchTerm || '').toLowerCase();
+                    const searchNorm = this.normalizeText(searchTerm);
+                    const hasSearchNorm = !!searchNorm && searchNorm.length > 0;
 
-                    const filtered = productos.filter(p => 
-                        p.codigo.toLowerCase().includes(searchLower) ||
-                        p.descripcion.toLowerCase().includes(searchLower)
-                    );
+                    const filtered = productos.filter(p => {
+                        if ((p.codigo || '').toLowerCase().includes(searchLower)) return true;
+                        if (!hasSearchNorm) return false;
+
+                        const descripcionNorm = this.normalizeText(p.descripcion || '');
+                        const sinonimosNorm = this.normalizeText(p.sinonimos || '');
+                        return descripcionNorm.includes(searchNorm) || sinonimosNorm.includes(searchNorm);
+                    });
 
                     resolve(filtered);
                 };
@@ -1323,9 +1329,8 @@ class CartManager {
                     const productos = request.result;
                     
                     // Separar en palabras y normalizar
-                    const words = description
-                        .toLowerCase()
-                        .trim()
+                    const normalizedQuery = this.normalizeText(description);
+                    const words = normalizedQuery
                         .split(/\s+/)
                         .filter(w => w.length > 0);
 
@@ -1336,7 +1341,7 @@ class CartManager {
 
                     // Filtrar productos que contengan TODAS las palabras
                     const filtered = productos.filter(p => {
-                        const textToSearch = ((p.descripcion || '') + ' ' + (p.sinonimos || '')).toLowerCase();
+                        const textToSearch = this.normalizeText(((p.descripcion || '') + ' ' + (p.sinonimos || '')));
                         return words.every(word => textToSearch.includes(word));
                     });
 
