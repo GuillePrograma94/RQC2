@@ -289,6 +289,61 @@ class ScanAsYouShopApp {
         if (gateLoginForm) {
             gateLoginForm.onsubmit = (e) => this.handleLogin(e);
         }
+        this.prefillRememberedCredentials();
+    }
+
+    /**
+     * Clave de localStorage para credenciales recordadas en el gate.
+     * Necesario porque iOS Safari no comparte el llavero con la PWA instalada,
+     * por lo que el "autofill" nativo no funciona y hay que persistirlas manualmente.
+     */
+    static get REMEMBER_CREDS_KEY() {
+        return 'scan_remember_credentials';
+    }
+
+    /**
+     * Carga credenciales recordadas (si existen) y prerellena el formulario de login.
+     * Si no hay credenciales, deja el check marcado por defecto para fomentar el opt-in.
+     */
+    prefillRememberedCredentials() {
+        try {
+            const codigoInput = document.getElementById('gateCodigo');
+            const passwordInput = document.getElementById('gatePassword');
+            const rememberInput = document.getElementById('gateRememberMe');
+            if (!codigoInput || !passwordInput || !rememberInput) return;
+
+            const raw = localStorage.getItem(ScanAsYouShopApp.REMEMBER_CREDS_KEY);
+            if (!raw) {
+                rememberInput.checked = true;
+                return;
+            }
+            const data = JSON.parse(raw);
+            if (data && typeof data.codigo === 'string' && typeof data.password === 'string') {
+                codigoInput.value = data.codigo;
+                passwordInput.value = data.password;
+                rememberInput.checked = true;
+            }
+        } catch (error) {
+            console.error('Error al precargar credenciales recordadas:', error);
+        }
+    }
+
+    /**
+     * Guarda o limpia credenciales segun el estado del checkbox "Recordar".
+     * Solo se llama tras un login con exito para no persistir credenciales invalidas.
+     */
+    persistRememberedCredentials(codigo, password) {
+        try {
+            const rememberInput = document.getElementById('gateRememberMe');
+            const remember = rememberInput ? !!rememberInput.checked : false;
+            if (remember) {
+                localStorage.setItem(ScanAsYouShopApp.REMEMBER_CREDS_KEY, JSON.stringify({ codigo, password }));
+            } else {
+                localStorage.removeItem(ScanAsYouShopApp.REMEMBER_CREDS_KEY);
+            }
+        } catch (error) {
+            console.error('Error al persistir credenciales recordadas:', error);
+        }
     }
 
     /**
@@ -298,6 +353,9 @@ class ScanAsYouShopApp {
         document.body.classList.add('gate-visible');
         const gateScreen = document.getElementById('gateScreen');
         if (gateScreen) gateScreen.setAttribute('aria-hidden', 'false');
+        // Re-precargar credenciales por si venimos de logout / sesion expirada
+        // (hideLoginModal hace form.reset() tras cada login con exito)
+        this.prefillRememberedCredentials();
     }
 
     /**
@@ -400,6 +458,10 @@ class ScanAsYouShopApp {
 
                 // Guardar sesión en localStorage
                 this.saveUserSession(this.currentUser, sessionId);
+
+                // Persistir / limpiar credenciales recordadas segun el check "Recordar".
+                // Lo hacemos despues de validar el login para no guardar credenciales invalidas.
+                this.persistRememberedCredentials(codigo, password);
 
                 // Refresco periodico del JWT para evitar 42501 tras ~1h trabajando
                 this.startAuthRefreshTimer();

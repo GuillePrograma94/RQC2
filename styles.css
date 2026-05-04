@@ -310,6 +310,37 @@ body.gate-visible .app-container {
     margin-bottom: 1rem;
 }
 
+.gate-remember {
+    margin: 0.25rem 0 1rem;
+}
+
+.gate-remember-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: rgba(255,255,255,0.95);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    padding: 0.25rem 0;
+    min-height: 32px;
+}
+
+.gate-remember-checkbox {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: var(--white);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.gate-remember-text {
+    line-height: 1.2;
+}
+
 .gate-btn {
     width: 100%;
     min-height: 48px;
