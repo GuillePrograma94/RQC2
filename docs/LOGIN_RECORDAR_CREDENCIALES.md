@@ -13,8 +13,13 @@ que persiste las credenciales en `localStorage` del propio dispositivo.
 ## Donde vive el codigo
 
 - HTML del gate: `scan_client_mobile/index.html` (formulario `#gateLoginForm`,
-  checkbox `#gateRememberMe`).
+  checkbox `#gateRememberMe` y caja visual `.gate-remember-box`).
 - Estilos del check: bloque `.gate-remember*` en `scan_client_mobile/styles.css`.
+  El control nativo va invisible encima de una caja dibujada en CSS, con
+  `appearance: none` y `-webkit-appearance: none` para que iOS/Android no pinten
+  el checkbox del sistema (cuadrado blanco al pulsar). Estado marcado: fondo
+  verde claro (`#bbf7d0`), borde `#22c55e` y tick SVG verde (`#15803d`) para que
+  quede muy claro que "Recordar" esta activo.
 - Logica: clase `ScanAsYouShopApp` en `scan_client_mobile/js/app.js`:
   - `setupGateScreen()` llama a `prefillRememberedCredentials()` al inicializar.
   - `showLanding()` tambien re-precarga (cubre logout / sesion expirada).
