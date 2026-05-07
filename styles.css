@@ -6275,13 +6275,16 @@ body.gate-visible .app-container {
 
 /* Dependiente: separa más los dos botones de acción en el modal */
 #dependienteOrderButtons {
-    gap: 1.15rem;
+    flex-direction: column;
+    align-items: stretch;
+    row-gap: 1.8rem;
+    column-gap: 0;
 }
 
 /* Dependiente (vista PC): separación adicional para mejor legibilidad */
 @media (min-width: 900px) {
     #dependienteOrderButtons {
-        gap: 1.4rem;
+        row-gap: 2rem;
     }
 }
 
