@@ -6273,6 +6273,14 @@ body.gate-visible .app-container {
     justify-content: center;
 }
 
+/* Cliente: fuerza separación vertical clara entre Recoger y Enviar en Ruta */
+#remoteOrderButtonsNormal {
+    flex-direction: column;
+    align-items: stretch;
+    row-gap: 1.8rem;
+    column-gap: 0;
+}
+
 /* Dependiente: separa más los dos botones de acción en el modal */
 #dependienteOrderButtons {
     flex-direction: column;
@@ -6283,6 +6291,10 @@ body.gate-visible .app-container {
 
 /* Dependiente (vista PC): separación adicional para mejor legibilidad */
 @media (min-width: 900px) {
+    #remoteOrderButtonsNormal {
+        row-gap: 2rem;
+    }
+
     #dependienteOrderButtons {
         row-gap: 2rem;
     }
