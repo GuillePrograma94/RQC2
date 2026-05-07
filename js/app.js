@@ -5504,6 +5504,20 @@ class ScanAsYouShopApp {
 
             if (remoteHash && localHash === remoteHash) {
                 // Hash coincide: no hay cambios, cargar de IndexedDB
+                const hasLegacyIgnoredWarehouses = (
+                    window.cartManager
+                    && typeof window.cartManager.hasLegacyIgnoredWarehousesInStock === 'function'
+                    && await window.cartManager.hasLegacyIgnoredWarehousesInStock()
+                );
+                if (hasLegacyIgnoredWarehouses) {
+                    // Autocorrecion: forzar refresco si hay cache vieja con almacenes ignorados.
+                    const stockData = await window.supabaseClient.downloadStock();
+                    await window.cartManager.saveStockToStorage(stockData || []);
+                    this.stockIndex = await window.cartManager.getStockIndex();
+                    if (remoteHash) localStorage.setItem('stock_hash_local', remoteHash);
+                    await this.initStockAlmacenFilter();
+                    return;
+                }
                 this.stockIndex = await window.cartManager.getStockIndex();
                 if (this.stockIndex.size > 0) {
                     this.initStockAlmacenFilter();
@@ -5516,12 +5530,10 @@ class ScanAsYouShopApp {
 
             const stockData = await window.supabaseClient.downloadStock();
 
-            if (stockData && stockData.length > 0) {
-                await window.cartManager.saveStockToStorage(stockData);
-                this.stockIndex = await window.cartManager.getStockIndex();
-                if (remoteHash) localStorage.setItem('stock_hash_local', remoteHash);
-                this.initStockAlmacenFilter();
-            }
+            await window.cartManager.saveStockToStorage(stockData || []);
+            this.stockIndex = await window.cartManager.getStockIndex();
+            if (remoteHash) localStorage.setItem('stock_hash_local', remoteHash);
+            await this.initStockAlmacenFilter();
         } catch (error) {
             console.error('Error al sincronizar stock (no critico):', error);
             // Intentar cargar lo que haya en local aunque falle la descarga
@@ -5940,7 +5952,11 @@ class ScanAsYouShopApp {
         if (!chipAlmacen) return;
 
         const almacenes = await window.cartManager.getAlmacenesConStock();
-        if (almacenes.length === 0) return;
+        if (almacenes.length === 0) {
+            this.stockAlmacenFiltro = null;
+            chipAlmacen.style.display = 'none';
+            return;
+        }
 
         // Establecer almacen habitual como predeterminado
         const habitual = this.getEffectiveAlmacenHabitual();

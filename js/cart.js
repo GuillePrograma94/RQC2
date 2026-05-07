@@ -2309,7 +2309,23 @@ class CartManager {
      * stockData: array de { codigo_articulo, stock_global, por_almacen: { ALMX: N, ... } }
      */
     async saveStockToStorage(stockData) {
-        if (!this.db || !stockData || stockData.length === 0) return;
+        if (!this.db || !stockData) return;
+
+        // Reemplazo completo para evitar residuos de sincronizaciones anteriores.
+        // Si no se limpia, pueden quedar almacenes legacy en el filtro.
+        await new Promise((resolve, reject) => {
+            const txClear = this.db.transaction(['stock'], 'readwrite');
+            const storeClear = txClear.objectStore('stock');
+            storeClear.clear();
+            txClear.oncomplete = () => resolve();
+            txClear.onerror = () => reject(txClear.error);
+        });
+
+        if (stockData.length === 0) {
+            console.log('Stock local limpiado: no hay datos remotos para guardar');
+            return;
+        }
+
         const CHUNK_SIZE = 2000;
         let offset = 0;
         while (offset < stockData.length) {
@@ -2380,6 +2396,7 @@ class CartManager {
      */
     async getAlmacenesConStock() {
         if (!this.db) return [];
+        const almacenesIgnorados = new Set(['00', '03', '06', '09', 'A1', 'A2', 'B1', 'B6', 'B8', 'M1', 'S2', 'S6', '0', '3', '6', '9']);
 
         return new Promise((resolve) => {
             const tx = this.db.transaction(['stock'], 'readonly');
@@ -2391,13 +2408,46 @@ class CartManager {
                 for (const r of (request.result || [])) {
                     if (r.por_almacen) {
                         for (const alm of Object.keys(r.por_almacen)) {
-                            almacenesSet.add(alm);
+                            const codigo = String(alm || '').trim().toUpperCase();
+                            if (!codigo || almacenesIgnorados.has(codigo)) continue;
+                            almacenesSet.add(codigo);
                         }
                     }
                 }
                 resolve([...almacenesSet].sort());
             };
             request.onerror = () => resolve([]);
+        });
+    }
+
+    /**
+     * Detecta si existe stock local con almacenes legacy que deben ignorarse.
+     * Se usa para forzar resincronizacion cuando hay caché antigua.
+     */
+    async hasLegacyIgnoredWarehousesInStock() {
+        if (!this.db) return false;
+        const almacenesIgnorados = new Set(['00', '03', '06', '09', 'A1', 'A2', 'B1', 'B6', 'B8', 'M1', 'S2', 'S6', '0', '3', '6', '9']);
+
+        return new Promise((resolve) => {
+            const tx = this.db.transaction(['stock'], 'readonly');
+            const store = tx.objectStore('stock');
+            const request = store.getAll();
+
+            request.onsuccess = () => {
+                for (const r of (request.result || [])) {
+                    const porAlmacen = r && r.por_almacen ? r.por_almacen : null;
+                    if (!porAlmacen) continue;
+                    for (const alm of Object.keys(porAlmacen)) {
+                        const codigo = String(alm || '').trim().toUpperCase();
+                        if (almacenesIgnorados.has(codigo)) {
+                            resolve(true);
+                            return;
+                        }
+                    }
+                }
+                resolve(false);
+            };
+            request.onerror = () => resolve(false);
         });
     }
 }

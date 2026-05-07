@@ -71,7 +71,7 @@ Variable opcional para el frontend:
 
 | Key | Value |
 |-----|-------|
-| `ERP_PROXY_PATH` | Endpoint proxy del ERP (default: `/api/erp/create-order`) |
+| `ERP_PROXY_PATH` | Endpoint proxy del ERP en el mismo origen (default en codigo: `/api/erp/pedidos`; ver `scan_client_mobile/api/config.js`) |
 
 Para obtener tus credenciales:
 1. Ve a tu proyecto en https://supabase.com
