@@ -10044,10 +10044,10 @@ class ScanAsYouShopApp {
         if (normalButtons && dependienteButtons && yaEnAlmacenWrap) {
             if (isDependiente) {
                 normalButtons.style.display = 'none';
-                dependienteButtons.style.display = 'block';
+                dependienteButtons.style.display = 'flex';
                 yaEnAlmacenWrap.style.display = 'none';
             } else {
-                normalButtons.style.display = 'block';
+                normalButtons.style.display = 'flex';
                 dependienteButtons.style.display = 'none';
                 yaEnAlmacenWrap.style.display = 'block';
             }
