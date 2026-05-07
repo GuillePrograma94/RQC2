@@ -64,6 +64,9 @@ class ScanAsYouShopApp {
         this._pendingErrorReportContext = null;
         this._lastErrorFingerprint = '';
         this._lastErrorAt = 0;
+        // #region agent log
+        fetch('http://127.0.0.1:7828/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a07ce1'},body:JSON.stringify({sessionId:'a07ce1',runId:'pre-fix',hypothesisId:'H5',location:'scan_client_mobile/js/app.js:constructor',message:'App constructor executed in browser',data:{href:window.location.href,userAgent:navigator.userAgent,windowWidth:window.innerWidth},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
     }
 
     /**
@@ -10032,6 +10035,9 @@ class ScanAsYouShopApp {
         // Botones específicos para DEPENDIENTE dentro del mismo DOM reutilizado.
         const isDependiente =
             !!(this.currentUser && (this.currentUser.is_dependiente || String(this.currentUser.tipo || '').toUpperCase() === 'DEPENDIENTE'));
+        // #region agent log
+        fetch('http://127.0.0.1:7828/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a07ce1'},body:JSON.stringify({sessionId:'a07ce1',runId:'pre-fix',hypothesisId:'H1-H2',location:'scan_client_mobile/js/app.js:openEnviarPedidoModal:mode-detection',message:'Modal mode detection',data:{hasUser:!!this.currentUser,userTipo:this.currentUser?String(this.currentUser.tipo||''):null,isDependiente,isDependienteFlag:!!(this.currentUser&&this.currentUser.is_dependiente),windowWidth:window.innerWidth},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         const normalButtons = document.getElementById('remoteOrderButtonsNormal');
         const dependienteButtons = document.getElementById('dependienteOrderButtons');
         const yaEnAlmacenWrap = document.getElementById('yaEnAlmacenWrap');
@@ -10046,7 +10052,25 @@ class ScanAsYouShopApp {
                 yaEnAlmacenWrap.style.display = 'block';
             }
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7828/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a07ce1'},body:JSON.stringify({sessionId:'a07ce1',runId:'pre-fix',hypothesisId:'H2-H3',location:'scan_client_mobile/js/app.js:openEnviarPedidoModal:display-assignment',message:'Display values after mode switch',data:{normalDisplay:normalButtons?normalButtons.style.display:null,dependienteDisplay:dependienteButtons?dependienteButtons.style.display:null,yaEnAlmacenDisplay:yaEnAlmacenWrap?yaEnAlmacenWrap.style.display:null},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         modal.style.display = 'flex';
+        window.requestAnimationFrame(() => {
+            const normalContainer = document.getElementById('remoteOrderButtonsNormal');
+            const depContainer = document.getElementById('dependienteOrderButtons');
+            const normalBtnA = document.getElementById('recogerEnAlmacenBtn');
+            const normalBtnB = document.getElementById('enviarEnRutaBtn');
+            const depBtnA = document.getElementById('imprimirPedidoBtn');
+            const depBtnB = document.getElementById('generarSinImprimirBtn');
+            const normalStyles = normalContainer ? window.getComputedStyle(normalContainer) : null;
+            const depStyles = depContainer ? window.getComputedStyle(depContainer) : null;
+            const normalDelta = (normalBtnA && normalBtnB) ? Math.round(normalBtnB.getBoundingClientRect().top - normalBtnA.getBoundingClientRect().bottom) : null;
+            const depDelta = (depBtnA && depBtnB) ? Math.round(depBtnB.getBoundingClientRect().top - depBtnA.getBoundingClientRect().bottom) : null;
+            // #region agent log
+            fetch('http://127.0.0.1:7828/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a07ce1'},body:JSON.stringify({sessionId:'a07ce1',runId:'pre-fix',hypothesisId:'H3-H4-H5',location:'scan_client_mobile/js/app.js:openEnviarPedidoModal:computed-layout',message:'Computed modal button layout metrics',data:{normalVisible:!!(normalContainer&&window.getComputedStyle(normalContainer).display!=='none'),depVisible:!!(depContainer&&window.getComputedStyle(depContainer).display!=='none'),normalFlexDirection:normalStyles?normalStyles.flexDirection:null,depFlexDirection:depStyles?depStyles.flexDirection:null,normalGap:normalStyles?normalStyles.gap:null,depGap:depStyles?depStyles.gap:null,normalRowGap:normalStyles?normalStyles.rowGap:null,depRowGap:depStyles?depStyles.rowGap:null,normalButtonVerticalDeltaPx:normalDelta,depButtonVerticalDeltaPx:depDelta},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
+        });
     }
 
     /**
