@@ -6273,10 +6273,15 @@ body.gate-visible .app-container {
     justify-content: center;
 }
 
-/* Dependiente (vista PC): separa más los dos botones de acción */
+/* Dependiente: separa más los dos botones de acción en el modal */
+#dependienteOrderButtons {
+    gap: 1.15rem;
+}
+
+/* Dependiente (vista PC): separación adicional para mejor legibilidad */
 @media (min-width: 900px) {
     #dependienteOrderButtons {
-        gap: 1.25rem;
+        gap: 1.4rem;
     }
 }
 
