@@ -435,8 +435,8 @@ BEGIN
 
     RETURN QUERY SELECT
         v_carrito.id,
-        v_carrito.codigo_qr,
-        COALESCE(v_codigo_cliente_usuario, v_carrito.codigo_cliente_usuario),
+        v_carrito.codigo_qr::TEXT,
+        COALESCE(v_codigo_cliente_usuario, v_carrito.codigo_cliente_usuario)::TEXT,
         TRUE,
         'Prepedido aceptado correctamente'::TEXT;
 END;

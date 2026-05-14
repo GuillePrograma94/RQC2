@@ -82,7 +82,7 @@ El comercial puede abrir **Mis pedidos** siempre (con o sin cliente representado
 
 La carga de pedidos sin cliente representado usa `getClientesAsignadosComercial(comercial_numero)` y luego `getUserRemoteOrders(usuario_id)` por cada cliente; no se usa cache local en esa vista.
 
-**Detalle de lineas ("Volver a pedir todo"):** el listado de productos del pedido no debe incrustar el JSON de las lineas en un atributo `onclick` (caracteres como `&`, comillas o textos largos en descripciones pueden romper el HTML y disparar `SyntaxError: Unexpected end of input`). El boton se enlaza en `renderOrderProducts` con `addEventListener` y el array en cierre.
+**Detalle de lineas ("Volver a pedir todo" y reordenar una linea):** no incrustar JSON ni `JSON.stringify(codigo)` en atributos `onclick` (caracteres como `&`, comillas o saltos en codigo o descripcion rompen el HTML y disparan `SyntaxError: Unexpected end of input`). Los botones se enlazan en `renderOrderProducts` con `addEventListener`: el de todo el pedido con el array en cierre; cada `.btn-reorder-product` lee `data-reorder-codigo` / `data-reorder-cantidad` (valores escapados con `escapeForHtmlAttribute`).
 
 ## Prepedidos: Aceptar y Eliminar (comercial / dependiente sin cliente en el selector)
 
@@ -90,7 +90,11 @@ Las RPC `convertir_prepedido_a_pedido_remoto` y `eliminar_prepedido` exigen que 
 
 Si en la app se pasaba `getEffectiveUserId()` con sesion de comercial o dependiente **sin** `cliente_representado_id`, ese ID era el del representante, no el del cliente dueno del carrito, y la RPC respondia `success: false` con mensaje tipo **"Prepedido no disponible para aceptar"**. En `aceptarPrepedido` y `eliminarPrepedido` se pasa `prepedido.usuario_id` (o el obtenido con `getCart` al eliminar) como `p_usuario_id`.
 
+**Aceptar prepedido (entrega):** al pulsar **Aceptar** se abre el mismo modal que "Enviar pedido" en caja (`openEnviarPedidoModal({ prepedidoAceptarId })`): el usuario elige **Recoger en almacen** (almacen + observaciones) o **Enviar en ruta** (observaciones). La conversion a pedido remoto y el ERP se ejecutan en `ejecutarAceptarPrepedidoRemoto` con ese almacen y el texto de observaciones (se anaden las notas guardadas en el prepedido y la linea de comercial si aplica). Se guarda `almacen_destino` del prepedido en `_pendingAceptarPrepedidoMeta` para **Enviar en ruta** cuando el representante no tiene cliente seleccionado (almacen habitual del titular del carrito). Si el usuario cierra modales sin confirmar, `_cancelFlujoAceptarPrepedidoEntrega` limpia el estado pendiente.
+
 **Por que no sale el envio a WhatsApp de soporte:** ese mensaje viene de una respuesta RPC **prevista** (`success: false`), no de un `throw` ni de `window.onerror`. El modal de reporte a WhatsApp solo se engancha a errores globales de JavaScript / promesas no capturadas y a fallos criticos concretos (por ejemplo envio de pedido); un toast de error de negocio no abre ese modal.
+
+**Error Postgres 42804** (`Returned type character(6) does not match expected type text in column 2`): la tabla `carritos_clientes.codigo_qr` puede ser `character(6)` y la funcion declara `codigo_qr TEXT` en `RETURNS TABLE`. Aplicar en Supabase el script `scan_client_mobile/migration_convertir_prepedido_return_text_cast.sql` (o la definicion actualizada en `migration_prepedidos.sql`), que hace `::TEXT` en el `RETURN QUERY` de `convertir_prepedido_a_pedido_remoto`.
 
 ## Nota sobre comerciales legacy
 

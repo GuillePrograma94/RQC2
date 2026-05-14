@@ -67,6 +67,11 @@ class ScanAsYouShopApp {
         this._pendingErrorReportContext = null;
         this._lastErrorFingerprint = '';
         this._lastErrorAt = 0;
+        /** Si no es null, confirmar Recoger/Ruta completara aceptar prepedido en lugar de enviar carrito. */
+        this._pendingAceptarPrepedidoId = null;
+        /** Al aceptar prepedido: almacen_destino del carrito (habitual al guardar) para ENVIAR EN RUTA si no hay cliente representado. */
+        this._pendingAceptarPrepedidoMeta = null;
+        this._aceptarPrepedidoEjecutando = false;
         // #region agent log
         fetch('http://127.0.0.1:7828/ingest/96e90651-5d5e-4733-ba2a-b5f0cef81b67',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a07ce1'},body:JSON.stringify({sessionId:'a07ce1',runId:'pre-fix',hypothesisId:'H5',location:'scan_client_mobile/js/app.js:constructor',message:'App constructor executed in browser',data:{href:window.location.href,userAgent:navigator.userAgent,windowWidth:window.innerWidth},timestamp:Date.now()})}).catch(()=>{});
         // #endregion
@@ -7161,7 +7166,10 @@ class ScanAsYouShopApp {
         const recogerEnAlmacenBtn = document.getElementById('recogerEnAlmacenBtn');
         if (recogerEnAlmacenBtn) {
             recogerEnAlmacenBtn.addEventListener('click', () => {
-                if (this.isEnviarPedidoModalOpen()) this.closeEnviarPedidoModal();
+                if (this.isEnviarPedidoModalOpen()) {
+                    const keep = this._pendingAceptarPrepedidoId != null;
+                    this.closeEnviarPedidoModal(keep ? { keepPrepedidoAcceptPending: true } : undefined);
+                }
                 this.showAlmacenSelectionModal();
             });
         }
@@ -7170,7 +7178,10 @@ class ScanAsYouShopApp {
         const enviarEnRutaBtn = document.getElementById('enviarEnRutaBtn');
         if (enviarEnRutaBtn) {
             enviarEnRutaBtn.addEventListener('click', () => {
-                if (this.isEnviarPedidoModalOpen()) this.closeEnviarPedidoModal();
+                if (this.isEnviarPedidoModalOpen()) {
+                    const keep = this._pendingAceptarPrepedidoId != null;
+                    this.closeEnviarPedidoModal(keep ? { keepPrepedidoAcceptPending: true } : undefined);
+                }
                 this.showEnviarEnRutaModal();
             });
         }
@@ -7607,6 +7618,9 @@ class ScanAsYouShopApp {
         if (cancelAlmacenModalBtn) {
             cancelAlmacenModalBtn.addEventListener('click', () => {
                 this.hideAlmacenModal();
+                if (this._pendingAceptarPrepedidoId != null) {
+                    this._cancelFlujoAceptarPrepedidoEntrega();
+                }
             });
         }
 
@@ -7616,6 +7630,9 @@ class ScanAsYouShopApp {
             almacenModal.addEventListener('click', (e) => {
                 if (e.target.id === 'almacenModal' || e.target.classList.contains('login-modal-overlay')) {
                     this.hideAlmacenModal();
+                    if (this._pendingAceptarPrepedidoId != null) {
+                        this._cancelFlujoAceptarPrepedidoEntrega();
+                    }
                 }
             });
         }
@@ -7646,6 +7663,11 @@ class ScanAsYouShopApp {
                 let observaciones = 'RECOGER EN ALMACEN ' + almacen + '\n\n' + (userText || '');
                 if (this.currentUser && this.currentUser.nombre_operario) {
                     observaciones += '\n\nPedido realizado por: ' + this.currentUser.nombre_operario;
+                }
+                const prepAceptarId = this._pendingAceptarPrepedidoId;
+                if (prepAceptarId != null && !Number.isNaN(Number(prepAceptarId))) {
+                    void this.ejecutarAceptarPrepedidoRemoto(Number(prepAceptarId), almacen, observaciones);
+                    return;
                 }
                 const orderAction = observacionesModal ? observacionesModal.getAttribute('data-order-action') : null;
                 if (orderAction === 'sin_imprimir') {
@@ -7681,6 +7703,9 @@ class ScanAsYouShopApp {
                 if (e.target.id === 'almacenObservacionesModal' || e.target.classList.contains('login-modal-overlay')) {
                     this.hideAlmacenObservacionesModal();
                     this.hideAlmacenModal();
+                    if (this._pendingAceptarPrepedidoId != null) {
+                        this._cancelFlujoAceptarPrepedidoEntrega();
+                    }
                 }
             });
         }
@@ -7707,7 +7732,12 @@ class ScanAsYouShopApp {
         const confirmarEnviarEnRutaBtn = document.getElementById('confirmarEnviarEnRutaBtn');
         if (confirmarEnviarEnRutaBtn) {
             confirmarEnviarEnRutaBtn.addEventListener('click', () => {
-                const almacenHabitual = this.getEffectiveAlmacenHabitual();
+                const meta = this._pendingAceptarPrepedidoMeta;
+                const esPrepedidoAccept = this._pendingAceptarPrepedidoId != null;
+                const almacenHabitual =
+                    esPrepedidoAccept && meta && meta.almacenDestinoGuardado
+                        ? meta.almacenDestinoGuardado
+                        : this.getEffectiveAlmacenHabitual();
                 if (!this.currentUser || !almacenHabitual) {
                     window.ui.showToast('No tienes almacen habitual asignado.', 'warning');
                     return;
@@ -7717,6 +7747,11 @@ class ScanAsYouShopApp {
                 let observaciones = 'ENVIAR EN RUTA' + (userText ? '\n\n' + userText : '');
                 if (this.currentUser && this.currentUser.nombre_operario) {
                     observaciones += '\n\nPedido realizado por: ' + this.currentUser.nombre_operario;
+                }
+                const prepAceptarId = this._pendingAceptarPrepedidoId;
+                if (prepAceptarId != null && !Number.isNaN(Number(prepAceptarId))) {
+                    void this.ejecutarAceptarPrepedidoRemoto(Number(prepAceptarId), almacenHabitual, observaciones);
+                    return;
                 }
                 this.sendRemoteOrder(almacenHabitual, observaciones);
             });
@@ -9985,24 +10020,44 @@ class ScanAsYouShopApp {
     /**
      * Abre el modal Enviar Pedido (contenido de Caja: Recoger en Almacén, Enviar en Ruta, Escanear en Mostrador).
      * Mueve checkoutGreenBox al modal para reutilizar el mismo DOM y eventos.
+     * @param {{ prepedidoAceptarId?: number }} [options] - Si viene prepedidoAceptarId, omite carrito y al confirmar Recoger/Ruta se acepta ese prepedido.
      */
-    openEnviarPedidoModal() {
-        const cart = window.cartManager.getCart();
-        if (!cart.productos || cart.productos.length === 0) {
-            window.ui.showToast('El carrito esta vacio', 'warning');
-            return;
+    openEnviarPedidoModal(options) {
+        const opts = options || {};
+        const prepedidoAceptarId =
+            opts.prepedidoAceptarId != null && !Number.isNaN(Number(opts.prepedidoAceptarId))
+                ? Number(opts.prepedidoAceptarId)
+                : null;
+        const prepedidoMode = prepedidoAceptarId != null;
+
+        if (prepedidoMode) {
+            this._pendingAceptarPrepedidoId = prepedidoAceptarId;
+        } else {
+            this._pendingAceptarPrepedidoId = null;
+            this._pendingAceptarPrepedidoMeta = null;
+            const cart = window.cartManager.getCart();
+            if (!cart.productos || cart.productos.length === 0) {
+                window.ui.showToast('El carrito esta vacio', 'warning');
+                return;
+            }
         }
+
         const modal = document.getElementById('enviarPedidoModal');
         const content = document.getElementById('enviarPedidoModalContent');
         const box = document.getElementById('checkoutGreenBox');
         const checkoutMain = document.querySelector('#checkoutScreen main');
         if (!modal || !content || !box || !checkoutMain) return;
+
+        const titleEl = document.getElementById('enviarPedidoModalTitle');
+        if (titleEl) {
+            titleEl.textContent = prepedidoMode ? 'Aceptar prepedido: como lo recibes' : 'Enviar Pedido';
+        }
+
         content.appendChild(box);
         const remoteOrderSection = document.getElementById('remoteOrderSection');
         if (remoteOrderSection) {
             remoteOrderSection.style.display = this.currentUser ? 'block' : 'none';
         }
-        // Botones específicos para DEPENDIENTE dentro del mismo DOM reutilizado.
         const isDependiente =
             !!(this.currentUser && (this.currentUser.is_dependiente || String(this.currentUser.tipo || '').toUpperCase() === 'DEPENDIENTE'));
         // #region agent log
@@ -10012,7 +10067,11 @@ class ScanAsYouShopApp {
         const dependienteButtons = document.getElementById('dependienteOrderButtons');
         const yaEnAlmacenWrap = document.getElementById('yaEnAlmacenWrap');
         if (normalButtons && dependienteButtons && yaEnAlmacenWrap) {
-            if (isDependiente) {
+            if (prepedidoMode) {
+                normalButtons.style.display = 'flex';
+                dependienteButtons.style.display = 'none';
+                yaEnAlmacenWrap.style.display = 'none';
+            } else if (isDependiente) {
                 normalButtons.style.display = 'none';
                 dependienteButtons.style.display = 'flex';
                 yaEnAlmacenWrap.style.display = 'none';
@@ -10045,8 +10104,19 @@ class ScanAsYouShopApp {
 
     /**
      * Cierra el modal Enviar Pedido y devuelve el contenido a la pantalla de checkout.
+     * @param {{ keepPrepedidoAcceptPending?: boolean }} [options] - Si true, no cancela el flujo de aceptar prepedido (al abrir seleccion de almacen / ruta).
      */
-    closeEnviarPedidoModal() {
+    closeEnviarPedidoModal(options) {
+        const opts = options || {};
+        const keepPrepedido = opts.keepPrepedidoAcceptPending === true;
+        if (!keepPrepedido) {
+            this._pendingAceptarPrepedidoId = null;
+            this._pendingAceptarPrepedidoMeta = null;
+            const titleEl = document.getElementById('enviarPedidoModalTitle');
+            if (titleEl) {
+                titleEl.textContent = 'Enviar Pedido';
+            }
+        }
         const modal = document.getElementById('enviarPedidoModal');
         const content = document.getElementById('enviarPedidoModalContent');
         const box = document.getElementById('checkoutGreenBox');
@@ -10056,6 +10126,21 @@ class ScanAsYouShopApp {
             checkoutMain.appendChild(box);
         }
         modal.style.display = 'none';
+    }
+
+    /**
+     * Abandono del flujo Aceptar prepedido (cerrar modales sin confirmar envio).
+     */
+    _cancelFlujoAceptarPrepedidoEntrega() {
+        if (this._pendingAceptarPrepedidoId == null) {
+            return;
+        }
+        this._pendingAceptarPrepedidoId = null;
+        this._pendingAceptarPrepedidoMeta = null;
+        const titleEl = document.getElementById('enviarPedidoModalTitle');
+        if (titleEl) {
+            titleEl.textContent = 'Enviar Pedido';
+        }
     }
 
     isEnviarPedidoModalOpen() {
@@ -10567,18 +10652,26 @@ class ScanAsYouShopApp {
             window.ui.showToast('Debes iniciar sesion para enviar pedidos', 'warning');
             return;
         }
-        const cart = window.cartManager.getCart();
-        if (!cart || cart.productos.length === 0) {
-            window.ui.showToast('El carrito esta vacio', 'warning');
-            return;
+        const prepedidoAcceptFlow = this._pendingAceptarPrepedidoId != null;
+        if (!prepedidoAcceptFlow) {
+            const cart = window.cartManager.getCart();
+            if (!cart || cart.productos.length === 0) {
+                window.ui.showToast('El carrito esta vacio', 'warning');
+                return;
+            }
         }
-        if (this.canRepresentClientes() && !this.currentUser.cliente_representado_id) {
+        if (!prepedidoAcceptFlow && this.canRepresentClientes() && !this.currentUser.cliente_representado_id) {
             window.ui.showToast('Selecciona el cliente al que representas para poder enviar el pedido', 'warning');
             this.showScreen('selectorCliente');
             this.renderSelectorClienteScreen();
             return;
         }
-        if (!this.getEffectiveAlmacenHabitual()) {
+        const meta = this._pendingAceptarPrepedidoMeta;
+        const almacenHabitualEfectivo =
+            prepedidoAcceptFlow && meta && meta.almacenDestinoGuardado
+                ? meta.almacenDestinoGuardado
+                : this.getEffectiveAlmacenHabitual();
+        if (!almacenHabitualEfectivo) {
             window.ui.showToast('No tienes almacen habitual asignado. Contacta con tu comercial.', 'warning');
             return;
         }
@@ -10603,6 +10696,9 @@ class ScanAsYouShopApp {
         const input = document.getElementById('enviarEnRutaObservacionesInput');
         if (input) {
             input.value = '';
+        }
+        if (this._pendingAceptarPrepedidoId != null && !this._aceptarPrepedidoEjecutando) {
+            this._cancelFlujoAceptarPrepedidoEntrega();
         }
     }
 
@@ -11311,13 +11407,24 @@ class ScanAsYouShopApp {
         }
     }
 
-    async aceptarPrepedido(prepedidoId) {
+    /**
+     * Convierte prepedido en pedido remoto y envia al ERP con almacen y observaciones elegidos (Recoger / Ruta).
+     * @param {number} prepedidoId
+     * @param {string} almacenDestino - Almacen de recogida o habitual si ruta
+     * @param {string} observacionesDesdeModal - Texto ya con prefijo RECOGER EN ALMACEN / ENVIAR EN RUTA y notas del modal
+     */
+    async ejecutarAceptarPrepedidoRemoto(prepedidoId, almacenDestino, observacionesDesdeModal) {
+        if (this._aceptarPrepedidoEjecutando) {
+            return;
+        }
+        this._aceptarPrepedidoEjecutando = true;
         try {
-            if (!window.erpClient || (!window.erpClient.proxyPath && !window.erpClient.createOrderPath)) {
-                window.ui.showToast('ERP no configurado', 'warning');
-                return;
+            this.hideEnviarEnRutaModal();
+            this.hideAlmacenObservacionesModal();
+            this.hideAlmacenModal();
+            if (this.isEnviarPedidoModalOpen()) {
+                this.closeEnviarPedidoModal({ keepPrepedidoAcceptPending: true });
             }
-
             window.ui.showLoading('Aceptando prepedido...');
             const prepedido = await window.supabaseClient.getCart(prepedidoId);
             if (!prepedido || !Array.isArray(prepedido.productos) || prepedido.productos.length === 0) {
@@ -11326,11 +11433,17 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            let observacionesFinal = prepedido.observaciones || '';
-            if (this.canRepresentClientes() && this.currentUser && this.currentUser.user_name) {
-                observacionesFinal += (observacionesFinal ? '\n\n' : '') + 'Pedido enviado por: ' + this.currentUser.user_name;
+            const notasPrepedido = prepedido.observaciones != null ? String(prepedido.observaciones).trim() : '';
+            let observacionesFinal = observacionesDesdeModal != null ? String(observacionesDesdeModal).trim() : '';
+            if (notasPrepedido) {
+                observacionesFinal += (observacionesFinal ? '\n\n' : '') + 'Notas del prepedido:\n' + notasPrepedido;
             }
-            const almacen = prepedido.almacen_destino || this.getEffectiveAlmacenHabitual() || '';
+            if (this.canRepresentClientes() && this.currentUser && this.currentUser.user_name) {
+                observacionesFinal +=
+                    (observacionesFinal ? '\n\n' : '') + 'Pedido enviado por: ' + this.currentUser.user_name;
+            }
+
+            const almacen = String(almacenDestino || '').trim() || this.getEffectiveAlmacenHabitual() || '';
             const ownerUserId =
                 prepedido.usuario_id != null && !Number.isNaN(Number(prepedido.usuario_id))
                     ? Number(prepedido.usuario_id)
@@ -11340,6 +11453,7 @@ class ScanAsYouShopApp {
                 window.ui.showToast('No se pudo determinar el titular del prepedido', 'error');
                 return;
             }
+
             const conversion = await window.supabaseClient.convertirPrepedidoAPedidoRemoto(
                 prepedidoId,
                 ownerUserId,
@@ -11375,7 +11489,7 @@ class ScanAsYouShopApp {
                 try {
                     await window.supabaseClient.registrarHistorialDesdeCarrito(conversion.carrito_id);
                 } catch (e) {
-                    console.warn('registrarHistorialDesdeCarrito en aceptarPrepedido:', e);
+                    console.warn('registrarHistorialDesdeCarrito en ejecutarAceptarPrepedidoRemoto:', e);
                 }
                 if (window.purchaseCache && prepedido.usuario_id) {
                     window.purchaseCache.invalidateUser(prepedido.usuario_id);
@@ -11415,8 +11529,54 @@ class ScanAsYouShopApp {
             }
         } catch (error) {
             window.ui.hideLoading();
-            console.error('aceptarPrepedido:', error);
+            console.error('ejecutarAceptarPrepedidoRemoto:', error);
             window.ui.showToast(error.message || 'No se pudo aceptar el prepedido', 'error');
+        } finally {
+            this._aceptarPrepedidoEjecutando = false;
+            this._pendingAceptarPrepedidoId = null;
+            this._pendingAceptarPrepedidoMeta = null;
+            const titleEl = document.getElementById('enviarPedidoModalTitle');
+            if (titleEl) {
+                titleEl.textContent = 'Enviar Pedido';
+            }
+        }
+    }
+
+    /**
+     * Inicia aceptacion de prepedido: abre el mismo modal que en caja (recoger en almacen vs enviar en ruta).
+     */
+    async aceptarPrepedido(prepedidoId) {
+        try {
+            if (!window.erpClient || (!window.erpClient.proxyPath && !window.erpClient.createOrderPath)) {
+                window.ui.showToast('ERP no configurado', 'warning');
+                return;
+            }
+
+            const prepedido = await window.supabaseClient.getCart(prepedidoId);
+            if (!prepedido || !Array.isArray(prepedido.productos) || prepedido.productos.length === 0) {
+                window.ui.showToast('No se pudo cargar el prepedido', 'error');
+                return;
+            }
+
+            const ownerUserId =
+                prepedido.usuario_id != null && !Number.isNaN(Number(prepedido.usuario_id))
+                    ? Number(prepedido.usuario_id)
+                    : null;
+            if (!ownerUserId) {
+                window.ui.showToast('No se pudo determinar el titular del prepedido', 'error');
+                return;
+            }
+
+            const almGuard =
+                prepedido.almacen_destino != null && String(prepedido.almacen_destino).trim() !== ''
+                    ? String(prepedido.almacen_destino).trim()
+                    : (this.getEffectiveAlmacenHabitual() || '');
+            this._pendingAceptarPrepedidoMeta = { almacenDestinoGuardado: almGuard };
+
+            this.openEnviarPedidoModal({ prepedidoAceptarId: prepedidoId });
+        } catch (error) {
+            console.error('aceptarPrepedido:', error);
+            window.ui.showToast(error.message || 'No se pudo abrir la opcion de entrega', 'error');
         }
     }
 
@@ -12783,7 +12943,8 @@ class ScanAsYouShopApp {
 
         const reorderBtn = showReorder
             ? `<button type="button" class="btn-reorder-product" 
-                            onclick="window.app.reorderSingleProduct(${JSON.stringify(codigo)}, ${cantidad})"
+                            data-reorder-codigo="${safeCodAttr}"
+                            data-reorder-cantidad="${Number.isFinite(cantidad) ? cantidad : 0}"
                             title="Anadir este producto al carrito">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="9" cy="21" r="1"/>
@@ -12844,6 +13005,14 @@ class ScanAsYouShopApp {
                 this.reorderAllProducts(enriched);
             });
         }
+        detailsDiv.querySelectorAll('.btn-reorder-product').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const cod = btn.getAttribute('data-reorder-codigo');
+                const rawQty = btn.getAttribute('data-reorder-cantidad');
+                const qty = rawQty != null && rawQty !== '' ? Number(rawQty) : 0;
+                this.reorderSingleProduct(cod || '', Number.isFinite(qty) ? qty : 0);
+            });
+        });
     }
 
     /**
