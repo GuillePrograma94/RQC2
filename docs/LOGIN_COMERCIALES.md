@@ -82,6 +82,8 @@ El comercial puede abrir **Mis pedidos** siempre (con o sin cliente representado
 
 La carga de pedidos sin cliente representado usa `getClientesAsignadosComercial(comercial_numero)` y luego `getUserRemoteOrders(usuario_id)` por cada cliente; no se usa cache local en esa vista.
 
+**Detalle de lineas ("Volver a pedir todo"):** el listado de productos del pedido no debe incrustar el JSON de las lineas en un atributo `onclick` (caracteres como `&`, comillas o textos largos en descripciones pueden romper el HTML y disparar `SyntaxError: Unexpected end of input`). El boton se enlaza en `renderOrderProducts` con `addEventListener` y el array en cierre.
+
 ## Nota sobre comerciales legacy
 
 En la base de datos pueden existir referencias antiguas a un sistema de comerciales legacy que fue eliminado. Todos los comerciales actuales se crean nuevos en `usuarios_comerciales` y tienen su entrada en `usuarios` con `tipo = 'COMERCIAL'`. No hay comerciales del sistema antiguo activos.

@@ -12803,12 +12803,13 @@ class ScanAsYouShopApp {
      * Renderiza la lista de productos de un pedido
      */
     async renderOrderProducts(detailsDiv, productos) {
-        const enriched = await this.enrichOrderProductsForDisplay(productos || []);
+        const sourceList = Array.isArray(productos) ? productos : [];
+        const enriched = await this.enrichOrderProductsForDisplay(sourceList);
         let productosHTML = '<div class="order-products-list">';
 
         productosHTML += `
             <div class="order-reorder-actions">
-                <button type="button" class="btn-reorder-all" onclick="window.app.reorderAllProducts(${JSON.stringify(productos).replace(/"/g, '&quot;')})">
+                <button type="button" class="btn-reorder-all">
                     Volver a pedir todo
                 </button>
             </div>
@@ -12820,6 +12821,12 @@ class ScanAsYouShopApp {
 
         productosHTML += '</div>';
         detailsDiv.innerHTML = productosHTML;
+        const reorderAllBtn = detailsDiv.querySelector('.btn-reorder-all');
+        if (reorderAllBtn) {
+            reorderAllBtn.addEventListener('click', () => {
+                this.reorderAllProducts(enriched);
+            });
+        }
     }
 
     /**
