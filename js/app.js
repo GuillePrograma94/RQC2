@@ -2,6 +2,9 @@
  * Aplicación principal Scan as You Shop
  */
 
+/** Numero internacional (solo digitos) para wa.me en reportes de error a soporte. */
+const WHATSAPP_SOPORTE_ERRORES_E164 = '34696930773';
+
 class ScanAsYouShopApp {
     constructor() {
         this.currentScreen = 'welcome';
@@ -4999,29 +5002,6 @@ class ScanAsYouShopApp {
         this.showPanelDatosEmpresaView('hub');
     }
 
-    async loadPanelControlGlobalConfig() {
-        const input = document.getElementById('panelControlWhatsappSoporteErrores');
-        if (!input || !window.supabaseClient || typeof window.supabaseClient.getAppConfigGlobal !== 'function') return;
-        const cfg = await window.supabaseClient.getAppConfigGlobal();
-        input.value = cfg && cfg.whatsapp_soporte_errores ? String(cfg.whatsapp_soporte_errores) : '';
-    }
-
-    async savePanelControlGlobalConfig() {
-        const input = document.getElementById('panelControlWhatsappSoporteErrores');
-        if (!input || !window.supabaseClient || typeof window.supabaseClient.upsertAppConfigGlobal !== 'function') return;
-        const value = String(input.value || '').trim();
-        window.ui.showLoading('Guardando configuracion global...');
-        const result = await window.supabaseClient.upsertAppConfigGlobal({
-            whatsapp_soporte_errores: value || null
-        });
-        window.ui.hideLoading();
-        if (!result || !result.success) {
-            window.ui.showToast((result && result.message) || 'No se pudo guardar la configuracion global', 'error');
-            return;
-        }
-        window.ui.showToast('WhatsApp de soporte global guardado', 'success');
-    }
-
     /**
      * Guarda empresas_por_almacen desde Panel de Control (subida opcional de logo).
      */
@@ -6766,9 +6746,6 @@ class ScanAsYouShopApp {
             panelControlBtn.addEventListener('click', () => {
                 this.closeMenu();
                 this.showScreen('panelControl');
-                this.loadPanelControlGlobalConfig().catch((err) => {
-                    console.error('loadPanelControlGlobalConfig:', err);
-                });
             });
         }
 
@@ -6809,13 +6786,6 @@ class ScanAsYouShopApp {
                 this.showScreen('panelDatosEmpresa');
             });
         }
-        const panelControlGuardarWhatsappSoporteBtn = document.getElementById('panelControlGuardarWhatsappSoporteBtn');
-        if (panelControlGuardarWhatsappSoporteBtn) {
-            panelControlGuardarWhatsappSoporteBtn.addEventListener('click', () => {
-                this.savePanelControlGlobalConfig();
-            });
-        }
-
         const panelDatosEmpresaBackBtn = document.getElementById('panelDatosEmpresaBackBtn');
         if (panelDatosEmpresaBackBtn) {
             panelDatosEmpresaBackBtn.addEventListener('click', () => {
@@ -8006,12 +7976,6 @@ class ScanAsYouShopApp {
             if (screenName === 'panelDatosEmpresa') {
                 this.loadPanelDatosEmpresaScreen().catch(function (err) {
                     console.error('loadPanelDatosEmpresaScreen:', err);
-                });
-            }
-
-            if (screenName === 'panelControl') {
-                this.loadPanelControlGlobalConfig().catch(function (err) {
-                    console.error('loadPanelControlGlobalConfig:', err);
                 });
             }
 
@@ -12137,23 +12101,6 @@ class ScanAsYouShopApp {
         this._pendingErrorReportContext = null;
     }
 
-    sanitizeWhatsAppNumber(raw) {
-        if (!raw) return '';
-        return String(raw).replace(/[^\d]/g, '');
-    }
-
-    async resolveWhatsAppSoporteErrores() {
-        const globalInput = document.getElementById('panelControlWhatsappSoporteErrores');
-        if (globalInput && String(globalInput.value || '').trim() !== '') {
-            return this.sanitizeWhatsAppNumber(globalInput.value);
-        }
-        if (!window.supabaseClient || typeof window.supabaseClient.getAppConfigGlobal !== 'function') {
-            return '';
-        }
-        const cfg = await window.supabaseClient.getAppConfigGlobal();
-        return this.sanitizeWhatsAppNumber(cfg && cfg.whatsapp_soporte_errores ? cfg.whatsapp_soporte_errores : '');
-    }
-
     buildWhatsAppErrorReportText() {
         const entries = this._errorReportBuffer.slice(-4);
         const active = this._pendingErrorReportContext || (entries.length > 0 ? entries[entries.length - 1] : null);
@@ -12178,15 +12125,10 @@ class ScanAsYouShopApp {
         return lines.join('\n');
     }
 
-    async sendMobileErrorReportToWhatsApp() {
+    sendMobileErrorReportToWhatsApp() {
         try {
-            const number = await this.resolveWhatsAppSoporteErrores();
-            if (!number) {
-                window.ui.showToast('No hay numero de WhatsApp de soporte configurado para este almacen.', 'warning');
-                return;
-            }
             const text = this.buildWhatsAppErrorReportText();
-            const url = `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
+            const url = `https://wa.me/${WHATSAPP_SOPORTE_ERRORES_E164}?text=${encodeURIComponent(text)}`;
             window.open(url, '_blank', 'noopener');
             this.closeMobileErrorReportModal();
         } catch (error) {

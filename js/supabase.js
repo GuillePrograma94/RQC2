@@ -3193,42 +3193,6 @@ class SupabaseClient {
         }
     }
 
-    async getAppConfigGlobal() {
-        try {
-            if (!this.client) return null;
-            const { data, error } = await this.client
-                .from('app_config_global')
-                .select('id, whatsapp_soporte_errores, updated_at')
-                .eq('id', 1)
-                .maybeSingle();
-            if (error) throw error;
-            return data || { id: 1, whatsapp_soporte_errores: null };
-        } catch (error) {
-            console.error('getAppConfigGlobal:', error);
-            return null;
-        }
-    }
-
-    async upsertAppConfigGlobal(payload) {
-        try {
-            if (!this.client) return { success: false, message: 'Cliente no inicializado' };
-            const row = {
-                id: 1,
-                whatsapp_soporte_errores:
-                    payload && payload.whatsapp_soporte_errores
-                        ? String(payload.whatsapp_soporte_errores).trim()
-                        : null,
-                updated_at: new Date().toISOString()
-            };
-            const { error } = await this.client.from('app_config_global').upsert([row], { onConflict: 'id' });
-            if (error) throw error;
-            return { success: true };
-        } catch (error) {
-            console.error('upsertAppConfigGlobal:', error);
-            return { success: false, message: 'No se pudo guardar la configuracion global' };
-        }
-    }
-
     /**
      * Sube logo de empresa al bucket logos_empresa; primera carpeta = almacen (RLS).
      * @param {string} almacen

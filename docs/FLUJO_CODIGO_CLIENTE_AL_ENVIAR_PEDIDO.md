@@ -133,12 +133,11 @@ RETURN QUERY SELECT
 1. Se guarda un buffer de contexto (`source`, `message`, `stack`, `timestamp`, `screen`, `user_id`, `almacen`).
 2. Si el dispositivo es movil/iPhone, se abre el modal **"Ha ocurrido un error"**.
 3. `Cancelar` cierra el modal.
-4. `Enviar Detalles` arma el texto y abre `https://wa.me/<numero>?text=...`.
+4. `Enviar Detalles` arma el texto y abre `https://wa.me/<numero>?text=...` con el numero fijo de soporte (constante `WHATSAPP_SOPORTE_ERRORES_E164` en `app.js`, +34 696 930 773).
 
 **Numero destino:**
 
-- Sale del campo global `app_config_global.whatsapp_soporte_errores`.
-- Se configura en `Panel de Control` (`panelControlWhatsappSoporteErrores`), no depende de empresa ni de almacen.
+- Fijo en codigo (`34696930773` para `wa.me`). Ya no se lee de `app_config_global` ni del Panel de Control.
 
 **Tabla y columna:**
 
