@@ -11283,8 +11283,17 @@ class ScanAsYouShopApp {
             const ok = window.confirm('¿Quieres eliminar este prepedido?');
             if (!ok) return;
             window.ui.showLoading('Eliminando prepedido...');
-            const effectiveUserId = this.getEffectiveUserId() || null;
-            const result = await window.supabaseClient.eliminarPrepedido(prepedidoId, effectiveUserId);
+            const prepRow = await window.supabaseClient.getCart(prepedidoId).catch(() => null);
+            const ownerUserId =
+                prepRow && prepRow.usuario_id != null && !Number.isNaN(Number(prepRow.usuario_id))
+                    ? Number(prepRow.usuario_id)
+                    : null;
+            if (!ownerUserId) {
+                window.ui.hideLoading();
+                window.ui.showToast('No se pudo determinar el titular del prepedido', 'error');
+                return;
+            }
+            const result = await window.supabaseClient.eliminarPrepedido(prepedidoId, ownerUserId);
             window.ui.hideLoading();
             if (!result || !result.success) {
                 window.ui.showToast((result && result.message) || 'No se pudo eliminar', 'error');
@@ -11322,10 +11331,18 @@ class ScanAsYouShopApp {
                 observacionesFinal += (observacionesFinal ? '\n\n' : '') + 'Pedido enviado por: ' + this.currentUser.user_name;
             }
             const almacen = prepedido.almacen_destino || this.getEffectiveAlmacenHabitual() || '';
-            const effectiveUserId = this.getEffectiveUserId() || null;
+            const ownerUserId =
+                prepedido.usuario_id != null && !Number.isNaN(Number(prepedido.usuario_id))
+                    ? Number(prepedido.usuario_id)
+                    : null;
+            if (!ownerUserId) {
+                window.ui.hideLoading();
+                window.ui.showToast('No se pudo determinar el titular del prepedido', 'error');
+                return;
+            }
             const conversion = await window.supabaseClient.convertirPrepedidoAPedidoRemoto(
                 prepedidoId,
-                effectiveUserId,
+                ownerUserId,
                 almacen,
                 observacionesFinal || null,
                 this.currentUser && this.currentUser.is_operario ? (this.currentUser.nombre_operario || null) : null

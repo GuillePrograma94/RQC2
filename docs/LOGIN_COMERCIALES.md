@@ -84,6 +84,14 @@ La carga de pedidos sin cliente representado usa `getClientesAsignadosComercial(
 
 **Detalle de lineas ("Volver a pedir todo"):** el listado de productos del pedido no debe incrustar el JSON de las lineas en un atributo `onclick` (caracteres como `&`, comillas o textos largos en descripciones pueden romper el HTML y disparar `SyntaxError: Unexpected end of input`). El boton se enlaza en `renderOrderProducts` con `addEventListener` y el array en cierre.
 
+## Prepedidos: Aceptar y Eliminar (comercial / dependiente sin cliente en el selector)
+
+Las RPC `convertir_prepedido_a_pedido_remoto` y `eliminar_prepedido` exigen que el carrito cumpla `usuario_id = p_usuario_id` (el **titular** del prepedido en `carritos_clientes`, normalmente el cliente titular).
+
+Si en la app se pasaba `getEffectiveUserId()` con sesion de comercial o dependiente **sin** `cliente_representado_id`, ese ID era el del representante, no el del cliente dueno del carrito, y la RPC respondia `success: false` con mensaje tipo **"Prepedido no disponible para aceptar"**. En `aceptarPrepedido` y `eliminarPrepedido` se pasa `prepedido.usuario_id` (o el obtenido con `getCart` al eliminar) como `p_usuario_id`.
+
+**Por que no sale el envio a WhatsApp de soporte:** ese mensaje viene de una respuesta RPC **prevista** (`success: false`), no de un `throw` ni de `window.onerror`. El modal de reporte a WhatsApp solo se engancha a errores globales de JavaScript / promesas no capturadas y a fallos criticos concretos (por ejemplo envio de pedido); un toast de error de negocio no abre ese modal.
+
 ## Nota sobre comerciales legacy
 
 En la base de datos pueden existir referencias antiguas a un sistema de comerciales legacy que fue eliminado. Todos los comerciales actuales se crean nuevos en `usuarios_comerciales` y tienen su entrada en `usuarios` con `tipo = 'COMERCIAL'`. No hay comerciales del sistema antiguo activos.
