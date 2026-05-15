@@ -1304,6 +1304,84 @@ class SupabaseClient {
     }
 
     /**
+     * Lista clientes para administrador ordenados por frecuencia de uso.
+     * @param {number} administradorUserId - ID del administrador (usuarios.id)
+     * @param {number} [limit=200] - Maximo de clientes a devolver
+     * @returns {Promise<Array>}
+     */
+    async getClientesAdministradorPorFrecuencia(administradorUserId, limit) {
+        try {
+            if (!this.client || administradorUserId == null) return [];
+            const id = typeof administradorUserId === 'string' ? parseInt(administradorUserId, 10) : administradorUserId;
+            if (isNaN(id)) return [];
+            const lim = (limit != null && !isNaN(limit)) ? Math.min(500, Math.max(1, parseInt(limit, 10))) : 200;
+            const { data, error } = await this.client.rpc('get_clientes_administrador_por_frecuencia', {
+                p_administrador_user_id: id,
+                p_limit: lim
+            });
+            if (error) {
+                console.error('Error getClientesAdministradorPorFrecuencia:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getClientesAdministradorPorFrecuencia:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Busca clientes globales para administrador por texto.
+     * @param {number} administradorUserId - ID del administrador (usuarios.id)
+     * @param {string} query - Texto a buscar
+     * @param {number} [limit=100] - Maximo de resultados
+     * @returns {Promise<Array>}
+     */
+    async buscarClientesAdministrador(administradorUserId, query, limit) {
+        try {
+            if (!this.client || administradorUserId == null) return [];
+            const id = typeof administradorUserId === 'string' ? parseInt(administradorUserId, 10) : administradorUserId;
+            if (isNaN(id)) return [];
+            const q = (query != null && typeof query === 'string') ? query.trim() : '';
+            const lim = (limit != null && !isNaN(limit)) ? Math.min(200, Math.max(1, parseInt(limit, 10))) : 100;
+            const { data, error } = await this.client.rpc('buscar_clientes_administrador', {
+                p_administrador_user_id: id,
+                p_query: q,
+                p_limit: lim
+            });
+            if (error) {
+                console.error('Error buscarClientesAdministrador:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('buscarClientesAdministrador:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Registra que el administrador ha elegido representar a un cliente (incrementa ranking).
+     * @param {number} administradorUserId - ID del administrador (usuarios.id)
+     * @param {number} clienteUserId - ID del cliente representado (usuarios.id)
+     * @returns {Promise<void>}
+     */
+    async registrarRepresentacionAdministrador(administradorUserId, clienteUserId) {
+        try {
+            if (!this.client || administradorUserId == null || clienteUserId == null) return;
+            const adminId = typeof administradorUserId === 'string' ? parseInt(administradorUserId, 10) : administradorUserId;
+            const cliId = typeof clienteUserId === 'string' ? parseInt(clienteUserId, 10) : clienteUserId;
+            if (isNaN(adminId) || isNaN(cliId)) return;
+            await this.client.rpc('registrar_representacion_administrador', {
+                p_administrador_user_id: adminId,
+                p_cliente_user_id: cliId
+            });
+        } catch (err) {
+            console.warn('registrarRepresentacionAdministrador (no critico):', err);
+        }
+    }
+
+    /**
      * Obtiene pedidos de clientes atendibles por el dependiente (vista agregada por tienda).
      * @param {number} dependienteUserId - ID del dependiente (usuarios.id)
      * @returns {Promise<Array>}

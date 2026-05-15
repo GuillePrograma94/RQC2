@@ -96,6 +96,24 @@ Si en la app se pasaba `getEffectiveUserId()` con sesion de comercial o dependie
 
 **Error Postgres 42804** (`Returned type character(6) does not match expected type text in column 2`): la tabla `carritos_clientes.codigo_qr` puede ser `character(6)` y la funcion declara `codigo_qr TEXT` en `RETURNS TABLE`. Aplicar en Supabase el script `scan_client_mobile/migration_convertir_prepedido_return_text_cast.sql` (o la definicion actualizada en `migration_prepedidos.sql`), que hace `::TEXT` en el `RETURN QUERY` de `convertir_prepedido_a_pedido_remoto`.
 
+## Administrador de tienda (tipo ADMINISTRADOR)
+
+El usuario con `tipo = 'ADMINISTRADOR'` usa la app de tienda igual que un cliente titular, pero con acceso al **Panel de control**. Ademas puede **representar a un cliente** para atender pedidos en su nombre (mismo flujo que comercial/dependiente).
+
+### Selector de cliente
+
+- En el menu lateral, el bloque de usuario muestra **"Toca para seleccionar cliente"** (o **"Representando a: ..."** si ya hay cliente elegido).
+- Al pulsar se abre `selectorClienteScreen` con busqueda global por numero, nombre y poblacion.
+- RPCs en Supabase (requieren JWT `app_metadata.es_administrador = true`):
+  - `get_clientes_administrador_por_frecuencia`
+  - `buscar_clientes_administrador`
+  - `registrar_representacion_administrador`
+- Migracion: `migration_selector_clientes_administrador.sql`
+
+Los campos de sesion `cliente_representado_*` y los metodos `getEffectiveUserId()`, `getEffectiveAlmacenHabitual()`, etc. funcionan igual que para comercial/dependiente. Para enviar pedidos hace falta tener un cliente seleccionado.
+
+El cambio de contrasena del administrador se hace desde **Mi perfil** (no desde el selector; el boton "Cambiar mi contrasena" del selector solo aplica a comercial/dependiente).
+
 ## Nota sobre comerciales legacy
 
 En la base de datos pueden existir referencias antiguas a un sistema de comerciales legacy que fue eliminado. Todos los comerciales actuales se crean nuevos en `usuarios_comerciales` y tienen su entrada en `usuarios` con `tipo = 'COMERCIAL'`. No hay comerciales del sistema antiguo activos.

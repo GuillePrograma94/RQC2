@@ -176,13 +176,16 @@ class ScanAsYouShopApp {
             if (this.currentUser.is_dependiente === undefined && this.currentUser.tipo) {
                 this.currentUser.is_dependiente = String(this.currentUser.tipo).toUpperCase() === 'DEPENDIENTE';
             }
+            if (this.currentUser.is_administrador === undefined && this.currentUser.tipo) {
+                this.currentUser.is_administrador = String(this.currentUser.tipo).toUpperCase() === 'ADMINISTRADOR';
+            }
             this.updateUserUI();
 
             // Refresco periodico del JWT para evitar 42501 tras ~1h trabajando
             this.startAuthRefreshTimer();
 
             
-            const savedEsRepresentante = !!savedUser.is_comercial || !!savedUser.is_dependiente;
+            const savedEsRepresentante = !!savedUser.is_comercial || !!savedUser.is_dependiente || !!savedUser.is_administrador;
 
             // Usuario ADMINISTRACION: mostrar contenedor administracion e inicializar solo esa parte
             const savedEsAdministracion = this.currentUser.is_administracion === true;
@@ -282,7 +285,7 @@ class ScanAsYouShopApp {
             } else {
                 if (this.currentUser) {
                     this.startAuthRefreshTimer();
-                    const esRepresentante = this.currentUser.is_comercial || this.currentUser.is_dependiente;
+                    const esRepresentante = this.currentUser.is_comercial || this.currentUser.is_dependiente || this.currentUser.is_administrador;
                     if (!esRepresentante && this.currentUser.user_id) {
                         this.setupOrderStatusListener();
                     }
@@ -510,7 +513,7 @@ class ScanAsYouShopApp {
                 // Mostrar mensaje de bienvenida
                 window.ui.showToast(`Bienvenido, ${this.currentUser.user_name}`, 'success');
 
-                const esRepresentante = this.currentUser.is_comercial || this.currentUser.is_dependiente;
+                const esRepresentante = this.currentUser.is_comercial || this.currentUser.is_dependiente || this.currentUser.is_administrador;
 
                 // Precargar historial y listener de pedidos solo para clientes (no representantes)
                 if (!esRepresentante && window.purchaseCache && this.currentUser.user_id) {
@@ -921,17 +924,21 @@ class ScanAsYouShopApp {
         if (this.currentUser) {
             const isComercialRole = !!this.currentUser.is_comercial || String(this.currentUser.tipo || '').toUpperCase() === 'COMERCIAL';
             const isDependienteRole = !!this.currentUser.is_dependiente || String(this.currentUser.tipo || '').toUpperCase() === 'DEPENDIENTE';
+            const isAdministradorRole = !!this.currentUser.is_administrador || String(this.currentUser.tipo || '').toUpperCase() === 'ADMINISTRADOR';
             // Usuario logueado
             if (menuGuest) menuGuest.style.display = 'none';
             if (menuUser) menuUser.style.display = 'block';
-            if (isComercialRole || isDependienteRole) {
+            if (isComercialRole || isDependienteRole || isAdministradorRole) {
                 const esDependiente = isDependienteRole;
+                const esAdministrador = isAdministradorRole && !isComercialRole && !isDependienteRole;
                 if (menuUserName) {
-                    menuUserName.textContent = this.currentUser.user_name || (esDependiente ? 'Dependiente' : 'Comercial');
+                    menuUserName.textContent = this.currentUser.user_name || (esDependiente ? 'Dependiente' : (esAdministrador ? 'Administrador' : 'Comercial'));
                 }
                 if (menuUserCode) {
                     if (esDependiente) {
                         menuUserCode.textContent = 'Tienda: ' + (this.currentUser.almacen_tienda || '--');
+                    } else if (esAdministrador) {
+                        menuUserCode.textContent = 'Codigo: ' + (this.currentUser.codigo_usuario || '--');
                     } else {
                         menuUserCode.textContent = 'Nº ' + (this.currentUser.comercial_numero || this.currentUser.codigo_usuario || '');
                     }
@@ -1157,8 +1164,16 @@ class ScanAsYouShopApp {
         } else if (this.currentUser.is_dependiente) {
             clientes = await window.supabaseClient.getClientesDependientePorFrecuencia(this.currentUser.user_id, 200);
             this._clientesFrecuentesDependiente = Array.isArray(clientes) ? clientes : [];
+        } else if (this.currentUser.is_administrador) {
+            clientes = await window.supabaseClient.getClientesAdministradorPorFrecuencia(this.currentUser.user_id, 200);
+            this._clientesFrecuentesAdministrador = Array.isArray(clientes) ? clientes : [];
         }
         this._clientesAsignadosComercial = Array.isArray(clientes) ? clientes : [];
+
+        const selectorClienteCambiarPasswordBtn = document.getElementById('selectorClienteCambiarPasswordBtn');
+        if (selectorClienteCambiarPasswordBtn) {
+            selectorClienteCambiarPasswordBtn.style.display = (this.currentUser.is_comercial || this.currentUser.is_dependiente) ? '' : 'none';
+        }
 
         if (!this._clientesAsignadosComercial.length) {
             if (emptyEl) emptyEl.style.display = 'block';
@@ -1237,10 +1252,12 @@ class ScanAsYouShopApp {
         const pob = (filterPoblacion && filterPoblacion.value) ? filterPoblacion.value.trim() : '';
         const hasFilter = !!num || !!nom || !!pob;
 
-        if (this.currentUser && this.currentUser.is_dependiente) {
+        if (this.currentUser && (this.currentUser.is_dependiente || this.currentUser.is_administrador)) {
             if (this._selectorClienteSearchTimeout) clearTimeout(this._selectorClienteSearchTimeout);
             if (!hasFilter) {
-                this._clientesAsignadosComercial = this._clientesFrecuentesDependiente || [];
+                this._clientesAsignadosComercial = this.currentUser.is_dependiente
+                    ? (this._clientesFrecuentesDependiente || [])
+                    : (this._clientesFrecuentesAdministrador || []);
                 this._renderSelectorClienteList(this._clientesAsignadosComercial);
                 return;
             }
@@ -1248,7 +1265,10 @@ class ScanAsYouShopApp {
             const query = [num, nom, pob].filter(Boolean).join(' ').trim();
             this._selectorClienteSearchTimeout = setTimeout(function () {
                 self._selectorClienteSearchTimeout = null;
-                window.supabaseClient.buscarClientesDependiente(self.currentUser.user_id, query, 100)
+                const buscarPromise = self.currentUser.is_dependiente
+                    ? window.supabaseClient.buscarClientesDependiente(self.currentUser.user_id, query, 100)
+                    : window.supabaseClient.buscarClientesAdministrador(self.currentUser.user_id, query, 100);
+                buscarPromise
                     .then(function (data) {
                         self._clientesAsignadosComercial = Array.isArray(data) ? data : [];
                         self._renderSelectorClienteList(self._clientesAsignadosComercial, true);
@@ -1354,6 +1374,9 @@ class ScanAsYouShopApp {
                 if (self.currentUser.is_dependiente && window.supabaseClient) {
                     window.supabaseClient.registrarRepresentacionDependiente(self.currentUser.user_id, c.id);
                 }
+                if (self.currentUser.is_administrador && window.supabaseClient) {
+                    window.supabaseClient.registrarRepresentacionAdministrador(self.currentUser.user_id, c.id);
+                }
                 if (window.purchaseCache && c.id) {
                     window.purchaseCache.preload(c.id);
                 }
@@ -1365,10 +1388,14 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Devuelve true si el usuario actual representa clientes (comercial/dependiente).
+     * Devuelve true si el usuario actual representa clientes (comercial/dependiente/administrador).
      */
     canRepresentClientes() {
-        return !!(this.currentUser && (this.currentUser.is_comercial || this.currentUser.is_dependiente));
+        return !!(this.currentUser && (
+            this.currentUser.is_comercial ||
+            this.currentUser.is_dependiente ||
+            this.currentUser.is_administrador
+        ));
     }
 
     /**
