@@ -429,7 +429,7 @@ class SupabaseClient {
             ? performance.now()
             : Date.now();
         const TH_PROD = 1000;
-        const TH_COD = 800;
+        const TH_COD = 2000;
         const TH_CLAVE = 400;
 
         const prodN = changeStats

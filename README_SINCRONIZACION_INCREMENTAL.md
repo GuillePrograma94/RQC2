@@ -205,19 +205,19 @@ Wrappers paginados para:
 
 El sistema usa sincronización incremental por dominio con umbrales independientes:
 - Productos: `< 1000`
-- Códigos secundarios: `< 800`
+- Códigos secundarios: `< 2000`
 - Claves de descuento: `< 400`
 
 **Modificar umbrales** (en `js/supabase.js`, función `downloadCatalogSplit`):
 ```javascript
 const TH_PROD = 1000;
-const TH_COD = 800;
+const TH_COD = 2000;
 const TH_CLAVE = 400;
 ```
 
 **Recomendaciones**:
 - **< 500 cambios**: Incremental siempre
-- **500-2000 cambios**: Depende del tamaño de productos
+- **500-2000 cambios**: Incremental recomendado para códigos secundarios en móvil
 - **> 2000 cambios**: Completa (más eficiente)
 
 ---

@@ -462,10 +462,12 @@ class CartManager {
 
     /**
      * Reemplaza por completo un store con escrituras por lotes.
+     * @param {number} [yieldEveryChunks=1] Cede al hilo cada N lotes (1 = cada lote). En sync completa usar 3+.
      */
-    async replaceStoreChunked(storeName, rows, chunkSize) {
+    async replaceStoreChunked(storeName, rows, chunkSize, yieldEveryChunks) {
         const db = this.db;
         const size = Math.max(100, chunkSize || 2000);
+        const yieldEvery = Math.max(1, yieldEveryChunks || 1);
 
         await new Promise(function (resolve, reject) {
             const tx = db.transaction([storeName], 'readwrite');
@@ -475,6 +477,7 @@ class CartManager {
         });
 
         let offset = 0;
+        let chunkIndex = 0;
         while (offset < rows.length) {
             const end = Math.min(offset + size, rows.length);
             const batch = rows.slice(offset, end);
@@ -488,7 +491,8 @@ class CartManager {
                 tx.onerror = function () { reject(tx.error); };
             });
             offset = end;
-            if (offset < rows.length) {
+            chunkIndex++;
+            if (offset < rows.length && (chunkIndex % yieldEvery) === 0) {
                 await this.yieldToMainThread();
             }
         }
@@ -597,7 +601,8 @@ class CartManager {
                 console.log(`Ejemplo 1: ${normalizedList[0].codigo_secundario} -> ${normalizedList[0].codigo_principal}`);
             }
 
-            await this.replaceStoreChunked('secondary_codes', normalizedList, 2500);
+            // Lotes mas grandes y menos yields: el indicador de sync ya bloquea la UI.
+            await this.replaceStoreChunked('secondary_codes', normalizedList, 5000, 3);
 
             console.log(`${normalizedList.length} códigos secundarios guardados (normalizados a MAYÚSCULAS)`);
         } catch (error) {
@@ -617,38 +622,18 @@ class CartManager {
                 return { inserted: 0, updated: 0 };
             }
 
-            const normalized = codigosSecundarios.map(function (codigo) {
-                return {
-                    codigo_secundario: (codigo.codigo_secundario || '').toUpperCase(),
+            const dedupBySecondaryCode = new Map();
+            for (let i = 0; i < codigosSecundarios.length; i++) {
+                const codigo = codigosSecundarios[i] || {};
+                const codigoSec = (codigo.codigo_secundario || '').toUpperCase();
+                if (!codigoSec) continue;
+                dedupBySecondaryCode.set(codigoSec, {
+                    codigo_secundario: codigoSec,
                     codigo_principal: (codigo.codigo_principal || '').toUpperCase(),
                     descripcion: codigo.descripcion || ''
-                };
-            }).filter(function (row) {
-                return !!row.codigo_secundario;
-            });
-
-            const existingIdByCode = await new Promise((resolve) => {
-                const map = new Map();
-                const tx = this.db.transaction(['secondary_codes'], 'readonly');
-                const st = tx.objectStore('secondary_codes');
-                const cursorReq = st.openCursor();
-                cursorReq.onsuccess = function (event) {
-                    const cursor = event.target.result;
-                    if (!cursor) {
-                        resolve(map);
-                        return;
-                    }
-                    const row = cursor.value || {};
-                    const key = (row.codigo_secundario || '').toUpperCase();
-                    if (key) {
-                        map.set(key, row.id);
-                    }
-                    cursor.continue();
-                };
-                cursorReq.onerror = function () {
-                    resolve(map);
-                };
-            });
+                });
+            }
+            const normalized = Array.from(dedupBySecondaryCode.values());
 
             let inserted = 0;
             let updated = 0;
@@ -657,12 +642,41 @@ class CartManager {
             while (offset < normalized.length) {
                 const end = Math.min(offset + CHUNK_SIZE, normalized.length);
                 const batch = normalized.slice(offset, end);
-                await new Promise((resolve, reject) => {
+                const existingIds = await new Promise((resolve, reject) => {
+                    const ids = new Array(batch.length);
+                    const tx = this.db.transaction(['secondary_codes'], 'readonly');
+                    const store = tx.objectStore('secondary_codes');
+                    const index = store.index('codigo_secundario');
+                    if (batch.length === 0) {
+                        resolve(ids);
+                        return;
+                    }
+                    let pending = batch.length;
+                    for (let i = 0; i < batch.length; i++) {
+                        const lookup = index.getKey(batch[i].codigo_secundario);
+                        lookup.onsuccess = function () {
+                            ids[i] = lookup.result;
+                            pending--;
+                            if (pending === 0) resolve(ids);
+                        };
+                        lookup.onerror = function () {
+                            ids[i] = undefined;
+                            pending--;
+                            if (pending === 0) resolve(ids);
+                        };
+                    }
+                    tx.onerror = function () {
+                        reject(tx.error);
+                    };
+                });
+
+                const batchStats = await new Promise((resolve, reject) => {
+                    const stats = { inserted: 0, updated: 0 };
                     const tx = this.db.transaction(['secondary_codes'], 'readwrite');
                     const store = tx.objectStore('secondary_codes');
                     for (let i = 0; i < batch.length; i++) {
                         const row = batch[i];
-                        const existingId = existingIdByCode.get(row.codigo_secundario);
+                        const existingId = existingIds[i];
                         if (existingId != null) {
                             store.put({
                                 id: existingId,
@@ -670,15 +684,21 @@ class CartManager {
                                 codigo_principal: row.codigo_principal,
                                 descripcion: row.descripcion
                             });
-                            updated++;
+                            stats.updated++;
                         } else {
                             store.add(row);
-                            inserted++;
+                            stats.inserted++;
                         }
                     }
-                    tx.oncomplete = () => resolve();
-                    tx.onerror = () => reject(tx.error);
+                    tx.oncomplete = function () {
+                        resolve(stats);
+                    };
+                    tx.onerror = function () {
+                        reject(tx.error);
+                    };
                 });
+                inserted += batchStats.inserted;
+                updated += batchStats.updated;
 
                 offset = end;
                 if (offset < normalized.length) {
