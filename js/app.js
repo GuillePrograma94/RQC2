@@ -361,12 +361,26 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Restaura el boton de acceso tras login, logout o sesion expirada.
+     */
+    resetGateLoginSubmitButton() {
+        const submitBtn = document.getElementById('gateSubmitBtn');
+        if (!submitBtn) return;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Entrar';
+        if (submitBtn === document.activeElement) {
+            submitBtn.blur();
+        }
+    }
+
+    /**
      * Muestra la pantalla de acceso (solo visitantes sin sesion)
      */
     showLanding() {
         document.body.classList.add('gate-visible');
         const gateScreen = document.getElementById('gateScreen');
         if (gateScreen) gateScreen.setAttribute('aria-hidden', 'false');
+        this.resetGateLoginSubmitButton();
         // Re-precargar credenciales por si venimos de logout / sesion expirada
         // (hideLoginModal hace form.reset() tras cada login con exito)
         this.prefillRememberedCredentials();
@@ -401,6 +415,7 @@ class ScanAsYouShopApp {
         if (gateLoginForm) gateLoginForm.reset();
         const errorDiv = document.getElementById('gateLoginError');
         if (errorDiv) errorDiv.style.display = 'none';
+        this.resetGateLoginSubmitButton();
     }
 
     /**
