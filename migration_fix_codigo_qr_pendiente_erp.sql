@@ -1,8 +1,35 @@
--- RPC: get_pedidos_pendiente_erp_admin
--- Lista todos los pedidos con estado_procesamiento = pendiente_erp (fallo de envio al ERP).
--- Solo usuarios con JWT app_metadata.es_administrador = true.
--- Ejecutar en el SQL Editor de Supabase.
+-- Corrige pedidos con codigo_qr NULL por bug en sendRemoteOrder (marcaba error_erp antes de pendiente_erp).
+-- Tambien corrige RPC get_pedidos_pendiente_erp_admin (casts TEXT para columnas character).
 
+-- 1) Reparar codigo_qr en carritos activos sin codigo
+DO $$
+DECLARE
+    r RECORD;
+    v_codigo_qr TEXT;
+BEGIN
+    FOR r IN
+        SELECT cc.id
+        FROM carritos_clientes cc
+        WHERE cc.codigo_qr IS NULL
+          AND cc.estado NOT IN ('completado', 'cancelado')
+          AND cc.estado_procesamiento IN ('pendiente_erp', 'procesando', 'pendiente')
+    LOOP
+        v_codigo_qr := LPAD(FLOOR(RANDOM() * 1000000)::TEXT, 6, '0');
+        WHILE EXISTS (
+            SELECT 1 FROM carritos_clientes c
+            WHERE c.codigo_qr IS NOT NULL
+              AND TRIM(c.codigo_qr::TEXT) = v_codigo_qr
+        ) LOOP
+            v_codigo_qr := LPAD(FLOOR(RANDOM() * 1000000)::TEXT, 6, '0');
+        END LOOP;
+        UPDATE carritos_clientes
+        SET codigo_qr = v_codigo_qr
+        WHERE id = r.id;
+    END LOOP;
+END;
+$$;
+
+-- 2) RPC admin con casts TEXT (evita error 42804)
 DROP FUNCTION IF EXISTS get_pedidos_pendiente_erp_admin();
 
 CREATE OR REPLACE FUNCTION get_pedidos_pendiente_erp_admin()
@@ -61,7 +88,6 @@ END;
 $$;
 
 COMMENT ON FUNCTION get_pedidos_pendiente_erp_admin() IS
-'Panel de control administrador: pedidos guardados en Supabase pendientes de envio al ERP.
-Ordenados del mas antiguo al mas reciente. Limite 500.';
+'Panel administrador: pedidos pendiente_erp. codigo_qr como TEXT (TRIM).';
 
 GRANT EXECUTE ON FUNCTION get_pedidos_pendiente_erp_admin() TO authenticated;

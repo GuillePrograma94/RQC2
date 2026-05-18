@@ -10948,13 +10948,13 @@ class ScanAsYouShopApp {
                     sin_imprimir: sinImprimir,
                     validacion: isValidationError
                 });
-                try {
-                    await window.supabaseClient.updateCarritoEstadoProcesamiento(result.carrito_id, 'error_erp');
-                } catch (e) {
-                    console.warn('No se pudo marcar pedido como error_erp:', e);
-                }
                 window.ui.hideLoading();
                 if (isValidationError) {
+                    try {
+                        await window.supabaseClient.updateCarritoEstadoProcesamiento(result.carrito_id, 'error_erp');
+                    } catch (e) {
+                        console.warn('No se pudo marcar pedido como error_erp:', e);
+                    }
                     window.ui.showErpErrorModal(erpError.message || String(erpError));
                     return;
                 }

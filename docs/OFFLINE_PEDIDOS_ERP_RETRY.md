@@ -134,3 +134,5 @@ El rol **ADMINISTRADOR** puede ver todos los pedidos con `estado_procesamiento =
 - **Reenvio manual:** misma accion que en Mis pedidos: pulsar el badge **Pend. enviar a ERP** en la tarjeta (`retryEnvioErp`). Tras el intento, la lista del panel se actualiza si el administrador sigue en esa pantalla.
 
 Ejecutar la migracion SQL en Supabase antes de usar la pantalla en produccion.
+
+**Bug corregido (codigo_qr vacio en pendiente_erp):** En `sendRemoteOrder`, ante fallo ERP se llamaba siempre a `updateCarritoEstadoProcesamiento(..., 'error_erp')` antes de comprobar si era error de validacion. Eso pasaba el pedido a `cancelado` y el trigger `trg_carritos_clear_codigo_qr` anulaba `codigo_qr`. Despues, si era error de red, se marcaba `pendiente_erp` pero el codigo ya estaba NULL. Solucion: solo marcar `error_erp` cuando `isErpValidationError` es true (igual que en aceptar prepedido). Reparacion de filas afectadas: `migration_fix_codigo_qr_pendiente_erp.sql`.
