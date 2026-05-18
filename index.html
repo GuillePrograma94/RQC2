@@ -930,7 +930,31 @@
                     <button type="button" id="panelControlRecambiosBtn" class="btn btn-primary btn-lg">Configurar recambios</button>
                     <button type="button" id="panelControlFamiliasCatalogoBtn" class="btn btn-primary btn-lg">Familias en Inicio (imagenes)</button>
                     <button type="button" id="panelControlDatosEmpresaBtn" class="btn btn-primary btn-lg">Datos de Empresa</button>
+                    <button type="button" id="panelControlPedidosPendienteErpBtn" class="btn btn-primary btn-lg">Pedidos pendientes de ERP</button>
                 </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA PEDIDOS PENDIENTES ERP (admin)
+             ================================ -->
+        <div id="panelPedidosPendienteErpScreen" class="screen">
+            <main class="screen-content">
+                <div class="profile-header">
+                    <button type="button" id="panelPedidosPendienteErpBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title">Pedidos pendientes de ERP</h2>
+                </div>
+                <p class="panel-pedidos-erp-intro">Pedidos guardados en la base de datos que no se pudieron enviar al ERP por fallo de conexion. Pulsa el estado <strong>Pend. enviar a ERP</strong> en cada tarjeta para forzar el reenvio manual.</p>
+                <div id="panelPedidosPendienteErpLoading" class="loading-state" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Cargando pedidos...</p>
+                </div>
+                <div id="panelPedidosPendienteErpEmpty" class="empty-state" style="display: none;">
+                    <div class="empty-icon">&#128230;</div>
+                    <h2>Sin pedidos pendientes</h2>
+                    <p>No hay pedidos pendientes de envio al ERP.</p>
+                </div>
+                <div id="panelPedidosPendienteErpList" class="orders-list" style="display: none;"></div>
             </main>
         </div>
 

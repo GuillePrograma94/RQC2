@@ -6833,6 +6833,18 @@ class ScanAsYouShopApp {
                 this.showScreen('panelDatosEmpresa');
             });
         }
+        const panelControlPedidosPendienteErpBtn = document.getElementById('panelControlPedidosPendienteErpBtn');
+        if (panelControlPedidosPendienteErpBtn) {
+            panelControlPedidosPendienteErpBtn.addEventListener('click', () => {
+                this.showScreen('panelPedidosPendienteErp');
+            });
+        }
+        const panelPedidosPendienteErpBackBtn = document.getElementById('panelPedidosPendienteErpBackBtn');
+        if (panelPedidosPendienteErpBackBtn) {
+            panelPedidosPendienteErpBackBtn.addEventListener('click', () => {
+                this.showScreen('panelControl');
+            });
+        }
         const panelDatosEmpresaBackBtn = document.getElementById('panelDatosEmpresaBackBtn');
         if (panelDatosEmpresaBackBtn) {
             panelDatosEmpresaBackBtn.addEventListener('click', () => {
@@ -8053,6 +8065,12 @@ class ScanAsYouShopApp {
             if (screenName === 'panelDatosEmpresa') {
                 this.loadPanelDatosEmpresaScreen().catch(function (err) {
                     console.error('loadPanelDatosEmpresaScreen:', err);
+                });
+            }
+
+            if (screenName === 'panelPedidosPendienteErp') {
+                this.loadPanelPedidosPendienteErp().catch(function (err) {
+                    console.error('loadPanelPedidosPendienteErp:', err);
                 });
             }
 
@@ -12562,6 +12580,52 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Panel de control (admin): lista pedidos con estado_procesamiento = pendiente_erp.
+     */
+    async loadPanelPedidosPendienteErp() {
+        const loadingEl = document.getElementById('panelPedidosPendienteErpLoading');
+        const emptyEl = document.getElementById('panelPedidosPendienteErpEmpty');
+        const listEl = document.getElementById('panelPedidosPendienteErpList');
+        if (!loadingEl || !emptyEl || !listEl) return;
+
+        if (!this.currentUser || !this.currentUser.is_administrador) {
+            window.ui.showToast('Solo el administrador puede ver esta pantalla', 'error');
+            this.showScreen('panelControl');
+            return;
+        }
+        if (!window.supabaseClient || typeof window.supabaseClient.getPedidosPendienteErpAdmin !== 'function') {
+            window.ui.showToast('Servicio no disponible', 'error');
+            return;
+        }
+
+        loadingEl.style.display = 'flex';
+        emptyEl.style.display = 'none';
+        listEl.style.display = 'none';
+        listEl.innerHTML = '';
+
+        try {
+            const pedidos = await window.supabaseClient.getPedidosPendienteErpAdmin();
+            loadingEl.style.display = 'none';
+
+            if (!pedidos || pedidos.length === 0) {
+                emptyEl.style.display = 'flex';
+                return;
+            }
+
+            listEl.style.display = 'block';
+            for (const pedido of pedidos) {
+                const orderCard = await this.createOrderCard(pedido);
+                listEl.appendChild(orderCard);
+            }
+        } catch (err) {
+            console.error('loadPanelPedidosPendienteErp:', err);
+            loadingEl.style.display = 'none';
+            emptyEl.style.display = 'flex';
+            window.ui.showToast('Error al cargar pedidos pendientes de ERP', 'error');
+        }
+    }
+
+    /**
      * Formatea una fecha para mostrar en hora de España (Europe/Madrid).
      * La base de datos puede guardar en UTC u otro horario; aqui se muestra siempre hora española.
      */
@@ -12700,9 +12764,15 @@ class ScanAsYouShopApp {
                 if (result.success) {
                     window.ui.showToast('Pedido enviado al ERP correctamente', 'success');
                     await this.loadMyOrders();
+                    if (this.currentScreen === 'panelPedidosPendienteErp') {
+                        await this.loadPanelPedidosPendienteErp();
+                    }
                 } else {
                     window.ui.showToast('No se pudo enviar al ERP. Se reintentara automaticamente.', 'warning');
                     await this.loadMyOrders();
+                    if (this.currentScreen === 'panelPedidosPendienteErp') {
+                        await this.loadPanelPedidosPendienteErp();
+                    }
                 }
                 return;
             }
@@ -12721,6 +12791,9 @@ class ScanAsYouShopApp {
                 window.ui.hideLoading();
                 window.ui.showToast('El pedido ya fue enviado al ERP', 'success');
                 await this.loadMyOrders();
+                if (this.currentScreen === 'panelPedidosPendienteErp') {
+                    await this.loadPanelPedidosPendienteErp();
+                }
                 return;
             }
             const almacen = carrito.almacen_destino || this.getEffectiveAlmacenHabitual() || '';
@@ -12738,6 +12811,9 @@ class ScanAsYouShopApp {
                 window.ui.hideLoading();
                 window.ui.showToast(response.message || 'El ERP rechazo el pedido', 'error');
                 await this.loadMyOrders();
+                if (this.currentScreen === 'panelPedidosPendienteErp') {
+                    await this.loadPanelPedidosPendienteErp();
+                }
                 return;
             }
             const pedidoErp = response && response.data && response.data.pedido != null ? response.data.pedido : null;
@@ -12756,6 +12832,9 @@ class ScanAsYouShopApp {
             window.ui.hideLoading();
             window.ui.showToast('Pedido enviado al ERP correctamente', 'success');
             await this.loadMyOrders();
+            if (this.currentScreen === 'panelPedidosPendienteErp') {
+                await this.loadPanelPedidosPendienteErp();
+            }
         } catch (err) {
             window.ui.hideLoading();
             const errMsg = err && (err.message || String(err));
@@ -12768,6 +12847,9 @@ class ScanAsYouShopApp {
                 }
                 window.ui.showToast(errMsg || 'Error de validacion ERP', 'error');
                 await this.loadMyOrders();
+                if (this.currentScreen === 'panelPedidosPendienteErp') {
+                    await this.loadPanelPedidosPendienteErp();
+                }
                 return;
             }
             if (this.isConnectionError(errMsg) && window.erpRetryQueue) {
@@ -12805,6 +12887,9 @@ class ScanAsYouShopApp {
                 window.ui.showToast(errMsg || 'Error al enviar al ERP', 'error');
             }
             await this.loadMyOrders();
+            if (this.currentScreen === 'panelPedidosPendienteErp') {
+                await this.loadPanelPedidosPendienteErp();
+            }
         }
     }
 

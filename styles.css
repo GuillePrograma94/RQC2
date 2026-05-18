@@ -7348,6 +7348,13 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     line-height: 1.45;
     margin: 0 0 1rem;
 }
+
+.panel-pedidos-erp-intro {
+    font-size: 0.88rem;
+    color: var(--gray-600);
+    line-height: 1.45;
+    margin: 0 0 1rem;
+}
 .familias-admin-list {
     display: flex;
     flex-direction: column;

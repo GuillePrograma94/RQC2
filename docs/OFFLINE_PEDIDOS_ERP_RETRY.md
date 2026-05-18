@@ -122,3 +122,15 @@ Con esto, un mismo carrito solo puede generar **un unico** envio al ERP, aunque 
 1. Flag `_running` como mutex: solo una ejecución de `runRetries()` a la vez.
 2. El item se elimina de IndexedDB **antes** de llamar al ERP (igual que `offlineOrderQueue.processAll()`).
 3. Si el ERP falla con error de red, el item se vuelve a insertar en IndexedDB con el contador de reintentos actualizado.
+
+---
+
+## 7. Panel de control (administrador): pedidos pendiente_erp
+
+El rol **ADMINISTRADOR** puede ver todos los pedidos con `estado_procesamiento = pendiente_erp` desde **Panel de control → Pedidos pendientes de ERP**.
+
+- **RPC:** `get_pedidos_pendiente_erp_admin()` (migracion `migration_get_pedidos_pendiente_erp_admin.sql`). Solo JWT con `app_metadata.es_administrador = true`.
+- **Cliente:** `supabase.js` → `getPedidosPendienteErpAdmin()`; `app.js` → `loadPanelPedidosPendienteErp()`.
+- **Reenvio manual:** misma accion que en Mis pedidos: pulsar el badge **Pend. enviar a ERP** en la tarjeta (`retryEnvioErp`). Tras el intento, la lista del panel se actualiza si el administrador sigue en esa pantalla.
+
+Ejecutar la migracion SQL en Supabase antes de usar la pantalla en produccion.

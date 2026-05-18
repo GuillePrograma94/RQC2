@@ -1199,6 +1199,26 @@ class SupabaseClient {
     }
 
     /**
+     * Pedidos con estado_procesamiento = pendiente_erp (todos los clientes).
+     * Solo administrador (RPC get_pedidos_pendiente_erp_admin).
+     * @returns {Promise<Array>}
+     */
+    async getPedidosPendienteErpAdmin() {
+        try {
+            if (!this.client) return [];
+            const { data, error } = await this.client.rpc('get_pedidos_pendiente_erp_admin');
+            if (error) {
+                console.error('Error getPedidosPendienteErpAdmin:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getPedidosPendienteErpAdmin:', err);
+            return [];
+        }
+    }
+
+    /**
      * Lista los clientes que puede atender un dependiente (segun su tienda).
      * @param {number} dependienteUserId - ID del dependiente (usuarios.id)
      * @returns {Promise<Array<{id: number, nombre: string, codigo_usuario: string}>>}
