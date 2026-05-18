@@ -45,7 +45,7 @@ BEGIN
         cc.almacen_destino::TEXT,
         cc.fecha_creacion,
         cc.total_productos,
-        cc.total_importe,
+        cc.total_importe::NUMERIC,
         cc.observaciones::TEXT,
         cc.nombre_operario::TEXT,
         cc.pedido_erp::TEXT,
