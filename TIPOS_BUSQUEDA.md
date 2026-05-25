@@ -236,7 +236,8 @@ Si no existe en principales:
 - **Solo descripción**: Búsqueda por todas las palabras en `descripcion` y `sinonimos`, insensible a mayúsculas y acentos
 - **Código + descripción**: Búsqueda combinada con lógica AND, en modo híbrido uniendo remoto + local
 - **Con `Solo mis compras`**: Búsqueda en historial personal del usuario, manteniendo activos el resto de chips (fabricante, oferta y precio)
-- **Refresco inmediato de chips**: al pulsar `Solo mis compras` o `Solo en oferta`, la búsqueda se relanza automáticamente (sin pulsar `Buscar`) cuando ya hay criterio o resultados en pantalla
+- **Refresco inmediato de chips**: al pulsar `Solo mis compras`, `Solo en oferta`, cambiar rango de precio o fabricante, la búsqueda se relanza automáticamente (sin pulsar `Buscar`) si hay texto en los campos, una familia activa o una búsqueda previa en la misma sesión. El cambio de almacén de stock solo actualiza los badges de stock en resultados ya mostrados.
+- **Ofertas sin tarifa**: si no hay `grupo_cliente` (usuario invitado o comercial sin cliente representado), el chip `Solo en oferta` muestra aviso y no deja el filtro activo en silencio.
 
 ### **Modo Híbrido durante Sincronización**
 - Cuando el catálogo local todavía se está descargando y hay conexión, la app consulta también Supabase para no perder cobertura.

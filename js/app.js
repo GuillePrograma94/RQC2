@@ -50,6 +50,8 @@ class ScanAsYouShopApp {
         this._inicioFamiliaPath = [];
         this.searchResultsChunkSize = 25;
         this._searchRenderState = null;
+        /** Ultimos criterios de busqueda validos (para re-filtrar al pulsar chips sin texto en inputs). */
+        this._lastSearchCriteria = null;
         this._searchResultsObserver = null;
         this.isCatalogSyncInProgress = false;
         this.catalogDataSourceMode = 'local';
@@ -5580,23 +5582,38 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Relanza la busqueda tras cambiar un chip si hay criterios en pantalla o una busqueda previa.
+     */
+    refreshSearchAfterChipChange() {
+        const code = document.getElementById('codeSearchInput')?.value.trim() || '';
+        const description = document.getElementById('descriptionSearchInput')?.value.trim() || '';
+        const codigoProveedor = this.filterChips.codigoProveedor || '';
+        const familia = this.filterChips.codigoModificarFamilia || '';
+        const hasInputs = !!(code || description || codigoProveedor || familia);
+        const hasPriorResults = (this._searchRenderState?.productos?.length || 0) > 0;
+        const hasLastCriteria = !!this._lastSearchCriteria;
+
+        if (hasInputs || hasPriorResults || hasLastCriteria) {
+            this.performSearch({ useLastCriteria: !hasInputs && hasLastCriteria });
+        }
+    }
+
+    /**
+     * Vuelve a pintar resultados ya cargados (p. ej. al cambiar almacen de stock sin nueva busqueda).
+     */
+    async _reRenderSearchResultsFromState() {
+        const state = this._searchRenderState;
+        if (!state || !state.productos || state.productos.length === 0) return;
+        await this.displaySearchResults(state.productos, state.isFromHistory);
+    }
+
+    /**
      * Configura toda la logica de interaccion de los chips de filtro de busqueda.
      * Debe llamarse una vez en setupScreens().
      */
     setupFilterChips() {
         const self = this;
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        const refreshSearchIfNeeded = () => {
-            const code = document.getElementById('codeSearchInput')?.value.trim() || '';
-            const description = document.getElementById('descriptionSearchInput')?.value.trim() || '';
-            const codigoProveedor = self.filterChips.codigoProveedor || '';
-            const familia = self.filterChips.codigoModificarFamilia || '';
-            const hasResults = (document.getElementById('searchResultsList')?.children.length || 0) > 0;
-
-            if (code || description || codigoProveedor || familia || hasResults) {
-                self.performSearch();
-            }
-        };
         const bindTap = (el, handler) => {
             if (!el || typeof handler !== 'function') return;
             if (!isIOS) {
@@ -5606,11 +5623,12 @@ class ScanAsYouShopApp {
             let touchMoved = false;
             let touchStartX = 0;
             let touchStartY = 0;
-            let lastTouchMs = 0;
+            let handledByTouch = false;
 
             el.addEventListener('touchstart', (e) => {
                 const t = e.changedTouches && e.changedTouches[0];
                 touchMoved = false;
+                handledByTouch = false;
                 touchStartX = t ? t.clientX : 0;
                 touchStartY = t ? t.clientY : 0;
             }, { passive: true });
@@ -5618,20 +5636,23 @@ class ScanAsYouShopApp {
             el.addEventListener('touchmove', (e) => {
                 const t = e.changedTouches && e.changedTouches[0];
                 if (!t) return;
-                if (Math.abs(t.clientX - touchStartX) > 8 || Math.abs(t.clientY - touchStartY) > 8) {
+                if (Math.abs(t.clientX - touchStartX) > 12 || Math.abs(t.clientY - touchStartY) > 12) {
                     touchMoved = true;
                 }
             }, { passive: true });
 
             el.addEventListener('touchend', (e) => {
                 if (touchMoved) return;
-                lastTouchMs = Date.now();
+                handledByTouch = true;
                 e.preventDefault();
                 handler(e);
             }, { passive: false });
 
             el.addEventListener('click', (e) => {
-                if (Date.now() - lastTouchMs < 500) return;
+                if (handledByTouch) {
+                    handledByTouch = false;
+                    return;
+                }
                 handler(e);
             });
         };
@@ -5643,7 +5664,7 @@ class ScanAsYouShopApp {
                 self.filterChips.misCompras = !self.filterChips.misCompras;
                 chipMisCompras.classList.toggle('active', self.filterChips.misCompras);
                 self._closeChipConfig();
-                refreshSearchIfNeeded();
+                self.refreshSearchAfterChipChange();
             });
         }
 
@@ -5654,7 +5675,7 @@ class ScanAsYouShopApp {
                 self.filterChips.oferta = !self.filterChips.oferta;
                 chipOferta.classList.toggle('active', self.filterChips.oferta);
                 self._closeChipConfig();
-                refreshSearchIfNeeded();
+                self.refreshSearchAfterChipChange();
             });
         }
 
@@ -5684,7 +5705,7 @@ class ScanAsYouShopApp {
                 }
             });
         }
-        self._setupFabricanteProveedorCombobox(refreshSearchIfNeeded);
+        self._setupFabricanteProveedorCombobox();
 
         // --- Chip: Precio (abre/cierra inputs desde/hasta) ---
         const chipPrecio = document.getElementById('chipPrecio');
@@ -5725,14 +5746,28 @@ class ScanAsYouShopApp {
                 if (chipPr) chipPr.classList.remove('active');
             }
         };
+        let precioRefreshTimer = null;
+        const schedulePrecioSearchRefresh = () => {
+            updatePrecioChip();
+            clearTimeout(precioRefreshTimer);
+            precioRefreshTimer = setTimeout(() => self.refreshSearchAfterChipChange(), 400);
+        };
         if (precioDesdeInput) {
-            precioDesdeInput.addEventListener('input', updatePrecioChip);
+            precioDesdeInput.addEventListener('input', schedulePrecioSearchRefresh);
+            precioDesdeInput.addEventListener('change', () => {
+                updatePrecioChip();
+                self.refreshSearchAfterChipChange();
+            });
             precioDesdeInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') self.performSearch();
             });
         }
         if (precioHastaInput) {
-            precioHastaInput.addEventListener('input', updatePrecioChip);
+            precioHastaInput.addEventListener('input', schedulePrecioSearchRefresh);
+            precioHastaInput.addEventListener('change', () => {
+                updatePrecioChip();
+                self.refreshSearchAfterChipChange();
+            });
             precioHastaInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') self.performSearch();
             });
@@ -5919,15 +5954,13 @@ class ScanAsYouShopApp {
             if (labelEl) labelEl.textContent = 'Fabricante';
             if (chip) chip.classList.remove('active');
         }
-        if (typeof this._refreshSearchIfNeeded === 'function') this._refreshSearchIfNeeded();
+        this.refreshSearchAfterChipChange();
     }
 
     /**
      * Configura eventos del combobox fabricante (input + dropdown). Busqueda solo por nombre/alias.
-     * @param {function} refreshSearchIfNeeded
      */
-    _setupFabricanteProveedorCombobox(refreshSearchIfNeeded) {
-        this._refreshSearchIfNeeded = refreshSearchIfNeeded;
+    _setupFabricanteProveedorCombobox() {
         const input = document.getElementById('fabricanteProveedorInput');
         const dropdown = document.getElementById('fabricanteProveedorDropdown');
         const hiddenCodigo = document.getElementById('fabricanteProveedorCodigo');
@@ -6036,10 +6069,10 @@ class ScanAsYouShopApp {
                 if (chipAlmacen) {
                     chipAlmacen.classList.toggle('active', op.value !== null);
                 }
-                // Si hay resultados, re-buscar con nuevo filtro
-                const resultsList = document.getElementById('searchResultsList');
-                if (resultsList && resultsList.children.length > 0) {
-                    this.performSearch();
+                if (this._searchRenderState?.productos?.length > 0) {
+                    this._reRenderSearchResultsFromState();
+                } else {
+                    this.refreshSearchAfterChipChange();
                 }
             });
             container.appendChild(btn);
@@ -8157,18 +8190,29 @@ class ScanAsYouShopApp {
     /**
      * Realiza la búsqueda
      */
-    async performSearch() {
+    async performSearch(options = {}) {
         const codeInput = document.getElementById('codeSearchInput');
         const descInput = document.getElementById('descriptionSearchInput');
-        
-        const code        = codeInput?.value.trim() || '';
-        const description = descInput?.value.trim() || '';
-        const codigoProveedor = this.filterChips.codigoProveedor || '';
+
+        let code        = codeInput?.value.trim() || '';
+        let description = descInput?.value.trim() || '';
+        let codigoProveedor = this.filterChips.codigoProveedor || '';
         const onlyPurchased = this.filterChips.misCompras;
         const soloOfertas   = this.filterChips.oferta;
         const precioDesde   = this.filterChips.precioDesde;
         const precioHasta   = this.filterChips.precioHasta;
-        const familyCodNorm = String(this.filterChips.codigoModificarFamilia || '').trim().toUpperCase();
+        let familyCodNorm = String(this.filterChips.codigoModificarFamilia || '').trim().toUpperCase();
+
+        const hasDirectCriteria = !!(code || description || codigoProveedor || familyCodNorm);
+        if (!hasDirectCriteria && options.useLastCriteria && this._lastSearchCriteria) {
+            const last = this._lastSearchCriteria;
+            code = last.code || '';
+            description = last.description || '';
+            codigoProveedor = last.codigoProveedor || codigoProveedor;
+            if (!familyCodNorm && last.familyCodNorm) {
+                familyCodNorm = String(last.familyCodNorm).trim().toUpperCase();
+            }
+        }
 
         if (familyCodNorm && window.cartManager && !window.cartManager.db) {
             window.ui.showToast('Indice local aun no listo. Espera un momento y vuelve a buscar.', 'warning');
@@ -8184,6 +8228,20 @@ class ScanAsYouShopApp {
 
         if (!code && !description && !codigoProveedor && !familyCodNorm) {
             window.ui.showToast('Introduce codigo, descripcion, fabricante o elige una familia desde Inicio', 'warning');
+            return;
+        }
+
+        this._lastSearchCriteria = {
+            code,
+            description,
+            codigoProveedor,
+            familyCodNorm
+        };
+
+        if (soloOfertas && !this.getEffectiveGrupoCliente()) {
+            window.ui.showToast('No hay tarifa de cliente para filtrar ofertas. Inicia sesion o selecciona un cliente.', 'info');
+            this.filterChips.oferta = false;
+            document.getElementById('chipOferta')?.classList.remove('active');
             return;
         }
 
@@ -8300,9 +8358,11 @@ class ScanAsYouShopApp {
             }
 
             // Filtro de ofertas
-            if (soloOfertas && window.cartManager && window.cartManager.db) {
-                const codigoCliente = this.getEffectiveGrupoCliente() || null;
-                if (codigoCliente) {
+            if (soloOfertas) {
+                if (!window.cartManager || !window.cartManager.db) {
+                    window.ui.showToast('Catalogo local aun no listo para filtrar ofertas. Espera la sincronizacion.', 'warning');
+                } else {
+                    const codigoCliente = this.getEffectiveGrupoCliente();
                     const ofertasProductos = await window.cartManager.getAllOfertasProductosFromCache(codigoCliente);
                     const codigosConOferta = new Set(ofertasProductos.map(op => op.codigo_articulo.toUpperCase()));
                     productos = productos.filter(p => codigosConOferta.has(p.codigo.toUpperCase()));
@@ -9117,6 +9177,7 @@ class ScanAsYouShopApp {
 
         this._cleanupSearchInfiniteScroll();
         this._searchRenderState = null;
+        this._lastSearchCriteria = null;
 
         if (codeInput) codeInput.value = '';
         if (descInput) descInput.value = '';
