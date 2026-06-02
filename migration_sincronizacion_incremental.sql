@@ -438,7 +438,6 @@ BEGIN
         v_codigo_prod := (producto_item->>'codigo')::TEXT;
         v_descripcion := (producto_item->>'descripcion')::TEXT;
         v_pvp := (producto_item->>'pvp')::REAL;
-        v_sinonimos := NULLIF(TRIM(COALESCE((producto_item->>'sinonimos')::TEXT, '')), '');
         
         -- Verificar si existe (usar variable explícita)
         SELECT EXISTS(
@@ -457,7 +456,9 @@ BEGIN
             SET 
                 descripcion = TRIM(COALESCE(v_descripcion, '')),
                 pvp = ROUND(v_pvp::numeric, 2)::real,
-                sinonimos = v_sinonimos
+                sinonimos = CASE WHEN producto_item ? 'sinonimos' THEN
+                    NULLIF(TRIM(COALESCE((producto_item->>'sinonimos')::TEXT, '')), '')
+                ELSE productos.sinonimos END
             WHERE productos.codigo = v_codigo_prod;
             
             -- Obtener fecha DESPUÉS del update
@@ -475,6 +476,9 @@ BEGIN
             END IF;
             -- Si la fecha no cambió, no retornamos nada (datos idénticos)
         ELSE
+            v_sinonimos := CASE WHEN producto_item ? 'sinonimos' THEN
+                NULLIF(TRIM(COALESCE((producto_item->>'sinonimos')::TEXT, '')), '')
+            ELSE NULL END;
             v_fecha_actual := NOW();
             -- INSERT: Crear nuevo
             INSERT INTO productos (codigo, descripcion, pvp, sinonimos, fecha_creacion, fecha_actualizacion)
@@ -494,7 +498,7 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION upsert_productos_masivo_con_fecha IS 
 'UPSERT masivo de productos. Solo actualiza fecha_actualizacion cuando descripcion, pvp o sinonimos cambian.
-Recibe un JSONB con array de productos (codigo, descripcion, pvp, sinonimos opcional).
+Recibe un JSONB con array de productos (codigo, descripcion, pvp; sinonimos opcional, en UPDATE se conserva si no viene).
 IMPORTANTE: Solo retorna filas para productos que cambiaron (INSERT o UPDATE con cambio real).
 Productos con datos idénticos no retornan filas (optimización).';
 

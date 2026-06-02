@@ -54,7 +54,7 @@ Variables para ERP (no se exponen al frontend):
 Endpoints del ERP:
 - `POST /api/tienda/v1/login` - Obtener token
 - `GET /api/tienda/v1/test` - Probar conectividad
-- `POST /api/tienda/v1/pedidos/crear` - Crear pedido (serie, centro_venta, lineas, etc.)
+- `POST /api/tienda/v1/pedidos/crear_tipo` - Crear pedido (serie, centro_venta, tipo REMOTO/PRESENCIAL, lineas, etc.)
 - `GET /api/tienda/v1/pedidos/prueba` - Probar pedidos (con token)
 - `GET /api/tienda/v1/articulos/pvp?codigo=XXX` - Obtener PVP (con token)
 
@@ -62,7 +62,7 @@ Endpoints del ERP:
 |-----|-------|--------|
 | `ERP_BASE_URL` | Base URL del ERP en HTTPS (ej: `https://api.saneamiento-martinez.com:5002/api/tienda/v1`) | Requerido |
 | `ERP_LOGIN_PATH` | Ruta de login del ERP: `/login` | Requerido |
-| `ERP_CREATE_ORDER_PATH` | Ruta de crear pedido: `/pedidos/crear` | Requerido |
+| `ERP_CREATE_ORDER_PATH` | Ruta de crear pedido: `/pedidos/crear_tipo` | Requerido |
 | `ERP_USER` | Usuario del ERP con el que la API hace login (ej: `APP_TIENDA` en produccion). El ERP mostrara este usuario como "quien creo el pedido". | Requerido |
 | `ERP_PASSWORD` | Contraseña del ERP | Requerido |
 | `ERP_REQUEST_TIMEOUT_MS` | Timeout en ms (ej: `15000`) | Opcional |

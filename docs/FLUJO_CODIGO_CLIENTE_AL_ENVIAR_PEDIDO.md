@@ -203,6 +203,7 @@ return {
     centro_venta: centro_venta,
     referencia: ref,
     observaciones: observaciones != null ? String(observaciones) : '',
+    tipo: 'REMOTO',
     lineas: lineas
 };
 ```
@@ -241,6 +242,7 @@ return await this._requestProxy(this.proxyPath, {
   "centro_venta": "1",
   "referencia": "RQC/12345-847291",
   "observaciones": "RECOGER EN ALMACEN GANDIA - Sin comentarios",
+  "tipo": "REMOTO",
   "lineas": [
     { "codigo_articulo": "ART001", "unidades": 2 },
     { "codigo_articulo": "ART002", "unidades": 1 }

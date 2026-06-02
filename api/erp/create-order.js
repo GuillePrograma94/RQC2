@@ -1,8 +1,8 @@
 /**
  * Serverless function para Vercel
  * Crea pedidos en ERP via POST al endpoint configurado en ERP_CREATE_ORDER_PATH.
- * Ejemplo: ERP_CREATE_ORDER_PATH=/pedidos/crear -> https://.../api/tienda/v1/pedidos/crear
- * Reenvia el body del POST (serie, centro_venta, lineas, etc.) con Bearer token.
+ * Ejemplo: ERP_CREATE_ORDER_PATH=/pedidos/crear_tipo -> https://.../api/tienda/v1/pedidos/crear_tipo
+ * Reenvia el body del POST (serie, centro_venta, tipo, lineas, etc.) con Bearer token.
  *
  * Comprobacion anti-duplicados: antes de enviar al ERP se consulta la tabla
  * erp_referencias_comprobacion. Si la referencia (ej: RQC/312-995618) ya existe,

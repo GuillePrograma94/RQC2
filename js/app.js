@@ -10826,6 +10826,7 @@ class ScanAsYouShopApp {
             centro_venta: centro_venta,
             referencia: ref,
             observaciones: observaciones != null ? String(observaciones) : '',
+            tipo: 'REMOTO',
             lineas: lineas
         };
     }
@@ -10856,6 +10857,7 @@ class ScanAsYouShopApp {
             centro_venta: centro_venta,
             referencia: referencia,
             observaciones: observaciones,
+            tipo: 'REMOTO',
             lineas: lineas
         };
     }

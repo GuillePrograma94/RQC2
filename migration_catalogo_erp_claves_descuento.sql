@@ -222,8 +222,6 @@ BEGIN
         v_codigo_prod := (producto_item->>'codigo')::TEXT;
         v_descripcion := (producto_item->>'descripcion')::TEXT;
         v_pvp := (producto_item->>'pvp')::REAL;
-        v_sinonimos := NULLIF(TRIM(COALESCE((producto_item->>'sinonimos')::TEXT, '')), '');
-        v_codigo_proveedor := NULLIF(TRIM(COALESCE((producto_item->>'codigo_proveedor')::TEXT, '')), '');
 
         SELECT EXISTS(SELECT 1 FROM productos pr WHERE pr.codigo = v_codigo_prod) INTO v_existe;
 
@@ -246,8 +244,12 @@ BEGIN
             SET
                 descripcion = TRIM(COALESCE(v_descripcion, '')),
                 pvp = ROUND(v_pvp::numeric, 2)::real,
-                sinonimos = v_sinonimos,
-                codigo_proveedor = v_codigo_proveedor,
+                sinonimos = CASE WHEN producto_item ? 'sinonimos' THEN
+                    NULLIF(TRIM(COALESCE((producto_item->>'sinonimos')::TEXT, '')), '')
+                ELSE productos.sinonimos END,
+                codigo_proveedor = CASE WHEN producto_item ? 'codigo_proveedor' THEN
+                    NULLIF(TRIM(COALESCE((producto_item->>'codigo_proveedor')::TEXT, '')), '')
+                ELSE productos.codigo_proveedor END,
                 clave_descuento = v_clave_descuento,
                 activo = v_activo,
                 activo_web = v_activo_web
@@ -261,6 +263,12 @@ BEGIN
                 SELECT v_codigo_prod::TEXT, v_accion::TEXT, v_fecha_actual;
             END IF;
         ELSE
+            v_sinonimos := CASE WHEN producto_item ? 'sinonimos' THEN
+                NULLIF(TRIM(COALESCE((producto_item->>'sinonimos')::TEXT, '')), '')
+            ELSE NULL END;
+            v_codigo_proveedor := CASE WHEN producto_item ? 'codigo_proveedor' THEN
+                NULLIF(TRIM(COALESCE((producto_item->>'codigo_proveedor')::TEXT, '')), '')
+            ELSE NULL END;
             v_clave_descuento := CASE WHEN producto_item ? 'clave_descuento' THEN
                 NULLIF(TRIM(COALESCE((producto_item->>'clave_descuento')::TEXT, '')), '')
             ELSE NULL END;
@@ -297,7 +305,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION upsert_productos_masivo_con_fecha(JSONB) IS
-'UPSERT masivo productos. JSON: codigo, descripcion, pvp, sinonimos?, codigo_proveedor?, clave_descuento?, activo?, activo_web?.';
+'UPSERT masivo productos. JSON: codigo, descripcion, pvp; sinonimos y codigo_proveedor opcionales (en UPDATE se conservan si no vienen). clave_descuento?, activo?, activo_web?.';
 
 -- -----------------------------------------------------------------------------
 -- 8b. Import ERP catalogo: solo flags (no tocar descripcion, pvp, sinonimos, etc.)

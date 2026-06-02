@@ -125,8 +125,6 @@ BEGIN
         v_codigo_prod := (producto_item->>'codigo')::TEXT;
         v_descripcion := (producto_item->>'descripcion')::TEXT;
         v_pvp := (producto_item->>'pvp')::REAL;
-        v_sinonimos := NULLIF(TRIM(COALESCE((producto_item->>'sinonimos')::TEXT, '')), '');
-        v_codigo_proveedor := NULLIF(TRIM(COALESCE((producto_item->>'codigo_proveedor')::TEXT, '')), '');
 
         SELECT EXISTS(
             SELECT 1 
@@ -142,8 +140,12 @@ BEGIN
             SET 
                 descripcion = TRIM(COALESCE(v_descripcion, '')),
                 pvp = ROUND(v_pvp::numeric, 2)::real,
-                sinonimos = v_sinonimos,
-                codigo_proveedor = v_codigo_proveedor
+                sinonimos = CASE WHEN producto_item ? 'sinonimos' THEN
+                    NULLIF(TRIM(COALESCE((producto_item->>'sinonimos')::TEXT, '')), '')
+                ELSE productos.sinonimos END,
+                codigo_proveedor = CASE WHEN producto_item ? 'codigo_proveedor' THEN
+                    NULLIF(TRIM(COALESCE((producto_item->>'codigo_proveedor')::TEXT, '')), '')
+                ELSE productos.codigo_proveedor END
             WHERE productos.codigo = v_codigo_prod;
 
             SELECT productos.fecha_actualizacion INTO v_fecha_actual
@@ -158,6 +160,12 @@ BEGIN
                     v_fecha_actual;
             END IF;
         ELSE
+            v_sinonimos := CASE WHEN producto_item ? 'sinonimos' THEN
+                NULLIF(TRIM(COALESCE((producto_item->>'sinonimos')::TEXT, '')), '')
+            ELSE NULL END;
+            v_codigo_proveedor := CASE WHEN producto_item ? 'codigo_proveedor' THEN
+                NULLIF(TRIM(COALESCE((producto_item->>'codigo_proveedor')::TEXT, '')), '')
+            ELSE NULL END;
             v_fecha_actual := NOW();
             INSERT INTO productos (codigo, descripcion, pvp, sinonimos, codigo_proveedor, fecha_creacion, fecha_actualizacion)
             VALUES (v_codigo_prod, TRIM(COALESCE(v_descripcion, '')), ROUND(v_pvp::numeric, 2)::real, v_sinonimos, v_codigo_proveedor, v_fecha_actual, v_fecha_actual);

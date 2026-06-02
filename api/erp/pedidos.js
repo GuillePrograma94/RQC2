@@ -1,13 +1,13 @@
 /**
  * Serverless function para Vercel
- * Pedidos: GET al ERP /pedidos/prueba (prueba), POST al ERP /pedidos/crear (crear pedido).
+ * Pedidos: GET al ERP /pedidos/prueba (prueba), POST al ERP /pedidos/crear_tipo (crear pedido).
  * Requiere token Bearer (hace login automaticamente).
  */
 
 const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
 
 /**
- * Adapta el payload del cliente al formato que espera el ERP en POST /pedidos/crear.
+ * Adapta el payload del cliente al formato que espera el ERP en POST /pedidos/crear_tipo.
  * El ERP exige lineas[] (minimo 1). El formulario de test envia articulos[].
  */
 function buildCreateOrderPayload(body) {
@@ -45,7 +45,7 @@ module.exports = async (req, res) => {
     const baseUrl = process.env.ERP_BASE_URL || '';
     const loginPath = process.env.ERP_LOGIN_PATH || '/login';
     const pedidosPruebaPath = '/pedidos/prueba';
-    const createOrderPath = process.env.ERP_CREATE_ORDER_PATH || '/pedidos/crear';
+    const createOrderPath = process.env.ERP_CREATE_ORDER_PATH || '/pedidos/crear_tipo';
     const username = process.env.ERP_USER || '';
     const password = process.env.ERP_PASSWORD || '';
     const timeoutMs = parseInt(process.env.ERP_REQUEST_TIMEOUT_MS || '15000', 10);
