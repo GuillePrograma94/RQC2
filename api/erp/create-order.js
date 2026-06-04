@@ -11,48 +11,7 @@
 
 const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
 const { createClient } = require('@supabase/supabase-js');
-
-/**
- * Adapta articulos[] a lineas[] si hace falta.
- */
-function buildCreateOrderPayload(body) {
-    const payload = Object.assign({}, body || {});
-    if (Array.isArray(payload.lineas) && payload.lineas.length > 0) {
-        return payload;
-    }
-    if (Array.isArray(payload.articulos) && payload.articulos.length > 0) {
-        payload.lineas = payload.articulos.map((a) => ({
-            codigo_articulo: a.codigo_articulo || a.codigo,
-            unidades: a.unidades != null ? a.unidades : a.cantidad
-        }));
-    } else {
-        payload.lineas = [];
-    }
-    return payload;
-}
-
-/**
- * Body alineado con contrato ERP crear_tipo (Postman oficial).
- * No reenviar codigo_usuario_erp: duplica codigo_cliente y el SP devuelve error 8144.
- */
-function sanitizeErpCreateOrderPayload(body) {
-    const raw = buildCreateOrderPayload(body);
-    let codigoCliente = raw.codigo_cliente;
-    if (codigoCliente === undefined || codigoCliente === null || codigoCliente === '') {
-        codigoCliente = raw.codigo_usuario_erp;
-    }
-    const tipoRaw = (raw.tipo != null ? String(raw.tipo) : 'REMOTO').trim().toUpperCase();
-    const tipo = tipoRaw === 'PRESENCIAL' ? 'PRESENCIAL' : 'REMOTO';
-    return {
-        codigo_cliente: codigoCliente,
-        serie: raw.serie,
-        centro_venta: raw.centro_venta,
-        referencia: raw.referencia,
-        observaciones: raw.observaciones != null ? String(raw.observaciones) : '',
-        tipo: tipo,
-        lineas: raw.lineas || []
-    };
-}
+const { analyzePayloadDiff } = require('./erp-payload');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -91,8 +50,13 @@ module.exports = async (req, res) => {
         return;
     }
 
+    let payloadAnalysis = null;
+    let payload = null;
+
     try {
-        const payload = sanitizeErpCreateOrderPayload(req.body || {});
+        const clientBody = req.body || {};
+        payloadAnalysis = analyzePayloadDiff(clientBody);
+        payload = payloadAnalysis.sanitizedBody;
 
         // Comprobacion anti-duplicados: si la referencia ya se envio al ERP, devolver pedido_erp sin llamar a la API
         const referencia = payload.referencia || '';
@@ -147,9 +111,20 @@ module.exports = async (req, res) => {
             }
         }
 
-        res.status(200).json(orderResponse);
+        res.status(200).json({
+            ...orderResponse,
+            _debug: {
+                payloadSent: payload,
+                payloadAnalysis: payloadAnalysis,
+                erpCreateOrderPath: createOrderPath
+            }
+        });
     } catch (error) {
-        res.status(502).json({ message: error.message || 'Error en ERP' });
+        res.status(502).json({
+            message: error.message || 'Error en ERP',
+            payloadSent: error.payloadSent || payload,
+            payloadAnalysis: payloadAnalysis
+        });
     }
 };
 
@@ -187,7 +162,9 @@ async function sendOrderToErp({ baseUrl, createOrderPath, token, payload, timeou
     const data = await parseJsonResponse(response);
     if (!response.ok) {
         const statusMessage = data && data.message ? data.message : response.statusText;
-        throw new Error(`ERP order error ${response.status}: ${statusMessage}`);
+        const err = new Error(`ERP order error ${response.status}: ${statusMessage}`);
+        err.payloadSent = payload;
+        throw err;
     }
 
     return data;

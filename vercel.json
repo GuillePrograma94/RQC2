@@ -2,6 +2,9 @@
   "version": 2,
   "buildCommand": "node build.js",
   "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/test_api_erp", "destination": "/test_api_erp.html" }
+  ],
   "headers": [
     {
       "source": "/sw.js",

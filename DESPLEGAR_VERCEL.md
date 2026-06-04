@@ -116,6 +116,21 @@ En tu móvil:
 
 La app móvil **no** envía usuario/contraseña del ERP; quien hace el login es la API en Vercel leyendo `ERP_USER` y `ERP_PASSWORD`. El ERP suele mostrar como "usuario que creó el pedido" el usuario con el que se obtuvo el token (es decir, el valor de `ERP_USER` en Vercel). Si en el ERP aparece TIENDA_PRU en vez de APP_TIENDA, es porque en Vercel sigue configurado `ERP_USER=TIENDA_PRU`; actualiza a `APP_TIENDA` y redeploy. Por eso el cambio solo tiene efecto cuando actualizas esas variables en el proyecto de Vercel y vuelves a desplegar.
 
+### Panel de pruebas ERP (`/test_api_erp`)
+
+Tras desplegar en Vercel, abre:
+
+`https://tu-proyecto.vercel.app/test_api_erp`
+
+Permite:
+
+1. **dryRun**: ver `clientPayload`, `sanitizedPayload` y la URL exacta sin llamar al ERP.
+2. **Enviar al ERP**: desmarcar dryRun y usar referencia unica (boton "Nueva referencia unica").
+3. Comparar `/pedidos/crear_tipo` vs `/pedidos/crear` (selector de ruta).
+4. Reproducir el error 8144 marcando `codigo_usuario_erp`.
+
+Endpoint de diagnostico: `POST /api/erp/debug-pedido` (misma sanitizacion que produccion).
+
 ### Error 500 / 502: "vs_app_pedidos_crea_pedidos tiene demasiados argumentos" (8144)
 
 **Causa habitual**: el body enviado al ERP incluye claves que el procedimiento almacenado no admite. El contrato oficial de `POST /pedidos/crear_tipo` solo admite: `codigo_cliente`, `serie`, `centro_venta`, `referencia`, `observaciones`, `tipo`, `lineas`. En concreto, **`codigo_usuario_erp` duplica `codigo_cliente`** y provoca el error 8144.
@@ -180,7 +195,9 @@ Una vez desplegado, puedes probar los endpoints del ERP de dos formas:
 
 Abre en tu navegador la página de pruebas:
 ```
-https://tu-proyecto.vercel.app/test-erp.html
+https://tu-proyecto.vercel.app/test_api_erp (recomendado, diagnostico controlado)
+
+https://tu-proyecto.vercel.app/test-erp.html (panel antiguo)
 ```
 
 Esta página te permite:

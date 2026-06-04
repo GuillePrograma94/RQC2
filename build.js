@@ -50,7 +50,9 @@ const staticFiles = [
     'sw.js',
     'config.js',
     'styles.css',
-    'manifest.json'
+    'manifest.json',
+    'test_api_erp.html',
+    'test-erp.html'
 ];
 
 staticFiles.forEach(function (name) {

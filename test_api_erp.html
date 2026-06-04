@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API ERP (controlado)</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: Consolas, 'Courier New', monospace;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        h1 { font-size: 20px; margin-bottom: 6px; color: #38bdf8; }
+        .sub { color: #94a3b8; font-size: 13px; margin-bottom: 20px; font-family: system-ui, sans-serif; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+        .panel {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+        .panel h2 {
+            font-size: 14px;
+            color: #fbbf24;
+            margin-bottom: 10px;
+            font-family: system-ui, sans-serif;
+        }
+        label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px; font-family: system-ui, sans-serif; }
+        input, select, textarea {
+            width: 100%;
+            background: #0f172a;
+            border: 1px solid #475569;
+            color: #e2e8f0;
+            border-radius: 4px;
+            padding: 8px;
+            font-family: inherit;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+        textarea { min-height: 220px; resize: vertical; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        button {
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: system-ui, sans-serif;
+        }
+        button.secondary { background: #475569; }
+        button.warn { background: #b45309; }
+        button.ok { background: #15803d; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        pre {
+            background: #020617;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 11px;
+            overflow: auto;
+            max-height: 420px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .ok-box { border-color: #166534; }
+        .err-box { border-color: #991b1b; }
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-right: 6px;
+            font-family: system-ui, sans-serif;
+        }
+        .tag-remoto { background: #1d4ed8; }
+        .tag-presencial { background: #7c3aed; }
+        .tag-warn { background: #92400e; }
+        .checkline { font-family: system-ui, sans-serif; font-size: 12px; margin-bottom: 6px; }
+        a { color: #38bdf8; }
+    </style>
+</head>
+<body>
+    <h1>Test API ERP (controlado)</h1>
+    <p class="sub">
+        Pagina de diagnostico: muestra body del cliente, body que envia Vercel al ERP (sanitizado), URL y respuesta.
+        Pedido remoto = mismo contrato que app movil: <code>/pedidos/crear_tipo</code> + <code>"tipo":"REMOTO"</code>.
+        <a href="test-erp.html">Panel antiguo test-erp.html</a>
+    </p>
+
+    <div class="panel">
+        <h2>Configuracion de la prueba</h2>
+        <label>Origen (proxy Vercel)</label>
+        <input type="text" id="baseOrigin" readonly>
+
+        <label>Endpoint de diagnostico</label>
+        <input type="text" id="debugEndpoint" value="/api/erp/debug-pedido" readonly>
+
+        <label>Ruta ERP a usar (override opcional; vacio = variable Vercel ERP_CREATE_ORDER_PATH)</label>
+        <select id="pathOverride">
+            <option value="">(usar ERP_CREATE_ORDER_PATH en Vercel)</option>
+            <option value="/pedidos/crear_tipo" selected>/pedidos/crear_tipo (nuevo, con tipo)</option>
+            <option value="/pedidos/crear">/pedidos/crear (legacy, sin tipo en URL)</option>
+        </select>
+
+        <div class="row">
+            <label class="checkline"><input type="checkbox" id="dryRun" checked> dryRun (no llamar al ERP, solo ver que se enviaria)</label>
+            <label class="checkline"><input type="checkbox" id="includeLegacy"> Incluir codigo_usuario_erp (reproducir error 8144)</label>
+        </div>
+
+        <div class="row">
+            <button type="button" class="ok" onclick="presetRemotoApp()">Preset REMOTO (app movil)</button>
+            <button type="button" class="secondary" onclick="presetRemotoConBug()">Preset REMOTO + codigo_usuario_erp (bug)</button>
+            <button type="button" class="secondary" onclick="presetPresencial()">Preset PRESENCIAL</button>
+            <button type="button" class="warn" onclick="nuevaReferencia()">Nueva referencia unica</button>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="panel">
+            <h2>1. Body que envias (cliente / simulacion app)</h2>
+            <textarea id="payloadJson"></textarea>
+            <div class="row">
+                <button type="button" onclick="validarJson()">Validar JSON</button>
+                <button type="button" class="ok" onclick="ejecutarDebug()">Ejecutar diagnostico</button>
+                <button type="button" class="secondary" onclick="ejecutarPedidosProxy()">Probar via /api/erp/pedidos (produccion)</button>
+            </div>
+        </div>
+        <div class="panel">
+            <h2>2. Resultado</h2>
+            <div id="statusLine" class="sub" style="margin-bottom:8px;">Sin ejecutar</div>
+            <pre id="resultBox">{}</pre>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>Que debe llevar un pedido REMOTO (checklist)</h2>
+        <pre id="checklistBox">{
+  "codigo_cliente": "79280",
+  "serie": "BT7",
+  "centro_venta": "1",
+  "referencia": "RQC/TEST-UNICO",
+  "observaciones": "",
+  "tipo": "REMOTO",
+  "lineas": [{ "codigo_articulo": "ART001", "unidades": 1 }]
+}
+
+NO enviar: codigo_usuario_erp
+URL ERP: POST .../pedidos/crear_tipo
+</pre>
+    </div>
+
+    <script>
+        const baseOriginInput = document.getElementById('baseOrigin');
+        const payloadJson = document.getElementById('payloadJson');
+        const resultBox = document.getElementById('resultBox');
+        const statusLine = document.getElementById('statusLine');
+
+        baseOriginInput.value = window.location.origin;
+
+        function defaultPayload(tipo) {
+            const ref = 'RQC/TEST-' + Date.now();
+            return {
+                codigo_cliente: '79280',
+                serie: 'BT7',
+                centro_venta: '1',
+                referencia: ref,
+                observaciones: 'Test controlado test_api_erp',
+                tipo: tipo || 'REMOTO',
+                lineas: [
+                    { codigo_articulo: '02521008680', unidades: 1 }
+                ]
+            };
+        }
+
+        payloadJson.value = JSON.stringify(defaultPayload('REMOTO'), null, 2);
+
+        function presetRemotoApp() {
+            payloadJson.value = JSON.stringify(defaultPayload('REMOTO'), null, 2);
+            document.getElementById('pathOverride').value = '/pedidos/crear_tipo';
+            document.getElementById('includeLegacy').checked = false;
+        }
+
+        function presetRemotoConBug() {
+            const p = defaultPayload('REMOTO');
+            p.codigo_usuario_erp = p.codigo_cliente;
+            payloadJson.value = JSON.stringify(p, null, 2);
+            document.getElementById('includeLegacy').checked = true;
+        }
+
+        function presetPresencial() {
+            const p = defaultPayload('PRESENCIAL');
+            p.serie = 'SM1';
+            p.centro_venta = '7';
+            payloadJson.value = JSON.stringify(p, null, 2);
+            document.getElementById('pathOverride').value = '/pedidos/crear_tipo';
+            document.getElementById('includeLegacy').checked = false;
+        }
+
+        function nuevaReferencia() {
+            try {
+                const p = JSON.parse(payloadJson.value);
+                p.referencia = 'RQC/TEST-' + Date.now();
+                payloadJson.value = JSON.stringify(p, null, 2);
+            } catch (e) {
+                alert('JSON invalido');
+            }
+        }
+
+        function validarJson() {
+            try {
+                JSON.parse(payloadJson.value);
+                alert('JSON valido');
+            } catch (e) {
+                alert('JSON invalido: ' + e.message);
+            }
+        }
+
+        function buildDebugRequestBody() {
+            const payload = JSON.parse(payloadJson.value);
+            const body = {
+                payload: payload,
+                dryRun: document.getElementById('dryRun').checked,
+                includeLegacyCodigoUsuarioErp: document.getElementById('includeLegacy').checked
+            };
+            const path = document.getElementById('pathOverride').value.trim();
+            if (path) {
+                body.erpCreateOrderPathOverride = path;
+            }
+            if (payload.tipo) {
+                body.defaultTipo = payload.tipo;
+            }
+            return body;
+        }
+
+        async function ejecutarDebug() {
+            statusLine.textContent = 'Ejecutando...';
+            resultBox.className = '';
+            resultBox.textContent = 'Esperando respuesta...';
+
+            try {
+                const body = buildDebugRequestBody();
+                const url = baseOriginInput.value.replace(/\/$/, '') + '/api/erp/debug-pedido';
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await response.json();
+                resultBox.textContent = JSON.stringify(data, null, 2);
+                if (response.ok && data.success) {
+                    resultBox.className = 'ok-box';
+                    statusLine.textContent = data.trace && data.trace.dryRun
+                        ? 'OK (dryRun) - revisa sanitizedPayload y requestPlan'
+                        : 'OK - pedido enviado al ERP';
+                } else {
+                    resultBox.className = 'err-box';
+                    statusLine.textContent = 'Error HTTP ' + response.status;
+                }
+            } catch (err) {
+                resultBox.className = 'err-box';
+                resultBox.textContent = String(err);
+                statusLine.textContent = 'Error de red o JSON';
+            }
+        }
+
+        async function ejecutarPedidosProxy() {
+            statusLine.textContent = 'Enviando a /api/erp/pedidos (flujo produccion)...';
+            resultBox.className = '';
+            try {
+                const payload = JSON.parse(payloadJson.value);
+                const url = baseOriginInput.value.replace(/\/$/, '') + '/api/erp/pedidos';
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                resultBox.textContent = JSON.stringify(data, null, 2);
+                if (response.ok && data.success) {
+                    resultBox.className = 'ok-box';
+                    statusLine.textContent = 'OK pedidos.js - comparar payloadClient vs payloadSent';
+                } else {
+                    resultBox.className = 'err-box';
+                    statusLine.textContent = 'Error pedidos.js HTTP ' + response.status;
+                }
+            } catch (err) {
+                resultBox.className = 'err-box';
+                resultBox.textContent = String(err);
+                statusLine.textContent = 'Error';
+            }
+        }
+    </script>
+</body>
+</html>

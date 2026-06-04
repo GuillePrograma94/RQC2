@@ -5,48 +5,10 @@
  */
 
 const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
-
-/**
- * Adapta articulos[] a lineas[] si hace falta.
- */
-function buildCreateOrderPayload(body) {
-    const payload = Object.assign({}, body || {});
-    if (Array.isArray(payload.lineas) && payload.lineas.length > 0) {
-        return payload;
-    }
-    if (Array.isArray(payload.articulos) && payload.articulos.length > 0) {
-        payload.lineas = payload.articulos.map((a) => ({
-            codigo_articulo: a.codigo_articulo || a.codigo,
-            unidades: a.unidades != null ? a.unidades : a.cantidad
-        }));
-    } else {
-        payload.lineas = [];
-    }
-    return payload;
-}
-
-/**
- * Body alineado con contrato ERP crear_tipo (Postman oficial).
- * No reenviar codigo_usuario_erp: duplica codigo_cliente y el SP devuelve error 8144.
- */
-function sanitizeErpCreateOrderPayload(body) {
-    const raw = buildCreateOrderPayload(body);
-    let codigoCliente = raw.codigo_cliente;
-    if (codigoCliente === undefined || codigoCliente === null || codigoCliente === '') {
-        codigoCliente = raw.codigo_usuario_erp;
-    }
-    const tipoRaw = (raw.tipo != null ? String(raw.tipo) : 'REMOTO').trim().toUpperCase();
-    const tipo = tipoRaw === 'PRESENCIAL' ? 'PRESENCIAL' : 'REMOTO';
-    return {
-        codigo_cliente: codigoCliente,
-        serie: raw.serie,
-        centro_venta: raw.centro_venta,
-        referencia: raw.referencia,
-        observaciones: raw.observaciones != null ? String(raw.observaciones) : '',
-        tipo: tipo,
-        lineas: raw.lineas || []
-    };
-}
+const {
+    sanitizeErpCreateOrderPayload,
+    analyzePayloadDiff
+} = require('./erp-payload');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -88,6 +50,14 @@ module.exports = async (req, res) => {
         return;
     }
 
+    let payloadAnalysis = null;
+    let bodyToSend = req.body;
+
+    if (req.method === 'POST' && bodyToSend && isPostWithPayload) {
+        payloadAnalysis = analyzePayloadDiff(bodyToSend);
+        bodyToSend = payloadAnalysis.sanitizedBody;
+    }
+
     try {
         let token = null;
         const authHeader = req.headers.authorization || req.headers.Authorization || '';
@@ -111,11 +81,6 @@ module.exports = async (req, res) => {
 
         const url = buildUrl(baseUrl, pathToCall);
         const method = req.method;
-        let bodyToSend = req.body;
-
-        if (method === 'POST' && bodyToSend && isPostWithPayload) {
-            bodyToSend = sanitizeErpCreateOrderPayload(bodyToSend);
-        }
 
         const requestOptions = {
             method: method,
@@ -141,7 +106,10 @@ module.exports = async (req, res) => {
                 url: url,
                 method: method,
                 hasPayload: method === 'POST' && req.body ? true : false,
-                payloadKeys: method === 'POST' && req.body ? Object.keys(req.body) : [],
+                payloadKeysClient: method === 'POST' && req.body ? Object.keys(req.body) : [],
+                payloadKeysSent: method === 'POST' && bodyToSend ? Object.keys(bodyToSend) : [],
+                payloadSent: method === 'POST' ? bodyToSend : null,
+                payloadAnalysis: payloadAnalysis,
                 erpResponse: data
             };
 
@@ -156,9 +124,12 @@ module.exports = async (req, res) => {
             success: true,
             message: `Endpoint de pedidos funcionando (${method})`,
             method: method,
-            payload: method === 'POST' ? req.body : null,
+            payloadClient: method === 'POST' ? req.body : null,
+            payloadSent: method === 'POST' ? bodyToSend : null,
+            payloadAnalysis: payloadAnalysis,
             data: data,
             url: url,
+            erpCreateOrderPath: createOrderPath,
             tokenUsed: token.substring(0, 20) + '...'
         });
     } catch (error) {
