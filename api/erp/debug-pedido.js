@@ -6,7 +6,8 @@
  *   payload: objeto del pedido (como app.js o test)
  *   dryRun: true = no llama al ERP, solo muestra que se enviaria
  *   erpCreateOrderPathOverride: opcional "/pedidos/crear" o "/pedidos/crear_tipo"
- *   includeLegacyCodigoUsuarioErp: true = no quitar codigo_usuario_erp (reproducir error)
+ *   contractMode: "legacy" | "nuevo" (legacy = sin tipo en JSON; nuevo = con tipo)
+ *   (El proxy no elimina codigo_usuario_erp ni otros campos del contrato historico)
  */
 
 const { fetchWithTimeout, parseJsonResponse, buildUrl, normalizeErpPath } = require('./erp-https');
@@ -55,22 +56,27 @@ module.exports = async (req, res) => {
     const body = req.body || {};
     const clientPayload = body.payload != null ? body.payload : body;
     const dryRun = body.dryRun === true;
-    const includeLegacy = body.includeLegacyCodigoUsuarioErp === true;
-    const pathOverrideRaw = (body.erpCreateOrderPathOverride || '').trim();
-    const pathOverride = pathOverrideRaw ? normalizeErpPath(pathOverrideRaw) : '';
+    const contractMode = (body.contractMode === 'legacy' || body.contractMode === 'nuevo')
+        ? body.contractMode
+        : (body.legacyMode === true ? 'legacy' : 'nuevo');
 
-    const pathUsed = pathOverride || envCreateOrderPath || TYPED_CREATE_PATH;
+    let pathOverrideRaw = (body.erpCreateOrderPathOverride || '').trim();
+    if (!pathOverrideRaw) {
+        pathOverrideRaw = contractMode === 'legacy' ? LEGACY_CREATE_PATH : TYPED_CREATE_PATH;
+    }
+    const pathOverride = normalizeErpPath(pathOverrideRaw);
+
+    const pathUsed = pathOverride;
     const erpUrl = baseUrl ? buildUrl(baseUrl, pathUsed) : null;
 
-    const analysis = analyzePayloadDiff(clientPayload, {
+    const sanitizeOpts = {
         defaultTipo: body.defaultTipo || 'REMOTO',
-        includeLegacyCodigoUsuarioErp: includeLegacy
-    });
+        contractMode: contractMode
+    };
 
-    const sanitizedPayload = sanitizeErpCreateOrderPayload(clientPayload, {
-        defaultTipo: body.defaultTipo || 'REMOTO',
-        includeLegacyCodigoUsuarioErp: includeLegacy
-    });
+    const analysis = analyzePayloadDiff(clientPayload, sanitizeOpts);
+
+    const sanitizedPayload = sanitizeErpCreateOrderPayload(clientPayload, sanitizeOpts);
 
     const trace = {
         timestamp: new Date().toISOString(),
@@ -100,15 +106,16 @@ module.exports = async (req, res) => {
             },
             bodyStringPreview: JSON.stringify(sanitizedPayload, null, 2)
         },
+        contractMode: contractMode,
         clientPayload: clientPayload,
         sanitizedPayload: sanitizedPayload,
         analysis: analysis,
         migrationNote: {
-            remotoAntes: 'POST ' + LEGACY_CREATE_PATH + ' (6 campos + lineas, sin tipo)',
-            remotoAhora: 'POST ' + TYPED_CREATE_PATH + ' (mismo JSON que antes; tipo REMOTO NO va en body hasta que el SP lo soporte)',
-            presencial: 'POST ' + TYPED_CREATE_PATH + ' con tipo PRESENCIAL en el body',
-            noEnviar: ['codigo_usuario_erp'],
-            envOverride: 'ERP_INCLUDE_TIPO_REMOTO=1 fuerza tipo en body para REMOTO'
+            remotoAntes: 'POST ' + LEGACY_CREATE_PATH,
+            remotoAhora: 'POST ' + TYPED_CREATE_PATH + ' con el mismo body historico + campo tipo (REMOTO/PRESENCIAL)',
+            camposHistoricos: ['codigo_cliente', 'codigo_usuario_erp', 'serie', 'centro_venta', 'referencia', 'observaciones', 'lineas'],
+            campoNuevo: 'tipo',
+            siErrorSql: 'Reportar al proveedor ERP; no quitar campos en el cliente'
         }
     };
 

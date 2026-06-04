@@ -116,33 +116,32 @@ En tu móvil:
 
 La app móvil **no** envía usuario/contraseña del ERP; quien hace el login es la API en Vercel leyendo `ERP_USER` y `ERP_PASSWORD`. El ERP suele mostrar como "usuario que creó el pedido" el usuario con el que se obtuvo el token (es decir, el valor de `ERP_USER` en Vercel). Si en el ERP aparece TIENDA_PRU en vez de APP_TIENDA, es porque en Vercel sigue configurado `ERP_USER=TIENDA_PRU`; actualiza a `APP_TIENDA` y redeploy. Por eso el cambio solo tiene efecto cuando actualizas esas variables en el proyecto de Vercel y vuelves a desplegar.
 
-### Panel de pruebas ERP (`/test_api_erp`)
+### Panel de pruebas ERP (`/test_api_erp`) — sustituye a test-erp.html
 
 Tras desplegar en Vercel, abre:
 
 `https://tu-proyecto.vercel.app/test_api_erp`
 
-Permite:
+Permite comparar para mostrar al proveedor ERP:
 
-1. **dryRun**: ver `clientPayload`, `sanitizedPayload` y la URL exacta sin llamar al ERP.
-2. **Enviar al ERP**: desmarcar dryRun y usar referencia unica (boton "Nueva referencia unica").
-3. Comparar `/pedidos/crear_tipo` vs `/pedidos/crear` (selector de ruta).
-4. Reproducir el error 8144 marcando `codigo_usuario_erp`.
+| Modo | URL ERP | Campo `tipo` en JSON |
+|------|---------|---------------------|
+| **LEGACY** | `POST .../pedidos/crear` | No (como antes en produccion) |
+| **NUEVO** | `POST .../pedidos/crear_tipo` | Si (`REMOTO` o `PRESENCIAL`) |
 
-Endpoint de diagnostico: `POST /api/erp/debug-pedido` (misma sanitizacion que produccion).
+Boton **Comparar LEGACY y NUEVO**: ejecuta ambos en paralelo con referencias distintas (`-L` / `-N`).
+
+Tambien incluye: login, GET pedidos/prueba, dryRun, formulario con mapeo serie/centro (`erp-pedido-opciones.js`).
+
+Endpoint de diagnostico: `POST /api/erp/debug-pedido` con `contractMode: "legacy"` o `"nuevo"`.
 
 ### Error 500 / 502: "vs_app_pedidos_crea_pedidos tiene demasiados argumentos" (8144)
 
-**Causa habitual**: el body enviado al ERP incluye claves que el procedimiento almacenado no admite. El contrato oficial de `POST /pedidos/crear_tipo` solo admite: `codigo_cliente`, `serie`, `centro_venta`, `referencia`, `observaciones`, `tipo`, `lineas`. En concreto, **`codigo_usuario_erp` duplica `codigo_cliente`** y provoca el error 8144.
+**Politica del proyecto:** se envia el **mismo JSON historico** (`codigo_cliente`, `codigo_usuario_erp`, `serie`, `centro_venta`, `referencia`, `observaciones`, `lineas`) **mas** el campo nuevo `tipo`, a la URL `/pedidos/crear_tipo`. **No se quitan campos** en el proxy ni en la app por este error.
 
-**Solución**:
-1. Despliega en Vercel la version actual de `scan_client_mobile/api/erp/pedidos.js` y `create-order.js` (sanitizan el JSON antes de reenviar al ERP).
-2. Si la app movil esta cacheada, fuerza recarga (Ctrl+F5) para cargar `app.js` sin `codigo_usuario_erp`.
-3. Vuelve a intentar el reenvio ERP desde Mis pedidos.
+**Accion:** copiar de `/test_api_erp` el bloque `payloadSent` y la URL, y reportarlo al proveedor del ERP para que actualice el procedimiento `vs_app_pedidos_crea_pedidos` o la API `crear_tipo`.
 
-Si `payloadKeysSent` ya no incluye `codigo_usuario_erp` ni `tipo` (REMOTO) y sigue el 8144, el equipo del ERP debe alinear el SP con `crear_tipo`.
-
-**REMOTO y error 8144 con `tipo` en body:** el proxy **omite `tipo` del JSON** y solo usa la ruta `/pedidos/crear_tipo`. Vuelve a probar en `/test_api_erp` (debe verse `tipo REMOTO omitido` en warnings y `payloadSent` sin clave `tipo`).
+**Comprobacion en test:** `payloadKeysClient` y `payloadKeysSent` deben coincidir e incluir `codigo_usuario_erp` y `tipo`.
 
 ### Comprobar URL en Vercel (barras `\` vs `/`)
 

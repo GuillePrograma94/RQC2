@@ -1,10 +1,12 @@
 /**
- * Normalizacion del body para POST /pedidos/crear_tipo (contrato ERP oficial).
- * Compartido por pedidos.js, create-order.js y debug-pedido.js.
+ * Preparacion del body para POST /pedidos/crear_tipo.
+ * Regla: mismo JSON que antes de la migracion + campo tipo + URL crear_tipo.
+ * No se eliminan campos del cliente (p. ej. codigo_usuario_erp). Si el ERP falla, se reporta al proveedor de la API.
  */
 
 const ERP_CREATE_ORDER_ALLOWED_KEYS = [
     'codigo_cliente',
+    'codigo_usuario_erp',
     'serie',
     'centro_venta',
     'referencia',
@@ -15,27 +17,6 @@ const ERP_CREATE_ORDER_ALLOWED_KEYS = [
 
 const LEGACY_CREATE_PATH = '/pedidos/crear';
 const TYPED_CREATE_PATH = '/pedidos/crear_tipo';
-
-/**
- * El SP dbo.vs_app_pedidos_crea_pedidos (sin actualizar) no admite el parametro tipo.
- * REMOTO: usar URL /pedidos/crear_tipo sin campo tipo en el JSON (mismo body que /pedidos/crear).
- * PRESENCIAL: incluir tipo en el body (Postman ERP).
- * Override: ERP_INCLUDE_TIPO_REMOTO=1 fuerza enviar tipo tambien en REMOTO.
- */
-function shouldSendTipoInBody(tipo, options) {
-    const opts = options || {};
-    if (opts.forceIncludeTipo === true) {
-        return true;
-    }
-    if (opts.forceOmitTipo === true) {
-        return false;
-    }
-    const envForce = process.env.ERP_INCLUDE_TIPO_REMOTO;
-    if (envForce === '1' || envForce === 'true') {
-        return true;
-    }
-    return tipo === 'PRESENCIAL';
-}
 
 function buildCreateOrderPayload(body) {
     const payload = Object.assign({}, body || {});
@@ -53,19 +34,33 @@ function buildCreateOrderPayload(body) {
     return payload;
 }
 
+/**
+ * Alinea el pedido al contrato crear_tipo sin quitar campos criticos.
+ * Solo normaliza: articulos->lineas, tipo por defecto, codigo_usuario_erp si falta pero hay codigo_cliente.
+ */
+function isLegacyContract(opts) {
+    const options = opts || {};
+    return options.legacyMode === true || options.contractMode === 'legacy';
+}
+
 function sanitizeErpCreateOrderPayload(body, options) {
     const opts = options || {};
     const raw = buildCreateOrderPayload(body);
+    const legacy = isLegacyContract(opts);
+
     let codigoCliente = raw.codigo_cliente;
     if (codigoCliente === undefined || codigoCliente === null || codigoCliente === '') {
         codigoCliente = raw.codigo_usuario_erp;
     }
 
-    const tipoRaw = (raw.tipo != null ? String(raw.tipo) : (opts.defaultTipo || 'REMOTO')).trim().toUpperCase();
-    const tipo = tipoRaw === 'PRESENCIAL' ? 'PRESENCIAL' : 'REMOTO';
+    let codigoUsuarioErp = raw.codigo_usuario_erp;
+    if (codigoUsuarioErp === undefined || codigoUsuarioErp === null || codigoUsuarioErp === '') {
+        codigoUsuarioErp = codigoCliente;
+    }
 
     const payload = {
         codigo_cliente: codigoCliente,
+        codigo_usuario_erp: codigoUsuarioErp,
         serie: raw.serie,
         centro_venta: raw.centro_venta,
         referencia: raw.referencia,
@@ -73,12 +68,9 @@ function sanitizeErpCreateOrderPayload(body, options) {
         lineas: raw.lineas || []
     };
 
-    if (shouldSendTipoInBody(tipo, opts)) {
-        payload.tipo = tipo;
-    }
-
-    if (opts.includeLegacyCodigoUsuarioErp && raw.codigo_usuario_erp != null && raw.codigo_usuario_erp !== '') {
-        payload.codigo_usuario_erp = raw.codigo_usuario_erp;
+    if (!legacy) {
+        const tipoRaw = (raw.tipo != null ? String(raw.tipo) : (opts.defaultTipo || 'REMOTO')).trim().toUpperCase();
+        payload.tipo = tipoRaw === 'PRESENCIAL' ? 'PRESENCIAL' : 'REMOTO';
     }
 
     return payload;
@@ -91,55 +83,53 @@ function analyzePayloadDiff(body, options) {
     const sanitizedBody = sanitizeErpCreateOrderPayload(clientBody, opts);
 
     const clientKeys = Object.keys(clientBody);
-    const afterMapKeys = Object.keys(afterMapArticulos);
     const sanitizedKeys = Object.keys(sanitizedBody);
 
     const extraKeysInClient = clientKeys.filter((key) => {
         return key !== 'articulos' && !ERP_CREATE_ORDER_ALLOWED_KEYS.includes(key);
     });
 
-    const strippedKeys = afterMapKeys.filter((key) => !sanitizedKeys.includes(key));
+    const strippedKeys = clientKeys.filter((key) => {
+        return key !== 'articulos' && afterMapArticulos[key] !== undefined && sanitizedBody[key] === undefined;
+    });
+
     const warnings = [];
 
-    if (clientBody.codigo_usuario_erp != null && clientBody.codigo_usuario_erp !== '') {
-        if (opts.includeLegacyCodigoUsuarioErp) {
-            warnings.push('codigo_usuario_erp incluido a proposito (modo reproduccion error 8144).');
-        } else {
-            warnings.push('codigo_usuario_erp se elimina al reenviar (duplica codigo_cliente; provoca error SQL 8144).');
-        }
-    }
-    const tipoLogico = (clientBody.tipo != null ? String(clientBody.tipo) : (opts.defaultTipo || 'REMOTO')).trim().toUpperCase();
-    const tipoNorm = tipoLogico === 'PRESENCIAL' ? 'PRESENCIAL' : 'REMOTO';
-    if (!clientBody.tipo) {
-        warnings.push('tipo no venia en el body del cliente; se asume REMOTO por defecto.');
-    }
-    if (tipoNorm === 'REMOTO' && clientBody.tipo && !sanitizedBody.tipo) {
-        warnings.push(
-            'tipo REMOTO omitido en el JSON enviado al ERP (el SP vs_app_pedidos_crea_pedidos no lo admite). ' +
-            'Se usa solo la URL /pedidos/crear_tipo. PRESENCIAL si lleva tipo en el body.'
-        );
-    }
     if (Array.isArray(clientBody.articulos) && clientBody.articulos.length > 0) {
         warnings.push('articulos[] se convierte a lineas[] antes de llamar al ERP.');
     }
-    if (!sanitizedBody.codigo_cliente) {
-        warnings.push('codigo_cliente vacio: el ERP puede rechazar el pedido.');
+    const legacy = isLegacyContract(opts);
+    if (legacy) {
+        warnings.push('Contrato LEGACY: POST /pedidos/crear sin campo tipo en el JSON enviado al ERP.');
+    } else if (!clientBody.tipo) {
+        warnings.push('tipo no venia en el body del cliente; el proxy usa REMOTO por defecto.');
+    }
+    if (!sanitizedBody.codigo_cliente && !sanitizedBody.codigo_usuario_erp) {
+        warnings.push('codigo_cliente y codigo_usuario_erp vacios: el ERP puede rechazar el pedido.');
     }
     if (!Array.isArray(sanitizedBody.lineas) || sanitizedBody.lineas.length === 0) {
         warnings.push('lineas[] vacio: el ERP exige al menos una linea.');
+    }
+    if (extraKeysInClient.length > 0) {
+        warnings.push('Claves extra en el cliente no reenviadas al ERP: ' + extraKeysInClient.join(', '));
+    }
+    if (strippedKeys.length > 0) {
+        warnings.push('Claves del cliente omitidas en el envio: ' + strippedKeys.join(', '));
     }
 
     return {
         allowedKeys: ERP_CREATE_ORDER_ALLOWED_KEYS,
         clientKeys: clientKeys,
-        afterMapArticulosKeys: afterMapKeys,
         sanitizedKeys: sanitizedKeys,
         extraKeysInClient: extraKeysInClient,
         strippedKeys: strippedKeys,
         sanitizedBody: sanitizedBody,
         warnings: warnings,
-        tipoLogico: tipoNorm,
-        tipoEnBodyEnviado: sanitizedBody.tipo || null
+        contractMode: legacy ? 'legacy' : 'nuevo',
+        tipoLogico: sanitizedBody.tipo || null,
+        policy: legacy
+            ? 'Legacy: mismo body historico, URL /pedidos/crear, sin tipo'
+            : 'Nuevo: body historico + tipo, URL /pedidos/crear_tipo'
     };
 }
 
@@ -147,7 +137,7 @@ module.exports = {
     ERP_CREATE_ORDER_ALLOWED_KEYS,
     LEGACY_CREATE_PATH,
     TYPED_CREATE_PATH,
-    shouldSendTipoInBody,
+    isLegacyContract,
     buildCreateOrderPayload,
     sanitizeErpCreateOrderPayload,
     analyzePayloadDiff

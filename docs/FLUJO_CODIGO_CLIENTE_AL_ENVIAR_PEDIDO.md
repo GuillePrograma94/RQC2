@@ -198,7 +198,8 @@ const erpPayload = this.buildErpOrderPayload(cart, almacen, referencia, observac
 const codigoClienteErp = (codigoClienteUsuario != null && codigoClienteUsuario !== '') ? codigoClienteUsuario : null;
 
 return {
-    codigo_cliente: codigoClienteErp,  // <-- va al JSON
+    codigo_cliente: codigoClienteErp,
+    codigo_usuario_erp: codigoClienteErp,
     serie: serie,
     centro_venta: centro_venta,
     referencia: ref,
@@ -238,6 +239,7 @@ return await this._requestProxy(this.proxyPath, {
 ```json
 {
   "codigo_cliente": "79280",
+  "codigo_usuario_erp": "79280",
   "serie": "BT7",
   "centro_venta": "1",
   "referencia": "RQC/12345-847291",
