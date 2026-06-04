@@ -168,11 +168,22 @@
         <textarea id="payloadJson"></textarea>
     </div>
 
+    <div class="panel panel-nuevo">
+        <h2 class="nuevo">URL del ERP en pruebas NUEVO (crear_tipo)</h2>
+        <p class="sub" style="margin-bottom:10px;">
+            <span class="badge badge-legacy">LEGACY</span> sigue usando <code>ERP_BASE_URL</code> de Vercel (saneamiento-martinez).<br>
+            <span class="badge badge-nuevo">NUEVO</span> usa la base que indiques aqui (IP que os han pasado).
+        </p>
+        <label>ERP_BASE_URL solo para modo NUEVO</label>
+        <input type="text" id="fErpBaseNuevo" value="https://13.93.125.160:5002/api/tienda/v1">
+        <p class="sub" style="margin-top:6px;">Debe incluir puerto y ruta: <code>:5002/api/tienda/v1</code> (como en Postman del proveedor).</p>
+    </div>
+
     <div class="panel">
         <h2>Comparar creacion de pedido (principal)</h2>
         <p class="sub" style="margin-bottom:12px;">
-            <span class="badge badge-legacy">LEGACY</span> URL <code>/pedidos/crear</code> + body sin <code>tipo</code> (produccion actual).<br>
-            <span class="badge badge-nuevo">NUEVO</span> URL <code>/pedidos/crear_tipo</code> + body con <code>tipo</code>.
+            <span class="badge badge-legacy">LEGACY</span> <code>ERP_BASE_URL</code> Vercel + <code>/pedidos/crear</code> + sin <code>tipo</code>.<br>
+            <span class="badge badge-nuevo">NUEVO</span> IP de arriba + <code>/pedidos/crear_tipo</code> + <code>tipo</code>.
         </p>
         <div class="row">
             <button type="button" class="compare" onclick="compararLegacyYNuevo()">Comparar LEGACY y NUEVO (recomendado)</button>
@@ -210,7 +221,14 @@
         const LEGACY_PATH = '/pedidos/crear';
         const NUEVO_PATH = '/pedidos/crear_tipo';
         const DEBUG_URL = '/api/erp/debug-pedido';
+        const NUEVO_ERP_BASE_DEFAULT = 'https://13.93.125.160:5002/api/tienda/v1';
         const origin = window.location.origin.replace(/\/$/, '');
+
+        function getNuevoErpBaseUrl() {
+            const el = document.getElementById('fErpBaseNuevo');
+            const value = el && el.value.trim();
+            return value || NUEVO_ERP_BASE_DEFAULT;
+        }
 
         const payloadJson = document.getElementById('payloadJson');
         const fReferencia = document.getElementById('fReferencia');
@@ -233,21 +251,22 @@
             const codigo = document.getElementById('fCodigo').value.trim();
             const sc = calcSerieCentro();
             const ref = fReferencia.value.trim() || ('RQC/TEST-' + Date.now());
+            const lineas = [{
+                codigo_articulo: document.getElementById('fArticulo').value.trim(),
+                unidades: parseInt(document.getElementById('fUnidades').value, 10) || 1
+            }];
             const payload = {
                 codigo_cliente: codigo,
                 codigo_usuario_erp: codigo,
                 serie: sc.serie,
                 centro_venta: sc.centro_venta,
                 referencia: ref,
-                observaciones: document.getElementById('fObservaciones').value,
-                lineas: [{
-                    codigo_articulo: document.getElementById('fArticulo').value.trim(),
-                    unidades: parseInt(document.getElementById('fUnidades').value, 10) || 1
-                }]
+                observaciones: document.getElementById('fObservaciones').value
             };
             if (includeTipo) {
                 payload.tipo = document.getElementById('fTipo').value;
             }
+            payload.lineas = lineas;
             return payload;
         }
 
@@ -294,6 +313,9 @@
                 erpCreateOrderPathOverride: contractMode === 'legacy' ? LEGACY_PATH : NUEVO_PATH,
                 defaultTipo: payload.tipo || document.getElementById('fTipo').value || 'REMOTO'
             };
+            if (contractMode === 'nuevo') {
+                body.erpBaseUrlOverride = getNuevoErpBaseUrl();
+            }
             const response = await fetch(origin + DEBUG_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -315,6 +337,7 @@
                 success: data.success,
                 message: data.message,
                 contractMode: contractMode,
+                erpBaseUrlUsed: (trace.vercelEnv && trace.vercelEnv.ERP_BASE_URL_used) || null,
                 pathUsed: plan.pathUsed,
                 payloadSent: trace.sanitizedPayload || data.payloadSent,
                 erpResponse: data.erp || (data.success ? data : null)

@@ -131,6 +131,8 @@ Permite comparar para mostrar al proveedor ERP:
 
 Boton **Comparar LEGACY y NUEVO**: ejecuta ambos en paralelo con referencias distintas (`-L` / `-N`).
 
+**URL distinta en NUEVO:** en la pagina puedes poner la base del servidor nuevo, por defecto `https://13.93.125.160:5002/api/tienda/v1`. LEGACY sigue llamando a `ERP_BASE_URL` de Vercel (saneamiento-martinez).
+
 Tambien incluye: login, GET pedidos/prueba, dryRun, formulario con mapeo serie/centro (`erp-pedido-opciones.js`).
 
 Endpoint de diagnostico: `POST /api/erp/debug-pedido` con `contractMode: "legacy"` o `"nuevo"`.

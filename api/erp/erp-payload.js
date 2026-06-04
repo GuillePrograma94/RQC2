@@ -43,6 +43,26 @@ function isLegacyContract(opts) {
     return options.legacyMode === true || options.contractMode === 'legacy';
 }
 
+/**
+ * Orden de claves del JSON enviado al ERP (insertion order en JSON.stringify).
+ * Ejemplo proveedor: observaciones, tipo, lineas (tipo ANTES de lineas).
+ */
+function buildOrderedErpPayload(fields, legacy) {
+    const ordered = {
+        codigo_cliente: fields.codigo_cliente,
+        codigo_usuario_erp: fields.codigo_usuario_erp,
+        serie: fields.serie,
+        centro_venta: fields.centro_venta,
+        referencia: fields.referencia,
+        observaciones: fields.observaciones
+    };
+    if (!legacy) {
+        ordered.tipo = fields.tipo;
+    }
+    ordered.lineas = fields.lineas;
+    return ordered;
+}
+
 function sanitizeErpCreateOrderPayload(body, options) {
     const opts = options || {};
     const raw = buildCreateOrderPayload(body);
@@ -58,22 +78,22 @@ function sanitizeErpCreateOrderPayload(body, options) {
         codigoUsuarioErp = codigoCliente;
     }
 
-    const payload = {
+    let tipo = null;
+    if (!legacy) {
+        const tipoRaw = (raw.tipo != null ? String(raw.tipo) : (opts.defaultTipo || 'REMOTO')).trim().toUpperCase();
+        tipo = tipoRaw === 'PRESENCIAL' ? 'PRESENCIAL' : 'REMOTO';
+    }
+
+    return buildOrderedErpPayload({
         codigo_cliente: codigoCliente,
         codigo_usuario_erp: codigoUsuarioErp,
         serie: raw.serie,
         centro_venta: raw.centro_venta,
         referencia: raw.referencia,
         observaciones: raw.observaciones != null ? String(raw.observaciones) : '',
+        tipo: tipo,
         lineas: raw.lineas || []
-    };
-
-    if (!legacy) {
-        const tipoRaw = (raw.tipo != null ? String(raw.tipo) : (opts.defaultTipo || 'REMOTO')).trim().toUpperCase();
-        payload.tipo = tipoRaw === 'PRESENCIAL' ? 'PRESENCIAL' : 'REMOTO';
-    }
-
-    return payload;
+    }, legacy);
 }
 
 function analyzePayloadDiff(body, options) {
@@ -116,6 +136,9 @@ function analyzePayloadDiff(body, options) {
     if (strippedKeys.length > 0) {
         warnings.push('Claves del cliente omitidas en el envio: ' + strippedKeys.join(', '));
     }
+    if (!legacy) {
+        warnings.push('Orden JSON al ERP: codigo_cliente, codigo_usuario_erp, serie, centro_venta, referencia, observaciones, tipo, lineas (tipo antes de lineas, como ejemplo ERP).');
+    }
 
     return {
         allowedKeys: ERP_CREATE_ORDER_ALLOWED_KEYS,
@@ -139,6 +162,7 @@ module.exports = {
     TYPED_CREATE_PATH,
     isLegacyContract,
     buildCreateOrderPayload,
+    buildOrderedErpPayload,
     sanitizeErpCreateOrderPayload,
     analyzePayloadDiff
 };

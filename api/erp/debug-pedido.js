@@ -7,16 +7,33 @@
  *   dryRun: true = no llama al ERP, solo muestra que se enviaria
  *   erpCreateOrderPathOverride: opcional "/pedidos/crear" o "/pedidos/crear_tipo"
  *   contractMode: "legacy" | "nuevo" (legacy = sin tipo en JSON; nuevo = con tipo)
+ *   erpBaseUrlOverride: URL base alternativa solo para contractMode "nuevo" (ej. https://13.93.125.160:5002/api/tienda/v1)
  *   (El proxy no elimina codigo_usuario_erp ni otros campos del contrato historico)
  */
 
-const { fetchWithTimeout, parseJsonResponse, buildUrl, normalizeErpPath } = require('./erp-https');
+const {
+    fetchWithTimeout,
+    parseJsonResponse,
+    buildUrl,
+    normalizeErpPath,
+    normalizeErpBaseUrl
+} = require('./erp-https');
 const {
     LEGACY_CREATE_PATH,
     TYPED_CREATE_PATH,
     sanitizeErpCreateOrderPayload,
     analyzePayloadDiff
 } = require('./erp-payload');
+
+const DEFAULT_NUEVO_ERP_BASE = 'https://13.93.125.160:5002/api/tienda/v1';
+
+function resolveBaseUrlForRequest(body, contractMode, envBaseUrl) {
+    const override = (body.erpBaseUrlOverride || '').trim();
+    if (contractMode === 'nuevo' && override) {
+        return normalizeErpBaseUrl(override);
+    }
+    return normalizeErpBaseUrl(envBaseUrl || '');
+}
 
 function maskSecret(value) {
     if (!value) {
@@ -67,7 +84,8 @@ module.exports = async (req, res) => {
     const pathOverride = normalizeErpPath(pathOverrideRaw);
 
     const pathUsed = pathOverride;
-    const erpUrl = baseUrl ? buildUrl(baseUrl, pathUsed) : null;
+    const baseUrlUsed = resolveBaseUrlForRequest(body, contractMode, baseUrl);
+    const erpUrl = baseUrlUsed ? buildUrl(baseUrlUsed, pathUsed) : null;
 
     const sanitizeOpts = {
         defaultTipo: body.defaultTipo || 'REMOTO',
@@ -83,6 +101,8 @@ module.exports = async (req, res) => {
         dryRun: dryRun,
         vercelEnv: {
             ERP_BASE_URL: baseUrl || null,
+            ERP_BASE_URL_used: baseUrlUsed || null,
+            ERP_BASE_URL_override_nuevo: (body.erpBaseUrlOverride || '').trim() || null,
             ERP_LOGIN_PATH: loginPath,
             ERP_CREATE_ORDER_PATH_raw: envCreateOrderPathRaw,
             ERP_CREATE_ORDER_PATH: envCreateOrderPath,
@@ -120,7 +140,7 @@ module.exports = async (req, res) => {
     };
 
     const missing = [];
-    if (!baseUrl) missing.push('ERP_BASE_URL');
+    if (!baseUrlUsed) missing.push('ERP_BASE_URL');
     if (!username) missing.push('ERP_USER');
     if (!password) missing.push('ERP_PASSWORD');
 
@@ -145,7 +165,7 @@ module.exports = async (req, res) => {
 
     try {
         const token = await loginToErp({
-            baseUrl,
+            baseUrl: baseUrlUsed,
             loginPath,
             username,
             password,
@@ -153,7 +173,7 @@ module.exports = async (req, res) => {
         });
 
         const erpResult = await sendOrderToErp({
-            baseUrl,
+            baseUrl: baseUrlUsed,
             createOrderPath: pathUsed,
             token,
             payload: sanitizedPayload,
