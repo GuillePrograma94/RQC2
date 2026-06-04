@@ -10817,11 +10817,9 @@ class ScanAsYouShopApp {
         }));
 
         const codigoClienteErp = (codigoClienteUsuario != null && codigoClienteUsuario !== '') ? codigoClienteUsuario : null;
-        const codigoUsuarioErp = codigoClienteErp;
 
         return {
             codigo_cliente: codigoClienteErp,
-            codigo_usuario_erp: codigoUsuarioErp,
             serie: serie,
             centro_venta: centro_venta,
             referencia: ref,
@@ -10849,10 +10847,8 @@ class ScanAsYouShopApp {
             unidades: p.cantidad != null ? p.cantidad : 0
         }));
         const codigoClienteErp = (codigoClienteUsuario != null && codigoClienteUsuario !== '') ? codigoClienteUsuario : null;
-        const codigoUsuarioErp = codigoClienteErp;
         return {
             codigo_cliente: codigoClienteErp,
-            codigo_usuario_erp: codigoUsuarioErp,
             serie: serie,
             centro_venta: centro_venta,
             referencia: referencia,

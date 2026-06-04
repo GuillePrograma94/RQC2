@@ -116,6 +116,17 @@ En tu móvil:
 
 La app móvil **no** envía usuario/contraseña del ERP; quien hace el login es la API en Vercel leyendo `ERP_USER` y `ERP_PASSWORD`. El ERP suele mostrar como "usuario que creó el pedido" el usuario con el que se obtuvo el token (es decir, el valor de `ERP_USER` en Vercel). Si en el ERP aparece TIENDA_PRU en vez de APP_TIENDA, es porque en Vercel sigue configurado `ERP_USER=TIENDA_PRU`; actualiza a `APP_TIENDA` y redeploy. Por eso el cambio solo tiene efecto cuando actualizas esas variables en el proyecto de Vercel y vuelves a desplegar.
 
+### Error 500 / 502: "vs_app_pedidos_crea_pedidos tiene demasiados argumentos" (8144)
+
+**Causa habitual**: el body enviado al ERP incluye claves que el procedimiento almacenado no admite. El contrato oficial de `POST /pedidos/crear_tipo` solo admite: `codigo_cliente`, `serie`, `centro_venta`, `referencia`, `observaciones`, `tipo`, `lineas`. En concreto, **`codigo_usuario_erp` duplica `codigo_cliente`** y provoca el error 8144.
+
+**Solución**:
+1. Despliega en Vercel la version actual de `scan_client_mobile/api/erp/pedidos.js` y `create-order.js` (sanitizan el JSON antes de reenviar al ERP).
+2. Si la app movil esta cacheada, fuerza recarga (Ctrl+F5) para cargar `app.js` sin `codigo_usuario_erp`.
+3. Vuelve a intentar el reenvio ERP desde Mis pedidos.
+
+Si tras el redeploy el error persiste con `payloadKeys` correctos (sin `codigo_usuario_erp`), el equipo del ERP debe actualizar el procedimiento para el parametro `tipo` en `crear_tipo`.
+
 ### Error: "No se pudo cargar configuración"
 
 **Causa**: Variables de entorno no configuradas

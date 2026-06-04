@@ -13,11 +13,10 @@ const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https')
 const { createClient } = require('@supabase/supabase-js');
 
 /**
- * Adapta el payload al formato del ERP: exige lineas[] (minimo 1).
- * Si el cliente envia articulos[], se mapean a lineas[].
+ * Adapta articulos[] a lineas[] si hace falta.
  */
 function buildCreateOrderPayload(body) {
-    const payload = Object.assign({}, body);
+    const payload = Object.assign({}, body || {});
     if (Array.isArray(payload.lineas) && payload.lineas.length > 0) {
         return payload;
     }
@@ -30,6 +29,29 @@ function buildCreateOrderPayload(body) {
         payload.lineas = [];
     }
     return payload;
+}
+
+/**
+ * Body alineado con contrato ERP crear_tipo (Postman oficial).
+ * No reenviar codigo_usuario_erp: duplica codigo_cliente y el SP devuelve error 8144.
+ */
+function sanitizeErpCreateOrderPayload(body) {
+    const raw = buildCreateOrderPayload(body);
+    let codigoCliente = raw.codigo_cliente;
+    if (codigoCliente === undefined || codigoCliente === null || codigoCliente === '') {
+        codigoCliente = raw.codigo_usuario_erp;
+    }
+    const tipoRaw = (raw.tipo != null ? String(raw.tipo) : 'REMOTO').trim().toUpperCase();
+    const tipo = tipoRaw === 'PRESENCIAL' ? 'PRESENCIAL' : 'REMOTO';
+    return {
+        codigo_cliente: codigoCliente,
+        serie: raw.serie,
+        centro_venta: raw.centro_venta,
+        referencia: raw.referencia,
+        observaciones: raw.observaciones != null ? String(raw.observaciones) : '',
+        tipo: tipo,
+        lineas: raw.lineas || []
+    };
 }
 
 module.exports = async (req, res) => {
@@ -70,7 +92,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const payload = buildCreateOrderPayload(req.body || {});
+        const payload = sanitizeErpCreateOrderPayload(req.body || {});
 
         // Comprobacion anti-duplicados: si la referencia ya se envio al ERP, devolver pedido_erp sin llamar a la API
         const referencia = payload.referencia || '';

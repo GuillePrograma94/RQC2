@@ -7,11 +7,10 @@
 const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
 
 /**
- * Adapta el payload del cliente al formato que espera el ERP en POST /pedidos/crear_tipo.
- * El ERP exige lineas[] (minimo 1). El formulario de test envia articulos[].
+ * Adapta articulos[] a lineas[] si hace falta.
  */
 function buildCreateOrderPayload(body) {
-    const payload = Object.assign({}, body);
+    const payload = Object.assign({}, body || {});
     if (Array.isArray(payload.lineas) && payload.lineas.length > 0) {
         return payload;
     }
@@ -24,6 +23,29 @@ function buildCreateOrderPayload(body) {
         payload.lineas = [];
     }
     return payload;
+}
+
+/**
+ * Body alineado con contrato ERP crear_tipo (Postman oficial).
+ * No reenviar codigo_usuario_erp: duplica codigo_cliente y el SP devuelve error 8144.
+ */
+function sanitizeErpCreateOrderPayload(body) {
+    const raw = buildCreateOrderPayload(body);
+    let codigoCliente = raw.codigo_cliente;
+    if (codigoCliente === undefined || codigoCliente === null || codigoCliente === '') {
+        codigoCliente = raw.codigo_usuario_erp;
+    }
+    const tipoRaw = (raw.tipo != null ? String(raw.tipo) : 'REMOTO').trim().toUpperCase();
+    const tipo = tipoRaw === 'PRESENCIAL' ? 'PRESENCIAL' : 'REMOTO';
+    return {
+        codigo_cliente: codigoCliente,
+        serie: raw.serie,
+        centro_venta: raw.centro_venta,
+        referencia: raw.referencia,
+        observaciones: raw.observaciones != null ? String(raw.observaciones) : '',
+        tipo: tipo,
+        lineas: raw.lineas || []
+    };
 }
 
 module.exports = async (req, res) => {
@@ -92,7 +114,7 @@ module.exports = async (req, res) => {
         let bodyToSend = req.body;
 
         if (method === 'POST' && bodyToSend && isPostWithPayload) {
-            bodyToSend = buildCreateOrderPayload(bodyToSend);
+            bodyToSend = sanitizeErpCreateOrderPayload(bodyToSend);
         }
 
         const requestOptions = {
