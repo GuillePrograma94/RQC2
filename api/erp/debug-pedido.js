@@ -7,7 +7,7 @@
  *   dryRun: true = no llama al ERP, solo muestra que se enviaria
  *   erpCreateOrderPathOverride: opcional "/pedidos/crear" o "/pedidos/crear_tipo"
  *   contractMode: "legacy" | "nuevo" (legacy = sin tipo en JSON; nuevo = con tipo)
- *   erpBaseUrlOverride: URL base alternativa solo para contractMode "nuevo" (ej. https://13.93.125.160:5002/api/tienda/v1)
+ *   erpBaseUrlOverride: opcional; si se envia, sustituye ERP_BASE_URL de Vercel (legacy y nuevo)
  *   (El proxy no elimina codigo_usuario_erp ni otros campos del contrato historico)
  */
 
@@ -25,11 +25,9 @@ const {
     analyzePayloadDiff
 } = require('./erp-payload');
 
-const DEFAULT_NUEVO_ERP_BASE = 'https://13.93.125.160:5002/api/tienda/v1';
-
-function resolveBaseUrlForRequest(body, contractMode, envBaseUrl) {
+function resolveBaseUrlForRequest(body, envBaseUrl) {
     const override = (body.erpBaseUrlOverride || '').trim();
-    if (contractMode === 'nuevo' && override) {
+    if (override) {
         return normalizeErpBaseUrl(override);
     }
     return normalizeErpBaseUrl(envBaseUrl || '');
@@ -84,7 +82,7 @@ module.exports = async (req, res) => {
     const pathOverride = normalizeErpPath(pathOverrideRaw);
 
     const pathUsed = pathOverride;
-    const baseUrlUsed = resolveBaseUrlForRequest(body, contractMode, baseUrl);
+    const baseUrlUsed = resolveBaseUrlForRequest(body, baseUrl);
     const erpUrl = baseUrlUsed ? buildUrl(baseUrlUsed, pathUsed) : null;
 
     const sanitizeOpts = {
@@ -102,7 +100,7 @@ module.exports = async (req, res) => {
         vercelEnv: {
             ERP_BASE_URL: baseUrl || null,
             ERP_BASE_URL_used: baseUrlUsed || null,
-            ERP_BASE_URL_override_nuevo: (body.erpBaseUrlOverride || '').trim() || null,
+            ERP_BASE_URL_override: (body.erpBaseUrlOverride || '').trim() || null,
             ERP_LOGIN_PATH: loginPath,
             ERP_CREATE_ORDER_PATH_raw: envCreateOrderPathRaw,
             ERP_CREATE_ORDER_PATH: envCreateOrderPath,
