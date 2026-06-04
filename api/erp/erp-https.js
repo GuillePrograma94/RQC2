@@ -131,14 +131,49 @@ async function parseJsonResponse(response) {
     }
 }
 
+/**
+ * Rutas ERP siempre con barra normal /. Convierte \\ (Windows/Vercel mal copiado) y recorta basura final.
+ */
+function normalizeErpPath(pathSuffix) {
+    if (pathSuffix == null || pathSuffix === '') {
+        return '';
+    }
+    let path = String(pathSuffix).trim();
+    path = path.replace(/\\/g, '/');
+    while (path.length > 1 && path.endsWith('/')) {
+        path = path.slice(0, -1);
+    }
+    if (!path.startsWith('/')) {
+        path = `/${path}`;
+    }
+    return path;
+}
+
+function normalizeErpBaseUrl(baseUrl) {
+    if (!baseUrl) {
+        return '';
+    }
+    let base = String(baseUrl).trim();
+    base = base.replace(/\\/g, '/');
+    while (base.endsWith('/')) {
+        base = base.slice(0, -1);
+    }
+    return base;
+}
+
 function buildUrl(baseUrl, pathSuffix) {
-    const base = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-    const cleanPath = pathSuffix.startsWith('/') ? pathSuffix : `/${pathSuffix}`;
+    const base = normalizeErpBaseUrl(baseUrl);
+    const cleanPath = normalizeErpPath(pathSuffix);
+    if (!cleanPath) {
+        return base;
+    }
     return `${base}${cleanPath}`;
 }
 
 module.exports = {
     fetchWithTimeout: fetchErpWithTimeout,
     parseJsonResponse,
+    normalizeErpPath,
+    normalizeErpBaseUrl,
     buildUrl
 };

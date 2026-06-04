@@ -9,7 +9,7 @@
  *   includeLegacyCodigoUsuarioErp: true = no quitar codigo_usuario_erp (reproducir error)
  */
 
-const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
+const { fetchWithTimeout, parseJsonResponse, buildUrl, normalizeErpPath } = require('./erp-https');
 const {
     LEGACY_CREATE_PATH,
     TYPED_CREATE_PATH,
@@ -46,7 +46,8 @@ module.exports = async (req, res) => {
 
     const baseUrl = process.env.ERP_BASE_URL || '';
     const loginPath = process.env.ERP_LOGIN_PATH || '/login';
-    const envCreateOrderPath = process.env.ERP_CREATE_ORDER_PATH || TYPED_CREATE_PATH;
+    const envCreateOrderPathRaw = process.env.ERP_CREATE_ORDER_PATH || TYPED_CREATE_PATH;
+    const envCreateOrderPath = normalizeErpPath(envCreateOrderPathRaw);
     const username = process.env.ERP_USER || '';
     const password = process.env.ERP_PASSWORD || '';
     const timeoutMs = parseInt(process.env.ERP_REQUEST_TIMEOUT_MS || '15000', 10);
@@ -55,7 +56,8 @@ module.exports = async (req, res) => {
     const clientPayload = body.payload != null ? body.payload : body;
     const dryRun = body.dryRun === true;
     const includeLegacy = body.includeLegacyCodigoUsuarioErp === true;
-    const pathOverride = (body.erpCreateOrderPathOverride || '').trim();
+    const pathOverrideRaw = (body.erpCreateOrderPathOverride || '').trim();
+    const pathOverride = pathOverrideRaw ? normalizeErpPath(pathOverrideRaw) : '';
 
     const pathUsed = pathOverride || envCreateOrderPath || TYPED_CREATE_PATH;
     const erpUrl = baseUrl ? buildUrl(baseUrl, pathUsed) : null;
@@ -76,7 +78,11 @@ module.exports = async (req, res) => {
         vercelEnv: {
             ERP_BASE_URL: baseUrl || null,
             ERP_LOGIN_PATH: loginPath,
+            ERP_CREATE_ORDER_PATH_raw: envCreateOrderPathRaw,
             ERP_CREATE_ORDER_PATH: envCreateOrderPath,
+            pathHadBackslash:
+                (envCreateOrderPathRaw && String(envCreateOrderPathRaw).includes('\\')) ||
+                (pathOverrideRaw && pathOverrideRaw.includes('\\')),
             ERP_USER: username ? maskSecret(username) : null,
             ERP_PASSWORD: password ? '(configurada)' : null,
             ERP_REQUEST_TIMEOUT_MS: timeoutMs
@@ -85,6 +91,7 @@ module.exports = async (req, res) => {
             method: 'POST',
             url: erpUrl,
             pathUsed: pathUsed,
+            pathOverrideRaw: pathOverrideRaw || null,
             pathIsLegacyCrear: pathUsed === LEGACY_CREATE_PATH || pathUsed.endsWith('/crear'),
             pathIsCrearTipo: pathUsed === TYPED_CREATE_PATH || pathUsed.endsWith('/crear_tipo'),
             headers: {
@@ -97,9 +104,11 @@ module.exports = async (req, res) => {
         sanitizedPayload: sanitizedPayload,
         analysis: analysis,
         migrationNote: {
-            remotoAntes: 'POST ' + LEGACY_CREATE_PATH + ' sin campo tipo',
-            remotoAhora: 'POST ' + TYPED_CREATE_PATH + ' con tipo REMOTO (mismos campos + tipo)',
-            noEnviar: ['codigo_usuario_erp']
+            remotoAntes: 'POST ' + LEGACY_CREATE_PATH + ' (6 campos + lineas, sin tipo)',
+            remotoAhora: 'POST ' + TYPED_CREATE_PATH + ' (mismo JSON que antes; tipo REMOTO NO va en body hasta que el SP lo soporte)',
+            presencial: 'POST ' + TYPED_CREATE_PATH + ' con tipo PRESENCIAL en el body',
+            noEnviar: ['codigo_usuario_erp'],
+            envOverride: 'ERP_INCLUDE_TIPO_REMOTO=1 fuerza tipo en body para REMOTO'
         }
     };
 

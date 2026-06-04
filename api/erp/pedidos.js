@@ -4,7 +4,7 @@
  * Requiere token Bearer (hace login automaticamente).
  */
 
-const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
+const { fetchWithTimeout, parseJsonResponse, buildUrl, normalizeErpPath } = require('./erp-https');
 const {
     sanitizeErpCreateOrderPayload,
     analyzePayloadDiff
@@ -29,7 +29,9 @@ module.exports = async (req, res) => {
     const baseUrl = process.env.ERP_BASE_URL || '';
     const loginPath = process.env.ERP_LOGIN_PATH || '/login';
     const pedidosPruebaPath = '/pedidos/prueba';
-    const createOrderPath = process.env.ERP_CREATE_ORDER_PATH || '/pedidos/crear_tipo';
+    const createOrderPath = normalizeErpPath(
+        process.env.ERP_CREATE_ORDER_PATH || '/pedidos/crear_tipo'
+    );
     const username = process.env.ERP_USER || '';
     const password = process.env.ERP_PASSWORD || '';
     const timeoutMs = parseInt(process.env.ERP_REQUEST_TIMEOUT_MS || '15000', 10);

@@ -16,6 +16,27 @@ const ERP_CREATE_ORDER_ALLOWED_KEYS = [
 const LEGACY_CREATE_PATH = '/pedidos/crear';
 const TYPED_CREATE_PATH = '/pedidos/crear_tipo';
 
+/**
+ * El SP dbo.vs_app_pedidos_crea_pedidos (sin actualizar) no admite el parametro tipo.
+ * REMOTO: usar URL /pedidos/crear_tipo sin campo tipo en el JSON (mismo body que /pedidos/crear).
+ * PRESENCIAL: incluir tipo en el body (Postman ERP).
+ * Override: ERP_INCLUDE_TIPO_REMOTO=1 fuerza enviar tipo tambien en REMOTO.
+ */
+function shouldSendTipoInBody(tipo, options) {
+    const opts = options || {};
+    if (opts.forceIncludeTipo === true) {
+        return true;
+    }
+    if (opts.forceOmitTipo === true) {
+        return false;
+    }
+    const envForce = process.env.ERP_INCLUDE_TIPO_REMOTO;
+    if (envForce === '1' || envForce === 'true') {
+        return true;
+    }
+    return tipo === 'PRESENCIAL';
+}
+
 function buildCreateOrderPayload(body) {
     const payload = Object.assign({}, body || {});
     if (Array.isArray(payload.lineas) && payload.lineas.length > 0) {
@@ -49,9 +70,12 @@ function sanitizeErpCreateOrderPayload(body, options) {
         centro_venta: raw.centro_venta,
         referencia: raw.referencia,
         observaciones: raw.observaciones != null ? String(raw.observaciones) : '',
-        tipo: tipo,
         lineas: raw.lineas || []
     };
+
+    if (shouldSendTipoInBody(tipo, opts)) {
+        payload.tipo = tipo;
+    }
 
     if (opts.includeLegacyCodigoUsuarioErp && raw.codigo_usuario_erp != null && raw.codigo_usuario_erp !== '') {
         payload.codigo_usuario_erp = raw.codigo_usuario_erp;
@@ -84,8 +108,16 @@ function analyzePayloadDiff(body, options) {
             warnings.push('codigo_usuario_erp se elimina al reenviar (duplica codigo_cliente; provoca error SQL 8144).');
         }
     }
+    const tipoLogico = (clientBody.tipo != null ? String(clientBody.tipo) : (opts.defaultTipo || 'REMOTO')).trim().toUpperCase();
+    const tipoNorm = tipoLogico === 'PRESENCIAL' ? 'PRESENCIAL' : 'REMOTO';
     if (!clientBody.tipo) {
-        warnings.push('tipo no venia en el body del cliente; el proxy usa default REMOTO.');
+        warnings.push('tipo no venia en el body del cliente; se asume REMOTO por defecto.');
+    }
+    if (tipoNorm === 'REMOTO' && clientBody.tipo && !sanitizedBody.tipo) {
+        warnings.push(
+            'tipo REMOTO omitido en el JSON enviado al ERP (el SP vs_app_pedidos_crea_pedidos no lo admite). ' +
+            'Se usa solo la URL /pedidos/crear_tipo. PRESENCIAL si lleva tipo en el body.'
+        );
     }
     if (Array.isArray(clientBody.articulos) && clientBody.articulos.length > 0) {
         warnings.push('articulos[] se convierte a lineas[] antes de llamar al ERP.');
@@ -106,7 +138,8 @@ function analyzePayloadDiff(body, options) {
         strippedKeys: strippedKeys,
         sanitizedBody: sanitizedBody,
         warnings: warnings,
-        tipoFinal: sanitizedBody.tipo
+        tipoLogico: tipoNorm,
+        tipoEnBodyEnviado: sanitizedBody.tipo || null
     };
 }
 
@@ -114,6 +147,7 @@ module.exports = {
     ERP_CREATE_ORDER_ALLOWED_KEYS,
     LEGACY_CREATE_PATH,
     TYPED_CREATE_PATH,
+    shouldSendTipoInBody,
     buildCreateOrderPayload,
     sanitizeErpCreateOrderPayload,
     analyzePayloadDiff

@@ -62,7 +62,7 @@ Endpoints del ERP:
 |-----|-------|--------|
 | `ERP_BASE_URL` | Base URL del ERP en HTTPS (ej: `https://api.saneamiento-martinez.com:5002/api/tienda/v1`) | Requerido |
 | `ERP_LOGIN_PATH` | Ruta de login del ERP: `/login` | Requerido |
-| `ERP_CREATE_ORDER_PATH` | Ruta de crear pedido: `/pedidos/crear_tipo` | Requerido |
+| `ERP_CREATE_ORDER_PATH` | Ruta de crear pedido: `/pedidos/crear_tipo` (solo barras `/`, **nunca** `\` al final ni en la ruta) | Requerido |
 | `ERP_USER` | Usuario del ERP con el que la API hace login (ej: `APP_TIENDA` en produccion). El ERP mostrara este usuario como "quien creo el pedido". | Requerido |
 | `ERP_PASSWORD` | Contraseña del ERP | Requerido |
 | `ERP_REQUEST_TIMEOUT_MS` | Timeout en ms (ej: `15000`) | Opcional |
@@ -140,7 +140,22 @@ Endpoint de diagnostico: `POST /api/erp/debug-pedido` (misma sanitizacion que pr
 2. Si la app movil esta cacheada, fuerza recarga (Ctrl+F5) para cargar `app.js` sin `codigo_usuario_erp`.
 3. Vuelve a intentar el reenvio ERP desde Mis pedidos.
 
-Si tras el redeploy el error persiste con `payloadKeys` correctos (sin `codigo_usuario_erp`), el equipo del ERP debe actualizar el procedimiento para el parametro `tipo` en `crear_tipo`.
+Si `payloadKeysSent` ya no incluye `codigo_usuario_erp` ni `tipo` (REMOTO) y sigue el 8144, el equipo del ERP debe alinear el SP con `crear_tipo`.
+
+**REMOTO y error 8144 con `tipo` en body:** el proxy **omite `tipo` del JSON** y solo usa la ruta `/pedidos/crear_tipo`. Vuelve a probar en `/test_api_erp` (debe verse `tipo REMOTO omitido` en warnings y `payloadSent` sin clave `tipo`).
+
+### Comprobar URL en Vercel (barras `\` vs `/`)
+
+En `/test_api_erp`, bloque `trace.vercelEnv`:
+
+- `ERP_CREATE_ORDER_PATH` debe ser exactamente `/pedidos/crear_tipo`
+- Si `pathHadBackslash: true`, en Vercel has pegado la ruta con `\` (Windows). Corrigelo a `/pedidos/crear_tipo` sin barra al final.
+
+La URL final debe verse asi (como en tu error, esto es correcto):
+
+`https://api.saneamiento-martinez.com:5002/api/tienda/v1/pedidos/crear_tipo`
+
+No debe aparecer `crear_tipo\` ni `crear_tipo/\\`.
 
 ### Error: "No se pudo cargar configuración"
 

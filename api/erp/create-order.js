@@ -9,7 +9,7 @@
  * no se llama a la API del ERP y se devuelve el pedido_erp ya registrado.
  */
 
-const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
+const { fetchWithTimeout, parseJsonResponse, buildUrl, normalizeErpPath } = require('./erp-https');
 const { createClient } = require('@supabase/supabase-js');
 const { analyzePayloadDiff } = require('./erp-payload');
 
@@ -31,7 +31,7 @@ module.exports = async (req, res) => {
 
     const baseUrl = process.env.ERP_BASE_URL || '';
     const loginPath = process.env.ERP_LOGIN_PATH || '/login';
-    const createOrderPath = process.env.ERP_CREATE_ORDER_PATH || '';
+    const createOrderPath = normalizeErpPath(process.env.ERP_CREATE_ORDER_PATH || '');
     const username = process.env.ERP_USER || '';
     const password = process.env.ERP_PASSWORD || '';
     const timeoutMs = parseInt(process.env.ERP_REQUEST_TIMEOUT_MS || '15000', 10);

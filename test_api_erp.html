@@ -90,7 +90,7 @@
     <h1>Test API ERP (controlado)</h1>
     <p class="sub">
         Pagina de diagnostico: muestra body del cliente, body que envia Vercel al ERP (sanitizado), URL y respuesta.
-        Pedido remoto = mismo contrato que app movil: <code>/pedidos/crear_tipo</code> + <code>"tipo":"REMOTO"</code>.
+        Pedido remoto: URL <code>/pedidos/crear_tipo</code>; el proxy <strong>quita</strong> <code>tipo</code> del JSON (el SP actual no lo admite).
         <a href="test-erp.html">Panel antiguo test-erp.html</a>
     </p>
 
@@ -141,18 +141,21 @@
 
     <div class="panel">
         <h2>Que debe llevar un pedido REMOTO (checklist)</h2>
-        <pre id="checklistBox">{
+        <pre id="checklistBox">REMOTO (app movil) - lo que envia Vercel al ERP tras sanitizar:
+{
   "codigo_cliente": "79280",
   "serie": "BT7",
   "centro_venta": "1",
   "referencia": "RQC/TEST-UNICO",
   "observaciones": "",
-  "tipo": "REMOTO",
   "lineas": [{ "codigo_articulo": "ART001", "unidades": 1 }]
 }
 
+URL: POST .../pedidos/crear_tipo
+NO en body REMOTO: tipo (provoca error 8144 en SP actual)
 NO enviar: codigo_usuario_erp
-URL ERP: POST .../pedidos/crear_tipo
+
+PRESENCIAL (checkout): mismo endpoint + "tipo": "PRESENCIAL" en body
 </pre>
     </div>
 
