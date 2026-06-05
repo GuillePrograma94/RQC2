@@ -1069,6 +1069,7 @@ class ScanAsYouShopApp {
                 console.error('refreshHeaderTitleFromEmpresa:', err);
             });
         }
+        this.updateCartStaffButtons();
     }
 
     /**
@@ -1410,6 +1411,52 @@ class ScanAsYouShopApp {
             this.currentUser.is_dependiente ||
             this.currentUser.is_administrador
         ));
+    }
+
+    /**
+     * Dependiente o administrador en PC tienda (Generar Pedido / Generar Albaran).
+     */
+    isTiendaStaff() {
+        if (!this.currentUser) return false;
+        const tipo = String(this.currentUser.tipo || '').toUpperCase();
+        return !!(
+            this.currentUser.is_dependiente ||
+            this.currentUser.is_administrador ||
+            tipo === 'DEPENDIENTE' ||
+            tipo === 'ADMINISTRADOR'
+        );
+    }
+
+    /**
+     * Almacen destino para pedidos staff: tienda del dependiente o almacen habitual del administrador.
+     * @returns {string|null}
+     */
+    getAlmacenTiendaStaff() {
+        if (!this.currentUser) return null;
+        const isDependiente =
+            !!this.currentUser.is_dependiente ||
+            String(this.currentUser.tipo || '').toUpperCase() === 'DEPENDIENTE';
+        if (isDependiente) {
+            const t = this.currentUser.almacen_tienda;
+            return t != null && String(t).trim() !== '' ? String(t).trim() : null;
+        }
+        const h = this.getEffectiveAlmacenHabitual();
+        return h != null && String(h).trim() !== '' ? String(h).trim() : null;
+    }
+
+    /**
+     * Botones del footer del carrito segun rol (Generar Pedido / Generar Albaran para staff).
+     */
+    updateCartStaffButtons() {
+        const enviarPedidoBtn = document.getElementById('enviarPedidoBtn');
+        const generarAlbaranBtn = document.getElementById('generarAlbaranBtn');
+        const isStaff = this.isTiendaStaff();
+        if (enviarPedidoBtn) {
+            enviarPedidoBtn.textContent = isStaff ? 'Generar Pedido' : 'Enviar Pedido';
+        }
+        if (generarAlbaranBtn) {
+            generarAlbaranBtn.style.display = isStaff ? '' : 'none';
+        }
     }
 
     /**
@@ -7270,28 +7317,38 @@ class ScanAsYouShopApp {
             });
         }
 
-        // DEPENDIENTE: Imprimir Pedido (almacén = tienda del dependiente)
+        // Staff tienda: Imprimir Pedido remoto
         const imprimirPedidoBtn = document.getElementById('imprimirPedidoBtn');
         if (imprimirPedidoBtn) {
             imprimirPedidoBtn.addEventListener('click', () => {
                 if (this.isEnviarPedidoModalOpen()) this.closeEnviarPedidoModal();
-                const almacenTienda = this.currentUser && this.currentUser.almacen_tienda ? this.currentUser.almacen_tienda : null;
+                const almacenTienda = this.getAlmacenTiendaStaff();
                 if (!almacenTienda) {
-                    window.ui.showToast('No hay tienda asignada para este dependiente.', 'warning');
+                    window.ui.showToast(
+                        this.currentUser && this.currentUser.is_administrador
+                            ? 'Selecciona un cliente con almacen habitual o configura tu almacen habitual.'
+                            : 'No hay tienda asignada para este dependiente.',
+                        'warning'
+                    );
                     return;
                 }
                 this.showAlmacenObservacionesModal(almacenTienda);
             });
         }
 
-        // DEPENDIENTE: Generar sin imprimir (almacén = tienda del dependiente)
+        // Staff tienda: Generar pedido remoto sin imprimir
         const generarSinImprimirBtn = document.getElementById('generarSinImprimirBtn');
         if (generarSinImprimirBtn) {
             generarSinImprimirBtn.addEventListener('click', () => {
                 if (this.isEnviarPedidoModalOpen()) this.closeEnviarPedidoModal();
-                const almacenTienda = this.currentUser && this.currentUser.almacen_tienda ? this.currentUser.almacen_tienda : null;
+                const almacenTienda = this.getAlmacenTiendaStaff();
                 if (!almacenTienda) {
-                    window.ui.showToast('No hay tienda asignada para este dependiente.', 'warning');
+                    window.ui.showToast(
+                        this.currentUser && this.currentUser.is_administrador
+                            ? 'Selecciona un cliente con almacen habitual o configura tu almacen habitual.'
+                            : 'No hay tienda asignada para este dependiente.',
+                        'warning'
+                    );
                     return;
                 }
                 this.showAlmacenObservacionesModal(almacenTienda);
@@ -7324,6 +7381,38 @@ class ScanAsYouShopApp {
         if (enviarPedidoBtn) {
             enviarPedidoBtn.addEventListener('click', () => {
                 this.openEnviarPedidoModal();
+            });
+        }
+        const generarAlbaranBtn = document.getElementById('generarAlbaranBtn');
+        if (generarAlbaranBtn) {
+            generarAlbaranBtn.addEventListener('click', () => {
+                this.openGenerarAlbaranModal();
+            });
+        }
+        const closeGenerarAlbaranModalBtn = document.getElementById('closeGenerarAlbaranModalBtn');
+        if (closeGenerarAlbaranModalBtn) {
+            closeGenerarAlbaranModalBtn.addEventListener('click', () => {
+                this.closeGenerarAlbaranModal();
+            });
+        }
+        const generarAlbaranModalOverlay = document.getElementById('generarAlbaranModalOverlay');
+        if (generarAlbaranModalOverlay) {
+            generarAlbaranModalOverlay.addEventListener('click', () => {
+                this.closeGenerarAlbaranModal();
+            });
+        }
+        const imprimirAlbaranBtn = document.getElementById('imprimirAlbaranBtn');
+        if (imprimirAlbaranBtn) {
+            imprimirAlbaranBtn.addEventListener('click', () => {
+                this.closeGenerarAlbaranModal();
+                void this.sendPresencialAlbaranOrder({ modo: 'imprimir_sin_firma' });
+            });
+        }
+        const firmarAlbaranBtn = document.getElementById('firmarAlbaranBtn');
+        if (firmarAlbaranBtn) {
+            firmarAlbaranBtn.addEventListener('click', () => {
+                this.closeGenerarAlbaranModal();
+                void this.sendPresencialAlbaranOrder({ modo: 'firmar' });
             });
         }
         const guardarPrepedidoBtn = document.getElementById('guardarPrepedidoBtn');
@@ -9378,6 +9467,7 @@ class ScanAsYouShopApp {
         // Actualizar header con totales
         const totalWithIVA = cart.total_importe * 1.21;
         this.updateCartHeader(cart.total_productos, totalWithIVA);
+        this.updateCartStaffButtons();
     }
     
     /**
@@ -10168,7 +10258,10 @@ class ScanAsYouShopApp {
 
         const titleEl = document.getElementById('enviarPedidoModalTitle');
         if (titleEl) {
-            titleEl.textContent = prepedidoMode ? 'Aceptar prepedido: como lo recibes' : 'Enviar Pedido';
+            const isStaff = this.isTiendaStaff();
+            titleEl.textContent = prepedidoMode
+                ? 'Aceptar prepedido: como lo recibes'
+                : (isStaff ? 'Generar Pedido' : 'Enviar Pedido');
         }
 
         content.appendChild(box);
@@ -10176,8 +10269,7 @@ class ScanAsYouShopApp {
         if (remoteOrderSection) {
             remoteOrderSection.style.display = this.currentUser ? 'block' : 'none';
         }
-        const isDependiente =
-            !!(this.currentUser && (this.currentUser.is_dependiente || String(this.currentUser.tipo || '').toUpperCase() === 'DEPENDIENTE'));
+        const isTiendaStaff = this.isTiendaStaff();
         const normalButtons = document.getElementById('remoteOrderButtonsNormal');
         const dependienteButtons = document.getElementById('dependienteOrderButtons');
         const yaEnAlmacenWrap = document.getElementById('yaEnAlmacenWrap');
@@ -10186,7 +10278,7 @@ class ScanAsYouShopApp {
                 normalButtons.style.display = 'flex';
                 dependienteButtons.style.display = 'none';
                 yaEnAlmacenWrap.style.display = 'none';
-            } else if (isDependiente) {
+            } else if (isTiendaStaff) {
                 normalButtons.style.display = 'none';
                 dependienteButtons.style.display = 'flex';
                 yaEnAlmacenWrap.style.display = 'none';
@@ -10804,7 +10896,8 @@ class ScanAsYouShopApp {
      * codigoClienteUsuario: valor de carritos_clientes.codigo_cliente_usuario (usuarios.codigo_usuario al crear el pedido).
      * serie = almacen destino (donde recoge). centro_venta = almacen habitual del cliente.
      */
-    buildErpOrderPayload(cart, almacen, referencia, observaciones, codigoClienteUsuario) {
+    buildErpOrderPayload(cart, almacen, referencia, observaciones, codigoClienteUsuario, options) {
+        const opts = options || {};
         const almacenHabitual = this.getEffectiveAlmacenHabitual();
         const { serie, centro_venta } = typeof ERP_PEDIDO_OPCIONES !== 'undefined'
             ? ERP_PEDIDO_OPCIONES.getSerieYCentroVenta(almacen, almacenHabitual)
@@ -10826,9 +10919,331 @@ class ScanAsYouShopApp {
             centro_venta: centro_venta,
             referencia: ref,
             observaciones: observaciones != null ? String(observaciones) : '',
-            tipo: 'REMOTO',
+            tipo: opts.tipo != null ? String(opts.tipo) : 'REMOTO',
             lineas: lineas
         };
+    }
+
+    /**
+     * Extrae pedido y albaran de la respuesta del proxy ERP (misma logica que checkout_pc).
+     */
+    parseErpCreateOrderResponse(erpResponse) {
+        if (!erpResponse) {
+            return { ok: false, pedido: null, albaran: null };
+        }
+        const data = erpResponse.data;
+        const inner = data && typeof data === 'object' && data.data && typeof data.data === 'object'
+            ? data.data
+            : (data && typeof data === 'object' ? data : null);
+        if (!inner || typeof inner !== 'object') {
+            return { ok: false, pedido: null, albaran: null };
+        }
+        const respuesta = inner.respuesta;
+        const pedido = inner.pedido;
+        const albaran = inner.albaran;
+        const pedidoStr = pedido != null && String(pedido).trim() !== '' ? String(pedido).trim() : null;
+        const albaranStr = albaran != null && String(albaran).trim() !== '' ? String(albaran).trim() : null;
+        let ok = false;
+        if (respuesta != null) {
+            ok = String(respuesta).trim().toUpperCase() === 'OK' && !!pedidoStr;
+        } else {
+            ok = !!pedidoStr;
+        }
+        return { ok: ok, pedido: pedidoStr, albaran: albaranStr };
+    }
+
+    openGenerarAlbaranModal() {
+        const cart = window.cartManager.getCart();
+        if (!cart.productos || cart.productos.length === 0) {
+            window.ui.showToast('El carrito esta vacio', 'warning');
+            return;
+        }
+        if (!this.isTiendaStaff()) {
+            window.ui.showToast('Solo personal de tienda puede generar albaranes', 'warning');
+            return;
+        }
+        if (!window.TiendaNative || !window.TiendaNative.isAvailable()) {
+            window.ui.showToast('Generar albaran requiere TiendaPC.exe en este equipo', 'warning');
+            return;
+        }
+        const modal = document.getElementById('generarAlbaranModal');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    closeGenerarAlbaranModal() {
+        const modal = document.getElementById('generarAlbaranModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    showAlbaranSignatureModalForTienda() {
+        const self = this;
+        return new Promise((resolve) => {
+            const modal = document.getElementById('albaranSignatureModal');
+            const clearBtn = document.getElementById('albaranSignatureClearBtn');
+            const confirmBtn = document.getElementById('albaranSignatureConfirmBtn');
+            const overlay = document.getElementById('albaranSignatureModalOverlay');
+            if (!modal || !clearBtn || !confirmBtn) {
+                resolve(null);
+                return;
+            }
+
+            modal.style.display = 'flex';
+            requestAnimationFrame(() => {
+                if (window.SignaturePad && typeof window.SignaturePad.setup === 'function') {
+                    self._albaranSignaturePadState = window.SignaturePad.setup({ canvasId: 'albaranSignatureCanvas' });
+                }
+            });
+
+            const onClear = () => {
+                if (self._albaranSignaturePadState) {
+                    self._albaranSignaturePadState.clear();
+                }
+            };
+
+            const onConfirm = () => {
+                if (!self._albaranSignaturePadState && window.SignaturePad) {
+                    self._albaranSignaturePadState = window.SignaturePad.setup({ canvasId: 'albaranSignatureCanvas' });
+                }
+                if (!self._albaranSignaturePadState || self._albaranSignaturePadState.isEmpty()) {
+                    window.ui.showToast('Debe firmar en el recuadro antes de continuar', 'warning');
+                    return;
+                }
+                const dataUrl = self._albaranSignaturePadState.toDataUrl();
+                cleanup();
+                resolve(dataUrl);
+            };
+
+            const onOverlayClick = () => {
+                cleanup();
+                resolve(null);
+            };
+
+            function cleanup() {
+                modal.style.display = 'none';
+                clearBtn.removeEventListener('click', onClear);
+                confirmBtn.removeEventListener('click', onConfirm);
+                if (overlay) overlay.removeEventListener('click', onOverlayClick);
+                if (self._albaranSignaturePadState && self._albaranSignaturePadState.destroy) {
+                    self._albaranSignaturePadState.destroy();
+                }
+                self._albaranSignaturePadState = null;
+            }
+
+            clearBtn.addEventListener('click', onClear);
+            confirmBtn.addEventListener('click', onConfirm);
+            if (overlay) overlay.addEventListener('click', onOverlayClick);
+        });
+    }
+
+    /**
+     * Genera pedido PRESENCIAL en ERP, imprime o firma albaran via TiendaPC.
+     * @param {{ modo: 'imprimir_sin_firma' | 'firmar' }} options
+     */
+    async sendPresencialAlbaranOrder(options) {
+        const opts = options || {};
+        const modo = opts.modo === 'firmar' ? 'firmar' : 'imprimir_sin_firma';
+        try {
+            if (!this.currentUser) {
+                window.ui.showToast('Debes iniciar sesion', 'error');
+                return;
+            }
+            if (!this.isTiendaStaff()) {
+                window.ui.showToast('Solo personal de tienda puede generar albaranes', 'warning');
+                return;
+            }
+            if (!window.TiendaNative || !window.TiendaNative.isAvailable()) {
+                window.ui.showToast('Generar albaran requiere TiendaPC.exe en este equipo', 'warning');
+                return;
+            }
+
+            if (this.canRepresentClientes() && !this.currentUser.cliente_representado_id) {
+                window.ui.showToast('Selecciona el cliente al que representas para generar el albaran', 'warning');
+                this.showScreen('selectorCliente');
+                this.renderSelectorClienteScreen();
+                return;
+            }
+
+            const almacen = this.getAlmacenTiendaStaff();
+            if (!almacen) {
+                window.ui.showToast(
+                    this.currentUser.is_administrador
+                        ? 'Selecciona un cliente con almacen habitual o configura tu almacen habitual.'
+                        : 'No hay tienda asignada para este dependiente.',
+                    'warning'
+                );
+                return;
+            }
+
+            const effectiveUserId = this.getEffectiveUserId();
+            if (!effectiveUserId) {
+                window.ui.showToast('Selecciona un cliente a representar', 'warning');
+                return;
+            }
+
+            const cart = window.cartManager.getCart();
+            if (!cart || !cart.productos || cart.productos.length === 0) {
+                window.ui.showToast('El carrito esta vacio', 'warning');
+                return;
+            }
+
+            let observacionesFinal = 'ALBARAN PRESENCIAL TIENDA';
+            if (this.canRepresentClientes() && this.currentUser.user_name) {
+                observacionesFinal += '\n\nGenerado por: ' + this.currentUser.user_name;
+            }
+
+            window.ui.showLoading('Generando albaran presencial...');
+
+            const result = await window.supabaseClient.crearPedidoPresencialTienda(
+                effectiveUserId,
+                almacen,
+                observacionesFinal,
+                this.currentUser.is_operario ? (this.currentUser.nombre_operario || null) : null
+            );
+
+            if (!result.success) {
+                throw new Error(result.message || 'Error al crear pedido presencial');
+            }
+
+            const referencia = 'RQC/' + result.carrito_id + '-' + result.codigo_qr;
+            const erpPayload = this.buildErpOrderPayload(
+                cart,
+                almacen,
+                referencia,
+                observacionesFinal,
+                result.codigo_cliente_usuario,
+                { tipo: 'PRESENCIAL' }
+            );
+
+            let erpResponse = null;
+            let erpError = null;
+            if (window.erpClient && (window.erpClient.proxyPath || window.erpClient.createOrderPath)) {
+                try {
+                    console.log('ERP create-order PRESENCIAL payload:', JSON.stringify(erpPayload, null, 2));
+                    erpResponse = await window.erpClient.createRemoteOrder(erpPayload);
+                    if (erpResponse && erpResponse.success === false) {
+                        erpError = new Error(erpResponse.message || erpResponse.error || 'El ERP rechazo el pedido');
+                    }
+                } catch (e) {
+                    erpError = e;
+                }
+            } else {
+                erpError = new Error('ERP no configurado');
+            }
+
+            if (erpError) {
+                this.registerErrorForSupport('sendPresencialAlbaranOrder.erp', erpError, { almacen: almacen, modo: modo });
+                window.ui.hideLoading();
+                window.ui.showToast(erpError.message || 'Error de conexion con el ERP', 'error');
+                return;
+            }
+
+            const parsed = this.parseErpCreateOrderResponse(erpResponse);
+            if (!parsed.ok || !parsed.pedido) {
+                window.ui.hideLoading();
+                window.ui.showToast('El ERP no devolvio un pedido valido', 'error');
+                return;
+            }
+
+            if (result.carrito_id) {
+                try {
+                    await window.supabaseClient.updatePedidoErp(result.carrito_id, parsed.pedido);
+                } catch (e) {
+                    console.warn('No se pudo guardar pedido_erp:', e);
+                }
+                if (parsed.albaran) {
+                    try {
+                        await window.supabaseClient.updateAlbaranErp(result.carrito_id, parsed.albaran);
+                    } catch (e) {
+                        console.warn('No se pudo guardar albaran_erp:', e);
+                    }
+                }
+            }
+
+            for (const producto of cart.productos) {
+                await window.supabaseClient.addProductToRemoteOrder(
+                    result.carrito_id,
+                    {
+                        codigo: producto.codigo_producto,
+                        descripcion: producto.descripcion_producto,
+                        pvp: producto.precio_unitario
+                    },
+                    producto.cantidad
+                );
+            }
+
+            try {
+                await window.supabaseClient.registrarHistorialDesdeCarrito(result.carrito_id);
+            } catch (e) {
+                console.warn('No se pudo registrar historial:', e);
+            }
+
+            const albaranErp = parsed.albaran;
+            if (!albaranErp) {
+                window.ui.hideLoading();
+                window.ui.showToast('Pedido creado pero el ERP no devolvio codigo de albaran', 'warning');
+                await window.cartManager.clearCart();
+                window.ui.updateCartBadge();
+                this.showScreen('cart');
+                this.updateActiveNav('cart');
+                this.updateCartView();
+                return;
+            }
+
+            window.ui.showLoading('Esperando PDF del albaran...');
+            const pdfReady = await window.TiendaNative.waitForAlbaranPdfReady(albaranErp);
+            if (!pdfReady) {
+                window.ui.hideLoading();
+                window.ui.showToast('El PDF del albaran no esta disponible en la ruta de red', 'error');
+                return;
+            }
+
+            if (modo === 'firmar') {
+                window.ui.hideLoading();
+                const signatureDataUrl = await this.showAlbaranSignatureModalForTienda();
+                if (!signatureDataUrl) {
+                    window.ui.showToast('Firma cancelada. El pedido quedo registrado sin imprimir.', 'warning');
+                    return;
+                }
+                window.ui.showLoading('Guardando firma en el albaran...');
+                const applyResult = await window.TiendaNative.applyAlbaranSignature(albaranErp, signatureDataUrl);
+                if (!applyResult || applyResult.success !== true) {
+                    window.ui.hideLoading();
+                    window.ui.showToast((applyResult && applyResult.message) || 'No se pudo guardar la firma', 'error');
+                    return;
+                }
+                window.ui.showLoading('Imprimiendo albaran firmado...');
+                const printResult = await window.TiendaNative.printAlbaran(albaranErp, { copies: 1 });
+                window.ui.hideLoading();
+                if (!printResult || printResult.success !== true) {
+                    window.ui.showToast((printResult && printResult.message) || 'Albaran firmado pero no se pudo imprimir', 'warning');
+                } else {
+                    window.ui.showToast('Albaran firmado e impreso correctamente', 'success');
+                }
+            } else {
+                window.ui.showLoading('Imprimiendo albaran (2 copias)...');
+                const printResult = await window.TiendaNative.printAlbaran(albaranErp, { copies: 2 });
+                window.ui.hideLoading();
+                if (!printResult || printResult.success !== true) {
+                    window.ui.showToast((printResult && printResult.message) || 'No se pudo imprimir el albaran', 'error');
+                    return;
+                }
+                window.ui.showToast('Albaran impreso (2 copias)', 'success');
+            }
+
+            if (window.purchaseCache) {
+                window.purchaseCache.invalidateUser(effectiveUserId || this.currentUser.user_id);
+            }
+            await window.cartManager.clearCart();
+            window.ui.updateCartBadge();
+            this.showScreen('cart');
+            this.updateActiveNav('cart');
+            this.updateCartView();
+        } catch (error) {
+            console.error('sendPresencialAlbaranOrder:', error);
+            this.registerErrorForSupport('sendPresencialAlbaranOrder.catch', error, { modo: modo });
+            window.ui.hideLoading();
+            window.ui.showToast('Error al generar albaran. Intenta de nuevo.', 'error');
+        }
     }
 
     /**

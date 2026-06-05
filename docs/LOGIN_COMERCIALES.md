@@ -114,6 +114,17 @@ Los campos de sesion `cliente_representado_*` y los metodos `getEffectiveUserId(
 
 El cambio de contrasena del administrador se hace desde **Mi perfil** (no desde el selector; el boton "Cambiar mi contrasena" del selector solo aplica a comercial/dependiente).
 
+### Generar Pedido y Generar Albaran (staff)
+
+Tanto **dependiente** como **administrador** ven en el carrito:
+
+- **Generar Pedido** (REMOTO): Imprimir Pedido / Generar sin imprimir (mismo flujo que el dependiente tenia antes).
+- **Generar Albaran** (PRESENCIAL): solo con **TiendaPC.exe** en el PC de tienda.
+
+Almacen destino: dependiente usa `almacen_tienda`; administrador usa `getEffectiveAlmacenHabitual()` del cliente representado.
+
+Documentacion: `docs/GENERAR_ALBARAN_TIENDA.md`.
+
 ## Nota sobre comerciales legacy
 
 En la base de datos pueden existir referencias antiguas a un sistema de comerciales legacy que fue eliminado. Todos los comerciales actuales se crean nuevos en `usuarios_comerciales` y tienen su entrada en `usuarios` con `tipo = 'COMERCIAL'`. No hay comerciales del sistema antiguo activos.

@@ -178,6 +178,40 @@
         </div>
     </div>
 
+    <!-- Modal Generar Albarán (staff: dependiente / administrador) -->
+    <div id="generarAlbaranModal" class="login-modal generar-albaran-modal" style="display: none;">
+        <div class="login-modal-overlay" id="generarAlbaranModalOverlay"></div>
+        <div class="login-modal-content generar-albaran-modal-content">
+            <div class="enviar-pedido-modal-header">
+                <h2>Generar Albarán</h2>
+                <button type="button" id="closeGenerarAlbaranModalBtn" class="close-login-btn" aria-label="Cerrar">×</button>
+            </div>
+            <div class="generar-albaran-modal-body remote-order-section">
+                <p class="section-description">Pedido presencial en ERP. Elija como entregar el albarán.</p>
+                <div class="remote-order-buttons tienda-staff-order-buttons">
+                    <button type="button" id="imprimirAlbaranBtn" class="btn btn-success btn-lg">Imprimir Albarán</button>
+                    <button type="button" id="firmarAlbaranBtn" class="btn btn-success btn-lg">Firmar Albarán</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal firma albarán (TiendaPC + tableta XPPEN) -->
+    <div id="albaranSignatureModal" class="login-modal albaran-signature-modal" style="display: none;">
+        <div class="login-modal-overlay" id="albaranSignatureModalOverlay"></div>
+        <div class="login-modal-content albaran-signature-modal-content">
+            <h2 class="signature-modal-title">Firmar albarán</h2>
+            <p class="signature-modal-hint">Dibuje la firma en el recuadro (tableta XPPEN o ratón). Se pegará en el PDF del albarán.</p>
+            <div class="signature-pad-wrapper">
+                <canvas id="albaranSignatureCanvas" class="signature-pad-canvas"></canvas>
+            </div>
+            <div class="signature-modal-actions">
+                <button type="button" id="albaranSignatureClearBtn" class="btn btn-secondary">Borrar</button>
+                <button type="button" id="albaranSignatureConfirmBtn" class="btn btn-primary">Confirmar firma</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Enviar Pedido (contenido de Caja: Recoger en Almacén, Enviar en Ruta, Escanear en Mostrador) -->
     <div id="enviarPedidoModal" class="login-modal enviar-pedido-modal" style="display: none;">
         <div class="login-modal-overlay" id="enviarPedidoModalOverlay"></div>
@@ -297,6 +331,7 @@
                     <div id="prepedidoEditHint" class="prepedido-edit-hint" style="display: none;">Editando prepedido guardado</div>
                     <div id="presupuestoEditHint" class="prepedido-edit-hint" style="display: none;">Editando presupuesto guardado</div>
                     <button type="button" id="enviarPedidoBtn" class="btn btn-primary btn-lg btn-enviar-pedido">Enviar Pedido</button>
+                    <button type="button" id="generarAlbaranBtn" class="btn btn-secondary btn-lg btn-generar-albaran" style="display: none;">Generar Albarán</button>
                     <button type="button" id="guardarPrepedidoBtn" class="btn btn-secondary btn-lg btn-guardar-prepedido">Guardar Prepedido</button>
                     <button type="button" id="guardarPresupuestoBtn" class="btn btn-secondary btn-lg btn-guardar-prepedido">Guardar Presupuesto</button>
                 </div>
@@ -1763,6 +1798,8 @@
     <script src="js/cart.js"></script>
     <script src="js/scanner.js"></script>
     <script src="js/ui.js"></script>
+    <script src="js/signature-pad.js"></script>
+    <script src="js/tienda-native.js"></script>
     <script src="js/app.js"></script>
 
     <!-- Service Worker con auto-actualizacion -->

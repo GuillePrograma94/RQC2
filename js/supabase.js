@@ -1977,6 +1977,60 @@ class SupabaseClient {
         }
     }
 
+    /**
+     * Crea un pedido presencial desde tienda (dependiente / administrador + TiendaPC).
+     */
+    async crearPedidoPresencialTienda(usuarioId, almacenDestino, observaciones, nombreOperario) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            const { data, error } = await this.client.rpc(
+                'crear_pedido_presencial_tienda',
+                {
+                    p_usuario_id: usuarioId,
+                    p_almacen_destino: almacenDestino,
+                    p_observaciones: observaciones != null ? String(observaciones).trim() || null : null,
+                    p_nombre_operario: nombreOperario != null ? String(nombreOperario).trim() || null : null
+                }
+            );
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                const result = data[0];
+                if (result.success) {
+                    return {
+                        success: true,
+                        carrito_id: result.carrito_id,
+                        codigo_qr: result.codigo_qr,
+                        codigo_cliente_usuario: result.codigo_cliente_usuario || null
+                    };
+                }
+                return {
+                    success: false,
+                    message: result.message
+                };
+            }
+
+            return {
+                success: false,
+                message: 'No se recibio respuesta del servidor'
+            };
+        } catch (error) {
+            console.error('Error al crear pedido presencial tienda:', error);
+            const msg = (error && (error.message || error.error_description || String(error)))
+                ? String(error.message || error.error_description || error)
+                : 'Error de conexion. Intenta de nuevo.';
+            return {
+                success: false,
+                message: msg,
+                is_connection_error: this.isNetworkError(error)
+            };
+        }
+    }
+
     async crearPrepedido(usuarioId, almacenDestino, observaciones, nombreOperario, cart) {
         try {
             if (!this.client) {
@@ -2344,6 +2398,27 @@ class SupabaseClient {
             return true;
         } catch (error) {
             console.error('Error al actualizar pedido_erp:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Actualiza el identificador de albaran ERP en un carrito presencial
+     */
+    async updateAlbaranErp(carritoId, albaranErp) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+            const valor = albaranErp != null ? String(albaranErp) : null;
+            const { error } = await this.client
+                .from('carritos_clientes')
+                .update({ albaran_erp: valor })
+                .eq('id', carritoId);
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Error al actualizar albaran_erp:', error);
             throw error;
         }
     }

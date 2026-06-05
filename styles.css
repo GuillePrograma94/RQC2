@@ -822,6 +822,62 @@ body.gate-visible .app-container {
     font-weight: 600;
 }
 
+#cartScreen .cart-footer .btn-generar-albaran {
+    width: 100%;
+    margin-top: 0.6rem;
+    font-weight: 600;
+}
+
+.generar-albaran-modal-content,
+.albaran-signature-modal-content {
+    max-width: 520px;
+    width: 92vw;
+}
+
+.albaran-signature-modal-content .signature-modal-title {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+}
+
+.albaran-signature-modal-content .signature-modal-hint {
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    margin: 0 0 1rem;
+    line-height: 1.4;
+}
+
+.signature-pad-wrapper {
+    border: 3px solid var(--primary);
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 8px;
+    margin-bottom: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.signature-pad-canvas {
+    display: block;
+    width: 100%;
+    min-height: 300px;
+    touch-action: none;
+    -ms-touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: crosshair;
+    background: transparent;
+}
+
+.signature-modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.signature-modal-actions .btn {
+    flex: 1;
+}
+
 #cartScreen .prepedido-observaciones-textarea {
     margin: 0.35rem 0 0.6rem;
 }
