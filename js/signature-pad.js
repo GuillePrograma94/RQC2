@@ -1,7 +1,51 @@
 /**
- * Pad de firma reutilizable (Elo tactil, Wacom lapiz, etc.)
+ * Pad de firma reutilizable (Elo tactil, Wacom lapiz, XPPEN tableta, etc.)
  */
 (function (global) {
+    function cropCanvasToContent(sourceCanvas) {
+        const ctx = sourceCanvas.getContext('2d');
+        const w = sourceCanvas.width;
+        const h = sourceCanvas.height;
+        if (!w || !h) {
+            return sourceCanvas.toDataURL('image/png');
+        }
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const data = imageData.data;
+        let minX = w;
+        let minY = h;
+        let maxX = 0;
+        let maxY = 0;
+        let found = false;
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const alpha = data[(y * w + x) * 4 + 3];
+                if (alpha > 0) {
+                    found = true;
+                    if (x < minX) minX = x;
+                    if (y < minY) minY = y;
+                    if (x > maxX) maxX = x;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+        if (!found) {
+            return sourceCanvas.toDataURL('image/png');
+        }
+        const pad = Math.max(4, Math.floor(Math.min(w, h) * 0.02));
+        minX = Math.max(0, minX - pad);
+        minY = Math.max(0, minY - pad);
+        maxX = Math.min(w - 1, maxX + pad);
+        maxY = Math.min(h - 1, maxY + pad);
+        const cropW = maxX - minX + 1;
+        const cropH = maxY - minY + 1;
+        const tmp = document.createElement('canvas');
+        tmp.width = cropW;
+        tmp.height = cropH;
+        const tmpCtx = tmp.getContext('2d');
+        tmpCtx.drawImage(sourceCanvas, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
+        return tmp.toDataURL('image/png');
+    }
+
     function setupSignaturePadCanvas(options) {
         const opts = options || {};
         const canvasId = opts.canvasId || 'albaranSignatureCanvas';
@@ -22,7 +66,9 @@
         let resizeObserver = null;
         const listeners = [];
         const supportsPointer = typeof global.PointerEvent !== 'undefined';
-        const minHeight = opts.minHeight || 300;
+        const fillContainer = opts.fillContainer === true;
+        const tabletMode = opts.tabletMode === true;
+        const minHeight = opts.minHeight || (tabletMode ? 200 : 300);
         const heightRatio = opts.heightRatio || 0.32;
         const maxHeight = opts.maxHeight || 420;
 
@@ -54,10 +100,14 @@
         const resizeCanvas = () => {
             const rect = wrapper.getBoundingClientRect();
             logicalWidth = Math.max(320, Math.floor(rect.width));
-            logicalHeight = Math.max(
-                minHeight,
-                Math.floor(Math.min(global.innerHeight * heightRatio, maxHeight))
-            );
+            if (fillContainer) {
+                logicalHeight = Math.max(minHeight, Math.floor(rect.height));
+            } else {
+                logicalHeight = Math.max(
+                    minHeight,
+                    Math.floor(Math.min(global.innerHeight * heightRatio, maxHeight))
+                );
+            }
             dpr = Math.min(global.devicePixelRatio || 1, 2);
 
             canvas.width = Math.floor(logicalWidth * dpr);
@@ -194,13 +244,19 @@
         }
 
         resizeCanvas();
-        requestAnimationFrame(resizeCanvas);
-        if (typeof ResizeObserver !== 'undefined') {
-            resizeObserver = new ResizeObserver(() => resizeCanvas());
-            resizeObserver.observe(wrapper);
+        if (fillContainer || tabletMode) {
+            requestAnimationFrame(() => {
+                resizeCanvas();
+            });
+        } else {
+            requestAnimationFrame(resizeCanvas);
+            if (typeof ResizeObserver !== 'undefined') {
+                resizeObserver = new ResizeObserver(() => resizeCanvas());
+                resizeObserver.observe(wrapper);
+            }
         }
 
-        return {
+        const padState = {
             clear() {
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -211,6 +267,9 @@
                 return !hasStroke;
             },
             toDataUrl() {
+                if (opts.cropToContent !== false) {
+                    return cropCanvasToContent(canvas);
+                }
                 return canvas.toDataURL('image/png');
             },
             focus() {
@@ -231,6 +290,14 @@
                 listeners.length = 0;
             }
         };
+
+        if (tabletMode) {
+            requestAnimationFrame(() => {
+                padState.focus();
+            });
+        }
+
+        return padState;
     }
 
     global.SignaturePad = {

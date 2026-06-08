@@ -10987,12 +10987,33 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            modal.style.display = 'flex';
-            requestAnimationFrame(() => {
-                if (window.SignaturePad && typeof window.SignaturePad.setup === 'function') {
-                    self._albaranSignaturePadState = window.SignaturePad.setup({ canvasId: 'albaranSignatureCanvas' });
+            let padOptions = { canvasId: 'albaranSignatureCanvas', tabletMode: true, fillContainer: true };
+
+            const openModal = async () => {
+                if (window.TiendaNative && window.TiendaNative.getSignaturePadOptions) {
+                    try {
+                        const remoteOpts = await window.TiendaNative.getSignaturePadOptions();
+                        padOptions = Object.assign({ canvasId: 'albaranSignatureCanvas' }, remoteOpts || {});
+                    } catch (e) {
+                        console.warn('No se pudieron leer opciones de firma:', e);
+                    }
                 }
-            });
+
+                if (padOptions.tabletMode) {
+                    modal.classList.add('albaran-signature-modal--tablet');
+                } else {
+                    modal.classList.remove('albaran-signature-modal--tablet');
+                }
+
+                modal.style.display = 'flex';
+                requestAnimationFrame(() => {
+                    if (window.SignaturePad && typeof window.SignaturePad.setup === 'function') {
+                        self._albaranSignaturePadState = window.SignaturePad.setup(padOptions);
+                    }
+                });
+            };
+
+            void openModal();
 
             const onClear = () => {
                 if (self._albaranSignaturePadState) {
@@ -11002,7 +11023,7 @@ class ScanAsYouShopApp {
 
             const onConfirm = () => {
                 if (!self._albaranSignaturePadState && window.SignaturePad) {
-                    self._albaranSignaturePadState = window.SignaturePad.setup({ canvasId: 'albaranSignatureCanvas' });
+                    self._albaranSignaturePadState = window.SignaturePad.setup(padOptions);
                 }
                 if (!self._albaranSignaturePadState || self._albaranSignaturePadState.isEmpty()) {
                     window.ui.showToast('Debe firmar en el recuadro antes de continuar', 'warning');
@@ -11014,12 +11035,16 @@ class ScanAsYouShopApp {
             };
 
             const onOverlayClick = () => {
+                if (padOptions.tabletMode) {
+                    return;
+                }
                 cleanup();
                 resolve(null);
             };
 
             function cleanup() {
                 modal.style.display = 'none';
+                modal.classList.remove('albaran-signature-modal--tablet');
                 clearBtn.removeEventListener('click', onClear);
                 confirmBtn.removeEventListener('click', onConfirm);
                 if (overlay) overlay.removeEventListener('click', onOverlayClick);

@@ -68,13 +68,30 @@
         return false;
     }
 
+    async function getSignaturePadOptions() {
+        const api = getApi();
+        if (!api || !api.get_signature_pad_options) {
+            return { tabletMode: true, fillContainer: true };
+        }
+        try {
+            return await api.get_signature_pad_options();
+        } catch (e) {
+            console.warn('TiendaNative.getSignaturePadOptions:', e);
+            return { tabletMode: true, fillContainer: true };
+        }
+    }
+
     async function applyAlbaranSignature(albaran, signatureDataUrl) {
         const api = getApi();
         if (!api || !api.apply_albaran_signature) {
             return { success: false, message: 'apply_albaran_signature no disponible' };
         }
         try {
-            return await api.apply_albaran_signature(albaran, signatureDataUrl);
+            const result = await api.apply_albaran_signature(albaran, signatureDataUrl);
+            if (result && result.elapsed_ms != null) {
+                console.log('apply_albaran_signature completado en', result.elapsed_ms, 'ms');
+            }
+            return result;
         } catch (e) {
             return { success: false, message: e.message || String(e) };
         }
@@ -94,12 +111,70 @@
         }
     }
 
+    /**
+     * Borra sesion y credenciales al cerrar TiendaPC (PC compartido entre trabajadores).
+     * No toca version_hash_local, stock ni IndexedDB del catalogo.
+     */
+    function clearAccessDataOnExit() {
+        try {
+            localStorage.removeItem('current_user');
+            localStorage.removeItem('current_session');
+            localStorage.removeItem('scan_remember_credentials');
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k) continue;
+                if (k.indexOf('sb-') === 0 && k.indexOf('auth') !== -1) {
+                    keysToRemove.push(k);
+                }
+            }
+            keysToRemove.forEach(function (k) {
+                localStorage.removeItem(k);
+            });
+        } catch (e) {
+            console.warn('TiendaNative.clearAccessDataOnExit:', e);
+        }
+        try {
+            if (window.supabaseClient && typeof window.supabaseClient.signOutAuth === 'function') {
+                window.supabaseClient.signOutAuth().catch(function () {});
+            }
+        } catch (e2) {
+            console.warn('TiendaNative signOutAuth al cerrar:', e2);
+        }
+    }
+
+    function registerAccessCleanupOnExit() {
+        if (!isAvailable()) {
+            return;
+        }
+        if (global.__tiendaAccessCleanupRegistered) {
+            return;
+        }
+        global.__tiendaAccessCleanupRegistered = true;
+        global.addEventListener('beforeunload', function () {
+            clearAccessDataOnExit();
+        });
+        global.addEventListener('pagehide', function () {
+            clearAccessDataOnExit();
+        });
+    }
+
+    if (isAvailable()) {
+        registerAccessCleanupOnExit();
+    } else {
+        global.addEventListener('pywebviewready', function () {
+            registerAccessCleanupOnExit();
+        });
+    }
+
     global.TiendaNative = {
         isAvailable,
         whenReady,
         checkAlbaranPdfReady,
         waitForAlbaranPdfReady,
+        getSignaturePadOptions,
         applyAlbaranSignature,
-        printAlbaran
+        printAlbaran,
+        clearAccessDataOnExit
     };
 })(window);

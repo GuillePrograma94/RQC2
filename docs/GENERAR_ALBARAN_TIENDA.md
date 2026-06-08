@@ -31,7 +31,21 @@ El albaran presencial **solo** funciona con TiendaPC (pywebview + `window.pywebv
 - `apply_albaran_signature`
 - `print_albaran_default(albaran, copies)` — impresora predeterminada Windows
 
-Configuracion: `tienda_config.json` junto al exe (`app_url`, `albaran_pdf_base_path`, `albaran_firma`).
+Configuracion: `tienda_config.json` junto al exe (`app_url`, `albaran_pdf_base_path`, `albaran_firma`, `signature_tablet_mode`).
+
+### Firma con tableta XPPEN
+
+Con `signature_tablet_mode: true` (por defecto), el modal de firma ocupa **toda la pantalla** y el canvas llena el area disponible. Asi el lapiz de la tableta grafica mapea 1:1 con el recuadro de firma (no hay que recorrer toda la pantalla con el estilete).
+
+Para desactivar el modo pantalla completa (p. ej. solo raton): `"signature_tablet_mode": false`.
+
+### Rendimiento al guardar firma
+
+El PDF del albaran esta en una ruta UNC de red. TiendaPC copia el PDF a disco local, aplica la firma y vuelve a subirlo (mucho mas rapido que editar directamente en red).
+
+Logs de diagnostico en la consola de TiendaPC.exe (ventana CMD o log del bat): lineas `[firma]` con tiempos en ms. Tambien en DevTools del webview (F12) si esta habilitado.
+
+Al cerrar TiendaPC se elimina la sesion de acceso (PC compartido); el catalogo en IndexedDB se conserva.
 
 ## Supabase
 

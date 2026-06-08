@@ -834,6 +834,57 @@ body.gate-visible .app-container {
     width: 92vw;
 }
 
+/* Modo tableta XPPEN: el canvas ocupa toda la pantalla para mapeo 1:1 lapiz/pantalla */
+.albaran-signature-modal.albaran-signature-modal--tablet {
+    align-items: stretch;
+    justify-content: stretch;
+}
+
+.albaran-signature-modal--tablet .login-modal-overlay {
+    display: none;
+}
+
+.albaran-signature-modal--tablet .albaran-signature-modal-content {
+    max-width: none;
+    width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    margin: 0;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 0.75rem 1rem 1rem;
+}
+
+.albaran-signature-modal--tablet .signature-modal-title {
+    flex-shrink: 0;
+}
+
+.albaran-signature-modal--tablet .signature-modal-hint {
+    flex-shrink: 0;
+    margin-bottom: 0.5rem;
+}
+
+.albaran-signature-modal--tablet .signature-pad-wrapper {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0.75rem;
+}
+
+.albaran-signature-modal--tablet .signature-pad-canvas {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.albaran-signature-modal--tablet .signature-modal-actions {
+    flex-shrink: 0;
+}
+
 .albaran-signature-modal-content .signature-modal-title {
     margin: 0 0 0.5rem;
     font-size: 1.25rem;
