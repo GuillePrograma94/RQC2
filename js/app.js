@@ -11064,10 +11064,17 @@ class ScanAsYouShopApp {
      * Genera pedido PRESENCIAL en ERP, imprime o firma albaran via TiendaPC.
      * @param {{ modo: 'imprimir_sin_firma' | 'firmar' }} options
      */
+    _tiendaDiagLog(level, message, source) {
+        if (window.TiendaLog && typeof window.TiendaLog.append === 'function') {
+            window.TiendaLog.append(level, message, source || 'albaran');
+        }
+    }
+
     async sendPresencialAlbaranOrder(options) {
         const opts = options || {};
         const modo = opts.modo === 'firmar' ? 'firmar' : 'imprimir_sin_firma';
         try {
+            this._tiendaDiagLog('info', 'Inicio generar albaran presencial (modo: ' + modo + ')', 'albaran');
             if (!this.currentUser) {
                 window.ui.showToast('Debes iniciar sesion', 'error');
                 return;
@@ -11157,6 +11164,7 @@ class ScanAsYouShopApp {
 
             if (erpError) {
                 this.registerErrorForSupport('sendPresencialAlbaranOrder.erp', erpError, { almacen: almacen, modo: modo });
+                this._tiendaDiagLog('error', 'ERP: ' + (erpError.message || String(erpError)), 'albaran');
                 window.ui.hideLoading();
                 window.ui.showToast(erpError.message || 'Error de conexion con el ERP', 'error');
                 return;
@@ -11164,6 +11172,7 @@ class ScanAsYouShopApp {
 
             const parsed = this.parseErpCreateOrderResponse(erpResponse);
             if (!parsed.ok || !parsed.pedido) {
+                this._tiendaDiagLog('error', 'El ERP no devolvio un pedido valido', 'albaran');
                 window.ui.hideLoading();
                 window.ui.showToast('El ERP no devolvio un pedido valido', 'error');
                 return;
@@ -11203,7 +11212,9 @@ class ScanAsYouShopApp {
             }
 
             const albaranErp = parsed.albaran;
+            this._tiendaDiagLog('info', 'Pedido ERP ' + parsed.pedido + ', albaran ' + (albaranErp || 'sin codigo'), 'albaran');
             if (!albaranErp) {
+                this._tiendaDiagLog('warn', 'Pedido creado pero sin codigo de albaran en respuesta ERP', 'albaran');
                 window.ui.hideLoading();
                 window.ui.showToast('Pedido creado pero el ERP no devolvio codigo de albaran', 'warning');
                 await window.cartManager.clearCart();
@@ -11217,6 +11228,7 @@ class ScanAsYouShopApp {
             window.ui.showLoading('Esperando PDF del albaran...');
             const pdfReady = await window.TiendaNative.waitForAlbaranPdfReady(albaranErp);
             if (!pdfReady) {
+                this._tiendaDiagLog('error', 'PDF del albaran no disponible en UNC', 'albaran');
                 window.ui.hideLoading();
                 window.ui.showToast('El PDF del albaran no esta disponible en la ruta de red', 'error');
                 return;
@@ -11224,24 +11236,32 @@ class ScanAsYouShopApp {
 
             if (modo === 'firmar') {
                 window.ui.hideLoading();
+                this._tiendaDiagLog('info', 'Abriendo modal de firma', 'albaran');
                 const signatureDataUrl = await this.showAlbaranSignatureModalForTienda();
                 if (!signatureDataUrl) {
+                    this._tiendaDiagLog('warn', 'Firma cancelada por el usuario', 'albaran');
                     window.ui.showToast('Firma cancelada. El pedido quedo registrado sin imprimir.', 'warning');
                     return;
                 }
                 window.ui.showLoading('Guardando firma en el albaran...');
                 const applyResult = await window.TiendaNative.applyAlbaranSignature(albaranErp, signatureDataUrl);
                 if (!applyResult || applyResult.success !== true) {
+                    this._tiendaDiagLog('error', (applyResult && applyResult.message) || 'No se pudo guardar la firma', 'albaran');
                     window.ui.hideLoading();
                     window.ui.showToast((applyResult && applyResult.message) || 'No se pudo guardar la firma', 'error');
+                    if (window.TiendaLog && window.TiendaLog.openPanel) {
+                        window.TiendaLog.openPanel();
+                    }
                     return;
                 }
                 window.ui.showLoading('Imprimiendo albaran firmado...');
                 const printResult = await window.TiendaNative.printAlbaran(albaranErp, { copies: 1 });
                 window.ui.hideLoading();
                 if (!printResult || printResult.success !== true) {
+                    this._tiendaDiagLog('warn', (printResult && printResult.message) || 'Albaran firmado pero no se pudo imprimir', 'albaran');
                     window.ui.showToast((printResult && printResult.message) || 'Albaran firmado pero no se pudo imprimir', 'warning');
                 } else {
+                    this._tiendaDiagLog('ok', 'Albaran firmado e impreso correctamente', 'albaran');
                     window.ui.showToast('Albaran firmado e impreso correctamente', 'success');
                 }
             } else {
@@ -11249,9 +11269,14 @@ class ScanAsYouShopApp {
                 const printResult = await window.TiendaNative.printAlbaran(albaranErp, { copies: 2 });
                 window.ui.hideLoading();
                 if (!printResult || printResult.success !== true) {
+                    this._tiendaDiagLog('error', (printResult && printResult.message) || 'No se pudo imprimir el albaran', 'albaran');
                     window.ui.showToast((printResult && printResult.message) || 'No se pudo imprimir el albaran', 'error');
+                    if (window.TiendaLog && window.TiendaLog.openPanel) {
+                        window.TiendaLog.openPanel();
+                    }
                     return;
                 }
+                this._tiendaDiagLog('ok', 'Albaran impreso (2 copias)', 'albaran');
                 window.ui.showToast('Albaran impreso (2 copias)', 'success');
             }
 
@@ -11266,8 +11291,12 @@ class ScanAsYouShopApp {
         } catch (error) {
             console.error('sendPresencialAlbaranOrder:', error);
             this.registerErrorForSupport('sendPresencialAlbaranOrder.catch', error, { modo: modo });
+            this._tiendaDiagLog('error', 'Excepcion: ' + (error && error.message ? error.message : String(error)), 'albaran');
             window.ui.hideLoading();
             window.ui.showToast('Error al generar albaran. Intenta de nuevo.', 'error');
+            if (window.TiendaLog && window.TiendaLog.openPanel) {
+                window.TiendaLog.openPanel();
+            }
         }
     }
 
@@ -12786,6 +12815,13 @@ class ScanAsYouShopApp {
             this._errorReportBuffer.push(record);
             if (this._errorReportBuffer.length > this._errorReportMaxEntries) {
                 this._errorReportBuffer.shift();
+            }
+
+            if (window.TiendaLog && typeof window.TiendaLog.error === 'function' && window.TiendaLog.isAvailable && window.TiendaLog.isAvailable()) {
+                const extra = extraContext && Object.keys(extraContext).length
+                    ? ' ' + JSON.stringify(extraContext)
+                    : '';
+                window.TiendaLog.error((source || 'error') + ': ' + message + extra, 'js');
             }
 
             if (this.isMobileDeviceForErrorReport()) {

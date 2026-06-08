@@ -44,6 +44,12 @@
         });
     }
 
+    function tiendaLog(level, message, source) {
+        if (global.TiendaLog && typeof global.TiendaLog.append === 'function') {
+            global.TiendaLog.append(level, message, source || 'tienda-native');
+        }
+    }
+
     async function checkAlbaranPdfReady(albaran) {
         const api = getApi();
         if (!api || !api.check_albaran_pdf_ready) {
@@ -52,19 +58,23 @@
         try {
             return await api.check_albaran_pdf_ready(albaran);
         } catch (e) {
+            tiendaLog('error', 'check_albaran_pdf_ready: ' + (e.message || String(e)), 'pdf');
             return { ready: false, message: e.message || String(e) };
         }
     }
 
     async function waitForAlbaranPdfReady(albaran) {
+        tiendaLog('info', 'Esperando PDF del albaran ' + albaran + ' en UNC...', 'pdf');
         const deadline = Date.now() + ALBARAN_PDF_MAX_WAIT_MS;
         while (Date.now() < deadline) {
             const check = await checkAlbaranPdfReady(albaran);
             if (check && check.ready) {
+                tiendaLog('ok', 'PDF listo: ' + (check.path || albaran), 'pdf');
                 return true;
             }
             await new Promise((r) => setTimeout(r, ALBARAN_PDF_POLL_MS));
         }
+        tiendaLog('error', 'Timeout esperando PDF del albaran ' + albaran, 'pdf');
         return false;
     }
 
@@ -84,15 +94,24 @@
     async function applyAlbaranSignature(albaran, signatureDataUrl) {
         const api = getApi();
         if (!api || !api.apply_albaran_signature) {
+            tiendaLog('error', 'apply_albaran_signature no disponible', 'firma');
             return { success: false, message: 'apply_albaran_signature no disponible' };
         }
+        tiendaLog('info', 'Guardando firma en albaran ' + albaran + '...', 'firma');
         try {
             const result = await api.apply_albaran_signature(albaran, signatureDataUrl);
-            if (result && result.elapsed_ms != null) {
-                console.log('apply_albaran_signature completado en', result.elapsed_ms, 'ms');
+            if (result && result.success === true) {
+                tiendaLog(
+                    'ok',
+                    'Firma guardada (' + (result.elapsed_ms != null ? result.elapsed_ms + ' ms' : 'ok') + ')',
+                    'firma'
+                );
+            } else {
+                tiendaLog('error', (result && result.message) || 'No se pudo guardar la firma', 'firma');
             }
             return result;
         } catch (e) {
+            tiendaLog('error', 'apply_albaran_signature: ' + (e.message || String(e)), 'firma');
             return { success: false, message: e.message || String(e) };
         }
     }
@@ -102,11 +121,20 @@
         const copies = opts.copies != null ? Number(opts.copies) : 1;
         const api = getApi();
         if (!api || !api.print_albaran_default) {
+            tiendaLog('error', 'print_albaran_default no disponible', 'impresion');
             return { success: false, message: 'print_albaran_default no disponible' };
         }
+        tiendaLog('info', 'Imprimiendo albaran ' + albaran + ' (' + copies + ' copias)...', 'impresion');
         try {
-            return await api.print_albaran_default(albaran, copies);
+            const result = await api.print_albaran_default(albaran, copies);
+            if (result && result.success === true) {
+                tiendaLog('ok', 'Impresion completada (' + copies + ' copias)', 'impresion');
+            } else {
+                tiendaLog('error', (result && result.message) || 'Error al imprimir', 'impresion');
+            }
+            return result;
         } catch (e) {
+            tiendaLog('error', 'print_albaran_default: ' + (e.message || String(e)), 'impresion');
             return { success: false, message: e.message || String(e) };
         }
     }

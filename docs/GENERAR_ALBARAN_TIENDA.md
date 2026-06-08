@@ -43,7 +43,19 @@ Para desactivar el modo pantalla completa (p. ej. solo raton): `"signature_table
 
 El PDF del albaran esta en una ruta UNC de red. TiendaPC copia el PDF a disco local, aplica la firma y vuelve a subirlo (mucho mas rapido que editar directamente en red).
 
-Logs de diagnostico en la consola de TiendaPC.exe (ventana CMD o log del bat): lineas `[firma]` con tiempos en ms. Tambien en DevTools del webview (F12) si esta habilitado.
+### Panel de diagnostico en pantalla
+
+En TiendaPC.exe aparece un boton flotante **Log** (abajo a la derecha) y en el menu lateral **Diagnostico TiendaPC**. Muestra en tiempo real:
+
+- Pasos del flujo web (crear albaran, esperar PDF, firma, impresion)
+- Logs del backend Python (copia UNC, guardado firma, impresora)
+- Errores en rojo; al fallar firma o impresion el panel se abre solo
+
+Botones **Copiar log** (portapapeles para soporte) y **Limpiar**.
+
+Config: `"show_tienda_log_panel": true` en `tienda_config.json` (defecto activo).
+
+Logs adicionales en la consola CMD de TiendaPC al ejecutar el `.bat`.
 
 Al cerrar TiendaPC se elimina la sesion de acceso (PC compartido); el catalogo en IndexedDB se conserva.
 

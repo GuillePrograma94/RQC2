@@ -196,6 +196,27 @@
         </div>
     </div>
 
+    <!-- Panel diagnostico TiendaPC (solo con pywebview) -->
+    <button type="button" id="tiendaLogFab" class="tienda-log-fab" style="display: none;" aria-label="Abrir diagnostico TiendaPC">
+        <span class="tienda-log-fab-label">Log</span>
+        <span id="tiendaLogFabBadge" class="tienda-log-fab-badge" style="display: none;">0</span>
+    </button>
+    <div id="tiendaLogModal" class="login-modal tienda-log-modal" style="display: none;">
+        <div class="login-modal-overlay" id="tiendaLogModalOverlay"></div>
+        <div class="login-modal-content tienda-log-modal-content">
+            <div class="tienda-log-modal-header">
+                <h2>Diagnostico TiendaPC</h2>
+                <button type="button" id="tiendaLogCloseBtn" class="close-login-btn" aria-label="Cerrar">×</button>
+            </div>
+            <p class="tienda-log-modal-hint">Registro de pasos al generar albaranes, firmar e imprimir. Si algo falla, copia el log y envialo a soporte.</p>
+            <div id="tiendaLogList" class="tienda-log-list"></div>
+            <div class="tienda-log-modal-actions">
+                <button type="button" id="tiendaLogCopyBtn" class="btn btn-secondary">Copiar log</button>
+                <button type="button" id="tiendaLogClearBtn" class="btn btn-secondary">Limpiar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal firma albarán (TiendaPC + tableta XPPEN) -->
     <div id="albaranSignatureModal" class="login-modal albaran-signature-modal" style="display: none;">
         <div class="login-modal-overlay" id="albaranSignatureModalOverlay"></div>
@@ -290,6 +311,10 @@
                     <button id="panelControlBtn" class="menu-action-btn" style="display: none;">
                         <span class="menu-action-icon">⚙</span>
                         <span>Panel de Control</span>
+                    </button>
+                    <button id="tiendaDiagnosticoBtn" class="menu-action-btn" style="display: none;">
+                        <span class="menu-action-icon">LOG</span>
+                        <span>Diagnostico TiendaPC</span>
                     </button>
                 </div>
                 <button id="logoutBtn" class="menu-logout-btn">Cerrar Sesión</button>
@@ -1800,6 +1825,7 @@
     <script src="js/ui.js"></script>
     <script src="js/signature-pad.js"></script>
     <script src="js/tienda-native.js"></script>
+    <script src="js/tienda-log.js"></script>
     <script src="js/app.js"></script>
 
     <!-- Service Worker con auto-actualizacion -->
