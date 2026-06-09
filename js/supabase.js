@@ -3874,20 +3874,38 @@ class SupabaseClient {
             }
 
             const almacenNorm = String(codigoAlmacen).trim().toUpperCase();
-            const { data, error } = await this.client
-                .from('stock_almacen_articulo_ubicacion')
-                .select('codigo_articulo, codigo_ubicacion, stock')
-                .eq('codigo_almacen', almacenNorm)
-                .in('codigo_articulo', codigosLimpios)
-                .gt('stock', 0);
+            const pageSize = 1000;
+            const codigoBatchSize = 80;
+            const allRows = [];
 
-            if (error) {
-                console.warn('getStockUbicacionesPorAlmacen:', error);
-                return {};
+            for (let i = 0; i < codigosLimpios.length; i += codigoBatchSize) {
+                const codigosLote = codigosLimpios.slice(i, i + codigoBatchSize);
+                let from = 0;
+                while (true) {
+                    const { data, error } = await this.client
+                        .from('stock_almacen_articulo_ubicacion')
+                        .select('codigo_articulo, codigo_ubicacion, stock')
+                        .eq('codigo_almacen', almacenNorm)
+                        .in('codigo_articulo', codigosLote)
+                        .gt('stock', 0)
+                        .range(from, from + pageSize - 1);
+
+                    if (error) {
+                        console.warn('getStockUbicacionesPorAlmacen:', error);
+                        return {};
+                    }
+
+                    const chunk = data || [];
+                    allRows.push(...chunk);
+                    if (chunk.length < pageSize) {
+                        break;
+                    }
+                    from += pageSize;
+                }
             }
 
             const detallePorArticulo = {};
-            for (const row of (data || [])) {
+            for (const row of allRows) {
                 const codigoArticulo = String(row.codigo_articulo || '').trim().toUpperCase();
                 const codigoUbicacion = String(row.codigo_ubicacion || '').trim().toUpperCase();
                 const stock = parseInt(row.stock, 10) || 0;
