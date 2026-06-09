@@ -47,6 +47,18 @@ La deteccion consulta Supabase (`stock_almacen_articulo_ubicacion`) filtrando po
 
 Si el usuario acepta, tras crear el albaran en ERP TiendaPC inserta en tablas `idxlista` y `lineas` del Modula correspondiente (via `pyodbc`). Si falla el envio a Modula, se muestra aviso y **se continua** con impresion/firma del albaran.
 
+Mapeo SQL (albaran `2026-BT7-006519`):
+
+| Tabla | Campo | Valor |
+|-------|-------|-------|
+| idxlista y lineas | nombre | **El mismo** en ambas: `2026PVBT7006519` (ejercicio + PV + serie + numero) |
+| idxlista | tipo | `P` |
+| lineas | articulo | SKU / codigo del producto |
+| lineas | cantidad | unidades pedidas en el carrito |
+| lineas | numlin | numero de linea en el carrito (1, 2, 3...) |
+
+TiendaPC detecta automaticamente los nombres de columna reales en `lineas` (`codigo_articulo` vs `articulo`, etc.) y verifica con `SELECT COUNT` tras el commit que las filas existen.
+
 Bloque `modula` en `tienda_config.json`:
 
 ```json

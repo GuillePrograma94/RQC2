@@ -11126,9 +11126,12 @@ class ScanAsYouShopApp {
             if (!(cantidad > 0)) return;
             lineas.push({
                 codigo: codigo,
+                codigo_articulo: codigo,
                 articulo: codigo,
                 cantidad: cantidad,
-                numlin: index + 1
+                unidades_pendientes: cantidad,
+                numlin: index + 1,
+                linea: index + 1
             });
         });
 
