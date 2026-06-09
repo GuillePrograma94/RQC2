@@ -80,7 +80,10 @@ Con `signature_tablet_mode: true` (por defecto), el modal de firma ocupa **toda 
 
 Para desactivar el modo pantalla completa (p. ej. solo raton): `"signature_tablet_mode": false`.
 
-Al **Firmar Albaran**, el modal solicita:
+Al **Firmar Albaran**, el flujo es en **dos pasos**:
+
+1. Modal **Datos de la firma** (nombre y obra) — obligatorio antes del canvas.
+2. Modal a pantalla completa con el canvas (tableta XPPEN o raton).
 
 | Campo | Obligatorio |
 |-------|-------------|
@@ -131,6 +134,17 @@ Payload via proxy existente `/api/erp/pedidos`:
 - PRESENCIAL: `tipo: 'PRESENCIAL'` (albaran tienda)
 
 Respuesta esperada: `pedido` y `albaran` en el cuerpo (mismo criterio que checkout_pc).
+
+## Estados del pedido (Supabase)
+
+| Momento | `estado` | `estado_procesamiento` |
+|---------|----------|------------------------|
+| Creacion (`crear_pedido_presencial_tienda`) | `en_preparacion` | `procesando` |
+| Tras albaran firmado o impreso correctamente | `completado` | `completado` |
+
+La transicion a completado la hace `marcarPedidoPresencialTiendaCompletado` en `supabase.js`, llamada al final de **Imprimir Albaran** (impresion OK) o **Firmar Albaran** (firma guardada en PDF; aunque falle la impresion fisica, el albaran ya esta hecho).
+
+Si el usuario cancela la firma o falla el guardado del PDF firmado, el pedido sigue en `en_preparacion` / `procesando`.
 
 ## Matriz de comportamiento
 

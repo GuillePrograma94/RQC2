@@ -217,18 +217,31 @@
         </div>
     </div>
 
+    <!-- Paso 1: datos de quien firma (antes del canvas) -->
+    <div id="albaranFirmaDatosModal" class="login-modal" style="display: none;">
+        <div class="login-modal-overlay" id="albaranFirmaDatosModalOverlay"></div>
+        <div class="login-modal-content generar-albaran-modal-content albaran-firma-datos-modal-content">
+            <h2 class="signature-modal-title">Datos de la firma</h2>
+            <p class="signature-modal-hint">Indique quien firma el albaran. Despues se abrira el recuadro para dibujar la firma.</p>
+            <div class="signature-modal-fields">
+                <label class="signature-field-label" for="albaranFirmaDatosNombreInput">Nombre de persona que firma</label>
+                <input type="text" id="albaranFirmaDatosNombreInput" class="signature-field-input" autocomplete="name" placeholder="Nombre y apellidos" maxlength="120">
+                <label class="signature-field-label" for="albaranFirmaDatosObraInput">Obra <span class="signature-field-optional">(opcional)</span></label>
+                <input type="text" id="albaranFirmaDatosObraInput" class="signature-field-input" autocomplete="off" placeholder="Nombre de la obra" maxlength="200">
+            </div>
+            <div class="signature-modal-actions">
+                <button type="button" id="albaranFirmaDatosCancelBtn" class="btn btn-secondary">Cancelar</button>
+                <button type="button" id="albaranFirmaDatosContinueBtn" class="btn btn-primary">Continuar a firma</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal firma albarán (TiendaPC + tableta XPPEN) -->
     <div id="albaranSignatureModal" class="login-modal albaran-signature-modal" style="display: none;">
         <div class="login-modal-overlay" id="albaranSignatureModalOverlay"></div>
         <div class="login-modal-content albaran-signature-modal-content">
             <h2 class="signature-modal-title">Firmar albarán</h2>
-            <p class="signature-modal-hint">Indique quién firma y dibuje la firma en el recuadro blanco (tableta XPPEN o ratón). El area de firma ocupa toda la pantalla para que el lapiz coincida con la tableta.</p>
-            <div class="signature-modal-fields">
-                <label class="signature-field-label" for="albaranSignatureNombreInput">Nombre de persona que firma</label>
-                <input type="text" id="albaranSignatureNombreInput" class="signature-field-input" autocomplete="name" placeholder="Nombre y apellidos" maxlength="120">
-                <label class="signature-field-label" for="albaranSignatureObraInput">Obra <span class="signature-field-optional">(opcional)</span></label>
-                <input type="text" id="albaranSignatureObraInput" class="signature-field-input" autocomplete="off" placeholder="Nombre de la obra" maxlength="200">
-            </div>
+            <p class="signature-modal-hint">Dibuje la firma en el recuadro blanco (tableta XPPEN o raton). El area de firma ocupa toda la pantalla para que el lapiz coincida con la tableta.</p>
             <div class="signature-pad-wrapper">
                 <canvas id="albaranSignatureCanvas" class="signature-pad-canvas"></canvas>
             </div>

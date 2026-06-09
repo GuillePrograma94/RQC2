@@ -2529,6 +2529,34 @@ class SupabaseClient {
     }
 
     /**
+     * Marca un pedido presencial de tienda como completado tras albaran generado/impreso.
+     * @param {string|number} carritoId
+     * @returns {Promise<boolean>}
+     */
+    async marcarPedidoPresencialTiendaCompletado(carritoId) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+
+            const { error } = await this.client
+                .from('carritos_clientes')
+                .update({
+                    estado: 'completado',
+                    estado_procesamiento: 'completado'
+                })
+                .eq('id', carritoId)
+                .eq('tipo_pedido', 'presencial');
+
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Error al marcar pedido presencial tienda como completado:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Actualiza el estado de procesamiento de un pedido remoto (error_erp o pendiente_erp).
      * @param {number} carritoId - ID del carrito
      * @param {string} estadoProcesamiento - 'error_erp' | 'pendiente_erp'

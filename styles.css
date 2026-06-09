@@ -829,6 +829,7 @@ body.gate-visible .app-container {
 }
 
 .generar-albaran-modal-content,
+.albaran-firma-datos-modal-content,
 .albaran-signature-modal-content {
     max-width: 520px;
     width: 92vw;
