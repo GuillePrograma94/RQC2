@@ -80,7 +80,7 @@ Con `signature_tablet_mode: true` (por defecto), el modal de firma ocupa **toda 
 
 Para desactivar el modo pantalla completa (p. ej. solo raton): `"signature_tablet_mode": false`.
 
-Al **Firmar Albaran**, el flujo es en **dos pasos**:
+Al **Firmar Albaran** (solo TiendaPC; CheckoutPC en mostrador no pide nombre ni obra), el flujo es en **dos pasos**:
 
 1. Modal **Datos de la firma** (nombre y obra) — obligatorio antes del canvas.
 2. Modal a pantalla completa con el canvas (tableta XPPEN o raton).
