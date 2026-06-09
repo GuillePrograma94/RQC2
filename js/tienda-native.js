@@ -116,6 +116,34 @@
         }
     }
 
+    async function sendModulaPedido(payload) {
+        const api = getApi();
+        if (!api || !api.send_modula_pedido) {
+            tiendaLog('error', 'send_modula_pedido no disponible', 'modula');
+            return { success: false, message: 'send_modula_pedido no disponible' };
+        }
+        const almacen = payload && payload.almacen ? payload.almacen : '';
+        const albaran = payload && payload.albaran ? payload.albaran : '';
+        const numLineas = payload && Array.isArray(payload.lineas) ? payload.lineas.length : 0;
+        tiendaLog(
+            'info',
+            'Enviando pedido Modula (' + almacen + '): albaran ' + albaran + ', ' + numLineas + ' lineas',
+            'modula'
+        );
+        try {
+            const result = await api.send_modula_pedido(payload);
+            if (result && result.success === true) {
+                tiendaLog('ok', result.message || 'Pedido Modula enviado', 'modula');
+            } else {
+                tiendaLog('error', (result && result.message) || 'Error al enviar a Modula', 'modula');
+            }
+            return result;
+        } catch (e) {
+            tiendaLog('error', 'send_modula_pedido: ' + (e.message || String(e)), 'modula');
+            return { success: false, message: e.message || String(e) };
+        }
+    }
+
     async function printAlbaran(albaran, options) {
         const opts = options || {};
         const copies = opts.copies != null ? Number(opts.copies) : 1;
@@ -202,6 +230,7 @@
         waitForAlbaranPdfReady,
         getSignaturePadOptions,
         applyAlbaranSignature,
+        sendModulaPedido,
         printAlbaran,
         clearAccessDataOnExit
     };

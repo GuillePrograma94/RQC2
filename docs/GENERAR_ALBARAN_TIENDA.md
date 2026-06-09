@@ -30,8 +30,37 @@ El albaran presencial **solo** funciona con TiendaPC (pywebview + `window.pywebv
 - `check_albaran_pdf_ready`
 - `apply_albaran_signature`
 - `print_albaran_default(albaran, copies)` — impresora predeterminada Windows
+- `send_modula_pedido(payload)` — envio a Modula (SQL Server IMPEXP) tras crear albaran
 
-Configuracion: `tienda_config.json` junto al exe (`app_url`, `albaran_pdf_base_path`, `albaran_firma`, `signature_tablet_mode`).
+Configuracion: `tienda_config.json` junto al exe (`app_url`, `albaran_pdf_base_path`, `albaran_firma`, `signature_tablet_mode`, `modula`).
+
+### Envio a Modula
+
+Antes de generar el albaran (Imprimir / Firmar), si hay articulos del carrito con stock en la ubicacion Modula del almacen del staff, se muestra el dialogo: **¿Quieres enviar pedidos a modula?**
+
+| Almacen staff | Ubicacion detectada | SQL Server |
+|---------------|---------------------|------------|
+| ONTINYENT | MODULA7 | `192.168.11.20\SQLEXPRESS` / IMPEXP |
+| GANDIA | MODULA1 | `192.168.10.58\SQLEXPRESS` / IMPEXP |
+
+La deteccion consulta Supabase (`stock_almacen_articulo_ubicacion`) filtrando por `codigo_almacen` del dependiente/admin. Un operador de ONTINYENT no ve stock MODULA1 de GANDIA.
+
+Si el usuario acepta, tras crear el albaran en ERP TiendaPC inserta en tablas `idxlista` y `lineas` del Modula correspondiente (via `pyodbc`). Si falla el envio a Modula, se muestra aviso y **se continua** con impresion/firma del albaran.
+
+Bloque `modula` en `tienda_config.json`:
+
+```json
+"modula": {
+  "ONTINYENT": {
+    "ubicacion": "MODULA7",
+    "connection_string": "DRIVER={SQL Server};SERVER=192.168.11.20\\SQLEXPRESS;DATABASE=IMPEXP;uid=Host;pwd=Host"
+  },
+  "GANDIA": {
+    "ubicacion": "MODULA1",
+    "connection_string": "DRIVER={SQL Server};SERVER=192.168.10.58\\SQLEXPRESS;DATABASE=IMPEXP;uid=host;pwd=host"
+  }
+}
+```
 
 ### Firma con tableta XPPEN
 
@@ -81,5 +110,5 @@ Respuesta esperada: `pedido` y `albaran` en el cuerpo (mismo criterio que checko
 |--------|----------|--------------|-----------|
 | Imprimir Pedido | REMOTO | `crear_pedido_remoto` | checkout_pc remoto |
 | Generar sin imprimir | REMOTO | `crear_pedido_remoto_sin_imprimir` | ninguna |
-| Imprimir Albaran | PRESENCIAL | `crear_pedido_presencial_tienda` | TiendaPC x2 sin firma |
-| Firmar Albaran | PRESENCIAL | idem | firma + TiendaPC x1 |
+| Imprimir Albaran | PRESENCIAL | `crear_pedido_presencial_tienda` | TiendaPC x2 sin firma (+ Modula opcional) |
+| Firmar Albaran | PRESENCIAL | idem | firma + TiendaPC x1 (+ Modula opcional) |

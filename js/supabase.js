@@ -3830,6 +3830,71 @@ class SupabaseClient {
         }
     }
 
+    /**
+     * Detalle de stock por ubicacion para un almacen y lista de articulos.
+     * @returns {Promise<Object<string, Array<{codigo_ubicacion: string, stock: number}>>>}
+     */
+    async getStockUbicacionesPorAlmacen(codigoAlmacen, codigosArticulo) {
+        try {
+            if (!this.client || !codigoAlmacen) {
+                return {};
+            }
+            const codigosLimpios = [];
+            const vistos = new Set();
+            const lista = Array.isArray(codigosArticulo) ? codigosArticulo : [];
+            for (const codigo of lista) {
+                const norm = String(codigo || '').trim().toUpperCase();
+                if (!norm || vistos.has(norm)) continue;
+                vistos.add(norm);
+                codigosLimpios.push(norm);
+            }
+            if (codigosLimpios.length === 0) {
+                return {};
+            }
+
+            const almacenNorm = String(codigoAlmacen).trim().toUpperCase();
+            const { data, error } = await this.client
+                .from('stock_almacen_articulo_ubicacion')
+                .select('codigo_articulo, codigo_ubicacion, stock')
+                .eq('codigo_almacen', almacenNorm)
+                .in('codigo_articulo', codigosLimpios)
+                .gt('stock', 0);
+
+            if (error) {
+                console.warn('getStockUbicacionesPorAlmacen:', error);
+                return {};
+            }
+
+            const detallePorArticulo = {};
+            for (const row of (data || [])) {
+                const codigoArticulo = String(row.codigo_articulo || '').trim().toUpperCase();
+                const codigoUbicacion = String(row.codigo_ubicacion || '').trim().toUpperCase();
+                const stock = parseInt(row.stock, 10) || 0;
+                if (!codigoArticulo || !codigoUbicacion || stock <= 0) continue;
+                if (!detallePorArticulo[codigoArticulo]) {
+                    detallePorArticulo[codigoArticulo] = [];
+                }
+                detallePorArticulo[codigoArticulo].push({
+                    codigo_ubicacion: codigoUbicacion,
+                    stock: stock
+                });
+            }
+
+            Object.keys(detallePorArticulo).forEach((codigoArticulo) => {
+                detallePorArticulo[codigoArticulo].sort((a, b) => {
+                    const diff = (b.stock || 0) - (a.stock || 0);
+                    if (diff !== 0) return diff;
+                    return String(a.codigo_ubicacion || '').localeCompare(String(b.codigo_ubicacion || ''));
+                });
+            });
+
+            return detallePorArticulo;
+        } catch (e) {
+            console.warn('getStockUbicacionesPorAlmacen:', e);
+            return {};
+        }
+    }
+
     async downloadStock(onProgress = null) {
         try {
             if (!this.client) {

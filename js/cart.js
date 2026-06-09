@@ -17,6 +17,75 @@ class CartManager {
         };
         this.dbName = 'ScanAsYouShop';
         this.db = null;
+        this._productSearchIndex = null;
+        this._productSearchIndexBuildPromise = null;
+    }
+
+    invalidateProductSearchIndex() {
+        this._productSearchIndex = null;
+        this._productSearchIndexBuildPromise = null;
+    }
+
+    /**
+     * Precarga el indice de busqueda en memoria (una lectura getAll + texto normalizado).
+     * Las busquedas posteriores no vuelven a leer todo IndexedDB.
+     */
+    warmProductSearchIndex() {
+        if (!this.db) return Promise.resolve([]);
+        return this.ensureProductSearchIndex();
+    }
+
+    async ensureProductSearchIndex() {
+        if (this._productSearchIndex) {
+            return this._productSearchIndex;
+        }
+        if (this._productSearchIndexBuildPromise) {
+            return this._productSearchIndexBuildPromise;
+        }
+        this._productSearchIndexBuildPromise = this._buildProductSearchIndex();
+        try {
+            this._productSearchIndex = await this._productSearchIndexBuildPromise;
+            return this._productSearchIndex;
+        } catch (error) {
+            this.invalidateProductSearchIndex();
+            throw error;
+        } finally {
+            this._productSearchIndexBuildPromise = null;
+        }
+    }
+
+    async _buildProductSearchIndex() {
+        if (!this.db) return [];
+
+        const inicio = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const productos = await new Promise((resolve, reject) => {
+            const tx = this.db.transaction(['products'], 'readonly');
+            const store = tx.objectStore('products');
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+
+        const entries = [];
+        const CHUNK = 5000;
+        for (let i = 0; i < productos.length; i++) {
+            const p = productos[i];
+            if (!p || !p.codigo) continue;
+            entries.push({
+                product: p,
+                codigoUpper: String(p.codigo).toUpperCase(),
+                searchTextNorm: this.normalizeText(((p.descripcion || '') + ' ' + (p.sinonimos || '')))
+            });
+            if (i > 0 && i % CHUNK === 0 && typeof this.yieldToMainThread === 'function') {
+                await this.yieldToMainThread();
+            }
+        }
+
+        const elapsed = Math.round(
+            ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - inicio
+        );
+        console.log('Indice busqueda productos listo: ' + entries.length + ' entradas en ' + elapsed + 'ms');
+        return entries;
     }
 
     /**
@@ -518,6 +587,7 @@ class CartManager {
             console.log(`Guardando ${normalizedList.length} productos...`);
             await this.replaceStoreChunked('products', normalizedList, 2000);
             console.log(`${normalizedList.length} productos guardados (códigos normalizados a MAYÚSCULAS)`);
+            this.invalidateProductSearchIndex();
 
         } catch (error) {
             console.error('Error al guardar productos:', error);
@@ -567,6 +637,7 @@ class CartManager {
             }
 
             console.log(`Actualización incremental productos: ${normalized.length} upserts`);
+            this.invalidateProductSearchIndex();
             return { inserted: 0, updated: normalized.length, upserted: normalized.length };
 
         } catch (error) {
@@ -1129,6 +1200,7 @@ class CartManager {
         });
         if (removed > 0) {
             console.log('purgeProductsIf: eliminados', removed, 'registros locales');
+            this.invalidateProductSearchIndex();
         }
         return removed;
     }
@@ -1138,31 +1210,18 @@ class CartManager {
      */
     async searchProductsLocal(searchTerm) {
         try {
-            const transaction = this.db.transaction(['products'], 'readonly');
-            const store = transaction.objectStore('products');
-            const request = store.getAll();
+            const index = await this.ensureProductSearchIndex();
+            const searchLower = String(searchTerm || '').toLowerCase();
+            const searchNorm = this.normalizeText(searchTerm);
+            const hasSearchNorm = !!searchNorm && searchNorm.length > 0;
 
-            return new Promise((resolve, reject) => {
-                request.onsuccess = () => {
-                    const productos = request.result;
-                    const searchLower = String(searchTerm || '').toLowerCase();
-                    const searchNorm = this.normalizeText(searchTerm);
-                    const hasSearchNorm = !!searchNorm && searchNorm.length > 0;
-
-                    const filtered = productos.filter(p => {
-                        if ((p.codigo || '').toLowerCase().includes(searchLower)) return true;
-                        if (!hasSearchNorm) return false;
-
-                        const descripcionNorm = this.normalizeText(p.descripcion || '');
-                        const sinonimosNorm = this.normalizeText(p.sinonimos || '');
-                        return descripcionNorm.includes(searchNorm) || sinonimosNorm.includes(searchNorm);
-                    });
-
-                    resolve(filtered);
-                };
-                request.onerror = () => reject(request.error);
-            });
-
+            return index
+                .filter((entry) => {
+                    if (entry.codigoUpper.toLowerCase().includes(searchLower)) return true;
+                    if (!hasSearchNorm) return false;
+                    return entry.searchTextNorm.includes(searchNorm);
+                })
+                .map((entry) => entry.product);
         } catch (error) {
             console.error('Error al buscar productos localmente:', error);
             return [];
@@ -1299,36 +1358,18 @@ class CartManager {
      */
     async searchByCodeSmart(code) {
         try {
-            const transaction = this.db.transaction(['products'], 'readonly');
-            const store = transaction.objectStore('products');
-            const request = store.getAll();
+            const codeUpper = String(code || '').toUpperCase().trim();
+            if (!codeUpper) return [];
 
-            return new Promise((resolve, reject) => {
-                request.onsuccess = () => {
-                    const productos = request.result;
-                    const codeUpper = code.toUpperCase().trim();
+            const exactMatch = await this.getProductByCodigo(codeUpper);
+            if (exactMatch) {
+                return [exactMatch];
+            }
 
-                    // Buscar match exacto primero
-                    const exactMatch = productos.find(p => 
-                        p.codigo.toUpperCase() === codeUpper
-                    );
-
-                    // Si hay match exacto, devolver solo ese
-                    if (exactMatch) {
-                        resolve([exactMatch]);
-                        return;
-                    }
-
-                    // Si no hay match exacto, buscar parciales
-                    const partialMatches = productos.filter(p => 
-                        p.codigo.toUpperCase().includes(codeUpper)
-                    );
-
-                    resolve(partialMatches);
-                };
-                request.onerror = () => reject(request.error);
-            });
-
+            const index = await this.ensureProductSearchIndex();
+            return index
+                .filter((entry) => entry.codigoUpper.includes(codeUpper))
+                .map((entry) => entry.product);
         } catch (error) {
             console.error('Error en búsqueda por código:', error);
             return [];
@@ -1340,36 +1381,19 @@ class CartManager {
      */
     async searchByDescriptionAllWords(description) {
         try {
-            const transaction = this.db.transaction(['products'], 'readonly');
-            const store = transaction.objectStore('products');
-            const request = store.getAll();
+            const normalizedQuery = this.normalizeText(description);
+            const words = normalizedQuery
+                .split(/\s+/)
+                .filter((w) => w.length > 0);
 
-            return new Promise((resolve, reject) => {
-                request.onsuccess = () => {
-                    const productos = request.result;
-                    
-                    // Separar en palabras y normalizar
-                    const normalizedQuery = this.normalizeText(description);
-                    const words = normalizedQuery
-                        .split(/\s+/)
-                        .filter(w => w.length > 0);
+            if (words.length === 0) {
+                return [];
+            }
 
-                    if (words.length === 0) {
-                        resolve([]);
-                        return;
-                    }
-
-                    // Filtrar productos que contengan TODAS las palabras
-                    const filtered = productos.filter(p => {
-                        const textToSearch = this.normalizeText(((p.descripcion || '') + ' ' + (p.sinonimos || '')));
-                        return words.every(word => textToSearch.includes(word));
-                    });
-
-                    resolve(filtered);
-                };
-                request.onerror = () => reject(request.error);
-            });
-
+            const index = await this.ensureProductSearchIndex();
+            return index
+                .filter((entry) => words.every((word) => entry.searchTextNorm.includes(word)))
+                .map((entry) => entry.product);
         } catch (error) {
             console.error('Error en búsqueda por descripción:', error);
             return [];

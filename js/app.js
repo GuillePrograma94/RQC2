@@ -4641,6 +4641,7 @@ class ScanAsYouShopApp {
             if (!cartOK) {
                 throw new Error('No se pudo inicializar el carrito');
             }
+            this.preloadLocalProductSearchIndex();
 
             await this.refreshClavesDescuentoCache();
             await this.refreshPactosClienteCache();
@@ -5372,6 +5373,21 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Precarga indice de busqueda local en memoria (evita getAll en cada busqueda).
+     */
+    preloadLocalProductSearchIndex() {
+        if (!window.cartManager || typeof window.cartManager.warmProductSearchIndex !== 'function') {
+            return;
+        }
+        void window.cartManager.warmProductSearchIndex().catch((error) => {
+            console.warn(
+                'Precarga indice busqueda local:',
+                error && error.message ? error.message : error
+            );
+        });
+    }
+
+    /**
      * Sincroniza productos EN SEGUNDO PLANO (solo si hay cambios)
      * Usa sincronización incremental cuando sea posible para mayor velocidad
      */
@@ -5489,6 +5505,7 @@ class ScanAsYouShopApp {
             } else {
                 await window.cartManager.saveProductsToStorage(productos);
             }
+            this.preloadLocalProductSearchIndex();
 
             window.ui.updateSyncIndicator('Guardando codigos secundarios...');
             if (flags.codesIncremental) {
@@ -5529,6 +5546,7 @@ class ScanAsYouShopApp {
 
             if (typeof this.purgeHiddenCatalogProductsLocal === 'function') {
                 await this.purgeHiddenCatalogProductsLocal();
+                this.preloadLocalProductSearchIndex();
             }
 
             // Actualizar hash local
@@ -11070,6 +11088,65 @@ class ScanAsYouShopApp {
         }
     }
 
+    getModulaUbicacionPorAlmacen(almacen) {
+        const key = (almacen || '').toUpperCase().trim();
+        const map = {
+            ONTINYENT: 'MODULA7',
+            GANDIA: 'MODULA1'
+        };
+        return map[key] || null;
+    }
+
+    async detectCartModulaLines(almacen, cart) {
+        const ubicacionModula = this.getModulaUbicacionPorAlmacen(almacen);
+        if (!ubicacionModula || !cart || !Array.isArray(cart.productos) || cart.productos.length === 0) {
+            return { hasModula: false, ubicacion: ubicacionModula, lineas: [] };
+        }
+
+        const codigos = cart.productos
+            .map((p) => String(p.codigo_producto || p.codigo || '').trim().toUpperCase())
+            .filter(Boolean);
+
+        if (!window.supabaseClient || typeof window.supabaseClient.getStockUbicacionesPorAlmacen !== 'function') {
+            return { hasModula: false, ubicacion: ubicacionModula, lineas: [] };
+        }
+
+        const detalle = await window.supabaseClient.getStockUbicacionesPorAlmacen(almacen, codigos);
+        const lineas = [];
+
+        cart.productos.forEach((producto, index) => {
+            const codigo = String(producto.codigo_producto || producto.codigo || '').trim().toUpperCase();
+            if (!codigo) return;
+            const ubicaciones = detalle[codigo] || [];
+            const enModula = ubicaciones.some(
+                (u) => String(u.codigo_ubicacion || '').toUpperCase() === ubicacionModula && (u.stock || 0) > 0
+            );
+            if (!enModula) return;
+            const cantidad = producto.cantidad != null ? Number(producto.cantidad) : 0;
+            if (!(cantidad > 0)) return;
+            lineas.push({
+                codigo: codigo,
+                articulo: codigo,
+                cantidad: cantidad,
+                numlin: index + 1
+            });
+        });
+
+        return {
+            hasModula: lineas.length > 0,
+            ubicacion: ubicacionModula,
+            lineas: lineas
+        };
+    }
+
+    getClienteNombreParaModula() {
+        if (!this.currentUser) return '';
+        if (this.canRepresentClientes() && this.currentUser.cliente_representado_nombre) {
+            return String(this.currentUser.cliente_representado_nombre).trim();
+        }
+        return this.currentUser.user_name ? String(this.currentUser.user_name).trim() : '';
+    }
+
     async sendPresencialAlbaranOrder(options) {
         const opts = options || {};
         const modo = opts.modo === 'firmar' ? 'firmar' : 'imprimir_sin_firma';
@@ -11121,6 +11198,30 @@ class ScanAsYouShopApp {
             let observacionesFinal = 'ALBARAN PRESENCIAL TIENDA';
             if (this.canRepresentClientes() && this.currentUser.user_name) {
                 observacionesFinal += '\n\nGenerado por: ' + this.currentUser.user_name;
+            }
+
+            let enviarAModula = false;
+            let modulaLineas = [];
+            const modulaCheck = await this.detectCartModulaLines(almacen, cart);
+            if (modulaCheck.hasModula) {
+                this._tiendaDiagLog(
+                    'info',
+                    'Detectados ' + modulaCheck.lineas.length + ' articulos en ' + modulaCheck.ubicacion,
+                    'modula'
+                );
+                const confirmarModula = await window.ui.showConfirm(
+                    'Envio a Modula',
+                    'Hay articulos en ubicacion ' + modulaCheck.ubicacion + '. ¿Quieres enviar pedidos a modula?',
+                    'Si, enviar',
+                    'No'
+                );
+                enviarAModula = !!confirmarModula;
+                modulaLineas = modulaCheck.lineas;
+                if (enviarAModula) {
+                    this._tiendaDiagLog('info', 'Usuario acepto envio a Modula', 'modula');
+                } else {
+                    this._tiendaDiagLog('info', 'Usuario declino envio a Modula', 'modula');
+                }
             }
 
             window.ui.showLoading('Generando albaran presencial...');
@@ -11213,6 +11314,35 @@ class ScanAsYouShopApp {
 
             const albaranErp = parsed.albaran;
             this._tiendaDiagLog('info', 'Pedido ERP ' + parsed.pedido + ', albaran ' + (albaranErp || 'sin codigo'), 'albaran');
+
+            if (enviarAModula && albaranErp && modulaLineas.length > 0 && window.TiendaNative && typeof window.TiendaNative.sendModulaPedido === 'function') {
+                const fechaHoy = new Date();
+                const dd = String(fechaHoy.getDate()).padStart(2, '0');
+                const mm = String(fechaHoy.getMonth() + 1).padStart(2, '0');
+                const yyyy = fechaHoy.getFullYear();
+                const clienteNombre = this.getClienteNombreParaModula();
+                const descripcionModula = dd + '/' + mm + '/' + yyyy + (clienteNombre ? ' ' + clienteNombre : '');
+                try {
+                    const modulaResult = await window.TiendaNative.sendModulaPedido({
+                        almacen: almacen,
+                        albaran: albaranErp,
+                        lineas: modulaLineas,
+                        descripcion: descripcionModula
+                    });
+                    if (!modulaResult || modulaResult.success !== true) {
+                        const modulaMsg = (modulaResult && modulaResult.message) || 'No se pudo enviar el pedido a Modula';
+                        this._tiendaDiagLog('warn', modulaMsg, 'modula');
+                        window.ui.showToast(modulaMsg + '. El albaran se continuara imprimiendo.', 'warning');
+                    } else {
+                        this._tiendaDiagLog('ok', modulaResult.message || 'Pedido enviado a Modula', 'modula');
+                    }
+                } catch (modulaErr) {
+                    const modulaMsg = modulaErr && modulaErr.message ? modulaErr.message : String(modulaErr);
+                    this._tiendaDiagLog('warn', 'Modula: ' + modulaMsg, 'modula');
+                    window.ui.showToast('No se pudo enviar a Modula. El albaran se continuara imprimiendo.', 'warning');
+                }
+            }
+
             if (!albaranErp) {
                 this._tiendaDiagLog('warn', 'Pedido creado pero sin codigo de albaran en respuesta ERP', 'albaran');
                 window.ui.hideLoading();

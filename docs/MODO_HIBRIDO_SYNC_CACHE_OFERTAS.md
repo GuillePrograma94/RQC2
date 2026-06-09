@@ -30,9 +30,18 @@ En `supabase.js#getOfertasProducto`:
 - `ofertas_cache_completed_at`
 - `ofertas_cache_target_version_hash`
 
+## Indice de busqueda local en memoria
+
+Para evitar `IndexedDB.getAll()` en cada busqueda (lento en WebView2/TiendaPC), `cart.js` mantiene un indice en RAM:
+
+- Se construye una vez leyendo el catalogo y pre-normalizando descripcion + sinonimos.
+- Se invalida al guardar/actualizar/purgar productos y se precarga tras init y sync (`preloadLocalProductSearchIndex` en `app.js`).
+- Las busquedas por descripcion y codigo parcial usan solo memoria; no consultan Supabase.
+
 ## Referencia de implementación
 
 - `js/app.js`
+- `js/cart.js`
 - `js/scanner.js`
 - `js/supabase.js`
 - `js/ui.js`
