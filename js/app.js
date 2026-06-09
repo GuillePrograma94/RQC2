@@ -10993,6 +10993,20 @@ class ScanAsYouShopApp {
         if (modal) modal.style.display = 'none';
     }
 
+    /**
+     * Anade datos de firma a observaciones existentes del pedido/albaran.
+     */
+    appendAlbaranFirmaObservaciones(observacionesBase, nombreFirma, obra) {
+        const nombre = nombreFirma != null ? String(nombreFirma).trim() : '';
+        const obraTexto = obra != null ? String(obra).trim() : '';
+        let bloque = 'Persona que firma: ' + nombre;
+        if (obraTexto) {
+            bloque += '\nObra: ' + obraTexto;
+        }
+        const base = observacionesBase != null ? String(observacionesBase).trim() : '';
+        return base ? (base + '\n\n' + bloque) : bloque;
+    }
+
     showAlbaranSignatureModalForTienda() {
         const self = this;
         return new Promise((resolve) => {
@@ -11000,7 +11014,9 @@ class ScanAsYouShopApp {
             const clearBtn = document.getElementById('albaranSignatureClearBtn');
             const confirmBtn = document.getElementById('albaranSignatureConfirmBtn');
             const overlay = document.getElementById('albaranSignatureModalOverlay');
-            if (!modal || !clearBtn || !confirmBtn) {
+            const nombreInput = document.getElementById('albaranSignatureNombreInput');
+            const obraInput = document.getElementById('albaranSignatureObraInput');
+            if (!modal || !clearBtn || !confirmBtn || !nombreInput) {
                 resolve(null);
                 return;
             }
@@ -11023,11 +11039,15 @@ class ScanAsYouShopApp {
                     modal.classList.remove('albaran-signature-modal--tablet');
                 }
 
+                nombreInput.value = '';
+                if (obraInput) obraInput.value = '';
+
                 modal.style.display = 'flex';
                 requestAnimationFrame(() => {
                     if (window.SignaturePad && typeof window.SignaturePad.setup === 'function') {
                         self._albaranSignaturePadState = window.SignaturePad.setup(padOptions);
                     }
+                    nombreInput.focus();
                 });
             };
 
@@ -11040,6 +11060,12 @@ class ScanAsYouShopApp {
             };
 
             const onConfirm = () => {
+                const nombreFirma = nombreInput.value != null ? String(nombreInput.value).trim() : '';
+                if (!nombreFirma) {
+                    window.ui.showToast('Indique el nombre de la persona que firma', 'warning');
+                    nombreInput.focus();
+                    return;
+                }
                 if (!self._albaranSignaturePadState && window.SignaturePad) {
                     self._albaranSignaturePadState = window.SignaturePad.setup(padOptions);
                 }
@@ -11047,9 +11073,14 @@ class ScanAsYouShopApp {
                     window.ui.showToast('Debe firmar en el recuadro antes de continuar', 'warning');
                     return;
                 }
+                const obra = obraInput ? String(obraInput.value || '').trim() : '';
                 const dataUrl = self._albaranSignaturePadState.toDataUrl();
                 cleanup();
-                resolve(dataUrl);
+                resolve({
+                    signatureDataUrl: dataUrl,
+                    nombreFirma: nombreFirma,
+                    obra: obra
+                });
             };
 
             const onOverlayClick = () => {
@@ -11370,14 +11401,35 @@ class ScanAsYouShopApp {
             if (modo === 'firmar') {
                 window.ui.hideLoading();
                 this._tiendaDiagLog('info', 'Abriendo modal de firma', 'albaran');
-                const signatureDataUrl = await this.showAlbaranSignatureModalForTienda();
-                if (!signatureDataUrl) {
+                const signatureResult = await this.showAlbaranSignatureModalForTienda();
+                if (!signatureResult || !signatureResult.signatureDataUrl) {
                     this._tiendaDiagLog('warn', 'Firma cancelada por el usuario', 'albaran');
                     window.ui.showToast('Firma cancelada. El pedido quedo registrado sin imprimir.', 'warning');
                     return;
                 }
+                const observacionesConFirma = this.appendAlbaranFirmaObservaciones(
+                    observacionesFinal,
+                    signatureResult.nombreFirma,
+                    signatureResult.obra
+                );
+                if (result.carrito_id) {
+                    try {
+                        await window.supabaseClient.updateCarritoObservaciones(result.carrito_id, observacionesConFirma);
+                        this._tiendaDiagLog(
+                            'info',
+                            'Observaciones actualizadas con datos de firma: ' + signatureResult.nombreFirma,
+                            'albaran'
+                        );
+                    } catch (obsErr) {
+                        console.warn('No se pudieron actualizar observaciones con datos de firma:', obsErr);
+                        this._tiendaDiagLog('warn', 'No se pudieron guardar observaciones de firma en Supabase', 'albaran');
+                    }
+                }
                 window.ui.showLoading('Guardando firma en el albaran...');
-                const applyResult = await window.TiendaNative.applyAlbaranSignature(albaranErp, signatureDataUrl);
+                const applyResult = await window.TiendaNative.applyAlbaranSignature(
+                    albaranErp,
+                    signatureResult.signatureDataUrl
+                );
                 if (!applyResult || applyResult.success !== true) {
                     this._tiendaDiagLog('error', (applyResult && applyResult.message) || 'No se pudo guardar la firma', 'albaran');
                     window.ui.hideLoading();

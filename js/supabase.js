@@ -2424,6 +2424,27 @@ class SupabaseClient {
     }
 
     /**
+     * Actualiza las observaciones de un carrito/pedido (p. ej. datos de firma de albaran).
+     */
+    async updateCarritoObservaciones(carritoId, observaciones) {
+        try {
+            if (!this.client) {
+                throw new Error('Cliente de Supabase no inicializado');
+            }
+            const valor = observaciones != null ? String(observaciones).trim() || null : null;
+            const { error } = await this.client
+                .from('carritos_clientes')
+                .update({ observaciones: valor })
+                .eq('id', carritoId);
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Error al actualizar observaciones del carrito:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Añade un producto a un pedido remoto
      */
     async addProductToRemoteOrder(carritoId, producto, cantidad) {

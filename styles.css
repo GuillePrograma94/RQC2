@@ -1027,6 +1027,39 @@ body.gate-visible .app-container {
     line-height: 1.4;
 }
 
+.signature-modal-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.85rem;
+    flex-shrink: 0;
+}
+
+.signature-field-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--gray-700, #374151);
+}
+
+.signature-field-optional {
+    font-weight: 400;
+    color: var(--gray-500, #6b7280);
+}
+
+.signature-field-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid var(--gray-300, #d1d5db);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    margin-bottom: 0.35rem;
+}
+
+.albaran-signature-modal--tablet .signature-modal-fields {
+    margin-bottom: 0.5rem;
+}
+
 .signature-pad-wrapper {
     border: 3px solid var(--primary);
     border-radius: 12px;

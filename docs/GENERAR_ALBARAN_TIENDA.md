@@ -80,6 +80,22 @@ Con `signature_tablet_mode: true` (por defecto), el modal de firma ocupa **toda 
 
 Para desactivar el modo pantalla completa (p. ej. solo raton): `"signature_tablet_mode": false`.
 
+Al **Firmar Albaran**, el modal solicita:
+
+| Campo | Obligatorio |
+|-------|-------------|
+| Nombre de persona que firma | Si |
+| Obra | No |
+
+Tras confirmar la firma, esos datos se **anaden a las observaciones** ya guardadas en `carritos_clientes.observaciones` (p. ej. `ALBARAN PRESENCIAL TIENDA`, `Generado por: ...`), con el formato:
+
+```
+Persona que firma: [nombre]
+Obra: [obra]
+```
+
+La linea `Obra:` solo aparece si el usuario la rellena.
+
 ### Rendimiento al guardar firma
 
 El PDF del albaran esta en una ruta UNC de red. TiendaPC copia el PDF a disco local, aplica la firma y vuelve a subirlo (mucho mas rapido que editar directamente en red).
