@@ -241,8 +241,8 @@
         <div class="login-modal-overlay" id="albaranSignatureModalOverlay"></div>
         <div class="login-modal-content albaran-signature-modal-content">
             <h2 class="signature-modal-title">Firmar albarán</h2>
-            <p class="signature-modal-hint">Dibuje la firma en el recuadro blanco (tableta XPPEN o raton). El area de firma ocupa toda la pantalla para que el lapiz coincida con la tableta.</p>
-            <div class="signature-pad-wrapper">
+            <p class="signature-modal-hint">Firme con la tableta XPPEN sobre el recuadro blanco: el lapiz se mapea a esa zona. Tambien puede usar el raton.</p>
+            <div id="albaranSignaturePadWrapper" class="signature-pad-wrapper">
                 <canvas id="albaranSignatureCanvas" class="signature-pad-canvas"></canvas>
             </div>
             <div class="signature-modal-actions">
@@ -1771,7 +1771,7 @@
                 <div class="add-to-cart-quantity-section">
                     <div class="quantity-controls-modal">
                         <button class="qty-btn-modal" id="decreaseQtyModal">−</button>
-                        <input type="number" class="qty-input-modal" id="qtyInputModal" value="1" min="1" max="999">
+                        <input type="text" class="qty-input-modal" id="qtyInputModal" value="1" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" aria-label="Cantidad">
                         <button class="qty-btn-modal" id="increaseQtyModal">+</button>
                     </div>
                 </div>

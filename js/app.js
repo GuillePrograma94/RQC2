@@ -8974,6 +8974,33 @@ class ScanAsYouShopApp {
         this._productDetailCleanup = handleClose;
     }
 
+    isTiendaPcContext() {
+        return !!(window.TiendaNative && typeof window.TiendaNative.isAvailable === 'function' && window.TiendaNative.isAvailable());
+    }
+
+    focusQtyInputForEdit(input) {
+        if (!input) {
+            return;
+        }
+        try {
+            input.focus({ preventScroll: true });
+        } catch (focusErr) {
+            input.focus();
+        }
+        const placeCursorAtEnd = () => {
+            const len = String(input.value || '').length;
+            try {
+                if (typeof input.setSelectionRange === 'function') {
+                    input.setSelectionRange(len, len);
+                }
+            } catch (selectionErr) {
+                // type=number u otros inputs pueden no admitir seleccion
+            }
+        };
+        placeCursorAtEnd();
+        requestAnimationFrame(placeCursorAtEnd);
+    }
+
     /**
      * Muestra el modal de añadir al carrito con selección de cantidad
      */
@@ -9083,11 +9110,17 @@ class ScanAsYouShopApp {
             }
 
             // Resetear cantidad a 1
-            qtyInput.value = 1;
+            qtyInput.value = '1';
 
             // Mostrar modal
             modal.style.display = 'flex';
             if (modalBody) modalBody.scrollTop = 0;
+
+            if (this.isTiendaPcContext()) {
+                requestAnimationFrame(() => {
+                    this.focusQtyInputForEdit(qtyInput);
+                });
+            }
 
             // Cargar compatibilidades WC en segundo plano para no bloquear la apertura del modal
             (async () => {
@@ -9139,7 +9172,7 @@ class ScanAsYouShopApp {
             };
 
             const handleConfirm = async () => {
-                const cantidad = parseInt(qtyInput.value) || 1;
+                const cantidad = Math.max(1, Math.min(999, parseInt(qtyInput.value, 10) || 1));
                 modal.style.display = 'none';
                 modalIsActive = false;
                 cleanup();
@@ -9162,14 +9195,29 @@ class ScanAsYouShopApp {
             };
 
             const handleInputChange = () => {
-                let value = parseInt(qtyInput.value) || 1;
+                const raw = String(qtyInput.value || '').replace(/\D/g, '');
+                if (raw === '') {
+                    qtyInput.value = '';
+                    return;
+                }
+                let value = parseInt(raw, 10) || 1;
                 if (value < 1) value = 1;
                 if (value > 999) value = 999;
-                qtyInput.value = value;
+                qtyInput.value = String(value);
             };
 
             const handleFocus = (e) => {
+                if (this.isTiendaPcContext()) {
+                    this.focusQtyInputForEdit(e.target);
+                    return;
+                }
                 e.target.select();
+            };
+
+            const handleBlur = () => {
+                if (!String(qtyInput.value || '').trim()) {
+                    qtyInput.value = '1';
+                }
             };
 
             const handleKeyPress = (e) => {
@@ -9214,6 +9262,7 @@ class ScanAsYouShopApp {
                 increaseBtn.removeEventListener('click', handleIncrease);
                 qtyInput.removeEventListener('input', handleInputChange);
                 qtyInput.removeEventListener('focus', handleFocus);
+                qtyInput.removeEventListener('blur', handleBlur);
                 qtyInput.removeEventListener('keypress', handleKeyPress);
             };
 
@@ -9228,6 +9277,7 @@ class ScanAsYouShopApp {
             increaseBtn.addEventListener('click', handleIncrease);
             qtyInput.addEventListener('input', handleInputChange);
             qtyInput.addEventListener('focus', handleFocus);
+            qtyInput.addEventListener('blur', handleBlur);
             qtyInput.addEventListener('keypress', handleKeyPress);
 
             // Guardar referencia para que la proxima llamada pueda limpiar esta invocacion
@@ -11067,7 +11117,13 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            let padOptions = { canvasId: 'albaranSignatureCanvas', tabletMode: true, fillContainer: true };
+            let padOptions = {
+                canvasId: 'albaranSignatureCanvas',
+                tabletMode: true,
+                tabletMapToCanvas: true,
+                fillContainer: true,
+                tabletMapRoot: 'albaranSignaturePadWrapper'
+            };
 
             const openModal = async () => {
                 if (window.TiendaNative && window.TiendaNative.getSignaturePadOptions) {
@@ -11089,6 +11145,9 @@ class ScanAsYouShopApp {
                 requestAnimationFrame(() => {
                     if (window.SignaturePad && typeof window.SignaturePad.setup === 'function') {
                         self._albaranSignaturePadState = window.SignaturePad.setup(padOptions);
+                        if (self._albaranSignaturePadState && self._albaranSignaturePadState.focus) {
+                            self._albaranSignaturePadState.focus();
+                        }
                     }
                 });
             };

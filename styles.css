@@ -839,6 +839,10 @@ body.gate-visible .app-container {
 .albaran-signature-modal.albaran-signature-modal--tablet {
     align-items: stretch;
     justify-content: stretch;
+    touch-action: none;
+    -ms-touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .albaran-signature-modal--tablet .login-modal-overlay {

@@ -76,9 +76,9 @@ Bloque `modula` en `tienda_config.json`:
 
 ### Firma con tableta XPPEN
 
-Con `signature_tablet_mode: true` (por defecto), el modal de firma ocupa **toda la pantalla** y el canvas llena el area disponible. Asi el lapiz de la tableta grafica mapea 1:1 con el recuadro de firma (no hay que recorrer toda la pantalla con el estilete).
+Con `signature_tablet_mode: true` (por defecto), el modal de firma ocupa **toda la pantalla** y el recuadro blanco (`#albaranSignaturePadWrapper`) llena el area disponible. El lapiz se remapea a ese recuadro (`tabletMapToCanvas` + `tabletMapRoot`), no a toda la pantalla de Windows; el canvas recibe foco al abrir el modal.
 
-Para desactivar el modo pantalla completa (p. ej. solo raton): `"signature_tablet_mode": false`.
+Para desactivar el mapeo de tableta (p. ej. solo raton): `"signature_tablet_mode": false` en `tienda_config.json`.
 
 Al **Firmar Albaran** (solo TiendaPC; CheckoutPC en mostrador no pide nombre ni obra), el flujo es en **dos pasos**:
 

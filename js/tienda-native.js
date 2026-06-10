@@ -81,13 +81,23 @@
     async function getSignaturePadOptions() {
         const api = getApi();
         if (!api || !api.get_signature_pad_options) {
-            return { tabletMode: true, fillContainer: true };
+            return {
+                tabletMode: true,
+                tabletMapToCanvas: true,
+                fillContainer: true,
+                tabletMapRoot: 'albaranSignaturePadWrapper'
+            };
         }
         try {
             return await api.get_signature_pad_options();
         } catch (e) {
             console.warn('TiendaNative.getSignaturePadOptions:', e);
-            return { tabletMode: true, fillContainer: true };
+            return {
+                tabletMode: true,
+                tabletMapToCanvas: true,
+                fillContainer: true,
+                tabletMapRoot: 'albaranSignaturePadWrapper'
+            };
         }
     }
 

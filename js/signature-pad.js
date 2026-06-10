@@ -1,5 +1,5 @@
 /**
- * Pad de firma reutilizable (Elo tactil, Wacom lapiz, XPPEN tableta, etc.)
+ * Pad de firma reutilizable (Elo tactil, XPPEN lapiz, Wacom, etc.)
  */
 (function (global) {
     function cropCanvasToContent(sourceCanvas) {
@@ -66,11 +66,20 @@
         let resizeObserver = null;
         const listeners = [];
         const supportsPointer = typeof global.PointerEvent !== 'undefined';
-        const fillContainer = opts.fillContainer === true;
-        const tabletMode = opts.tabletMode === true;
-        const minHeight = opts.minHeight || (tabletMode ? 200 : 300);
+        const fillWrapper = opts.fillWrapper === true || opts.fillContainer === true;
+        const tabletMapToCanvas = opts.tabletMapToCanvas === true || opts.tabletMode === true;
+        const minHeight = opts.minHeight || (tabletMapToCanvas ? 200 : 300);
         const heightRatio = opts.heightRatio || 0.32;
         const maxHeight = opts.maxHeight || 420;
+
+        let penCaptureRoot = opts.penCaptureRoot || null;
+        if (typeof penCaptureRoot === 'string') {
+            penCaptureRoot = document.getElementById(penCaptureRoot);
+        }
+        let tabletMapRoot = opts.tabletMapRoot || null;
+        if (typeof tabletMapRoot === 'string') {
+            tabletMapRoot = document.getElementById(tabletMapRoot);
+        }
 
         canvas.setAttribute('tabindex', '0');
 
@@ -100,7 +109,7 @@
         const resizeCanvas = () => {
             const rect = wrapper.getBoundingClientRect();
             logicalWidth = Math.max(320, Math.floor(rect.width));
-            if (fillContainer) {
+            if (fillWrapper && rect.height > 0) {
                 logicalHeight = Math.max(minHeight, Math.floor(rect.height));
             } else {
                 logicalHeight = Math.max(
@@ -130,6 +139,27 @@
             };
         };
 
+        const getTabletMapRect = () => {
+            const mapEl = tabletMapRoot || wrapper;
+            if (mapEl && mapEl.getBoundingClientRect) {
+                return mapEl.getBoundingClientRect();
+            }
+            return wrapper.getBoundingClientRect();
+        };
+
+        const getPosFromTabletMap = (clientX, clientY) => {
+            const bounds = getTabletMapRect();
+            if (!bounds.width || !bounds.height) {
+                return { x: 0, y: 0 };
+            }
+            const nx = (clientX - bounds.left) / bounds.width;
+            const ny = (clientY - bounds.top) / bounds.height;
+            return {
+                x: Math.max(0, Math.min(logicalWidth, nx * logicalWidth)),
+                y: Math.max(0, Math.min(logicalHeight, ny * logicalHeight))
+            };
+        };
+
         const getPos = (event) => {
             if (event.touches && event.touches.length > 0) {
                 const touch = event.touches[0];
@@ -139,7 +169,29 @@
                 const touch = event.changedTouches[0];
                 return getPosFromClient(touch.clientX, touch.clientY);
             }
+            if (tabletMapToCanvas && event.pointerType === 'pen') {
+                return getPosFromTabletMap(event.clientX, event.clientY);
+            }
             return getPosFromClient(event.clientX, event.clientY);
+        };
+
+        const isPenEvent = (event) => {
+            return !!(event && event.pointerType === 'pen');
+        };
+
+        const isPenLikeEvent = (event) => {
+            if (!event) return false;
+            if (event.pointerType === 'pen' || event.pointerType === 'touch') {
+                return true;
+            }
+            return false;
+        };
+
+        const isUiControlTarget = (target) => {
+            if (!target || !target.closest) {
+                return false;
+            }
+            return !!target.closest('button, a, input, select, textarea, .signature-modal-actions');
         };
 
         const isActivePointer = (event) => {
@@ -166,7 +218,10 @@
 
         const startDraw = (event) => {
             event.preventDefault();
-            if (activePointerId !== null && event.pointerId !== undefined && event.pointerId !== activePointerId) {
+            if (activePointerId !== null) {
+                if (event.pointerId === undefined || event.pointerId === activePointerId) {
+                    return;
+                }
                 return;
             }
             activePointerId = event.pointerId !== undefined ? event.pointerId : 'mouse-fallback';
@@ -223,14 +278,112 @@
             listeners.push({ target, type, handler, options: listenerOptions });
         };
 
+        const onRootPointerDown = (event) => {
+            if (!penCaptureRoot || !isPenLikeEvent(event)) {
+                return;
+            }
+            if (isUiControlTarget(event.target)) {
+                return;
+            }
+            if (event.target === canvas || canvas.contains(event.target)) {
+                return;
+            }
+            startDraw(event);
+        };
+
+        const onRootPointerMove = (event) => {
+            if (!penCaptureRoot || !isPenLikeEvent(event)) {
+                return;
+            }
+            if (!isActivePointer(event)) {
+                return;
+            }
+            moveDraw(event);
+        };
+
+        const onRootPointerEnd = (event) => {
+            if (!penCaptureRoot || !isPenLikeEvent(event)) {
+                return;
+            }
+            endDraw(event);
+        };
+
+        const onTabletMapPointerDown = (event) => {
+            if (!tabletMapToCanvas || !isPenEvent(event)) {
+                return;
+            }
+            if (isUiControlTarget(event.target)) {
+                return;
+            }
+            event.preventDefault();
+            startDraw(event);
+        };
+
+        const onTabletMapPointerMove = (event) => {
+            if (!tabletMapToCanvas || !isPenEvent(event)) {
+                return;
+            }
+            if (!isActivePointer(event)) {
+                return;
+            }
+            moveDraw(event);
+        };
+
+        const onTabletMapPointerEnd = (event) => {
+            if (!tabletMapToCanvas || !isPenEvent(event)) {
+                return;
+            }
+            endDraw(event);
+        };
+
+        const skipCanvasPenEvent = (event) => {
+            return tabletMapToCanvas && isPenEvent(event);
+        };
+
+        const onCanvasPointerDown = (event) => {
+            if (skipCanvasPenEvent(event)) {
+                return;
+            }
+            startDraw(event);
+        };
+
+        const onCanvasPointerMove = (event) => {
+            if (skipCanvasPenEvent(event)) {
+                return;
+            }
+            moveDraw(event);
+        };
+
+        const onCanvasPointerEnd = (event) => {
+            if (skipCanvasPenEvent(event)) {
+                return;
+            }
+            endDraw(event);
+        };
+
         if (supportsPointer) {
-            addListener(canvas, 'pointerdown', startDraw, { passive: false });
-            addListener(canvas, 'pointermove', moveDraw, { passive: false });
-            addListener(canvas, 'pointerup', endDraw, { passive: false });
-            addListener(canvas, 'pointercancel', endDraw, { passive: false });
-            addListener(canvas, 'pointerleave', endDraw, { passive: false });
+            addListener(canvas, 'pointerdown', onCanvasPointerDown, { passive: false });
+            addListener(canvas, 'pointermove', onCanvasPointerMove, { passive: false });
+            addListener(canvas, 'pointerup', onCanvasPointerEnd, { passive: false });
+            addListener(canvas, 'pointercancel', onCanvasPointerEnd, { passive: false });
+            addListener(canvas, 'pointerleave', onCanvasPointerEnd, { passive: false });
             if ('onpointerrawupdate' in canvas) {
-                addListener(canvas, 'pointerrawupdate', moveDraw, { passive: false });
+                addListener(canvas, 'pointerrawupdate', onCanvasPointerMove, { passive: false });
+            }
+            if (tabletMapToCanvas) {
+                const tabletCaptureTarget = document;
+                addListener(tabletCaptureTarget, 'pointerdown', onTabletMapPointerDown, { passive: false, capture: true });
+                addListener(tabletCaptureTarget, 'pointermove', onTabletMapPointerMove, { passive: false, capture: true });
+                addListener(tabletCaptureTarget, 'pointerup', onTabletMapPointerEnd, { passive: false, capture: true });
+                addListener(tabletCaptureTarget, 'pointercancel', onTabletMapPointerEnd, { passive: false, capture: true });
+                if ('onpointerrawupdate' in document) {
+                    addListener(tabletCaptureTarget, 'pointerrawupdate', onTabletMapPointerMove, { passive: false, capture: true });
+                }
+            } else if (penCaptureRoot) {
+                addListener(penCaptureRoot, 'pointerdown', onRootPointerDown, { passive: false });
+                addListener(penCaptureRoot, 'pointermove', onRootPointerMove, { passive: false });
+                addListener(penCaptureRoot, 'pointerup', onRootPointerEnd, { passive: false });
+                addListener(penCaptureRoot, 'pointercancel', onRootPointerEnd, { passive: false });
             }
         } else {
             addListener(canvas, 'touchstart', startDraw, { passive: false });
@@ -241,19 +394,6 @@
             addListener(canvas, 'mousemove', moveDraw, { passive: false });
             addListener(canvas, 'mouseup', endDraw, { passive: false });
             addListener(canvas, 'mouseleave', endDraw, { passive: false });
-        }
-
-        resizeCanvas();
-        if (fillContainer || tabletMode) {
-            requestAnimationFrame(() => {
-                resizeCanvas();
-            });
-        } else {
-            requestAnimationFrame(resizeCanvas);
-            if (typeof ResizeObserver !== 'undefined') {
-                resizeObserver = new ResizeObserver(() => resizeCanvas());
-                resizeObserver.observe(wrapper);
-            }
         }
 
         const padState = {
@@ -291,10 +431,19 @@
             }
         };
 
-        if (tabletMode) {
-            requestAnimationFrame(() => {
+        resizeCanvas();
+        requestAnimationFrame(() => {
+            resizeCanvas();
+            if (tabletMapToCanvas) {
                 padState.focus();
-            });
+            }
+        });
+        if (typeof ResizeObserver !== 'undefined') {
+            resizeObserver = new ResizeObserver(() => resizeCanvas());
+            resizeObserver.observe(wrapper);
+            if (tabletMapRoot && tabletMapRoot !== wrapper) {
+                resizeObserver.observe(tabletMapRoot);
+            }
         }
 
         return padState;
