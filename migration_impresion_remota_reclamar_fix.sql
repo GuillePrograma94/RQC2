@@ -1,47 +1,91 @@
--- Migracion: total_lineas en carritos_clientes (numero de filas en productos_carrito)
--- Complementa total_productos (suma de unidades) para validar impresion completa en checkout_pc.
+-- Migracion: evitar que checkout_pc imprima pedidos remotos antes de estar listos
+-- 1) crear_pedido_remoto: estado_procesamiento pendiente hasta que la app termine de cargar lineas y ERP
+-- 2) reclamar_pedido_remoto: solo pedidos con lineas y pedido_erp; timeout recupera reclamaciones atascadas (pc_id ocupado)
 
-ALTER TABLE carritos_clientes
-    ADD COLUMN IF NOT EXISTS total_lineas INTEGER NOT NULL DEFAULT 0;
+DROP FUNCTION IF EXISTS crear_pedido_remoto(INTEGER, TEXT, TEXT, TEXT);
 
-COMMENT ON COLUMN carritos_clientes.total_lineas IS
-    'Numero de filas en productos_carrito (COUNT), distinto de total_productos que es SUM(cantidad)';
-
--- Backfill pedidos existentes
-UPDATE carritos_clientes cc
-SET total_lineas = COALESCE((
-    SELECT COUNT(*)::INTEGER
-    FROM productos_carrito pc
-    WHERE pc.carrito_id = cc.id
-), 0);
-
-CREATE OR REPLACE FUNCTION actualizar_totales_carrito()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION crear_pedido_remoto(
+    p_usuario_id INTEGER,
+    p_almacen_destino TEXT,
+    p_observaciones TEXT DEFAULT NULL,
+    p_nombre_operario TEXT DEFAULT NULL
+)
+RETURNS TABLE (
+    carrito_id INTEGER,
+    codigo_qr TEXT,
+    codigo_cliente_usuario TEXT,
+    success BOOLEAN,
+    message TEXT
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_codigo_qr TEXT;
+    v_carrito_id INTEGER;
+    v_codigo_cliente_usuario TEXT;
 BEGIN
-    UPDATE carritos_clientes
-    SET
-        total_productos = (
-            SELECT COALESCE(SUM(cantidad), 0)
-            FROM productos_carrito
-            WHERE carrito_id = COALESCE(NEW.carrito_id, OLD.carrito_id)
-        ),
-        total_lineas = (
-            SELECT COUNT(*)::INTEGER
-            FROM productos_carrito
-            WHERE carrito_id = COALESCE(NEW.carrito_id, OLD.carrito_id)
-        ),
-        total_importe = (
-            SELECT COALESCE(SUM(subtotal), 0.0)
-            FROM productos_carrito
-            WHERE carrito_id = COALESCE(NEW.carrito_id, OLD.carrito_id)
-        )
-    WHERE id = COALESCE(NEW.carrito_id, OLD.carrito_id);
+    v_codigo_qr := LPAD(FLOOR(RANDOM() * 1000000)::TEXT, 6, '0');
+    WHILE EXISTS (
+        SELECT 1 FROM carritos_clientes c
+        WHERE c.codigo_qr = v_codigo_qr
+          AND c.estado IS NOT NULL
+          AND c.estado NOT IN ('completado', 'cancelado')
+    ) LOOP
+        v_codigo_qr := LPAD(FLOOR(RANDOM() * 1000000)::TEXT, 6, '0');
+    END LOOP;
 
-    RETURN COALESCE(NEW, OLD);
+    SELECT codigo_usuario INTO v_codigo_cliente_usuario
+    FROM usuarios
+    WHERE id = p_usuario_id;
+
+    INSERT INTO carritos_clientes (
+        codigo_qr,
+        estado,
+        tipo_pedido,
+        almacen_destino,
+        estado_procesamiento,
+        usuario_id,
+        codigo_cliente_usuario,
+        observaciones,
+        nombre_operario,
+        fecha_creacion
+    ) VALUES (
+        v_codigo_qr,
+        'enviado',
+        'remoto',
+        p_almacen_destino,
+        'pendiente',
+        p_usuario_id,
+        v_codigo_cliente_usuario,
+        NULLIF(trim(coalesce(p_observaciones, '')), ''),
+        NULLIF(trim(coalesce(p_nombre_operario, '')), ''),
+        NOW()
+    )
+    RETURNING id INTO v_carrito_id;
+
+    RETURN QUERY
+    SELECT
+        v_carrito_id,
+        v_codigo_qr,
+        v_codigo_cliente_usuario,
+        TRUE,
+        'Pedido remoto creado exitosamente'::TEXT;
+
+EXCEPTION WHEN OTHERS THEN
+    RETURN QUERY SELECT
+        NULL::INTEGER,
+        NULL::TEXT,
+        NULL::TEXT,
+        FALSE,
+        SQLERRM::TEXT;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
--- reclamar_pedido_remoto: devolver total_lineas al checkout remoto
+COMMENT ON FUNCTION crear_pedido_remoto(INTEGER, TEXT, TEXT, TEXT) IS
+'Crea pedido remoto en pendiente hasta cargar lineas y ERP; marcarPedidoRemotoEnviado pasa a procesando para checkout_pc.';
+
+GRANT EXECUTE ON FUNCTION crear_pedido_remoto(INTEGER, TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
+
 DROP FUNCTION IF EXISTS reclamar_pedido_remoto(TEXT, TEXT);
 
 CREATE FUNCTION reclamar_pedido_remoto(
@@ -85,6 +129,9 @@ BEGIN
         WHERE c2.tipo_pedido = 'remoto'
           AND c2.almacen_destino = p_almacen
           AND c2.estado = 'enviado'
+          AND COALESCE(c2.total_productos, 0) > 0
+          AND NULLIF(TRIM(COALESCE(c2.pedido_erp, '')), '') IS NOT NULL
+          AND COALESCE(c2.pc_id, '') <> 'NO_IMPRIMIR'
           AND NOT (
               c2.estado = 'en_preparacion'
               AND NULLIF(TRIM(COALESCE(c2.pc_id, '')), '') IS NOT NULL
@@ -174,3 +221,6 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION reclamar_pedido_remoto(TEXT, TEXT) TO anon, authenticated, service_role;
+
+COMMENT ON FUNCTION reclamar_pedido_remoto(TEXT, TEXT) IS
+'Reclama pedido remoto listo para imprimir: requiere total_productos>0, pedido_erp y estado=enviado (aun no confirmado impreso). Timeout solo recupera enviado atascado; en_preparacion no se reimprime.';

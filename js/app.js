@@ -11665,6 +11665,18 @@ class ScanAsYouShopApp {
                 throw new Error(result.message || 'Error al crear pedido remoto');
             }
 
+            for (const producto of cart.productos) {
+                await window.supabaseClient.addProductToRemoteOrder(
+                    result.carrito_id,
+                    {
+                        codigo: producto.codigo_producto,
+                        descripcion: producto.descripcion_producto,
+                        pvp: producto.precio_unitario
+                    },
+                    producto.cantidad
+                );
+            }
+
             const referencia = 'RQC/' + result.carrito_id + '-' + result.codigo_qr;
             const erpPayload = this.buildErpOrderPayload(cart, almacen, referencia, observacionesFinal, result.codigo_cliente_usuario);
 
@@ -11707,17 +11719,6 @@ class ScanAsYouShopApp {
                 if (!window.erpRetryQueue) {
                     window.ui.showToast('Error de conexion con el ERP. El pedido no se ha guardado.', 'error');
                     return;
-                }
-                for (const producto of cart.productos) {
-                    await window.supabaseClient.addProductToRemoteOrder(
-                        result.carrito_id,
-                        {
-                            codigo: producto.codigo_producto,
-                            descripcion: producto.descripcion_producto,
-                            pvp: producto.precio_unitario
-                        },
-                        producto.cantidad
-                    );
                 }
                 await window.supabaseClient.updateCarritoEstadoProcesamiento(result.carrito_id, 'pendiente_erp');
                 let erpEnqueued = false;
@@ -11763,16 +11764,10 @@ class ScanAsYouShopApp {
                 }
             }
 
-            for (const producto of cart.productos) {
-                await window.supabaseClient.addProductToRemoteOrder(
-                    result.carrito_id,
-                    {
-                        codigo: producto.codigo_producto,
-                        descripcion: producto.descripcion_producto,
-                        pvp: producto.precio_unitario
-                    },
-                    producto.cantidad
-                );
+            try {
+                await window.supabaseClient.marcarPedidoRemotoEnviado(result.carrito_id);
+            } catch (e) {
+                console.warn('No se pudo marcar pedido remoto como listo para impresion:', e);
             }
 
             try {
