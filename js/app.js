@@ -11337,6 +11337,20 @@ class ScanAsYouShopApp {
                 observacionesFinal += '\n\nGenerado por: ' + this.currentUser.user_name;
             }
 
+            if (modo === 'firmar') {
+                this._tiendaDiagLog('info', 'Solicitando nombre y obra antes de generar el albaran', 'albaran');
+                const datosFirma = await this.showAlbaranFirmaDatosModal();
+                if (!datosFirma || !datosFirma.nombreFirma) {
+                    this._tiendaDiagLog('warn', 'Datos de firma cancelados por el usuario', 'albaran');
+                    return;
+                }
+                observacionesFinal = this.appendAlbaranFirmaObservaciones(
+                    observacionesFinal,
+                    datosFirma.nombreFirma,
+                    datosFirma.obra
+                );
+            }
+
             let enviarAModula = false;
             let modulaLineas = [];
             const modulaCheck = await this.detectCartModulaLines(almacen, cart);
@@ -11503,37 +11517,12 @@ class ScanAsYouShopApp {
 
             if (modo === 'firmar') {
                 window.ui.hideLoading();
-                this._tiendaDiagLog('info', 'Solicitando nombre y obra antes de la firma', 'albaran');
-                const datosFirma = await this.showAlbaranFirmaDatosModal();
-                if (!datosFirma || !datosFirma.nombreFirma) {
-                    this._tiendaDiagLog('warn', 'Datos de firma cancelados por el usuario', 'albaran');
-                    window.ui.showToast('Firma cancelada. El pedido quedo registrado sin imprimir.', 'warning');
-                    return;
-                }
                 this._tiendaDiagLog('info', 'Abriendo modal de firma', 'albaran');
                 const signatureResult = await this.showAlbaranSignatureModalForTienda();
                 if (!signatureResult || !signatureResult.signatureDataUrl) {
                     this._tiendaDiagLog('warn', 'Firma cancelada por el usuario', 'albaran');
                     window.ui.showToast('Firma cancelada. El pedido quedo registrado sin imprimir.', 'warning');
                     return;
-                }
-                const observacionesConFirma = this.appendAlbaranFirmaObservaciones(
-                    observacionesFinal,
-                    datosFirma.nombreFirma,
-                    datosFirma.obra
-                );
-                if (result.carrito_id) {
-                    try {
-                        await window.supabaseClient.updateCarritoObservaciones(result.carrito_id, observacionesConFirma);
-                        this._tiendaDiagLog(
-                            'info',
-                            'Observaciones actualizadas con datos de firma: ' + datosFirma.nombreFirma,
-                            'albaran'
-                        );
-                    } catch (obsErr) {
-                        console.warn('No se pudieron actualizar observaciones con datos de firma:', obsErr);
-                        this._tiendaDiagLog('warn', 'No se pudieron guardar observaciones de firma en Supabase', 'albaran');
-                    }
                 }
                 window.ui.showLoading('Guardando firma en el albaran...');
                 const applyResult = await window.TiendaNative.applyAlbaranSignature(

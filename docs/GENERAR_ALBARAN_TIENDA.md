@@ -82,15 +82,15 @@ Para desactivar el mapeo de tableta (p. ej. solo raton): `"signature_tablet_mode
 
 Al **Firmar Albaran** (solo TiendaPC; CheckoutPC en mostrador no pide nombre ni obra), el flujo es en **dos pasos**:
 
-1. Modal **Datos de la firma** (nombre y obra) — obligatorio antes del canvas.
-2. Modal a pantalla completa con el canvas (tableta XPPEN o raton).
+1. Modal **Datos de la firma** (nombre y obra) — obligatorio **antes de crear el pedido/albaran** en Supabase y ERP (al pulsar el boton, sin generar nada aun).
+2. Tras generar el albaran y disponer del PDF, modal a pantalla completa con el canvas (tableta XPPEN o raton).
 
 | Campo | Obligatorio |
 |-------|-------------|
 | Nombre de persona que firma | Si |
 | Obra | No |
 
-Tras confirmar la firma, esos datos se **anaden a las observaciones** ya guardadas en `carritos_clientes.observaciones` (p. ej. `ALBARAN PRESENCIAL TIENDA`, `Generado por: ...`), con el formato:
+Esos datos se **incluyen en las observaciones** al crear el pedido presencial (`crear_pedido_presencial_tienda` y payload ERP), junto con el texto base (`ALBARAN PRESENCIAL TIENDA`, `Generado por: ...`), con el formato:
 
 ```
 Persona que firma: [nombre]
