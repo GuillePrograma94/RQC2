@@ -101,6 +101,35 @@
         }
     }
 
+    /**
+     * Abre la ventana de firma en la XPPEN (pantalla 2) si TiendaPC la soporta.
+     * Devuelve el resultado del backend: en exito la firma YA esta aplicada al PDF.
+     * Si no hay segunda pantalla, devuelve { fallback: true } para usar el modal interno.
+     */
+    async function signAlbaranOnSecondScreen(albaran) {
+        const api = getApi();
+        if (!api || typeof api.sign_albaran_on_second_screen !== 'function') {
+            return { success: false, fallback: true };
+        }
+        tiendaLog('info', 'Solicitando firma en pantalla 2 (XPPEN) para albaran ' + albaran, 'firma');
+        try {
+            const result = await api.sign_albaran_on_second_screen(albaran);
+            if (result && result.success === true) {
+                tiendaLog('ok', 'Firma aplicada desde pantalla 2', 'firma');
+            } else if (result && result.fallback) {
+                tiendaLog('info', 'Sin segunda pantalla; se usara el modal interno', 'firma');
+            } else if (result && result.cancelled) {
+                tiendaLog('warn', 'Firma cancelada en pantalla 2', 'firma');
+            } else {
+                tiendaLog('error', (result && result.message) || 'No se pudo firmar en pantalla 2', 'firma');
+            }
+            return result || { success: false, fallback: true };
+        } catch (e) {
+            tiendaLog('error', 'sign_albaran_on_second_screen: ' + (e.message || String(e)), 'firma');
+            return { success: false, fallback: true };
+        }
+    }
+
     async function applyAlbaranSignature(albaran, signatureDataUrl) {
         const api = getApi();
         if (!api || !api.apply_albaran_signature) {
@@ -239,6 +268,7 @@
         checkAlbaranPdfReady,
         waitForAlbaranPdfReady,
         getSignaturePadOptions,
+        signAlbaranOnSecondScreen,
         applyAlbaranSignature,
         sendModulaPedido,
         printAlbaran,

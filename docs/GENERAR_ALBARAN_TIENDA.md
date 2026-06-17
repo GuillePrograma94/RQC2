@@ -74,16 +74,20 @@ Bloque `modula` en `tienda_config.json`:
 }
 ```
 
-### Firma con tableta XPPEN
+### Firma con XPPEN (pen display, monitor 2)
 
-Con `signature_tablet_mode: true` (por defecto), el modal de firma ocupa **toda la pantalla** y el recuadro blanco (`#albaranSignaturePadWrapper`) llena el area disponible. El lapiz se remapea a ese recuadro (`tabletMapToCanvas` + `tabletMapRoot`), no a toda la pantalla de Windows; el canvas recibe foco al abrir el modal.
+El XP-PEN Artist 10 (2nd gen) es un **pen display HDMI = monitor 2** (solo lapiz, sin tactil). Al firmar, TiendaPC (que trabaja en el monitor 1) abre una **ventana de firma a pantalla completa en el monitor 2** vía `TiendaNative.signAlbaranOnSecondScreen` -> `tienda_webview.py::sign_albaran_on_second_screen` (carga `tienda_pc/web/firma.html`). El cliente firma ahi y la ventana se cierra al confirmar/cancelar.
 
-Para desactivar el mapeo de tableta (p. ej. solo raton): `"signature_tablet_mode": false` en `tienda_config.json`.
+- **Confirmar** envia el PNG (`submit_signature`); el backend lo aplica con `apply_albaran_signature` e imprime.
+- **Cancelar** (`cancel_signature`): el pedido queda registrado sin imprimir.
+- **Un solo monitor** (sin pantalla 2): la funcion devuelve `{fallback: true}` y se usa el **modal interno** dentro de la ventana de TiendaPC (comportamiento clasico, abajo).
+
+Mapeo del lapiz: en el driver **PenTablet de XP-PEN** asigna el area de trabajo al **propio display Artist 10**. Con `signature_tablet_mode: true` (por defecto) el recuadro blanco (`#albaranSignaturePadWrapper`) llena la ventana y el canvas recibe foco al abrir. Si la firma sale desplazada, `"signature_tablet_mode": false` en `tienda_config.json` usa coordenadas directas.
 
 Al **Firmar Albaran** (solo TiendaPC; CheckoutPC en mostrador no pide nombre ni obra), el flujo es en **dos pasos**:
 
 1. Modal **Datos de la firma** (nombre y obra) — obligatorio **antes de crear el pedido/albaran** en Supabase y ERP (al pulsar el boton, sin generar nada aun).
-2. Tras generar el albaran y disponer del PDF, modal a pantalla completa con el canvas (tableta XPPEN o raton).
+2. Tras generar el albaran y disponer del PDF, la firma a pantalla completa: **ventana en el monitor 2 (XPPEN)** si existe, o modal interno como fallback.
 
 | Campo | Obligatorio |
 |-------|-------------|

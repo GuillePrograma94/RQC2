@@ -11517,27 +11517,55 @@ class ScanAsYouShopApp {
 
             if (modo === 'firmar') {
                 window.ui.hideLoading();
-                this._tiendaDiagLog('info', 'Abriendo modal de firma', 'albaran');
-                const signatureResult = await this.showAlbaranSignatureModalForTienda();
-                if (!signatureResult || !signatureResult.signatureDataUrl) {
-                    this._tiendaDiagLog('warn', 'Firma cancelada por el usuario', 'albaran');
-                    window.ui.showToast('Firma cancelada. El pedido quedo registrado sin imprimir.', 'warning');
-                    return;
-                }
-                window.ui.showLoading('Guardando firma en el albaran...');
-                const applyResult = await window.TiendaNative.applyAlbaranSignature(
-                    albaranErp,
-                    signatureResult.signatureDataUrl
-                );
-                if (!applyResult || applyResult.success !== true) {
-                    this._tiendaDiagLog('error', (applyResult && applyResult.message) || 'No se pudo guardar la firma', 'albaran');
-                    window.ui.hideLoading();
-                    window.ui.showToast((applyResult && applyResult.message) || 'No se pudo guardar la firma', 'error');
-                    if (window.TiendaLog && window.TiendaLog.openPanel) {
-                        window.TiendaLog.openPanel();
+                this._tiendaDiagLog('info', 'Solicitando firma del cliente', 'albaran');
+
+                let firmaAplicada = false;
+
+                // Preferente: ventana de firma en la XPPEN (pantalla 2). En exito la firma ya queda en el PDF.
+                if (window.TiendaNative && typeof window.TiendaNative.signAlbaranOnSecondScreen === 'function') {
+                    const secondScreenResult = await window.TiendaNative.signAlbaranOnSecondScreen(albaranErp);
+                    if (secondScreenResult && secondScreenResult.success === true) {
+                        firmaAplicada = true;
+                    } else if (secondScreenResult && secondScreenResult.cancelled) {
+                        this._tiendaDiagLog('warn', 'Firma cancelada por el usuario', 'albaran');
+                        window.ui.showToast('Firma cancelada. El pedido quedo registrado sin imprimir.', 'warning');
+                        return;
+                    } else if (secondScreenResult && !secondScreenResult.fallback) {
+                        this._tiendaDiagLog('error', (secondScreenResult && secondScreenResult.message) || 'No se pudo guardar la firma', 'albaran');
+                        window.ui.hideLoading();
+                        window.ui.showToast((secondScreenResult && secondScreenResult.message) || 'No se pudo guardar la firma', 'error');
+                        if (window.TiendaLog && window.TiendaLog.openPanel) {
+                            window.TiendaLog.openPanel();
+                        }
+                        return;
                     }
-                    return;
+                    // fallback: continua al modal interno (un solo monitor)
                 }
+
+                if (!firmaAplicada) {
+                    this._tiendaDiagLog('info', 'Abriendo modal de firma', 'albaran');
+                    const signatureResult = await this.showAlbaranSignatureModalForTienda();
+                    if (!signatureResult || !signatureResult.signatureDataUrl) {
+                        this._tiendaDiagLog('warn', 'Firma cancelada por el usuario', 'albaran');
+                        window.ui.showToast('Firma cancelada. El pedido quedo registrado sin imprimir.', 'warning');
+                        return;
+                    }
+                    window.ui.showLoading('Guardando firma en el albaran...');
+                    const applyResult = await window.TiendaNative.applyAlbaranSignature(
+                        albaranErp,
+                        signatureResult.signatureDataUrl
+                    );
+                    if (!applyResult || applyResult.success !== true) {
+                        this._tiendaDiagLog('error', (applyResult && applyResult.message) || 'No se pudo guardar la firma', 'albaran');
+                        window.ui.hideLoading();
+                        window.ui.showToast((applyResult && applyResult.message) || 'No se pudo guardar la firma', 'error');
+                        if (window.TiendaLog && window.TiendaLog.openPanel) {
+                            window.TiendaLog.openPanel();
+                        }
+                        return;
+                    }
+                }
+
                 window.ui.showLoading('Imprimiendo albaran firmado...');
                 const printResult = await window.TiendaNative.printAlbaran(albaranErp, { copies: 1 });
                 window.ui.hideLoading();
