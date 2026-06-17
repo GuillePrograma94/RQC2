@@ -1,7 +1,7 @@
 {
   "name": "scan-client-mobile",
   "version": "1.0.0",
-  "description": "Frontend y API serverless (Vercel) para Scan as You Shop",
+  "description": "Frontend y API serverless (Vercel) para BATMAR",
   "private": true,
   "scripts": {
     "build": "node build.js"

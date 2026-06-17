@@ -1,12 +1,12 @@
 /**
- * Service Worker para Scan as You Shop PWA
+ * Service Worker para BATMAR PWA
  * Maneja cache y funcionamiento offline
  */
 
 // mn961j71 es reemplazado por build.js en cada deployment de Vercel
 // con los primeros 8 caracteres del SHA del commit de Git.
 // En desarrollo local (sin build), permanece como literal y funciona igualmente.
-const CACHE_NAME = 'scan-as-you-shop-movyjqln';
+const CACHE_NAME = 'batmar-__SW_VERSION__';
 const urlsToCache = [
     '/',
     '/index.html',

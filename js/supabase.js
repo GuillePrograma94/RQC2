@@ -1,5 +1,5 @@
 /**
- * Cliente de Supabase para Scan as You Shop
+ * Cliente de Supabase para BATMAR
  * Maneja la conexión con la base de datos en la nube
  */
 

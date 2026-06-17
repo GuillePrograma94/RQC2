@@ -1,4 +1,4 @@
-# Desplegar en Vercel - RQC Scan as You Shop
+# Desplegar en Vercel - BATMAR
 
 ## Pasos para desplegar
 

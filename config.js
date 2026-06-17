@@ -1,5 +1,5 @@
 /**
- * Configuración de la aplicación Scan as You Shop
+ * Configuración de la aplicación BATMAR
  */
 
 const APP_CONFIG = {

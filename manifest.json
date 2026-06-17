@@ -1,6 +1,6 @@
 {
-  "name": "Scan as You Shop",
-  "short_name": "Scan Shop",
+  "name": "BATMAR",
+  "short_name": "BATMAR",
   "description": "Escanea productos mientras compras - Sistema de autocompra",
   "start_url": "/",
   "display": "fullscreen",

@@ -31,7 +31,7 @@ if (content.includes(PLACEHOLDER)) {
 } else {
     // Compatibilidad: si el placeholder ya fue reemplazado en un build previo,
     // actualizamos igual el sufijo de cache para forzar renovacion de assets.
-    const replaced = content.replace(/scan-as-you-shop-[A-Za-z0-9_.-]+/g, 'scan-as-you-shop-' + version);
+    const replaced = content.replace(/(?:scan-as-you-shop|batmar)-[A-Za-z0-9_.-]+/g, 'batmar-' + version);
     if (replaced !== content) {
         fs.writeFileSync(SW_FILE, replaced, 'utf8');
         console.log('build.js: sw.js versionado por regex = ' + version);

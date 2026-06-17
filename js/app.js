@@ -1,5 +1,5 @@
 /**
- * Aplicación principal Scan as You Shop
+ * Aplicación principal BATMAR
  */
 
 /** Numero internacional (solo digitos) para wa.me en reportes de error a soporte. */
@@ -118,7 +118,7 @@ class ScanAsYouShopApp {
      */
     async initialize() {
         try {
-            console.log('Iniciando Scan as You Shop...');
+            console.log('Iniciando BATMAR...');
 
             // Inicializar UI primero (para poder usar showLoading)
             window.ui.initialize();
@@ -13166,7 +13166,7 @@ class ScanAsYouShopApp {
         const entries = this._errorReportBuffer.slice(-4);
         const active = this._pendingErrorReportContext || (entries.length > 0 ? entries[entries.length - 1] : null);
         const lines = [];
-        lines.push('Scan Client Mobile - Reporte de error');
+        lines.push('BATMAR - Reporte de error');
         lines.push('Fecha: ' + new Date().toISOString());
         lines.push('Pantalla: ' + (this.currentScreen || ''));
         lines.push('Usuario: ' + (this.currentUser && this.currentUser.user_name ? this.currentUser.user_name : ''));

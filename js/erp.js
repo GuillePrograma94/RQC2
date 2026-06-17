@@ -1,5 +1,5 @@
 /**
- * Cliente ERP para Scan as You Shop
+ * Cliente ERP para BATMAR
  * Maneja autenticacion bearer y envio de pedidos
  */
 
