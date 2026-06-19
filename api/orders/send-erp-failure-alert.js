@@ -12,7 +12,8 @@ const {
     buildErpFailureAdminHtml,
     sendOrderEmail,
     fetchEmpresaForOrderEmail,
-    describeEmailConfigIssue
+    describeEmailConfigIssue,
+    resolveAlmacenDestinoForOrderEmail
 } = require('../../lib/order-email');
 
 function parseRequestBody(req) {
@@ -136,7 +137,7 @@ module.exports = async (req, res) => {
 
     const { data: usuario, error: usuarioError } = await supabase
         .from('usuarios')
-        .select('nombre')
+        .select('nombre, almacen_habitual')
         .eq('id', carrito.usuario_id)
         .maybeSingle();
 
@@ -145,13 +146,26 @@ module.exports = async (req, res) => {
         return;
     }
 
-    const empresaFetch = await fetchEmpresaForOrderEmail(supabase, carrito.almacen_destino);
+    const almacenResolved = resolveAlmacenDestinoForOrderEmail(carrito, usuario);
+    const almacenParaEmail = almacenResolved.almacen;
+
+    if (!safeText(carrito.almacen_destino) && almacenParaEmail) {
+        await supabase
+            .from('carritos_clientes')
+            .update({ almacen_destino: almacenParaEmail })
+            .eq('id', carritoId);
+        carrito.almacen_destino = almacenParaEmail;
+    }
+
+    const empresaFetch = await fetchEmpresaForOrderEmail(supabase, almacenParaEmail);
     const configIssue = describeEmailConfigIssue(empresaFetch);
     if (configIssue) {
         res.status(500).json({
             success: false,
             message: configIssue,
             almacen_destino: safeText(carrito.almacen_destino) || null,
+            almacen_resuelto: almacenParaEmail || null,
+            almacen_fuente: almacenResolved.source,
             almacen_buscado: empresaFetch.almacenBuscado || null
         });
         return;
@@ -174,7 +188,7 @@ module.exports = async (req, res) => {
     const html = buildErpFailureAdminHtml({
         carrito_id: carritoId,
         cliente_nombre: usuario ? usuario.nombre : '',
-        almacen_destino: carrito.almacen_destino,
+        almacen_destino: almacenParaEmail || carrito.almacen_destino,
         codigo_qr: carrito.codigo_qr,
         observaciones: carrito.observaciones,
         total_importe: carrito.total_importe,

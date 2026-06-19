@@ -2571,8 +2571,11 @@ class SupabaseClient {
                 return {};
             });
             if (!response.ok) {
-                const extra = data.almacen_buscado ? (' (almacen: ' + data.almacen_buscado + ')') : '';
-                console.warn('sendOrderConfirmationEmail:', (data.message || response.status) + extra);
+                const parts = [];
+                if (data.message) parts.push(data.message);
+                if (data.almacen_resuelto) parts.push('almacen=' + data.almacen_resuelto);
+                if (data.almacen_fuente) parts.push('fuente=' + data.almacen_fuente);
+                console.warn('sendOrderConfirmationEmail:', parts.join(' | ') || response.status);
                 return { success: false, message: data.message || 'Error al enviar email' };
             }
             return data;

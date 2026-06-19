@@ -80,7 +80,7 @@ Cada fila de **Datos de Empresa** (ONTINYENT, GANDIA, ALZIRA, REQUENA) puede ten
 
 La contrasena **no se muestra** al reabrir el formulario. Dejar vacia para mantener la guardada.
 
-**Que almacen se usa:** el **almacen destino del pedido** (`carritos_clientes.almacen_destino`), no el almacen habitual del cliente. Debe existir una fila en Datos de Empresa para ese mismo codigo (ONTINYENT, GANDIA, etc.). El **Usuario SMTP** (`noreply@...`) sirve como remitente aunque no rellene Email remitente; al guardar, si el remitente esta vacio, se copia desde Usuario SMTP.
+**Que almacen se usa:** prioridad `carritos_clientes.almacen_destino` → observaciones del pedido (`RECOGER EN ALMACEN GANDIA`, etc.) → `usuarios.almacen_habitual`. Debe existir Datos de Empresa (SMTP) para ese codigo de almacen.
 
 **ORDER_EMAIL_FROM en Vercel** solo hace falta como respaldo si no hay SMTP ni email en la empresa del almacen destino.
 
