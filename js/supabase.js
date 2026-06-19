@@ -2569,6 +2569,38 @@ class SupabaseClient {
     }
 
     /**
+     * Alerta por email a usuarios ADMINISTRADOR cuando el pedido no llego al ERP.
+     * @param {string|number} carritoId
+     * @param {'pendiente_erp'|'error_erp'} motivo
+     */
+    async sendErpFailureAdminAlert(carritoId, motivo) {
+        try {
+            if (carritoId == null || String(carritoId).trim() === '') {
+                return { success: false, skipped: true };
+            }
+            const response = await fetch('/api/orders/send-erp-failure-alert', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    carrito_id: carritoId,
+                    motivo: motivo || 'pendiente_erp'
+                })
+            });
+            const data = await response.json().catch(function () {
+                return {};
+            });
+            if (!response.ok) {
+                console.warn('sendErpFailureAdminAlert:', data.message || response.status);
+                return { success: false, message: data.message || 'Error al enviar alerta' };
+            }
+            return data;
+        } catch (error) {
+            console.warn('sendErpFailureAdminAlert:', error);
+            return { success: false, message: error && error.message ? error.message : 'Error de red' };
+        }
+    }
+
+    /**
      * Marca un pedido presencial de tienda como completado tras albaran generado/impreso.
      * @param {string|number} carritoId
      * @returns {Promise<boolean>}

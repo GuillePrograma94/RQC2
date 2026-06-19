@@ -109,6 +109,11 @@ class ERPRetryQueue {
             const response = await window.erpClient.createRemoteOrder(item.payload);
             if (response && response.success === false) {
                 await window.supabaseClient.updateCarritoEstadoProcesamiento(item.carrito_id, 'error_erp');
+                if (window.supabaseClient && typeof window.supabaseClient.sendErpFailureAdminAlert === 'function') {
+                    window.supabaseClient.sendErpFailureAdminAlert(item.carrito_id, 'error_erp').catch(function (err) {
+                        console.warn('sendErpFailureAdminAlert en retryCarritoNow:', err);
+                    });
+                }
                 return { found: true, success: false };
             }
             const pedidoErp = response && response.data && response.data.pedido != null ? response.data.pedido : null;
@@ -134,6 +139,11 @@ class ERPRetryQueue {
             const isValidation = /400|Bad Request|obligatorio|ERP error 4\d\d/i.test(String(err && err.message));
             if (isValidation) {
                 await window.supabaseClient.updateCarritoEstadoProcesamiento(item.carrito_id, 'error_erp');
+                if (window.supabaseClient && typeof window.supabaseClient.sendErpFailureAdminAlert === 'function') {
+                    window.supabaseClient.sendErpFailureAdminAlert(item.carrito_id, 'error_erp').catch(function (err) {
+                        console.warn('sendErpFailureAdminAlert en retryCarritoNow:', err);
+                    });
+                }
                 return { found: true, success: false };
             }
             const estadoAfter = window.supabaseClient && typeof window.supabaseClient.getCarritoEstadoProcesamiento === 'function'
@@ -221,6 +231,11 @@ class ERPRetryQueue {
                     const response = await window.erpClient.createRemoteOrder(item.payload);
                     if (response && response.success === false) {
                         await window.supabaseClient.updateCarritoEstadoProcesamiento(item.carrito_id, 'error_erp');
+                        if (window.supabaseClient && typeof window.supabaseClient.sendErpFailureAdminAlert === 'function') {
+                            window.supabaseClient.sendErpFailureAdminAlert(item.carrito_id, 'error_erp').catch(function (err) {
+                                console.warn('sendErpFailureAdminAlert en retry:', err);
+                            });
+                        }
                         continue;
                     }
                     const pedidoErp = response && response.data && response.data.pedido != null ? response.data.pedido : null;
@@ -245,6 +260,11 @@ class ERPRetryQueue {
                     const isValidation = /400|Bad Request|obligatorio|ERP error 4\d\d/i.test(String(err && err.message));
                     if (isValidation) {
                         await window.supabaseClient.updateCarritoEstadoProcesamiento(item.carrito_id, 'error_erp');
+                        if (window.supabaseClient && typeof window.supabaseClient.sendErpFailureAdminAlert === 'function') {
+                            window.supabaseClient.sendErpFailureAdminAlert(item.carrito_id, 'error_erp').catch(function (err) {
+                                console.warn('sendErpFailureAdminAlert en retry:', err);
+                            });
+                        }
                         continue;
                     }
                     const estadoAfter = window.supabaseClient && typeof window.supabaseClient.getCarritoEstadoProcesamiento === 'function'

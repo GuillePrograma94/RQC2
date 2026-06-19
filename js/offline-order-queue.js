@@ -202,6 +202,11 @@ class OfflineOrderQueue {
                     const response = await window.erpClient.createRemoteOrder(erpPayload);
                     if (response && response.success === false) {
                         await window.supabaseClient.updateCarritoEstadoProcesamiento(carritoId, 'error_erp');
+                        if (window.supabaseClient && typeof window.supabaseClient.sendErpFailureAdminAlert === 'function') {
+                            window.supabaseClient.sendErpFailureAdminAlert(carritoId, 'error_erp').catch(function (err) {
+                                console.warn('sendErpFailureAdminAlert en offline queue:', err);
+                            });
+                        }
                         continue;
                     }
                     const pedidoErp = response && response.data && response.data.pedido != null ? response.data.pedido : null;
@@ -224,9 +229,19 @@ class OfflineOrderQueue {
                     const isValidation = /400|Bad Request|obligatorio|ERP error 4\d\d/i.test(String(erpErr && erpErr.message));
                     if (isValidation) {
                         await window.supabaseClient.updateCarritoEstadoProcesamiento(carritoId, 'error_erp');
+                        if (window.supabaseClient && typeof window.supabaseClient.sendErpFailureAdminAlert === 'function') {
+                            window.supabaseClient.sendErpFailureAdminAlert(carritoId, 'error_erp').catch(function (err) {
+                                console.warn('sendErpFailureAdminAlert en offline queue:', err);
+                            });
+                        }
                         continue;
                     }
                     await window.supabaseClient.updateCarritoEstadoProcesamiento(carritoId, 'pendiente_erp');
+                    if (window.supabaseClient && typeof window.supabaseClient.sendErpFailureAdminAlert === 'function') {
+                        window.supabaseClient.sendErpFailureAdminAlert(carritoId, 'pendiente_erp').catch(function (err) {
+                            console.warn('sendErpFailureAdminAlert en offline queue:', err);
+                        });
+                    }
                     if (window.erpRetryQueue) {
                         window.erpRetryQueue.enqueue({
                             carrito_id: carritoId,

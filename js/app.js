@@ -11820,6 +11820,7 @@ class ScanAsYouShopApp {
                     } catch (e) {
                         console.warn('No se pudo marcar pedido como error_erp:', e);
                     }
+                    this.notifyErpFailureAdminAlert(result.carrito_id, 'error_erp');
                     window.ui.showErpErrorModal(erpError.message || String(erpError));
                     return;
                 }
@@ -11828,6 +11829,7 @@ class ScanAsYouShopApp {
                     return;
                 }
                 await window.supabaseClient.updateCarritoEstadoProcesamiento(result.carrito_id, 'pendiente_erp');
+                this.notifyErpFailureAdminAlert(result.carrito_id, 'pendiente_erp');
                 let erpEnqueued = false;
                 try {
                     if (!window.erpRetryQueue.db && typeof window.erpRetryQueue.init === 'function') {
@@ -12414,6 +12416,7 @@ class ScanAsYouShopApp {
             } catch (erpError) {
                 if (this.isErpValidationError(erpError)) {
                     await window.supabaseClient.updateCarritoEstadoProcesamiento(conversion.carrito_id, 'error_erp');
+                    this.notifyErpFailureAdminAlert(conversion.carrito_id, 'error_erp');
                     window.ui.hideLoading();
                     window.ui.showToast(erpError.message || 'Error de validacion ERP', 'error');
                     await this.loadPrepedidos();
@@ -12422,6 +12425,7 @@ class ScanAsYouShopApp {
 
                 if (window.erpRetryQueue) {
                     await window.supabaseClient.updateCarritoEstadoProcesamiento(conversion.carrito_id, 'pendiente_erp');
+                    this.notifyErpFailureAdminAlert(conversion.carrito_id, 'pendiente_erp');
                     await window.erpRetryQueue.init();
                     await window.erpRetryQueue.enqueue({
                         carrito_id: conversion.carrito_id,
@@ -13691,6 +13695,20 @@ class ScanAsYouShopApp {
         }
         window.supabaseClient.sendOrderConfirmationEmail(carritoId).catch(function (err) {
             console.warn('notifyOrderConfirmationEmail:', err);
+        });
+    }
+
+    /**
+     * Alerta email a usuarios ADMINISTRADOR (no ADMINISTRACION) si el pedido no llego al ERP.
+     * @param {string|number} carritoId
+     * @param {'pendiente_erp'|'error_erp'} motivo
+     */
+    notifyErpFailureAdminAlert(carritoId, motivo) {
+        if (carritoId == null || !window.supabaseClient || typeof window.supabaseClient.sendErpFailureAdminAlert !== 'function') {
+            return;
+        }
+        window.supabaseClient.sendErpFailureAdminAlert(carritoId, motivo).catch(function (err) {
+            console.warn('notifyErpFailureAdminAlert:', err);
         });
     }
 

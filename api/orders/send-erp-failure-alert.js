@@ -1,21 +1,15 @@
 /**
- * Serverless: envia email de confirmacion de pedido remoto al cliente.
- * CC al comercial asignado si tiene email.
+ * Serverless: alerta por email a usuarios tipo ADMINISTRADOR (no ADMINISTRACION)
+ * cuando un pedido remoto no se ha enviado al ERP.
  *
- * POST { carrito_id: number|string }
- *
- * Variables Vercel:
- * - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
- * - RESEND_API_KEY
- * - ORDER_EMAIL_FROM (opcional, ej: "Pedidos <pedidos@tudominio.com>")
- * - ORDER_EMAIL_REPLY_TO (opcional)
+ * POST { carrito_id, motivo?: 'pendiente_erp' | 'error_erp' }
  */
 
 const { createClient } = require('@supabase/supabase-js');
 const {
     safeText,
     isValidEmail,
-    buildOrderConfirmationHtml,
+    buildErpFailureAdminHtml,
     buildFromAddress,
     sendViaResend
 } = require('./order-email');
@@ -32,18 +26,6 @@ function parseRequestBody(req) {
     return req.body;
 }
 
-async function fetchComercialEmail(supabase, comercialAsignado) {
-    if (comercialAsignado == null) return null;
-    const { data, error } = await supabase
-        .from('usuarios_comerciales')
-        .select('email, nombre')
-        .or('id.eq.' + comercialAsignado + ',numero.eq.' + comercialAsignado)
-        .limit(1)
-        .maybeSingle();
-    if (error || !data) return null;
-    return isValidEmail(data.email) ? safeText(data.email) : null;
-}
-
 async function fetchEmpresaPorAlmacen(supabase, almacen) {
     if (!almacen) return null;
     const { data, error } = await supabase
@@ -53,6 +35,30 @@ async function fetchEmpresaPorAlmacen(supabase, almacen) {
         .maybeSingle();
     if (error || !data) return null;
     return data;
+}
+
+/**
+ * Solo usuarios con tipo exacto ADMINISTRADOR (excluye ADMINISTRACION).
+ */
+async function fetchAdministradorEmails(supabase) {
+    const { data, error } = await supabase
+        .from('usuarios')
+        .select('email, nombre')
+        .eq('tipo', 'ADMINISTRADOR')
+        .eq('activo', true);
+
+    if (error || !Array.isArray(data)) return [];
+
+    const seen = new Set();
+    const emails = [];
+    data.forEach(function (row) {
+        const email = safeText(row && row.email).toLowerCase();
+        if (isValidEmail(email) && !seen.has(email)) {
+            seen.add(email);
+            emails.push(safeText(row.email));
+        }
+    });
+    return emails;
 }
 
 module.exports = async (req, res) => {
@@ -89,14 +95,15 @@ module.exports = async (req, res) => {
         return;
     }
 
+    const motivoBody = safeText(body.motivo);
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { data: carrito, error: carritoError } = await supabase
         .from('carritos_clientes')
         .select(
-            'id, usuario_id, almacen_destino, codigo_qr, pedido_erp, observaciones, ' +
-            'total_importe, total_productos, fecha_creacion, nombre_operario, tipo_pedido, ' +
-            'estado_procesamiento, pedido_erp, email_confirmacion_enviado_at'
+            'id, usuario_id, almacen_destino, codigo_qr, observaciones, ' +
+            'total_importe, total_productos, fecha_creacion, tipo_pedido, ' +
+            'estado_procesamiento, email_alerta_admin_erp_enviado_at'
         )
         .eq('id', carritoId)
         .maybeSingle();
@@ -115,44 +122,42 @@ module.exports = async (req, res) => {
         return;
     }
 
-    if (carrito.email_confirmacion_enviado_at) {
+    if (carrito.email_alerta_admin_erp_enviado_at) {
         res.status(200).json({ success: true, skipped: true, reason: 'already_sent' });
         return;
     }
 
-    if (safeText(carrito.estado_procesamiento) !== 'procesando') {
+    const estadoProc = safeText(carrito.estado_procesamiento);
+    const motivo = motivoBody || estadoProc;
+    if (motivo !== 'pendiente_erp' && motivo !== 'error_erp') {
+        if (estadoProc !== 'pendiente_erp' && estadoProc !== 'error_erp') {
+            res.status(200).json({ success: true, skipped: true, reason: 'erp_not_failed' });
+            return;
+        }
+    }
+
+    const adminEmails = await fetchAdministradorEmails(supabase);
+    if (adminEmails.length === 0) {
         res.status(200).json({
             success: true,
             skipped: true,
-            reason: 'erp_not_success',
-            message: 'El pedido no esta confirmado en ERP (estado_procesamiento debe ser procesando)'
+            reason: 'no_administrador_emails',
+            message: 'Ningun usuario ADMINISTRADOR activo tiene email configurado'
         });
         return;
     }
 
     const { data: usuario, error: usuarioError } = await supabase
         .from('usuarios')
-        .select('id, nombre, email, comercial_asignado')
+        .select('nombre')
         .eq('id', carrito.usuario_id)
         .maybeSingle();
 
-    if (usuarioError || !usuario) {
+    if (usuarioError) {
         res.status(500).json({ success: false, message: 'No se pudo leer el cliente del pedido' });
         return;
     }
 
-    const clienteEmail = safeText(usuario.email);
-    if (!isValidEmail(clienteEmail)) {
-        res.status(200).json({
-            success: true,
-            skipped: true,
-            reason: 'no_client_email',
-            message: 'El cliente no tiene email configurado'
-        });
-        return;
-    }
-
-    const comercialEmail = await fetchComercialEmail(supabase, usuario.comercial_asignado);
     const empresa = await fetchEmpresaPorAlmacen(supabase, carrito.almacen_destino);
     const fromAddress = buildFromAddress(empresa);
     if (!fromAddress) {
@@ -174,50 +179,42 @@ module.exports = async (req, res) => {
         return;
     }
 
-    const emailData = {
-        cliente_nombre: usuario.nombre,
+    const motivoFinal = motivo === 'error_erp' ? 'error_erp' : 'pendiente_erp';
+    const codigoLabel = safeText(carrito.codigo_qr) || String(carritoId);
+    const html = buildErpFailureAdminHtml({
+        carrito_id: carritoId,
+        cliente_nombre: usuario ? usuario.nombre : '',
         almacen_destino: carrito.almacen_destino,
         codigo_qr: carrito.codigo_qr,
-        pedido_erp: carrito.pedido_erp,
         observaciones: carrito.observaciones,
         total_importe: carrito.total_importe,
-        total_productos: carrito.total_productos,
         fecha_creacion: carrito.fecha_creacion,
-        nombre_operario: carrito.nombre_operario,
+        motivo: motivoFinal,
         empresa_razon_social: empresa ? empresa.razon_social : null,
         productos: productos || []
-    };
+    });
 
-    const almacenLabel = safeText(carrito.almacen_destino) || 'BATMAR';
-    const codigoLabel = safeText(carrito.codigo_qr) || String(carritoId);
-    const subject = 'Confirmacion de pedido ' + codigoLabel + ' - ' + almacenLabel;
-    const html = buildOrderConfirmationHtml(emailData);
-
-    const sendOptions = {
-        from: fromAddress,
-        to: [clienteEmail],
-        subject: subject,
-        html: html,
-        replyTo: empresa ? empresa.email : null
-    };
-
-    if (comercialEmail && comercialEmail.toLowerCase() !== clienteEmail.toLowerCase()) {
-        sendOptions.cc = [comercialEmail];
-    }
+    const subject = '[ALERTA ERP] Pedido ' + codigoLabel + ' no enviado al ERP';
 
     try {
-        const sendResult = await sendViaResend(sendOptions);
+        const sendResult = await sendViaResend({
+            from: fromAddress,
+            to: adminEmails,
+            subject: subject,
+            html: html,
+            replyTo: empresa ? empresa.email : null
+        });
         const sentAt = new Date().toISOString();
         await supabase
             .from('carritos_clientes')
-            .update({ email_confirmacion_enviado_at: sentAt })
+            .update({ email_alerta_admin_erp_enviado_at: sentAt })
             .eq('id', carritoId);
 
         res.status(200).json({
             success: true,
             sent: true,
-            to: clienteEmail,
-            cc: sendOptions.cc || [],
+            to: adminEmails,
+            motivo: motivoFinal,
             provider_id: sendResult && sendResult.id ? sendResult.id : null
         });
     } catch (err) {

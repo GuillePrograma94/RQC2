@@ -140,6 +140,63 @@ function getHtmlGreeting(clienteNombre) {
     return 'Hola <strong>' + escapeHtml(clienteNombre) + '</strong>,';
 }
 
+function buildErpFailureAdminHtml(data) {
+    const empresaNombre = safeText(data.empresa_razon_social) || 'BATMAR';
+    const clienteNombre = safeText(data.cliente_nombre) || 'Cliente';
+    const almacen = safeText(data.almacen_destino) || '-';
+    const codigoQr = safeText(data.codigo_qr) || '-';
+    const carritoId = safeText(data.carrito_id);
+    const motivo = safeText(data.motivo) || 'pendiente_erp';
+    const motivoLabel = motivo === 'error_erp'
+        ? 'Error de validacion / rechazo del ERP'
+        : 'Pendiente de envio al ERP (sin conexion o fallo temporal)';
+    const fecha = formatDateSpain(data.fecha_creacion);
+    const observaciones = safeText(data.observaciones);
+    const totalConIva = Number(data.total_importe || 0) * 1.21;
+    const productosHtml = buildProductRowsHtml(data.productos || []);
+
+    let observacionesBlock = '';
+    if (observaciones) {
+        observacionesBlock =
+            '<div style="margin:16px 0;padding:12px 14px;background:#fef2f2;border-left:4px solid #dc2626;border-radius:4px;">' +
+            '<strong style="color:#991b1b;">Observaciones del pedido</strong><br>' +
+            '<span style="white-space:pre-wrap;color:#334155;">' + escapeHtml(observaciones) + '</span>' +
+            '</div>';
+    }
+
+    return (
+        '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">' +
+        '<div style="max-width:640px;margin:24px auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,0.08);">' +
+        '<div style="background:#991b1b;color:#ffffff;padding:20px 24px;">' +
+        '<h1 style="margin:0;font-size:20px;">Pedido NO enviado al ERP</h1>' +
+        '<p style="margin:6px 0 0;font-size:14px;opacity:0.9;">' + escapeHtml(empresaNombre) + '</p>' +
+        '</div>' +
+        '<div style="padding:24px;">' +
+        '<p style="margin:0 0 16px;color:#334155;">Un pedido remoto se ha guardado en la app pero <strong>no ha llegado al ERP</strong>. Revisa el panel de control (Pedidos pendientes de ERP) en scan_client_mobile.</p>' +
+        '<div style="background:#fef2f2;border-radius:6px;padding:16px;margin-bottom:20px;">' +
+        '<p style="margin:4px 0;"><strong>Motivo:</strong> ' + escapeHtml(motivoLabel) + '</p>' +
+        '<p style="margin:4px 0;"><strong>Estado:</strong> ' + escapeHtml(motivo) + '</p>' +
+        '<p style="margin:4px 0;"><strong>Carrito ID:</strong> ' + escapeHtml(carritoId) + '</p>' +
+        '<p style="margin:4px 0;"><strong>Cliente:</strong> ' + escapeHtml(clienteNombre) + '</p>' +
+        '<p style="margin:4px 0;"><strong>Almacen:</strong> ' + escapeHtml(almacen) + '</p>' +
+        '<p style="margin:4px 0;"><strong>Fecha:</strong> ' + escapeHtml(fecha) + '</p>' +
+        '<p style="margin:4px 0;"><strong>Codigo pedido:</strong> ' + escapeHtml(codigoQr) + '</p>' +
+        '<p style="margin:4px 0;"><strong>Total (IVA incl.):</strong> ' + formatCurrency(totalConIva) + '</p>' +
+        '</div>' +
+        observacionesBlock +
+        '<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:14px;">' +
+        '<thead><tr style="background:#fee2e2;">' +
+        '<th style="padding:10px;text-align:left;color:#991b1b;">Codigo</th>' +
+        '<th style="padding:10px;text-align:left;color:#991b1b;">Descripcion</th>' +
+        '<th style="padding:10px;text-align:center;color:#991b1b;">Uds.</th>' +
+        '<th style="padding:10px;text-align:right;color:#991b1b;">Importe</th>' +
+        '</tr></thead>' +
+        '<tbody>' + productosHtml + '</tbody>' +
+        '</table>' +
+        '</div></div></body></html>'
+    );
+}
+
 function buildFromAddress(empresa) {
     const envFrom = safeText(process.env.ORDER_EMAIL_FROM);
     if (envFrom) return envFrom;
@@ -199,6 +256,8 @@ module.exports = {
     safeText,
     isValidEmail,
     buildOrderConfirmationHtml,
+    buildErpFailureAdminHtml,
     buildFromAddress,
-    sendViaResend
+    sendViaResend,
+    formatDateSpain
 };
