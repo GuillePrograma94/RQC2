@@ -13433,6 +13433,7 @@ class ScanAsYouShopApp {
                             id: sid,
                             almacen_destino: item.almacen || '-',
                             fecha_creacion: item.createdAt || Date.now(),
+                            estado: 'pendiente_envio',
                             estado_procesamiento: 'pendiente_envio',
                             codigo_qr: '-',
                             total_productos: (item.cart && item.cart.productos) ? item.cart.productos.length : 0,
@@ -13658,32 +13659,23 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Obtiene información del badge según estado y estado_procesamiento (carritos_clientes).
-     * - estado=en_preparacion y estado_procesamiento=procesando -> "En Preparación"
-     * - estado=completado y estado_procesamiento=completado -> "Completado"
-     * - estado=cancelado (p. ej. B4 checkin: cancelado/completado) -> "Cancelado"
+     * Badge segun carritos_clientes.estado.
+     * Excepcion: estado_procesamiento = pendiente_erp (reintento manual al ERP).
      */
     getEstadoBadge(estado, estadoProcesamiento) {
-        if (estado === 'en_preparacion' && estadoProcesamiento === 'procesando') {
-            return { class: 'processing', icon: '\uD83D\uDCE6', text: 'En Preparación' };
-        }
-        if (estado === 'completado' && estadoProcesamiento === 'completado') {
-            return { class: 'completed', icon: '\u2705', text: 'Completado' };
-        }
-        if (estado === 'cancelado') {
-            return { class: 'cancelled', icon: '\u274C', text: 'Cancelado' };
+        if (estadoProcesamiento === 'pendiente_erp') {
+            return { class: 'pending', icon: '\uD83D\uDCE4', text: 'Pend. enviar a ERP' };
         }
         const estados = {
-            'pendiente': { class: 'pending', icon: '\u23F3', text: 'Pendiente' },
-            'pendiente_erp': { class: 'pending', icon: '\uD83D\uDCE4', text: 'Pend. enviar a ERP' },
-            'pendiente_envio': { class: 'pending', icon: '\uD83D\uDCF4', text: 'Pend. de envio' },
-            'error_erp': { class: 'cancelled', icon: '\u274C', text: 'Error ERP' },
-            'procesando': { class: 'processing', icon: '\uD83D\uDCE4', text: 'Enviado' },
+            'activo': { class: 'pending', icon: '\u23F3', text: 'Activo' },
+            'enviado': { class: 'processing', icon: '\uD83D\uDCE4', text: 'Enviado' },
+            'en_preparacion': { class: 'processing', icon: '\uD83D\uDCE6', text: 'En Preparación' },
+            'cancelado': { class: 'cancelled', icon: '\u274C', text: 'Cancelado' },
             'completado': { class: 'completed', icon: '\u2705', text: 'Completado' },
-            'cancelado': { class: 'cancelled', icon: '\u274C', text: 'Cancelado' }
+            'pendiente_envio': { class: 'pending', icon: '\uD83D\uDCF4', text: 'Pend. de envio' }
         };
-        const key = typeof estadoProcesamiento !== 'undefined' ? estadoProcesamiento : estado;
-        return estados[key] || { class: 'pending', icon: '\u23F3', text: key || estado };
+        const key = estado || '';
+        return estados[key] || { class: 'pending', icon: '\u23F3', text: key || 'Desconocido' };
     }
 
     /**
