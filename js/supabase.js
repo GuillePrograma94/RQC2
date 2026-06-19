@@ -2558,7 +2558,8 @@ class SupabaseClient {
                 return {};
             });
             if (!response.ok) {
-                console.warn('sendOrderConfirmationEmail:', data.message || response.status);
+                const extra = data.almacen_buscado ? (' (almacen: ' + data.almacen_buscado + ')') : '';
+                console.warn('sendOrderConfirmationEmail:', (data.message || response.status) + extra);
                 return { success: false, message: data.message || 'Error al enviar email' };
             }
             return data;
@@ -3475,6 +3476,9 @@ class SupabaseClient {
             }
             if (payload.smtp_secure != null) {
                 row.smtp_secure = payload.smtp_secure === true;
+            }
+            if ((!row.email || String(row.email).trim() === '') && row.smtp_user) {
+                row.email = String(row.smtp_user).trim();
             }
             const { error } = await this.client.from('empresas_por_almacen').upsert([row], { onConflict: 'almacen' });
             if (error) throw error;

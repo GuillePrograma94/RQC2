@@ -16,9 +16,9 @@ const {
     safeText,
     isValidEmail,
     buildOrderConfirmationHtml,
-    buildFromAddress,
     sendOrderEmail,
-    fetchEmpresaForOrderEmail
+    fetchEmpresaForOrderEmail,
+    describeEmailConfigIssue
 } = require('../../lib/order-email');
 
 function parseRequestBody(req) {
@@ -57,7 +57,10 @@ module.exports = async (req, res) => {
     }
 
     if (req.method !== 'POST') {
-        res.status(405).json({ success: false, message: 'Metodo no permitido' });
+        res.status(405).json({
+            success: false,
+            message: 'Metodo no permitido. Use POST con body JSON { "carrito_id": 123 }'
+        });
         return;
     }
 
@@ -143,14 +146,18 @@ module.exports = async (req, res) => {
     }
 
     const comercialEmail = await fetchComercialEmail(supabase, usuario.comercial_asignado);
-    const empresa = await fetchEmpresaForOrderEmail(supabase, carrito.almacen_destino);
-    if (!buildFromAddress(empresa)) {
+    const empresaFetch = await fetchEmpresaForOrderEmail(supabase, carrito.almacen_destino);
+    const configIssue = describeEmailConfigIssue(empresaFetch);
+    if (configIssue) {
         res.status(500).json({
             success: false,
-            message: 'Configure SMTP en Datos de Empresa del almacen, email de empresa o ORDER_EMAIL_FROM en Vercel'
+            message: configIssue,
+            almacen_destino: safeText(carrito.almacen_destino) || null,
+            almacen_buscado: empresaFetch.almacenBuscado || null
         });
         return;
     }
+    const empresa = empresaFetch.empresa;
 
     const { data: productos, error: productosError } = await supabase
         .from('productos_carrito')
