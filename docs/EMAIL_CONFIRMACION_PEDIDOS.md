@@ -108,6 +108,6 @@ Tras cambiar SMTP o variables: **redeploy** en Vercel (`npm install` incluye `no
 
 | Archivo | Rol |
 |---------|-----|
-| `lib/order-email.js` | SMTP (nodemailer) + Resend + plantillas |
+| `lib/order-email.js` | SMTP (nodemailer) + Resend + plantillas HTML (texto final del correo cliente en `buildOrderConfirmationHtml`) |
 | `api/orders/send-confirmation-email.js` | Confirmacion cliente |
 | `api/orders/send-erp-failure-alert.js` | Alerta ADMINISTRADOR |
