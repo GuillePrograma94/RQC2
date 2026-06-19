@@ -14,12 +14,24 @@ Cuando un cliente (o un comercial/dependiente en su nombre) envia un **pedido re
 
 ### 1. Migraciones SQL
 
-Ejecutar en Supabase SQL Editor:
+Ejecutar en Supabase SQL Editor (en este orden):
 
 1. `scan_client_mobile/migration_usuarios_email_confirmacion_pedido.sql`
 2. `scan_client_mobile/migration_email_alerta_admin_erp.sql`
 3. `scan_client_mobile/migration_empresas_smtp_pedidos.sql`
 4. `scan_client_mobile/migration_empresas_email_respuesta.sql`
+5. **Si guarda desde Panel de Control (rol ADMINISTRADOR):** `scan_client_mobile/migration_empresas_por_almacen_admin_rls.sql`
+
+Sin (3) y (4) el guardado SMTP falla. Sin (5) un **ADMINISTRADOR** no puede escribir en `empresas_por_almacen` (solo lectura); **ADMINISTRACION** si puede con las politicas de `migration_presupuestos.sql`.
+
+---
+
+## Si SMTP no se guarda en empresas_por_almacen
+
+1. Al pulsar **Guardar**, si falla veras un toast con el motivo (RLS o columnas faltantes).
+2. En Supabase Table Editor, fila del almacen: deben existir columnas `smtp_enabled`, `smtp_host`, `smtp_user`, etc.
+3. Vuelva a guardar escribiendo la **contrasena SMTP** (no se muestra al reabrir el formulario).
+4. Compruebe que el usuario tiene permiso de escritura (ADMINISTRACION o ADMINISTRADOR con migracion RLS aplicada).
 
 ### 2. Emails destinatarios
 

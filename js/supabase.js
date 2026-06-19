@@ -3,6 +3,19 @@
  * Maneja la conexión con la base de datos en la nube
  */
 
+function formatEmpresaUpsertError(error) {
+    if (!error) return 'No se pudo guardar la empresa por almacen';
+    const msg = String(error.message || error);
+    const code = String(error.code || '');
+    if (code === '42501' || /row-level security|violates row-level security|policy/i.test(msg)) {
+        return 'Sin permiso para guardar en empresas_por_almacen (RLS). Si entra como ADMINISTRADOR, ejecute en Supabase migration_empresas_por_almacen_admin_rls.sql.';
+    }
+    if (/smtp_|email_respuesta|column .* does not exist/i.test(msg)) {
+        return 'Faltan columnas SMTP en Supabase. Ejecute migration_empresas_smtp_pedidos.sql y migration_empresas_email_respuesta.sql.';
+    }
+    return 'No se pudo guardar la empresa por almacen: ' + msg;
+}
+
 class SupabaseClient {
     constructor() {
         this.client = null;
@@ -3436,7 +3449,7 @@ class SupabaseClient {
                 return Math.min(100, Math.max(-40, n));
             };
             const row = {
-                almacen: String(payload.almacen).trim(),
+                almacen: String(payload.almacen).trim().toUpperCase(),
                 razon_social: payload.razon_social ? String(payload.razon_social).trim() : '',
                 cif: payload.cif ? String(payload.cif).trim() : '',
                 direccion: payload.direccion ? String(payload.direccion).trim() : '',
@@ -3467,6 +3480,8 @@ class SupabaseClient {
             if (payload.smtp_port != null && String(payload.smtp_port).trim() !== '') {
                 const p = parseInt(String(payload.smtp_port).trim(), 10);
                 row.smtp_port = Number.isFinite(p) && p > 0 ? p : 587;
+            } else if (payload.smtp_enabled === true) {
+                row.smtp_port = 587;
             }
             if (payload.smtp_user != null) {
                 row.smtp_user = String(payload.smtp_user).trim() || null;
@@ -3480,12 +3495,16 @@ class SupabaseClient {
             if ((!row.email || String(row.email).trim() === '') && row.smtp_user) {
                 row.email = String(row.smtp_user).trim();
             }
-            const { error } = await this.client.from('empresas_por_almacen').upsert([row], { onConflict: 'almacen' });
+            const { data, error } = await this.client
+                .from('empresas_por_almacen')
+                .upsert([row], { onConflict: 'almacen' })
+                .select('almacen, smtp_enabled, smtp_host, smtp_port, smtp_user, smtp_secure, email, email_respuesta')
+                .maybeSingle();
             if (error) throw error;
-            return { success: true };
+            return { success: true, data: data || null };
         } catch (error) {
             console.error('upsertEmpresaPorAlmacen:', error);
-            return { success: false, message: 'No se pudo guardar la empresa por almacen' };
+            return { success: false, message: formatEmpresaUpsertError(error) };
         }
     }
 

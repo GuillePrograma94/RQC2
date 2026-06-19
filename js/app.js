@@ -5144,6 +5144,9 @@ class ScanAsYouShopApp {
             window.ui.showToast((result && result.message) || 'No se pudo guardar', 'error');
             return;
         }
+        if (payload.smtp_enabled === true && result.data && result.data.smtp_enabled !== true) {
+            window.ui.showToast('Aviso: SMTP no quedo activo en base de datos. Revise permisos o migraciones SQL.', 'warning');
+        }
         window.ui.showToast('Datos de empresa guardados', 'success');
         this.loadAdminEmpresas();
         this.refreshHeaderTitleFromEmpresa().catch(function (err) {
@@ -5217,6 +5220,9 @@ class ScanAsYouShopApp {
         if (!result || !result.success) {
             window.ui.showToast((result && result.message) || 'No se pudo guardar', 'error');
             return;
+        }
+        if (payload.smtp_enabled === true && result.data && result.data.smtp_enabled !== true) {
+            window.ui.showToast('Aviso: SMTP no quedo activo en base de datos. Revise permisos o migraciones SQL.', 'warning');
         }
         this._panelEmpresaLogoPendingFile = null;
         const fileInput = document.getElementById('panelEmpresaLogoFile');
