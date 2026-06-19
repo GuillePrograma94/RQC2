@@ -75,7 +75,7 @@ Los archivos ya incluyen:
    ↓
 2. Sync en background consulta manifest (obtener_manifest_sync_cliente)
    ↓
-3. Decide por dominio (productos/códigos/claves) incremental vs completa
+3. Decide por dominio (productos/códigos/claves): **omitir** (0 cambios), incremental o completa
    ↓
 4. Incremental usa RPC paginada (obtener_*_modificados_paginado)
    └─ fallback automático a RPC legacy si no existe
@@ -203,7 +203,15 @@ Wrappers paginados para:
 
 ### Umbral de Cambios
 
-El sistema usa sincronización incremental por dominio con umbrales independientes:
+El sistema decide **por dominio de forma independiente** (`downloadCatalogSplit` en `js/supabase.js`):
+
+- **0 cambios → se omite el dominio** (`skip`): no se descarga ni se reescribe el store local. Esto evita el problema de re-bajar y reemplazar *todos* los códigos secundarios cuando solo cambiaron productos (o viceversa).
+- **Cambios dentro del umbral → incremental**: solo se descargan/aplican los registros modificados (RPC `obtener_*_modificados_paginado`).
+- **Cambios por encima del umbral o primera sync → completa**.
+
+> Nota: `claves_descuento` no se omite (`skipClave = false`) porque su conteo solo es fiable vía manifest; mantiene el comportamiento incremental/completa para no perder cambios.
+
+Umbrales independientes para el modo incremental:
 - Productos: `< 1000`
 - Códigos secundarios: `< 2000`
 - Claves de descuento: `< 400`

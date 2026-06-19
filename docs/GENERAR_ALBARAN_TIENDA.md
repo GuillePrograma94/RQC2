@@ -76,18 +76,20 @@ Bloque `modula` en `tienda_config.json`:
 
 ### Firma con XPPEN (pen display, monitor 2)
 
-El XP-PEN Artist 10 (2nd gen) es un **pen display HDMI = monitor 2** (solo lapiz, sin tactil). Al firmar, TiendaPC (que trabaja en el monitor 1) abre una **ventana de firma a pantalla completa en el monitor 2** vía `TiendaNative.signAlbaranOnSecondScreen` -> `tienda_webview.py::sign_albaran_on_second_screen` (carga `tienda_pc/web/firma.html`). El cliente firma ahi y la ventana se cierra al confirmar/cancelar.
+El XP-PEN Artist 10 (2nd gen) es un **pen display HDMI = monitor 2** (solo lapiz, sin tactil). Al firmar, TiendaPC (que trabaja en el monitor 1) **mueve su propia ventana al monitor 2** con `TiendaNative.moveToSigningScreen` -> `tienda_webview.py::move_to_signing_screen` (`restore` + `move` + `resize` sobre `api.main_window`), muestra el **modal interno de firma** ahi, y al terminar la devuelve al monitor 1 con `restoreFromSigningScreen` (siempre, via `finally`).
 
-- **Confirmar** envia el PNG (`submit_signature`); el backend lo aplica con `apply_albaran_signature` e imprime.
-- **Cancelar** (`cancel_signature`): el pedido queda registrado sin imprimir.
-- **Un solo monitor** (sin pantalla 2): la funcion devuelve `{fallback: true}` y se usa el **modal interno** dentro de la ventana de TiendaPC (comportamiento clasico, abajo).
+- El PNG se aplica con `apply_albaran_signature` e imprime.
+- Si el cliente cancela, el pedido queda registrado sin imprimir (la ventana vuelve igualmente al monitor 1).
+- **Un solo monitor** (sin pantalla 2): `move_to_signing_screen` devuelve `{moved: false}` y la firma se hace en el monitor 1 (comportamiento clasico).
 
-Mapeo del lapiz: en el driver **PenTablet de XP-PEN** asigna el area de trabajo al **propio display Artist 10**. Con `signature_tablet_mode: true` (por defecto) el recuadro blanco (`#albaranSignaturePadWrapper`) llena la ventana y el canvas recibe foco al abrir. Si la firma sale desplazada, `"signature_tablet_mode": false` en `tienda_config.json` usa coordenadas directas.
+> No se crea una segunda ventana pywebview (eso casca en winforms al gestionarla desde el hilo de la API): se reposiciona la ventana principal reutilizando el modal ya probado.
+
+Mapeo del lapiz: en el driver **`xppentablet` (Pentablet)** asigna el area de trabajo al **propio display Artist 10** (pantallas en modo extendido, **Area de trabajo > Pantalla**, **Identificar**, seleccionar Artist 10, **Pantalla completa**, **Guardar**). Con `signature_tablet_mode: true` (por defecto) el recuadro blanco (`#albaranSignaturePadWrapper`) llena la ventana y el canvas recibe foco al abrir. Si la firma sale desplazada, `"signature_tablet_mode": false` en `tienda_config.json` usa coordenadas directas.
 
 Al **Firmar Albaran** (solo TiendaPC; CheckoutPC en mostrador no pide nombre ni obra), el flujo es en **dos pasos**:
 
 1. Modal **Datos de la firma** (nombre y obra) — obligatorio **antes de crear el pedido/albaran** en Supabase y ERP (al pulsar el boton, sin generar nada aun).
-2. Tras generar el albaran y disponer del PDF, la firma a pantalla completa: **ventana en el monitor 2 (XPPEN)** si existe, o modal interno como fallback.
+2. Tras generar el albaran y disponer del PDF, la firma a pantalla completa: la ventana se mueve al **monitor 2 (XPPEN)** si existe, o se queda en el monitor 1 como fallback.
 
 | Campo | Obligatorio |
 |-------|-------------|

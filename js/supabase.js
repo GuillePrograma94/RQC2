@@ -442,23 +442,25 @@ class SupabaseClient {
             ? (changeStats.claves_descuento_modificadas || 0) + (changeStats.claves_descuento_nuevas || 0)
             : (manifest ? (manifest.claves_descuento_cambios || 0) : 0);
 
-        let useIncProd = !!(versionHashLocal && changeStats && prodN > 0 && prodN < TH_PROD);
-        let useIncCod = !!(versionHashLocal && changeStats && codN > 0 && codN < TH_COD);
-        let useIncClave = !!(versionHashLocal && changeStats && clN > 0 && clN < TH_CLAVE);
+        const incrementalContext = !!(versionHashLocal && changeStats);
 
-        if (!versionHashLocal || !changeStats) {
-            useIncProd = false;
-            useIncCod = false;
-            useIncClave = false;
-        }
+        // Decision por dominio (independiente):
+        // - skip: 0 cambios en contexto incremental -> ni se descarga ni se toca el store local.
+        // - incremental: hay cambios dentro del umbral.
+        // - completa: primera sincronizacion (sin contexto) o demasiados cambios.
+        // claves_descuento no se "salta": su conteo solo es fiable via manifest, asi que mantiene
+        // el comportamiento previo (incremental o completa) para no omitir cambios.
+        const skipProd = incrementalContext && prodN === 0;
+        const skipCod = incrementalContext && codN === 0;
+        const skipClave = false;
 
-        if (versionHashLocal && changeStats && prodN === 0 && codN === 0 && clN === 0) {
-            useIncProd = false;
-            useIncCod = false;
-            useIncClave = false;
-        }
+        const useIncProd = !!(incrementalContext && prodN > 0 && prodN < TH_PROD);
+        const useIncCod = !!(incrementalContext && codN > 0 && codN < TH_COD);
+        const useIncClave = !!(incrementalContext && clN > 0 && clN < TH_CLAVE);
 
-        const productosTask = useIncProd
+        const productosTask = skipProd
+            ? Promise.resolve([])
+            : useIncProd
             ? this._downloadIncrementalWithPagination({
                 rpcName: 'obtener_productos_modificados_paginado',
                 fallbackRpcName: 'obtener_productos_modificados',
@@ -470,7 +472,9 @@ class SupabaseClient {
             })
             : this._downloadWithPagination('productos', onProgress);
 
-        const codigosTask = useIncCod
+        const codigosTask = skipCod
+            ? Promise.resolve([])
+            : useIncCod
             ? this._downloadIncrementalWithPagination({
                 rpcName: 'obtener_codigos_secundarios_modificados_paginado',
                 fallbackRpcName: 'obtener_codigos_secundarios_modificados',
@@ -483,6 +487,9 @@ class SupabaseClient {
             : this._downloadWithPagination('codigos_secundarios', onProgress);
 
         const clavesTask = (async () => {
+            if (skipClave) {
+                return [];
+            }
             try {
                 if (useIncClave) {
                     return await this._downloadIncrementalWithPagination({
@@ -520,7 +527,10 @@ class SupabaseClient {
             flags: {
                 productsIncremental: useIncProd,
                 codesIncremental: useIncCod,
-                clavesIncremental: useIncClave
+                clavesIncremental: useIncClave,
+                productsSkip: skipProd,
+                codesSkip: skipCod,
+                clavesSkip: skipClave
             }
         };
     }

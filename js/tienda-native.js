@@ -102,31 +102,40 @@
     }
 
     /**
-     * Abre la ventana de firma en la XPPEN (pantalla 2) si TiendaPC la soporta.
-     * Devuelve el resultado del backend: en exito la firma YA esta aplicada al PDF.
-     * Si no hay segunda pantalla, devuelve { fallback: true } para usar el modal interno.
+     * Mueve la ventana de TiendaPC a la XPPEN (pantalla 2) para firmar con el lapiz.
+     * Devuelve { moved: true } si la coloco en la pantalla 2; { moved: false } si hay
+     * un solo monitor (la firma se hace en la pantalla 1, como siempre).
      */
-    async function signAlbaranOnSecondScreen(albaran) {
+    async function moveToSigningScreen() {
         const api = getApi();
-        if (!api || typeof api.sign_albaran_on_second_screen !== 'function') {
-            return { success: false, fallback: true };
+        if (!api || typeof api.move_to_signing_screen !== 'function') {
+            return { moved: false };
         }
-        tiendaLog('info', 'Solicitando firma en pantalla 2 (XPPEN) para albaran ' + albaran, 'firma');
         try {
-            const result = await api.sign_albaran_on_second_screen(albaran);
-            if (result && result.success === true) {
-                tiendaLog('ok', 'Firma aplicada desde pantalla 2', 'firma');
-            } else if (result && result.fallback) {
-                tiendaLog('info', 'Sin segunda pantalla; se usara el modal interno', 'firma');
-            } else if (result && result.cancelled) {
-                tiendaLog('warn', 'Firma cancelada en pantalla 2', 'firma');
-            } else {
-                tiendaLog('error', (result && result.message) || 'No se pudo firmar en pantalla 2', 'firma');
+            const result = await api.move_to_signing_screen();
+            if (result && result.moved) {
+                tiendaLog('info', 'Ventana movida a la pantalla 2 (XPPEN) para firmar', 'firma');
             }
-            return result || { success: false, fallback: true };
+            return result || { moved: false };
         } catch (e) {
-            tiendaLog('error', 'sign_albaran_on_second_screen: ' + (e.message || String(e)), 'firma');
-            return { success: false, fallback: true };
+            tiendaLog('error', 'move_to_signing_screen: ' + (e.message || String(e)), 'firma');
+            return { moved: false };
+        }
+    }
+
+    /**
+     * Devuelve la ventana de TiendaPC a la pantalla 1 tras firmar.
+     */
+    async function restoreFromSigningScreen() {
+        const api = getApi();
+        if (!api || typeof api.restore_from_signing_screen !== 'function') {
+            return { restored: false };
+        }
+        try {
+            return await api.restore_from_signing_screen();
+        } catch (e) {
+            tiendaLog('error', 'restore_from_signing_screen: ' + (e.message || String(e)), 'firma');
+            return { restored: false };
         }
     }
 
@@ -268,7 +277,8 @@
         checkAlbaranPdfReady,
         waitForAlbaranPdfReady,
         getSignaturePadOptions,
-        signAlbaranOnSecondScreen,
+        moveToSigningScreen,
+        restoreFromSigningScreen,
         applyAlbaranSignature,
         sendModulaPedido,
         printAlbaran,

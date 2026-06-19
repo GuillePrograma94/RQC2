@@ -64,6 +64,7 @@ class ScanAsYouShopApp {
         this._presupuestoSaveInFlight = false;
         this._errorReportBuffer = [];
         this._errorReportMaxEntries = 8;
+        this._appVersionCache = '';
         this._globalErrorReportingReady = false;
         this._mobileErrorModalOpen = false;
         this._pendingErrorReportContext = null;
@@ -5500,18 +5501,26 @@ class ScanAsYouShopApp {
             );
             window.ui.updateSyncIndicator('Guardando productos...');
 
-            if (flags.productsIncremental) {
-                await window.cartManager.updateProductsIncremental(productos);
+            if (flags.productsSkip) {
+                console.log('Productos sin cambios: se mantiene el catalogo local (sin descargar)');
             } else {
-                await window.cartManager.saveProductsToStorage(productos);
+                if (flags.productsIncremental) {
+                    await window.cartManager.updateProductsIncremental(productos);
+                } else {
+                    await window.cartManager.saveProductsToStorage(productos);
+                }
+                this.preloadLocalProductSearchIndex();
             }
-            this.preloadLocalProductSearchIndex();
 
-            window.ui.updateSyncIndicator('Guardando codigos secundarios...');
-            if (flags.codesIncremental) {
-                await window.cartManager.updateSecondaryCodesIncremental(codigosSecundarios);
+            if (flags.codesSkip) {
+                console.log('Codigos secundarios sin cambios: no se vuelven a descargar ni reescribir');
             } else {
-                await window.cartManager.saveSecondaryCodesToStorage(codigosSecundarios);
+                window.ui.updateSyncIndicator('Guardando codigos secundarios...');
+                if (flags.codesIncremental) {
+                    await window.cartManager.updateSecondaryCodesIncremental(codigosSecundarios);
+                } else {
+                    await window.cartManager.saveSecondaryCodesToStorage(codigosSecundarios);
+                }
             }
 
             if (clavesDescuento.length > 0) {
@@ -8003,6 +8012,27 @@ class ScanAsYouShopApp {
         }
     }
 
+    /**
+     * Extrae la version del nombre de cache del Service Worker.
+     * El cache se llama "batmar-<version>" (ver sw.js / build.js). Se admite el prefijo
+     * antiguo "scan-as-you-shop-" por compatibilidad con instalaciones previas.
+     */
+    _pickSwCacheVersion(cacheKeys) {
+        const PREFIXES = ['batmar-', 'scan-as-you-shop-'];
+        const name = (cacheKeys || []).find(
+            (k) => typeof k === 'string' && PREFIXES.some((p) => k.indexOf(p) === 0)
+        );
+        if (!name) return '';
+        let v = String(name);
+        for (let i = 0; i < PREFIXES.length; i++) {
+            if (v.indexOf(PREFIXES[i]) === 0) {
+                v = v.slice(PREFIXES[i].length);
+                break;
+            }
+        }
+        return v.trim();
+    }
+
     async _updateMenuVersionText() {
         const el = document.getElementById('menuVersion');
         if (!el) return;
@@ -8010,8 +8040,10 @@ class ScanAsYouShopApp {
         try {
             await navigator.serviceWorker?.ready;
             const cacheKeys = await caches.keys();
-            const scanCache = (cacheKeys || []).find((k) => typeof k === 'string' && k.indexOf('scan-as-you-shop-') === 0);
-            const v = scanCache ? String(scanCache).replace('scan-as-you-shop-', '').trim() : '';
+            const v = this._pickSwCacheVersion(cacheKeys);
+            if (v) {
+                this._appVersionCache = v;
+            }
             el.textContent = 'Version: ' + (v || '--');
         } catch (_) {
             // Silencioso: version no disponible (sin SW / sin Cache API)
@@ -8022,8 +8054,11 @@ class ScanAsYouShopApp {
         try {
             await navigator.serviceWorker?.ready;
             const cacheKeys = await caches.keys();
-            const scanCache = (cacheKeys || []).find((k) => typeof k === 'string' && k.indexOf('scan-as-you-shop-') === 0);
-            return scanCache ? String(scanCache).replace('scan-as-you-shop-', '').trim() : '';
+            const version = this._pickSwCacheVersion(cacheKeys);
+            if (version) {
+                this._appVersionCache = version;
+            }
+            return version;
         } catch (_) {
             return '';
         }
@@ -8037,7 +8072,7 @@ class ScanAsYouShopApp {
                 return '';
             }
             const body = await res.text();
-            const m = body.match(/scan-as-you-shop-([A-Za-z0-9_\-.]+)/);
+            const m = body.match(/(?:batmar|scan-as-you-shop)-([A-Za-z0-9_\-.]+)/);
             return m && m[1] ? String(m[1]).trim() : '';
         } catch (_) {
             return '';
@@ -11517,55 +11552,43 @@ class ScanAsYouShopApp {
 
             if (modo === 'firmar') {
                 window.ui.hideLoading();
-                this._tiendaDiagLog('info', 'Solicitando firma del cliente', 'albaran');
+                this._tiendaDiagLog('info', 'Abriendo modal de firma', 'albaran');
 
-                let firmaAplicada = false;
-
-                // Preferente: ventana de firma en la XPPEN (pantalla 2). En exito la firma ya queda en el PDF.
-                if (window.TiendaNative && typeof window.TiendaNative.signAlbaranOnSecondScreen === 'function') {
-                    const secondScreenResult = await window.TiendaNative.signAlbaranOnSecondScreen(albaranErp);
-                    if (secondScreenResult && secondScreenResult.success === true) {
-                        firmaAplicada = true;
-                    } else if (secondScreenResult && secondScreenResult.cancelled) {
-                        this._tiendaDiagLog('warn', 'Firma cancelada por el usuario', 'albaran');
-                        window.ui.showToast('Firma cancelada. El pedido quedo registrado sin imprimir.', 'warning');
-                        return;
-                    } else if (secondScreenResult && !secondScreenResult.fallback) {
-                        this._tiendaDiagLog('error', (secondScreenResult && secondScreenResult.message) || 'No se pudo guardar la firma', 'albaran');
-                        window.ui.hideLoading();
-                        window.ui.showToast((secondScreenResult && secondScreenResult.message) || 'No se pudo guardar la firma', 'error');
-                        if (window.TiendaLog && window.TiendaLog.openPanel) {
-                            window.TiendaLog.openPanel();
-                        }
-                        return;
-                    }
-                    // fallback: continua al modal interno (un solo monitor)
+                // Si hay 2.a pantalla (XPPEN), mover la ventana alli para firmar con el lapiz.
+                let movedToSigningScreen = false;
+                if (window.TiendaNative && typeof window.TiendaNative.moveToSigningScreen === 'function') {
+                    const moveRes = await window.TiendaNative.moveToSigningScreen();
+                    movedToSigningScreen = !!(moveRes && moveRes.moved);
                 }
 
-                if (!firmaAplicada) {
-                    this._tiendaDiagLog('info', 'Abriendo modal de firma', 'albaran');
-                    const signatureResult = await this.showAlbaranSignatureModalForTienda();
-                    if (!signatureResult || !signatureResult.signatureDataUrl) {
-                        this._tiendaDiagLog('warn', 'Firma cancelada por el usuario', 'albaran');
-                        window.ui.showToast('Firma cancelada. El pedido quedo registrado sin imprimir.', 'warning');
-                        return;
-                    }
-                    window.ui.showLoading('Guardando firma en el albaran...');
-                    const applyResult = await window.TiendaNative.applyAlbaranSignature(
-                        albaranErp,
-                        signatureResult.signatureDataUrl
-                    );
-                    if (!applyResult || applyResult.success !== true) {
-                        this._tiendaDiagLog('error', (applyResult && applyResult.message) || 'No se pudo guardar la firma', 'albaran');
-                        window.ui.hideLoading();
-                        window.ui.showToast((applyResult && applyResult.message) || 'No se pudo guardar la firma', 'error');
-                        if (window.TiendaLog && window.TiendaLog.openPanel) {
-                            window.TiendaLog.openPanel();
-                        }
-                        return;
+                let signatureResult = null;
+                try {
+                    signatureResult = await this.showAlbaranSignatureModalForTienda();
+                } finally {
+                    if (movedToSigningScreen && window.TiendaNative && typeof window.TiendaNative.restoreFromSigningScreen === 'function') {
+                        await window.TiendaNative.restoreFromSigningScreen();
                     }
                 }
 
+                if (!signatureResult || !signatureResult.signatureDataUrl) {
+                    this._tiendaDiagLog('warn', 'Firma cancelada por el usuario', 'albaran');
+                    window.ui.showToast('Firma cancelada. El pedido quedo registrado sin imprimir.', 'warning');
+                    return;
+                }
+                window.ui.showLoading('Guardando firma en el albaran...');
+                const applyResult = await window.TiendaNative.applyAlbaranSignature(
+                    albaranErp,
+                    signatureResult.signatureDataUrl
+                );
+                if (!applyResult || applyResult.success !== true) {
+                    this._tiendaDiagLog('error', (applyResult && applyResult.message) || 'No se pudo guardar la firma', 'albaran');
+                    window.ui.hideLoading();
+                    window.ui.showToast((applyResult && applyResult.message) || 'No se pudo guardar la firma', 'error');
+                    if (window.TiendaLog && window.TiendaLog.openPanel) {
+                        window.TiendaLog.openPanel();
+                    }
+                    return;
+                }
                 window.ui.showLoading('Imprimiendo albaran firmado...');
                 const printResult = await window.TiendaNative.printAlbaran(albaranErp, { copies: 1 });
                 window.ui.hideLoading();
@@ -13133,11 +13156,90 @@ class ScanAsYouShopApp {
                 window.TiendaLog.error((source || 'error') + ': ' + message + extra, 'js');
             }
 
+            if (this._isLikelyStaleVersionError(record.source, record.message)) {
+                // Solo auto-actualiza si se confirma que hay version mas reciente publicada.
+                this.maybeAutoUpdateOnVersionError(record).then((updating) => {
+                    if (!updating && this.isMobileDeviceForErrorReport()) {
+                        this.openMobileErrorReportModal(record);
+                    }
+                }).catch(() => {
+                    if (this.isMobileDeviceForErrorReport()) {
+                        this.openMobileErrorReportModal(record);
+                    }
+                });
+                return;
+            }
+
             if (this.isMobileDeviceForErrorReport()) {
                 this.openMobileErrorReportModal(record);
             }
         } catch (e) {
             console.warn('registerErrorForSupport:', e);
+        }
+    }
+
+    /**
+     * Heuristica: el error parece de recursos que no cargan (tipico de version antigua /
+     * service worker o assets desactualizados tras un nuevo despliegue).
+     */
+    _isLikelyStaleVersionError(source, message) {
+        const msg = (message || '').toLowerCase();
+        if (!msg) return false;
+        const patterns = [
+            'load failed',
+            'failed to fetch',
+            'error loading dynamically imported module',
+            'failed to fetch dynamically imported module',
+            'importing a module script failed',
+            'unable to preload',
+            'chunkloaderror',
+            "unexpected token '<'"
+        ];
+        return patterns.some((p) => msg.indexOf(p) !== -1);
+    }
+
+    /**
+     * Si hay una version mas reciente publicada, avisa al usuario y fuerza la actualizacion
+     * de la app (service worker + recarga). Devuelve true si se inicio la actualizacion.
+     * Protegido contra bucles: como mucho un intento por sesion.
+     */
+    async maybeAutoUpdateOnVersionError(record) {
+        try {
+            if (!('serviceWorker' in navigator)) return false;
+
+            const ATTEMPT_KEY = 'auto_update_on_error_done';
+            if (sessionStorage.getItem(ATTEMPT_KEY) === '1') {
+                return false;
+            }
+
+            const localVersion = await this._getCurrentSwCacheVersion();
+            const remoteVersion = await this._getRemoteSwVersionNoCache();
+
+            // Sin version remota (offline o no resuelve) o ya estamos al dia -> no es problema de version.
+            if (!remoteVersion || (localVersion && localVersion === remoteVersion)) {
+                return false;
+            }
+
+            sessionStorage.setItem(ATTEMPT_KEY, '1');
+            this.closeMobileErrorReportModal();
+            window.ui.showToast('Error detectado por version antigua, procedemos a actualizar su app automaticamente', 'info');
+
+            const reg = await navigator.serviceWorker.getRegistration();
+            if (reg && typeof reg.update === 'function') {
+                await reg.update();
+            }
+            if (reg && reg.waiting) {
+                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+            setTimeout(() => {
+                const u = new URL(window.location.href);
+                u.searchParams.set('appcb', remoteVersion);
+                window.location.href = u.toString();
+            }, 1800);
+            return true;
+        } catch (e) {
+            console.warn('maybeAutoUpdateOnVersionError:', e);
+            return false;
         }
     }
 
@@ -13148,6 +13250,10 @@ class ScanAsYouShopApp {
         if (!modal) return;
         this._mobileErrorModalOpen = true;
         this._pendingErrorReportContext = record || null;
+        // Calienta la version del programa (cache del SW) para incluirla en el reporte.
+        if (!this._appVersionCache) {
+            try { this._getCurrentSwCacheVersion(); } catch (_) {}
+        }
         if (messageEl) {
             const base = 'Pulsa "Enviar Detalles" para enviar el reporte por WhatsApp a soporte.';
             messageEl.textContent = record && record.message ? `${base}\n\n${record.message}` : base;
@@ -13168,6 +13274,7 @@ class ScanAsYouShopApp {
         const lines = [];
         lines.push('BATMAR - Reporte de error');
         lines.push('Fecha: ' + new Date().toISOString());
+        lines.push('Version: ' + (this._appVersionCache || '--'));
         lines.push('Pantalla: ' + (this.currentScreen || ''));
         lines.push('Usuario: ' + (this.currentUser && this.currentUser.user_name ? this.currentUser.user_name : ''));
         lines.push('User ID: ' + (this.currentUser && this.currentUser.user_id ? this.currentUser.user_id : ''));
