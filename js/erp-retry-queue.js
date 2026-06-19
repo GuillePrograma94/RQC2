@@ -121,6 +121,11 @@ class ERPRetryQueue {
             } catch (e) {
                 console.warn('registrarHistorialDesdeCarrito en retryCarritoNow:', e);
             }
+            if (window.supabaseClient && typeof window.supabaseClient.sendOrderConfirmationEmail === 'function') {
+                window.supabaseClient.sendOrderConfirmationEmail(item.carrito_id).catch(function (err) {
+                    console.warn('sendOrderConfirmationEmail en retryCarritoNow:', err);
+                });
+            }
             if (window.purchaseCache && item.usuario_id) {
                 window.purchaseCache.invalidateUser(item.usuario_id);
             }
@@ -227,6 +232,11 @@ class ERPRetryQueue {
                         await window.supabaseClient.registrarHistorialDesdeCarrito(item.carrito_id);
                     } catch (e) {
                         console.warn('registrarHistorialDesdeCarrito en retry:', e);
+                    }
+                    if (window.supabaseClient && typeof window.supabaseClient.sendOrderConfirmationEmail === 'function') {
+                        window.supabaseClient.sendOrderConfirmationEmail(item.carrito_id).catch(function (err) {
+                            console.warn('sendOrderConfirmationEmail en retry:', err);
+                        });
                     }
                     if (window.purchaseCache && item.usuario_id) {
                         window.purchaseCache.invalidateUser(item.usuario_id);

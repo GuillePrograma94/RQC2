@@ -2539,6 +2539,36 @@ class SupabaseClient {
     }
 
     /**
+     * Envia email de confirmacion de pedido remoto al cliente (CC al comercial asignado).
+     * Fire-and-forget desde la app; no bloquea el flujo de pedido.
+     * @param {string|number} carritoId
+     * @returns {Promise<{success?: boolean, skipped?: boolean, sent?: boolean}>}
+     */
+    async sendOrderConfirmationEmail(carritoId) {
+        try {
+            if (carritoId == null || String(carritoId).trim() === '') {
+                return { success: false, skipped: true };
+            }
+            const response = await fetch('/api/orders/send-confirmation-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ carrito_id: carritoId })
+            });
+            const data = await response.json().catch(function () {
+                return {};
+            });
+            if (!response.ok) {
+                console.warn('sendOrderConfirmationEmail:', data.message || response.status);
+                return { success: false, message: data.message || 'Error al enviar email' };
+            }
+            return data;
+        } catch (error) {
+            console.warn('sendOrderConfirmationEmail:', error);
+            return { success: false, message: error && error.message ? error.message : 'Error de red' };
+        }
+    }
+
+    /**
      * Marca un pedido presencial de tienda como completado tras albaran generado/impreso.
      * @param {string|number} carritoId
      * @returns {Promise<boolean>}

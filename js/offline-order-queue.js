@@ -214,6 +214,11 @@ class OfflineOrderQueue {
                     } catch (e) {
                         console.warn('registrarHistorialDesdeCarrito en offline queue:', e);
                     }
+                    if (window.supabaseClient && typeof window.supabaseClient.sendOrderConfirmationEmail === 'function') {
+                        window.supabaseClient.sendOrderConfirmationEmail(carritoId).catch(function (err) {
+                            console.warn('sendOrderConfirmationEmail en offline queue:', err);
+                        });
+                    }
                     if (window.purchaseCache && item.usuario_id) window.purchaseCache.invalidateUser(item.usuario_id);
                 } catch (erpErr) {
                     const isValidation = /400|Bad Request|obligatorio|ERP error 4\d\d/i.test(String(erpErr && erpErr.message));

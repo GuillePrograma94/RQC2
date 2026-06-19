@@ -11883,6 +11883,8 @@ class ScanAsYouShopApp {
                 console.warn('No se pudo registrar historial (pedido enviado correctamente):', e);
             }
 
+            this.notifyOrderConfirmationEmail(result.carrito_id);
+
             window.ui.hideLoading();
             const totalWithIVA = cart.total_importe * 1.21;
             window.ui.showToast(
@@ -12399,6 +12401,7 @@ class ScanAsYouShopApp {
                 } catch (e) {
                     console.warn('registrarHistorialDesdeCarrito en ejecutarAceptarPrepedidoRemoto:', e);
                 }
+                this.notifyOrderConfirmationEmail(conversion.carrito_id);
                 if (window.purchaseCache && prepedido.usuario_id) {
                     window.purchaseCache.invalidateUser(prepedido.usuario_id);
                 }
@@ -13679,6 +13682,19 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Solicita el email de confirmacion de pedido (no bloquea la UI).
+     * @param {string|number} carritoId
+     */
+    notifyOrderConfirmationEmail(carritoId) {
+        if (carritoId == null || !window.supabaseClient || typeof window.supabaseClient.sendOrderConfirmationEmail !== 'function') {
+            return;
+        }
+        window.supabaseClient.sendOrderConfirmationEmail(carritoId).catch(function (err) {
+            console.warn('notifyOrderConfirmationEmail:', err);
+        });
+    }
+
+    /**
      * Reintento manual de envio al ERP para un pedido en estado pendiente_erp.
      * Primero intenta desde la cola local; si no esta, construye payload desde Supabase y envia.
      */
@@ -13698,6 +13714,7 @@ class ScanAsYouShopApp {
             if (result.found) {
                 window.ui.hideLoading();
                 if (result.success) {
+                    this.notifyOrderConfirmationEmail(id);
                     window.ui.showToast('Pedido enviado al ERP correctamente', 'success');
                     await this.loadMyOrders();
                     if (this.currentScreen === 'panelPedidosPendienteErp') {
@@ -13762,6 +13779,7 @@ class ScanAsYouShopApp {
             } catch (e) {
                 console.warn('registrarHistorialDesdeCarrito en retryEnvioErp:', e);
             }
+            this.notifyOrderConfirmationEmail(id);
             if (window.purchaseCache && carrito.usuario_id) {
                 window.purchaseCache.invalidateUser(carrito.usuario_id);
             }
