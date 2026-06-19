@@ -37,8 +37,21 @@ Cada fila de **Datos de Empresa** (ONTINYENT, GANDIA, ALZIRA, REQUENA) puede ten
 
 **Donde configurarlo en la app:**
 
-- Rol **ADMINISTRADOR** → **Panel de control** → **Datos de Empresa** → editar almacen
-- Rol **ADMINISTRACION** → **Empresas por almacen** (misma seccion SMTP)
+### Rol ADMINISTRADOR (app tienda, menu hamburguesa)
+
+1. Abrir el **menu** (icono arriba a la izquierda).
+2. Pulsar **Panel de Control** (solo visible si tu usuario tiene `tipo = ADMINISTRADOR`, no ADMINISTRACION).
+3. Pulsar **Datos de Empresa y correo SMTP**.
+4. En la lista de almacenes, pulsar **Editar** en ONTINYENT, GANDIA, ALZIRA o REQUENA.
+5. Bajar en el formulario (o usar el enlace **Ir a configuracion SMTP**) hasta la seccion **Correo SMTP (pedidos)**.
+
+### Rol ADMINISTRACION (app de solicitudes)
+
+1. Barra inferior → **Empresas**.
+2. Pulsar el almacen deseado.
+3. Bajar hasta **Correo SMTP (pedidos)** o usar el enlace rapido al inicio del formulario.
+
+> Si no ves **Panel de Control**, comprueba que entras con un usuario **ADMINISTRADOR**. El rol ADMINISTRACION usa otra app distinta (solicitudes de articulos).
 
 **Campos:**
 
@@ -95,6 +108,6 @@ Tras cambiar SMTP o variables: **redeploy** en Vercel (`npm install` incluye `no
 
 | Archivo | Rol |
 |---------|-----|
-| `api/orders/order-email.js` | SMTP (nodemailer) + Resend + plantillas |
+| `lib/order-email.js` | SMTP (nodemailer) + Resend + plantillas |
 | `api/orders/send-confirmation-email.js` | Confirmacion cliente |
 | `api/orders/send-erp-failure-alert.js` | Alerta ADMINISTRADOR |

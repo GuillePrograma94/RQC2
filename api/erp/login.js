@@ -3,7 +3,7 @@
  * Prueba el login con el ERP usando POST /api/tienda/v1/login
  */
 
-const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
+const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('../../lib/erp-https');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');

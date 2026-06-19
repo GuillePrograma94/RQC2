@@ -9,9 +9,9 @@
  * no se llama a la API del ERP y se devuelve el pedido_erp ya registrado.
  */
 
-const { fetchWithTimeout, parseJsonResponse, buildUrl, normalizeErpPath } = require('./erp-https');
+const { fetchWithTimeout, parseJsonResponse, buildUrl, normalizeErpPath } = require('../../lib/erp-https');
 const { createClient } = require('@supabase/supabase-js');
-const { analyzePayloadDiff } = require('./erp-payload');
+const { analyzePayloadDiff } = require('../../lib/erp-payload');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');

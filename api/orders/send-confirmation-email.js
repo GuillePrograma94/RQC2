@@ -19,7 +19,7 @@ const {
     buildFromAddress,
     sendOrderEmail,
     fetchEmpresaForOrderEmail
-} = require('./order-email');
+} = require('../../lib/order-email');
 
 function parseRequestBody(req) {
     if (!req || req.body == null) return {};

@@ -3,7 +3,7 @@
  * Prueba la conectividad con el ERP usando GET /api/tienda/v1/test
  */
 
-const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
+const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('../../lib/erp-https');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');

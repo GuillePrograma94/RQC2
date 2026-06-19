@@ -17,13 +17,13 @@ const {
     buildUrl,
     normalizeErpPath,
     normalizeErpBaseUrl
-} = require('./erp-https');
+} = require('../../lib/erp-https');
 const {
     LEGACY_CREATE_PATH,
     TYPED_CREATE_PATH,
     sanitizeErpCreateOrderPayload,
     analyzePayloadDiff
-} = require('./erp-payload');
+} = require('../../lib/erp-payload');
 
 function resolveBaseUrlForRequest(body, envBaseUrl) {
     const override = (body.erpBaseUrlOverride || '').trim();

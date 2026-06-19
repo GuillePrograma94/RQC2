@@ -2166,9 +2166,13 @@ class ScanAsYouShopApp {
             const nombre = tieneDatos
                 ? this.escapeForHtmlContentPreservingNewlines(String(row.razon_social).trim())
                 : '<span class="panel-empresa-hub-sin-datos">(sin configurar)</span>';
+            const smtpLabel = row && row.smtp_enabled === true
+                ? '<span class="panel-empresa-hub-smtp-on">SMTP activo</span>'
+                : '<span class="panel-empresa-hub-smtp-off">SMTP sin activar</span>';
             html += '<div class="panel-empresa-hub-row">';
             html += '<span class="panel-empresa-hub-code">' + this.escapeForHtmlContentPreservingNewlines(a) + '</span>';
             html += '<span class="panel-empresa-hub-nombre">' + nombre + '</span>';
+            html += smtpLabel;
             html += '<button type="button" class="btn btn-secondary btn-sm panel-empresa-hub-edit-btn" data-almacen="' +
                 this.escapeForHtmlAttribute(a) + '">Editar</button>';
             html += '</div>';

@@ -4497,6 +4497,52 @@ body.gate-visible .app-container {
     font-style: italic;
 }
 
+.panel-empresa-hub-smtp-hint {
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--gray-700);
+}
+
+.panel-empresa-hub-smtp-on,
+.panel-empresa-hub-smtp-off {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.panel-empresa-hub-smtp-on {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.panel-empresa-hub-smtp-off {
+    background: var(--gray-100);
+    color: var(--gray-600);
+}
+
+.panel-empresa-smtp-jump-wrap {
+    margin: 0 1rem 0.75rem;
+}
+
+.panel-empresa-smtp-jump {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary, #2563eb);
+    text-decoration: underline;
+}
+
+.panel-empresa-smtp-section {
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.panel-empresa-smtp-title {
+    margin: 0 0 0.35rem;
+    font-size: 1rem;
+}
+
 .panel-datos-empresa-pick {
     padding: 0 1rem 1.5rem;
     max-width: 24rem;

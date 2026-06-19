@@ -4,7 +4,7 @@
  * Requiere token Bearer (hace login automaticamente)
  */
 
-const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('./erp-https');
+const { fetchWithTimeout, parseJsonResponse, buildUrl } = require('../../lib/erp-https');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
