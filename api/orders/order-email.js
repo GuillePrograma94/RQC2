@@ -198,15 +198,80 @@ function buildErpFailureAdminHtml(data) {
 }
 
 function buildFromAddress(empresa) {
+    const email = safeText(empresa && empresa.email) || safeText(empresa && empresa.smtp_user);
+    const nombre = safeText(empresa && empresa.razon_social) || 'Pedidos BATMAR';
+
+    if (isSmtpConfigured(empresa) && isValidEmail(email)) {
+        return nombre + ' <' + email + '>';
+    }
+
     const envFrom = safeText(process.env.ORDER_EMAIL_FROM);
     if (envFrom) return envFrom;
 
-    const email = safeText(empresa && empresa.email);
-    const nombre = safeText(empresa && empresa.razon_social) || 'Pedidos BATMAR';
     if (isValidEmail(email)) {
         return nombre + ' <' + email + '>';
     }
     return null;
+}
+
+/**
+ * Reply-To: email_respuesta del almacen > ORDER_EMAIL_REPLY_TO > override > email empresa.
+ */
+function resolveReplyTo(empresa, overrideReplyTo) {
+    const fromAlmacen = safeText(empresa && empresa.email_respuesta);
+    if (isValidEmail(fromAlmacen)) return fromAlmacen;
+
+    const fromEnv = safeText(process.env.ORDER_EMAIL_REPLY_TO);
+    if (isValidEmail(fromEnv)) return fromEnv;
+
+    const fromOverride = safeText(overrideReplyTo);
+    if (isValidEmail(fromOverride)) return fromOverride;
+
+    const fromEmail = safeText(empresa && empresa.email);
+    if (isValidEmail(fromEmail)) return fromEmail;
+
+    return null;
+}
+
+function isSmtpConfigured(empresa) {
+    if (!empresa || empresa.smtp_enabled !== true) return false;
+    return !!(safeText(empresa.smtp_host) && safeText(empresa.smtp_user) && safeText(empresa.smtp_password));
+}
+
+async function sendViaSmtp(empresa, options) {
+    const nodemailer = require('nodemailer');
+    const portRaw = parseInt(String(empresa.smtp_port || 587), 10);
+    const port = Number.isFinite(portRaw) && portRaw > 0 ? portRaw : 587;
+    const secure = empresa.smtp_secure === true || port === 465;
+
+    const transporter = nodemailer.createTransport({
+        host: safeText(empresa.smtp_host),
+        port: port,
+        secure: secure,
+        auth: {
+            user: safeText(empresa.smtp_user),
+            pass: safeText(empresa.smtp_password)
+        }
+    });
+
+    const mail = {
+        from: options.from,
+        to: options.to,
+        subject: options.subject,
+        html: options.html
+    };
+
+    if (Array.isArray(options.cc) && options.cc.length > 0) {
+        mail.cc = options.cc.join(', ');
+    }
+
+    const replyTo = resolveReplyTo(empresa, options.replyTo);
+    if (replyTo) {
+        mail.replyTo = replyTo;
+    }
+
+    const info = await transporter.sendMail(mail);
+    return { id: info && info.messageId ? info.messageId : null, provider: 'smtp' };
 }
 
 async function sendViaResend(options) {
@@ -226,8 +291,8 @@ async function sendViaResend(options) {
         payload.cc = options.cc;
     }
 
-    const replyTo = safeText(process.env.ORDER_EMAIL_REPLY_TO) || safeText(options.replyTo);
-    if (replyTo && isValidEmail(replyTo)) {
+    const replyTo = resolveReplyTo(null, options.replyTo);
+    if (replyTo) {
         payload.reply_to = replyTo;
     }
 
@@ -252,12 +317,51 @@ async function sendViaResend(options) {
     return body;
 }
 
+/**
+ * Envia email de pedido: SMTP del almacen si esta configurado; si no, Resend (RESEND_API_KEY).
+ */
+async function sendOrderEmail(empresa, options) {
+    const from = buildFromAddress(empresa);
+    if (!from) {
+        throw new Error('Configure SMTP en Datos de Empresa del almacen, email de empresa o ORDER_EMAIL_FROM en Vercel');
+    }
+
+    const mailOptions = Object.assign({}, options, {
+        from: from,
+        replyTo: resolveReplyTo(empresa, options.replyTo)
+    });
+
+    if (isSmtpConfigured(empresa)) {
+        return sendViaSmtp(empresa, mailOptions);
+    }
+    return sendViaResend(mailOptions);
+}
+
+const EMPRESA_ORDER_EMAIL_SELECT =
+    'almacen, razon_social, email, email_respuesta, telefono, smtp_enabled, smtp_host, smtp_port, smtp_user, smtp_password, smtp_secure';
+
+async function fetchEmpresaForOrderEmail(supabase, almacen) {
+    if (!almacen) return null;
+    const { data, error } = await supabase
+        .from('empresas_por_almacen')
+        .select(EMPRESA_ORDER_EMAIL_SELECT)
+        .eq('almacen', String(almacen).trim())
+        .maybeSingle();
+    if (error || !data) return null;
+    return data;
+}
+
 module.exports = {
     safeText,
     isValidEmail,
     buildOrderConfirmationHtml,
     buildErpFailureAdminHtml,
+    resolveReplyTo,
     buildFromAddress,
+    isSmtpConfigured,
     sendViaResend,
+    sendViaSmtp,
+    sendOrderEmail,
+    fetchEmpresaForOrderEmail,
     formatDateSpain
 };

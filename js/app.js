@@ -2177,6 +2177,50 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Rellena campos SMTP en formulario Datos de Empresa (panelEmpresa / adminEmpresa).
+     * @param {'panelEmpresa'|'adminEmpresa'} prefix
+     * @param {object|null} row
+     */
+    fillEmpresaSmtpForm(prefix, row) {
+        const r = row || {};
+        const enabledEl = document.getElementById(prefix + 'SmtpEnabled');
+        if (enabledEl) enabledEl.checked = r.smtp_enabled === true;
+        const set = (suffix, value) => {
+            const el = document.getElementById(prefix + suffix);
+            if (el) el.value = value != null && value !== '' ? String(value) : '';
+        };
+        set('SmtpHost', r.smtp_host);
+        set('SmtpPort', r.smtp_port != null ? r.smtp_port : '');
+        set('SmtpUser', r.smtp_user);
+        const passEl = document.getElementById(prefix + 'SmtpPassword');
+        if (passEl) passEl.value = '';
+        const secureEl = document.getElementById(prefix + 'SmtpSecure');
+        if (secureEl) secureEl.checked = r.smtp_secure === true;
+    }
+
+    /**
+     * Anade campos SMTP al payload de upsertEmpresaPorAlmacen.
+     * @param {'panelEmpresa'|'adminEmpresa'} prefix
+     * @param {object} payload
+     */
+    appendEmpresaSmtpToPayload(prefix, payload) {
+        const get = (suffix) => {
+            const el = document.getElementById(prefix + suffix);
+            return el ? String(el.value || '').trim() : '';
+        };
+        const enabledEl = document.getElementById(prefix + 'SmtpEnabled');
+        payload.smtp_enabled = enabledEl ? enabledEl.checked === true : false;
+        payload.smtp_host = get('SmtpHost') || null;
+        const portStr = get('SmtpPort');
+        payload.smtp_port = portStr ? portStr : null;
+        payload.smtp_user = get('SmtpUser') || null;
+        const pass = get('SmtpPassword');
+        if (pass) payload.smtp_password = pass;
+        const secureEl = document.getElementById(prefix + 'SmtpSecure');
+        payload.smtp_secure = secureEl ? secureEl.checked === true : false;
+    }
+
+    /**
      * Carga el formulario para un almacen concreto (clave empresas_por_almacen).
      * @param {string} almacen
      */
@@ -2224,6 +2268,7 @@ class ScanAsYouShopApp {
         set('panelEmpresaProvincia', row.provincia);
         set('panelEmpresaTelefono', row.telefono);
         set('panelEmpresaEmail', row.email);
+        set('panelEmpresaEmailRespuesta', row.email_respuesta);
         set('panelEmpresaWeb', row.web);
         set('panelEmpresaLogoUrl', row.logo_url);
         set('panelEmpresaLogoPdfAncho', row.logo_pdf_ancho_pt);
@@ -2231,6 +2276,7 @@ class ScanAsYouShopApp {
         set('panelEmpresaLogoPdfOffsetX', row.logo_pdf_offset_x_pt);
         set('panelEmpresaLogoPdfOffsetY', row.logo_pdf_offset_y_pt);
         set('panelEmpresaCondiciones', row.condiciones_comerciales);
+        this.fillEmpresaSmtpForm('panelEmpresa', row);
         const fileInput = document.getElementById('panelEmpresaLogoFile');
         if (fileInput) fileInput.value = '';
         this._panelEmpresaLogoPendingFile = null;
@@ -5030,6 +5076,7 @@ class ScanAsYouShopApp {
         set('adminEmpresaProvincia', row.provincia);
         set('adminEmpresaTelefono', row.telefono);
         set('adminEmpresaEmail', row.email);
+        set('adminEmpresaEmailRespuesta', row.email_respuesta);
         set('adminEmpresaWeb', row.web);
         set('adminEmpresaLogoUrl', row.logo_url);
         set('adminEmpresaLogoPdfAncho', row.logo_pdf_ancho_pt);
@@ -5038,6 +5085,7 @@ class ScanAsYouShopApp {
         set('adminEmpresaLogoPdfOffsetY', row.logo_pdf_offset_y_pt);
         set('adminEmpresaCondiciones', row.condiciones_comerciales);
         set('adminEmpresaTextoCabecera', row.texto_cabecera);
+        this.fillEmpresaSmtpForm('adminEmpresa', row);
         this.fillLogoPdfEscalaFromDimensions('adminEmpresa');
         this.updateEmpresaPdfHeaderPreview('adminEmpresa');
         const self = this;
@@ -5070,6 +5118,7 @@ class ScanAsYouShopApp {
             provincia: get('adminEmpresaProvincia'),
             telefono: get('adminEmpresaTelefono'),
             email: get('adminEmpresaEmail'),
+            email_respuesta: get('adminEmpresaEmailRespuesta') || null,
             web: get('adminEmpresaWeb'),
             logo_url: get('adminEmpresaLogoUrl'),
             logo_pdf_ancho_pt: get('adminEmpresaLogoPdfAncho'),
@@ -5079,6 +5128,7 @@ class ScanAsYouShopApp {
             condiciones_comerciales: get('adminEmpresaCondiciones'),
             texto_cabecera: get('adminEmpresaTextoCabecera')
         };
+        this.appendEmpresaSmtpToPayload('adminEmpresa', payload);
         if (!payload.razon_social || !payload.cif || !payload.direccion || !payload.cp || !payload.poblacion || !payload.provincia) {
             window.ui.showToast('Completa razon social, CIF, direccion, CP, poblacion y provincia', 'warning');
             return;
@@ -5143,6 +5193,7 @@ class ScanAsYouShopApp {
             provincia: get('panelEmpresaProvincia'),
             telefono: get('panelEmpresaTelefono'),
             email: get('panelEmpresaEmail'),
+            email_respuesta: get('panelEmpresaEmailRespuesta') || null,
             web: get('panelEmpresaWeb'),
             logo_url: logoUrl || null,
             logo_pdf_ancho_pt: get('panelEmpresaLogoPdfAncho'),
@@ -5151,6 +5202,7 @@ class ScanAsYouShopApp {
             logo_pdf_offset_y_pt: get('panelEmpresaLogoPdfOffsetY'),
             condiciones_comerciales: get('panelEmpresaCondiciones')
         };
+        this.appendEmpresaSmtpToPayload('panelEmpresa', payload);
         if (!payload.razon_social || !payload.cif || !payload.direccion || !payload.cp || !payload.poblacion || !payload.provincia) {
             window.ui.showToast('Completa nombre completo, CIF, direccion, CP, poblacion y provincia', 'warning');
             return;

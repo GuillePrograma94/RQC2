@@ -3403,7 +3403,7 @@ class SupabaseClient {
             if (!this.client) return [];
             const { data, error } = await this.client
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, updated_at')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, email_respuesta, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, smtp_enabled, smtp_host, smtp_port, smtp_user, smtp_secure, updated_at')
                 .order('almacen', { ascending: true });
             if (error) throw error;
             return Array.isArray(data) ? data : [];
@@ -3444,6 +3444,7 @@ class SupabaseClient {
                 provincia: payload.provincia ? String(payload.provincia).trim() : '',
                 telefono: payload.telefono ? String(payload.telefono).trim() : null,
                 email: payload.email ? String(payload.email).trim() : null,
+                email_respuesta: payload.email_respuesta ? String(payload.email_respuesta).trim() : null,
                 web: payload.web ? String(payload.web).trim() : null,
                 logo_url: payload.logo_url ? String(payload.logo_url).trim() : null,
                 logo_pdf_ancho_pt: logoPdfPt(payload.logo_pdf_ancho_pt),
@@ -3456,6 +3457,25 @@ class SupabaseClient {
                         ? String(payload.texto_cabecera).trim()
                         : null
             };
+            if (payload.smtp_enabled != null) {
+                row.smtp_enabled = payload.smtp_enabled === true;
+            }
+            if (payload.smtp_host != null) {
+                row.smtp_host = String(payload.smtp_host).trim() || null;
+            }
+            if (payload.smtp_port != null && String(payload.smtp_port).trim() !== '') {
+                const p = parseInt(String(payload.smtp_port).trim(), 10);
+                row.smtp_port = Number.isFinite(p) && p > 0 ? p : 587;
+            }
+            if (payload.smtp_user != null) {
+                row.smtp_user = String(payload.smtp_user).trim() || null;
+            }
+            if (payload.smtp_password != null && String(payload.smtp_password).trim() !== '') {
+                row.smtp_password = String(payload.smtp_password);
+            }
+            if (payload.smtp_secure != null) {
+                row.smtp_secure = payload.smtp_secure === true;
+            }
             const { error } = await this.client.from('empresas_por_almacen').upsert([row], { onConflict: 'almacen' });
             if (error) throw error;
             return { success: true };
@@ -3476,7 +3496,7 @@ class SupabaseClient {
             const a = String(almacen).trim();
             const { data, error } = await this.client
                 .from('empresas_por_almacen')
-                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, updated_at')
+                .select('almacen, razon_social, cif, direccion, cp, poblacion, provincia, telefono, email, email_respuesta, web, logo_url, logo_pdf_ancho_pt, logo_pdf_alto_pt, logo_pdf_offset_x_pt, logo_pdf_offset_y_pt, condiciones_comerciales, texto_cabecera, smtp_enabled, smtp_host, smtp_port, smtp_user, smtp_secure, updated_at')
                 .eq('almacen', a)
                 .maybeSingle();
             if (error) throw error;

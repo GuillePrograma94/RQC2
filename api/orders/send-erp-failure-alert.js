@@ -11,7 +11,8 @@ const {
     isValidEmail,
     buildErpFailureAdminHtml,
     buildFromAddress,
-    sendViaResend
+    sendOrderEmail,
+    fetchEmpresaForOrderEmail
 } = require('./order-email');
 
 function parseRequestBody(req) {
@@ -26,20 +27,6 @@ function parseRequestBody(req) {
     return req.body;
 }
 
-async function fetchEmpresaPorAlmacen(supabase, almacen) {
-    if (!almacen) return null;
-    const { data, error } = await supabase
-        .from('empresas_por_almacen')
-        .select('razon_social, email, telefono')
-        .eq('almacen', String(almacen).trim())
-        .maybeSingle();
-    if (error || !data) return null;
-    return data;
-}
-
-/**
- * Solo usuarios con tipo exacto ADMINISTRADOR (excluye ADMINISTRACION).
- */
 async function fetchAdministradorEmails(supabase) {
     const { data, error } = await supabase
         .from('usuarios')
@@ -158,12 +145,11 @@ module.exports = async (req, res) => {
         return;
     }
 
-    const empresa = await fetchEmpresaPorAlmacen(supabase, carrito.almacen_destino);
-    const fromAddress = buildFromAddress(empresa);
-    if (!fromAddress) {
+    const empresa = await fetchEmpresaForOrderEmail(supabase, carrito.almacen_destino);
+    if (!buildFromAddress(empresa)) {
         res.status(500).json({
             success: false,
-            message: 'Configure ORDER_EMAIL_FROM en Vercel o el email en empresas_por_almacen'
+            message: 'Configure SMTP en Datos de Empresa del almacen, email de empresa o ORDER_EMAIL_FROM en Vercel'
         });
         return;
     }
@@ -197,12 +183,11 @@ module.exports = async (req, res) => {
     const subject = '[ALERTA ERP] Pedido ' + codigoLabel + ' no enviado al ERP';
 
     try {
-        const sendResult = await sendViaResend({
-            from: fromAddress,
+        const sendResult = await sendOrderEmail(empresa, {
             to: adminEmails,
             subject: subject,
             html: html,
-            replyTo: empresa ? empresa.email : null
+            replyTo: empresa ? empresa.email_respuesta : null
         });
         const sentAt = new Date().toISOString();
         await supabase

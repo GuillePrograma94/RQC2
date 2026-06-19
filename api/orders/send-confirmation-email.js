@@ -17,7 +17,8 @@ const {
     isValidEmail,
     buildOrderConfirmationHtml,
     buildFromAddress,
-    sendViaResend
+    sendOrderEmail,
+    fetchEmpresaForOrderEmail
 } = require('./order-email');
 
 function parseRequestBody(req) {
@@ -42,17 +43,6 @@ async function fetchComercialEmail(supabase, comercialAsignado) {
         .maybeSingle();
     if (error || !data) return null;
     return isValidEmail(data.email) ? safeText(data.email) : null;
-}
-
-async function fetchEmpresaPorAlmacen(supabase, almacen) {
-    if (!almacen) return null;
-    const { data, error } = await supabase
-        .from('empresas_por_almacen')
-        .select('razon_social, email, telefono')
-        .eq('almacen', String(almacen).trim())
-        .maybeSingle();
-    if (error || !data) return null;
-    return data;
 }
 
 module.exports = async (req, res) => {
@@ -153,12 +143,11 @@ module.exports = async (req, res) => {
     }
 
     const comercialEmail = await fetchComercialEmail(supabase, usuario.comercial_asignado);
-    const empresa = await fetchEmpresaPorAlmacen(supabase, carrito.almacen_destino);
-    const fromAddress = buildFromAddress(empresa);
-    if (!fromAddress) {
+    const empresa = await fetchEmpresaForOrderEmail(supabase, carrito.almacen_destino);
+    if (!buildFromAddress(empresa)) {
         res.status(500).json({
             success: false,
-            message: 'Configure ORDER_EMAIL_FROM en Vercel o el email en empresas_por_almacen'
+            message: 'Configure SMTP en Datos de Empresa del almacen, email de empresa o ORDER_EMAIL_FROM en Vercel'
         });
         return;
     }
@@ -194,11 +183,10 @@ module.exports = async (req, res) => {
     const html = buildOrderConfirmationHtml(emailData);
 
     const sendOptions = {
-        from: fromAddress,
         to: [clienteEmail],
         subject: subject,
         html: html,
-        replyTo: empresa ? empresa.email : null
+        replyTo: empresa ? empresa.email_respuesta : null
     };
 
     if (comercialEmail && comercialEmail.toLowerCase() !== clienteEmail.toLowerCase()) {
@@ -206,7 +194,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const sendResult = await sendViaResend(sendOptions);
+        const sendResult = await sendOrderEmail(empresa, sendOptions);
         const sentAt = new Date().toISOString();
         await supabase
             .from('carritos_clientes')

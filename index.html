@@ -1155,7 +1155,18 @@
                         <div class="admin-solicitud-field"><label for="panelEmpresaPoblacion">Poblacion</label><input type="text" id="panelEmpresaPoblacion" maxlength="120" required></div>
                         <div class="admin-solicitud-field"><label for="panelEmpresaProvincia">Provincia</label><input type="text" id="panelEmpresaProvincia" maxlength="120" required></div>
                         <div class="admin-solicitud-field"><label for="panelEmpresaTelefono">Telefono</label><input type="text" id="panelEmpresaTelefono" maxlength="80"></div>
-                        <div class="admin-solicitud-field"><label for="panelEmpresaEmail">Email</label><input type="text" id="panelEmpresaEmail" maxlength="200"></div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaEmail">Email remitente (De:)</label><input type="email" id="panelEmpresaEmail" maxlength="200" placeholder="noreply@empresa.com"><small class="panel-empresa-field-hint">Cuenta noreply o SMTP; no tiene que ser un buzon leido.</small></div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaEmailRespuesta">Email de respuesta (Reply-To)</label><input type="email" id="panelEmpresaEmailRespuesta" maxlength="200" placeholder="pedidos@empresa.com"><small class="panel-empresa-field-hint">Al pulsar Responder en el cliente, el correo llega aqui (monitorizado por una persona).</small></div>
+                        <div class="admin-solicitud-field admin-solicitud-field-full panel-empresa-smtp-section">
+                            <h4 class="panel-empresa-smtp-title">Correo SMTP (pedidos)</h4>
+                            <p class="panel-empresa-pdf-logo-hint">Se usa el SMTP de este almacen para los emails de confirmacion de pedido y alertas ERP. Si esta desactivado, se usa Resend (RESEND_API_KEY en Vercel).</p>
+                            <label class="panel-empresa-smtp-check"><input type="checkbox" id="panelEmpresaSmtpEnabled"> Activar SMTP para este almacen</label>
+                        </div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaSmtpHost">Servidor SMTP</label><input type="text" id="panelEmpresaSmtpHost" maxlength="200" placeholder="smtp.office365.com"></div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaSmtpPort">Puerto</label><input type="number" id="panelEmpresaSmtpPort" min="1" max="65535" placeholder="587"></div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaSmtpUser">Usuario SMTP</label><input type="text" id="panelEmpresaSmtpUser" maxlength="200" placeholder="pedidos@empresa.com"></div>
+                        <div class="admin-solicitud-field"><label for="panelEmpresaSmtpPassword">Contrasena SMTP</label><input type="password" id="panelEmpresaSmtpPassword" maxlength="200" autocomplete="new-password" placeholder="Dejar vacio para no cambiar"></div>
+                        <div class="admin-solicitud-field admin-solicitud-field-full"><label class="panel-empresa-smtp-check"><input type="checkbox" id="panelEmpresaSmtpSecure"> SSL directo (puerto 465)</label></div>
                         <div class="admin-solicitud-field"><label for="panelEmpresaWeb">Web</label><input type="text" id="panelEmpresaWeb" maxlength="300"></div>
                         <div class="admin-solicitud-field admin-solicitud-field-full"><label for="panelEmpresaCondiciones">Condiciones comerciales</label><textarea id="panelEmpresaCondiciones" rows="3" maxlength="4000"></textarea></div>
                         <div class="panel-empresa-form-actions">
@@ -1607,7 +1618,18 @@
                         <div class="admin-solicitud-field"><label for="adminEmpresaPoblacion">Poblacion</label><input type="text" id="adminEmpresaPoblacion"></div>
                         <div class="admin-solicitud-field"><label for="adminEmpresaProvincia">Provincia</label><input type="text" id="adminEmpresaProvincia"></div>
                         <div class="admin-solicitud-field"><label for="adminEmpresaTelefono">Telefono</label><input type="text" id="adminEmpresaTelefono"></div>
-                        <div class="admin-solicitud-field"><label for="adminEmpresaEmail">Email</label><input type="text" id="adminEmpresaEmail"></div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaEmail">Email remitente (De:)</label><input type="email" id="adminEmpresaEmail" placeholder="noreply@empresa.com"><small class="panel-empresa-field-hint">Cuenta noreply o SMTP.</small></div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaEmailRespuesta">Email de respuesta (Reply-To)</label><input type="email" id="adminEmpresaEmailRespuesta" placeholder="pedidos@empresa.com"><small class="panel-empresa-field-hint">Correo humano al pulsar Responder.</small></div>
+                        <div class="admin-solicitud-field admin-solicitud-field-full panel-empresa-smtp-section">
+                            <h4 class="panel-empresa-smtp-title">Correo SMTP (pedidos)</h4>
+                            <p class="panel-empresa-pdf-logo-hint">SMTP de este almacen para emails de pedido. Si desactivado, fallback Resend.</p>
+                            <label class="panel-empresa-smtp-check"><input type="checkbox" id="adminEmpresaSmtpEnabled"> Activar SMTP para este almacen</label>
+                        </div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaSmtpHost">Servidor SMTP</label><input type="text" id="adminEmpresaSmtpHost" placeholder="smtp.office365.com"></div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaSmtpPort">Puerto</label><input type="number" id="adminEmpresaSmtpPort" min="1" max="65535" placeholder="587"></div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaSmtpUser">Usuario SMTP</label><input type="text" id="adminEmpresaSmtpUser" placeholder="pedidos@empresa.com"></div>
+                        <div class="admin-solicitud-field"><label for="adminEmpresaSmtpPassword">Contrasena SMTP</label><input type="password" id="adminEmpresaSmtpPassword" autocomplete="new-password" placeholder="Dejar vacio para no cambiar"></div>
+                        <div class="admin-solicitud-field admin-solicitud-field-full"><label class="panel-empresa-smtp-check"><input type="checkbox" id="adminEmpresaSmtpSecure"> SSL directo (puerto 465)</label></div>
                         <div class="admin-solicitud-field"><label for="adminEmpresaWeb">Web</label><input type="text" id="adminEmpresaWeb"></div>
                         <div class="admin-solicitud-field admin-solicitud-field-full"><label for="adminEmpresaLogoUrl">Logo URL</label><input type="text" id="adminEmpresaLogoUrl"></div>
                         <div class="admin-solicitud-field admin-solicitud-field-full logo-pdf-escala-field">
