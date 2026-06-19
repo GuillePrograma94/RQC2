@@ -765,6 +765,8 @@ class ScanAsYouShopApp {
             const wasEnPreparacion = oldRecord?.estado === 'en_preparacion' && oldRecord?.estado_procesamiento === 'procesando';
             const isCompletado = newRecord?.estado === 'completado' && newRecord?.estado_procesamiento === 'completado';
             const wasCompletado = oldRecord?.estado === 'completado' && oldRecord?.estado_procesamiento === 'completado';
+            const isCancelado = newRecord?.estado === 'cancelado';
+            const wasCancelado = oldRecord?.estado === 'cancelado';
 
             // En preparacion (impreso en caja): solo actualizar lista si estamos en Mis Pedidos; NO notificar "listo para recoger"
             // La notificacion al cliente debe aparecer cuando se marca como ENTREGADO (completado), no al imprimir el ticket
@@ -779,6 +781,12 @@ class ScanAsYouShopApp {
                     await this.requestNotificationPermission();
                 }
                 await this.showOrderCompletedNotification(newRecord);
+                if (this.currentScreen === 'myOrders') {
+                    await this.loadMyOrders();
+                }
+            }
+            // Cancelado en almacen (checkin B4): actualizar badge en Mis Pedidos
+            else if (isCancelado && !wasCancelado) {
                 if (this.currentScreen === 'myOrders') {
                     await this.loadMyOrders();
                 }
@@ -13653,6 +13661,7 @@ class ScanAsYouShopApp {
      * Obtiene información del badge según estado y estado_procesamiento (carritos_clientes).
      * - estado=en_preparacion y estado_procesamiento=procesando -> "En Preparación"
      * - estado=completado y estado_procesamiento=completado -> "Completado"
+     * - estado=cancelado (p. ej. B4 checkin: cancelado/completado) -> "Cancelado"
      */
     getEstadoBadge(estado, estadoProcesamiento) {
         if (estado === 'en_preparacion' && estadoProcesamiento === 'procesando') {
@@ -13661,13 +13670,17 @@ class ScanAsYouShopApp {
         if (estado === 'completado' && estadoProcesamiento === 'completado') {
             return { class: 'completed', icon: '\u2705', text: 'Completado' };
         }
+        if (estado === 'cancelado') {
+            return { class: 'cancelled', icon: '\u274C', text: 'Cancelado' };
+        }
         const estados = {
             'pendiente': { class: 'pending', icon: '\u23F3', text: 'Pendiente' },
             'pendiente_erp': { class: 'pending', icon: '\uD83D\uDCE4', text: 'Pend. enviar a ERP' },
             'pendiente_envio': { class: 'pending', icon: '\uD83D\uDCF4', text: 'Pend. de envio' },
             'error_erp': { class: 'cancelled', icon: '\u274C', text: 'Error ERP' },
             'procesando': { class: 'processing', icon: '\uD83D\uDCE4', text: 'Enviado' },
-            'completado': { class: 'completed', icon: '\u2705', text: 'Completado' }
+            'completado': { class: 'completed', icon: '\u2705', text: 'Completado' },
+            'cancelado': { class: 'cancelled', icon: '\u274C', text: 'Cancelado' }
         };
         const key = typeof estadoProcesamiento !== 'undefined' ? estadoProcesamiento : estado;
         return estados[key] || { class: 'pending', icon: '\u23F3', text: key || estado };
