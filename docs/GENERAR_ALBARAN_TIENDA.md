@@ -76,7 +76,7 @@ Bloque `modula` en `tienda_config.json`:
 
 ### Firma con XPPEN (pen display, monitor 2)
 
-El XP-PEN Artist 10 (2nd gen) es un **pen display HDMI = monitor 2** (solo lapiz, sin tactil). Al firmar, TiendaPC (que trabaja en el monitor 1) **mueve su propia ventana al monitor 2** con `TiendaNative.moveToSigningScreen` -> `tienda_webview.py::move_to_signing_screen` (`restore` + `move` + `resize` sobre `api.main_window`), muestra el **modal interno de firma** ahi, y al terminar la devuelve al monitor 1 con `restoreFromSigningScreen` (siempre, via `finally`).
+El XP-PEN Artist 10 (2nd gen) es un **pen display HDMI = monitor 2** (solo lapiz, sin tactil). Al firmar, TiendaPC (que trabaja en el monitor 1) **mueve su propia ventana al monitor 2** con `TiendaNative.moveToSigningScreen` -> `tienda_webview.py::move_to_signing_screen` (`restore` + `move` + `resize` sobre `api._main_window`), muestra el **modal interno de firma** ahi, y al terminar la devuelve al monitor 1 con `restoreFromSigningScreen` (siempre, via `finally`).
 
 - El PNG se aplica con `apply_albaran_signature` e imprime.
 - Si el cliente cancela, el pedido queda registrado sin imprimir (la ventana vuelve igualmente al monitor 1).
