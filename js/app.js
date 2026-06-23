@@ -2378,8 +2378,8 @@ class ScanAsYouShopApp {
         }
         if (ivaHintEl) {
             ivaHintEl.textContent = this.mostrarPreciosConIva
-                ? 'Los importes incluyen IVA al 21%.'
-                : 'Los importes son base imponible (IVA no incl.).';
+                ? 'Los precios muestran la etiqueta "IVA incluido" (21%).'
+                : 'Los precios muestran la etiqueta "IVA no incl." (base imponible).';
         }
         if (this.currentUser.is_comercial || this.currentUser.is_dependiente) {
             const nameEl = document.getElementById('profileUserName');
@@ -3741,7 +3741,7 @@ class ScanAsYouShopApp {
             const desc = this.escapeForHtmlAttribute(item.descripcion || '');
             const priceData = this.getPriceDisplayData(item);
             const price = priceData.visibleDisplay.toFixed(2);
-            const ivaLabel = this.getPriceSinIvaLabelHtml();
+            const ivaLabel = this.getPriceIvaLabelHtml();
             const img = item.imageUrl || this._wcProductImageBase() + cod + '_1.JPG';
             return '<button type="button" class="wc-completo-card wc-completo-card-product" data-tipo="' + tipo + '" data-codigo="' + cod + '" data-descripcion="' + this.escapeForHtmlAttribute(item.descripcion || '') + '" data-pvp="' + (item.pvp != null ? item.pvp : 0) + '" aria-label="' + this.escapeForHtmlAttribute(item.descripcion || item.codigo) + '">' +
                 '<span class="wc-completo-card-product-img-wrap">' +
@@ -3793,12 +3793,12 @@ class ScanAsYouShopApp {
                     '<img src="' + img + '" alt="" onerror="this.style.display=\'none\'">' +
                     '<span class="wc-completo-summary-item-label">' + label + '</span>' +
                     '<span class="wc-completo-summary-item-desc">' + desc + '</span>' +
-                    '<span class="wc-completo-summary-item-price">' + this.getDisplayAmount(this.getPvpUnitarioVisible(item)).toFixed(2) + ' EUR' + this.getPriceSinIvaLabelHtml() + '</span>' +
+                    '<span class="wc-completo-summary-item-price">' + this.getDisplayAmount(this.getPvpUnitarioVisible(item)).toFixed(2) + ' EUR' + this.getPriceIvaLabelHtml() + '</span>' +
                     '</div>');
             }
         });
         itemsEl.innerHTML = parts.length ? parts.join('') : '<p class="wc-completo-summary-empty">Elige modelo y las piezas que quieras anadir.</p>';
-        if (totalEl) totalEl.textContent = parts.length ? 'Total: ' + total.toFixed(2) + ' EUR' + (this.mostrarPreciosConIva ? '' : ' (IVA no incl.)') : '';
+        if (totalEl) totalEl.textContent = parts.length ? 'Total: ' + total.toFixed(2) + ' EUR (' + this.getPriceIvaLabelText() + ')' : '';
         if (btn) btn.disabled = parts.length === 0;
     }
 
@@ -6567,9 +6567,17 @@ class ScanAsYouShopApp {
         return n * this.getIvaMultiplier();
     }
 
+    getPriceIvaLabelText() {
+        return this.mostrarPreciosConIva ? 'IVA incluido' : 'IVA no incl.';
+    }
+
+    getPriceIvaLabelHtml() {
+        return ` <span class="price-iva-label">${this.getPriceIvaLabelText()}</span>`;
+    }
+
+    /** @deprecated Usar getPriceIvaLabelHtml */
     getPriceSinIvaLabelHtml() {
-        if (this.mostrarPreciosConIva) return '';
-        return ' <span class="price-sin-iva-label">IVA no incl.</span>';
+        return this.getPriceIvaLabelHtml();
     }
 
     getPriceDisplayData(producto) {
@@ -6594,7 +6602,7 @@ class ScanAsYouShopApp {
     formatPriceHtml(producto, options = {}) {
         const priceData = this.getPriceDisplayData(producto);
         const cssPrefix = options.cssPrefix || 'result';
-        const ivaLabel = this.getPriceSinIvaLabelHtml();
+        const ivaLabel = this.getPriceIvaLabelHtml();
         const showDiscount =
             this.mostrarPreciosConDescuento &&
             priceData.dtoPct != null &&
@@ -6613,7 +6621,7 @@ class ScanAsYouShopApp {
 
     formatPricePairHtml(originalAmount, discountAmount, badgeHtml, options = {}) {
         const cssPrefix = options.cssPrefix || 'cart-product';
-        const ivaLabel = this.getPriceSinIvaLabelHtml();
+        const ivaLabel = this.getPriceIvaLabelHtml();
         return `
             <div class="${cssPrefix}-price-container">
                 <div class="${cssPrefix}-price-original">${Number(originalAmount).toFixed(2)} EUR${ivaLabel}</div>
@@ -6624,7 +6632,7 @@ class ScanAsYouShopApp {
 
     formatSubtotalPairHtml(originalAmount, discountAmount, options = {}) {
         const cssPrefix = options.cssPrefix || 'cart-product';
-        const ivaLabel = this.getPriceSinIvaLabelHtml();
+        const ivaLabel = this.getPriceIvaLabelHtml();
         return `
             <div class="${cssPrefix}-subtotal-container">
                 <div class="${cssPrefix}-subtotal-original">${Number(originalAmount).toFixed(2)} EUR${ivaLabel}</div>
@@ -7841,8 +7849,8 @@ class ScanAsYouShopApp {
                 const hintEl = document.getElementById('profileIvaToggleHint');
                 if (hintEl) {
                     hintEl.textContent = enabled
-                        ? 'Los importes incluyen IVA al 21%.'
-                        : 'Los importes son base imponible (IVA no incl.).';
+                        ? 'Los precios muestran la etiqueta "IVA incluido" (21%).'
+                        : 'Los precios muestran la etiqueta "IVA no incl." (base imponible).';
                 }
                 this.refreshVisiblePricesAfterPreferenceChange();
             });
@@ -9824,7 +9832,7 @@ class ScanAsYouShopApp {
         }
         
         if (priceElement) {
-            priceElement.textContent = `${totalPrice.toFixed(2)} €`;
+            priceElement.textContent = `${totalPrice.toFixed(2)} EUR (${this.getPriceIvaLabelText()})`;
         }
     }
 
@@ -10262,7 +10270,7 @@ class ScanAsYouShopApp {
     }
 
     buildCartLinePriceHtml(linePricing) {
-        const ivaLabel = this.getPriceSinIvaLabelHtml();
+        const ivaLabel = this.getPriceIvaLabelHtml();
         if (linePricing.usarOferta) {
             const badge = linePricing.badgeTextoOferta ? ` <span class="discount-badge">${linePricing.badgeTextoOferta}</span>` : '';
             return {
@@ -14160,7 +14168,7 @@ class ScanAsYouShopApp {
         const codigo = String(producto.codigo_producto || producto.codigo || '').trim();
         const descripcion = String(producto.descripcion_producto || producto.descripcion || '-');
         const cantidad = Number(producto.cantidad != null ? producto.cantidad : 0);
-        const ivaLabel = this.getPriceSinIvaLabelHtml();
+        const ivaLabel = this.getPriceIvaLabelHtml();
 
         let precioDisplay;
         let subtotalDisplay;
