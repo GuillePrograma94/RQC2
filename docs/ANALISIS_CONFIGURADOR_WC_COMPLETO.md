@@ -390,4 +390,14 @@ En la **ventana de añadir al carrito** (modal que se abre al pulsar sobre un ar
 Al pulsar un label se cierra el modal de añadir al carrito, se navega a **Herramientas > WC Completo** y se preselecciona ese conjunto (cargando sus tazas, tanques y asientos).
 
 - **Backend**: `getWcConjuntosByProductoCodigo(productoCodigo)` en `supabase.js` consulta `wc_conjunto_tazas`, `wc_conjunto_tanques` y `wc_conjunto_asientos` por `producto_codigo`, obtiene los `conjunto_id` distintos y devuelve los `wc_conjuntos` activos ordenados.
-- **Frontend**: bloque `#addToCartWcConjuntos` en el modal de añadir al carrito (`#addToCartModal`); se rellena en `showAddToCartModal()`; metodo `openWcCompletoWithConjunto(conjuntoId)` para abrir WC Completo con el conjunto preseleccionado.
+- **Frontend**: bloque `#addToCartWcConjuntos` en el modal de anadir al carrito (`#addToCartModal`); se rellena en `showAddToCartModal()`; metodo `openWcCompletoWithConjunto(conjuntoId)` para abrir WC Completo con el conjunto preseleccionado.
+
+---
+
+## 11. Precios en WC Completo
+
+Las tarjetas de taza/tanque/asiento y el resumen inferior usan el mismo motor de precios que el resto de la app (`getPriceDisplayData`, `getDisplayAmount` en `app.js`):
+
+- Respetan **Mostrar precios con descuento** (tarifa + pactos) y **Mostrar precios con IVA incluido** (preferencias en Mi perfil).
+- Si hay descuento aplicable se muestra badge `-%` y marcador `(P)` cuando el descuento proviene de un pacto.
+- Al anadir piezas al carrito se guarda el PVP neto visible (`getPvpUnitarioVisible`), coherente con busqueda y escaner.

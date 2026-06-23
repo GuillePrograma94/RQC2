@@ -5,6 +5,9 @@
 /** Numero internacional (solo digitos) para wa.me en reportes de error a soporte. */
 const WHATSAPP_SOPORTE_ERRORES_E164 = '34696930773';
 
+/** Tipo impositivo general aplicado en visualizacion de precios (21%). */
+const IVA_RATE = 1.21;
+
 class ScanAsYouShopApp {
     constructor() {
         this.currentScreen = 'welcome';
@@ -32,6 +35,7 @@ class ScanAsYouShopApp {
         /** Map clave_descuento normalizada -> porcentaje de pacto del cliente */
         this.pactosClienteMapNormalized = new Map();
         this.mostrarPreciosConDescuento = true;
+        this.mostrarPreciosConIva = true;
         // Estado de chips de filtro de búsqueda
         this.filterChips = {
             misCompras: false,
@@ -165,6 +169,7 @@ class ScanAsYouShopApp {
             console.log('Sesion de usuario encontrada:', savedUser.user_name);
             this.currentUser = savedUser;
             this.loadPricingPreferenceForUser(this.currentUser);
+            this.loadIvaPreferenceForUser(this.currentUser);
             // Compatibilidad sesion antigua: derivar is_administracion si no existe
             if (this.currentUser.is_administracion === undefined && this.currentUser.tipo) {
                 this.currentUser.is_administracion = String(this.currentUser.tipo).toUpperCase() === 'ADMINISTRACION';
@@ -476,6 +481,7 @@ class ScanAsYouShopApp {
                     comercial_numero: loginResult.comercial_numero ?? null
                 };
                 this.loadPricingPreferenceForUser(this.currentUser);
+                this.loadIvaPreferenceForUser(this.currentUser);
 
                 // Crear sesion en sesiones_usuario solo para clientes (titular/operario).
                 // Comerciales y dependientes actuan como representantes y no usan sesiones_usuario.
@@ -650,6 +656,47 @@ class ScanAsYouShopApp {
             localStorage.setItem(key, this.mostrarPreciosConDescuento ? '1' : '0');
         } catch (e) {
             console.warn('savePricingPreferenceForUser:', e);
+        }
+    }
+
+    getIvaPreferenceStorageKey(userLike = this.currentUser) {
+        if (!userLike) return null;
+        const userId = userLike.user_id != null ? String(userLike.user_id).trim() : '';
+        const codigo = userLike.codigo_usuario != null ? String(userLike.codigo_usuario).trim() : '';
+        const suffix = userId || codigo;
+        if (!suffix) return null;
+        return `scan_show_prices_with_iva_${suffix}`;
+    }
+
+    loadIvaPreferenceForUser(userLike = this.currentUser) {
+        try {
+            const key = this.getIvaPreferenceStorageKey(userLike);
+            if (!key) {
+                this.mostrarPreciosConIva = true;
+                return this.mostrarPreciosConIva;
+            }
+            const raw = localStorage.getItem(key);
+            if (raw == null || raw === '') {
+                this.mostrarPreciosConIva = true;
+                return this.mostrarPreciosConIva;
+            }
+            this.mostrarPreciosConIva = raw === '1';
+            return this.mostrarPreciosConIva;
+        } catch (e) {
+            console.warn('loadIvaPreferenceForUser:', e);
+            this.mostrarPreciosConIva = true;
+            return this.mostrarPreciosConIva;
+        }
+    }
+
+    saveIvaPreferenceForUser(mostrarConIva, userLike = this.currentUser) {
+        this.mostrarPreciosConIva = !!mostrarConIva;
+        try {
+            const key = this.getIvaPreferenceStorageKey(userLike);
+            if (!key) return;
+            localStorage.setItem(key, this.mostrarPreciosConIva ? '1' : '0');
+        } catch (e) {
+            console.warn('saveIvaPreferenceForUser:', e);
         }
     }
 
@@ -2316,6 +2363,8 @@ class ScanAsYouShopApp {
         if (!this.currentUser) return;
         const pricingToggleEl = document.getElementById('profileMostrarPreciosConDescuento');
         const pricingHintEl = document.getElementById('profilePricingToggleHint');
+        const ivaToggleEl = document.getElementById('profileMostrarPreciosConIva');
+        const ivaHintEl = document.getElementById('profileIvaToggleHint');
         if (pricingToggleEl) {
             pricingToggleEl.checked = !!this.mostrarPreciosConDescuento;
         }
@@ -2323,6 +2372,14 @@ class ScanAsYouShopApp {
             pricingHintEl.textContent = this.mostrarPreciosConDescuento
                 ? 'Se muestran precios finales con descuento por tarifa cuando aplique.'
                 : 'Se muestran precios base sin aplicar descuento por tarifa.';
+        }
+        if (ivaToggleEl) {
+            ivaToggleEl.checked = !!this.mostrarPreciosConIva;
+        }
+        if (ivaHintEl) {
+            ivaHintEl.textContent = this.mostrarPreciosConIva
+                ? 'Los importes incluyen IVA al 21%.'
+                : 'Los importes son base imponible (sin IVA).';
         }
         if (this.currentUser.is_comercial || this.currentUser.is_dependiente) {
             const nameEl = document.getElementById('profileUserName');
@@ -3482,18 +3539,21 @@ class ScanAsYouShopApp {
             const cod = item[codigoKey] || '';
             const prod = await window.cartManager.getProductByCodigo(cod);
             const descItem = (prod && prod.descripcion) ? prod.descripcion : cod;
-            const pvp = (prod && prod.pvp != null) ? prod.pvp : 0;
+            const resolved = prod ? (await this.resolveProductoCatalogoConDescuento(cod) || prod) : null;
+            const priceBlock = resolved
+                ? this.formatPriceHtml(resolved, { cssPrefix: 'recambios-vista-card' })
+                : '<div class="recambios-vista-card-price">0.00 EUR</div>';
+            const pvp = resolved && resolved.pvp != null ? resolved.pvp : 0;
             const codEscItem = this.escapeForHtmlAttribute(cod);
             const descEscItem = this.escapeForHtmlAttribute(descItem);
             const imgUrlItem = base + codEscItem + '_1.JPG';
-            const priceStr = (pvp * 1.21).toFixed(2);
             cards.push('<button type="button" class="recambios-vista-card" data-codigo="' + codEscItem + '" data-descripcion="' + descEscItem + '" data-pvp="' + pvp + '" aria-label="' + descEscItem + '">' +
                 '<span class="recambios-vista-card-img-wrap">' +
                 '<img src="' + imgUrlItem + '" alt="" class="recambios-vista-card-img" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';"><span class="recambios-vista-card-placeholder" style="display:none;" aria-hidden="true"></span>' +
                 '</span>' +
                 '<span class="recambios-vista-card-desc">' + descEscItem + '</span>' +
                 '<span class="recambios-vista-card-code">' + codEscItem + '</span>' +
-                '<span class="recambios-vista-card-price">' + priceStr + ' EUR</span>' +
+                priceBlock +
                 '</button>');
         }
         gridEl.innerHTML = cards.join('');
@@ -3680,14 +3740,15 @@ class ScanAsYouShopApp {
             const cod = codAttr(item.codigo);
             const desc = this.escapeForHtmlAttribute(item.descripcion || '');
             const priceData = this.getPriceDisplayData(item);
-            const price = priceData.visibleSinIva.toFixed(2);
+            const price = priceData.visibleDisplay.toFixed(2);
+            const ivaLabel = this.getPriceSinIvaLabelHtml();
             const img = item.imageUrl || this._wcProductImageBase() + cod + '_1.JPG';
             return '<button type="button" class="wc-completo-card wc-completo-card-product" data-tipo="' + tipo + '" data-codigo="' + cod + '" data-descripcion="' + this.escapeForHtmlAttribute(item.descripcion || '') + '" data-pvp="' + (item.pvp != null ? item.pvp : 0) + '" aria-label="' + this.escapeForHtmlAttribute(item.descripcion || item.codigo) + '">' +
                 '<span class="wc-completo-card-product-img-wrap">' +
                 '<img src="' + this.escapeForHtmlAttribute(img) + '" alt="" class="wc-completo-card-product-img" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';"><span class="wc-completo-card-product-placeholder" style="display:none;" aria-hidden="true"></span>' +
                 '</span>' +
                 '<span class="wc-completo-card-product-desc">' + desc + '</span>' +
-                '<span class="wc-completo-card-product-price">' + price + ' EUR' + (priceData.hasDiscountApplied ? ' <span class="discount-badge">-' + Number(priceData.dtoPct).toFixed(0) + '%</span>' + (priceData.isPactoApplied ? ' <span class="discount-pacto-marker">(P)</span>' : '') : '') + '</span>' +
+                '<span class="wc-completo-card-product-price">' + price + ' EUR' + ivaLabel + (priceData.hasDiscountApplied ? ' <span class="discount-badge">-' + Number(priceData.dtoPct).toFixed(0) + '%</span>' + (priceData.isPactoApplied ? ' <span class="discount-pacto-marker">(P)</span>' : '') : '') + '</span>' +
                 '</button>';
         }).join('');
     }
@@ -3724,7 +3785,7 @@ class ScanAsYouShopApp {
         ['taza', 'tanque', 'asiento'].forEach(tipo => {
             const item = sel[tipo];
             if (item) {
-                total += this.getPvpUnitarioVisible(item);
+                total += this.getDisplayAmount(this.getPvpUnitarioVisible(item));
                 const img = base + this.escapeForHtmlAttribute(item.codigo) + '_1.JPG';
                 const label = tipo === 'taza' ? 'Taza' : tipo === 'tanque' ? 'Tanque' : 'Asiento';
                 const desc = this.escapeForHtmlAttribute(item.descripcion || '');
@@ -3732,12 +3793,12 @@ class ScanAsYouShopApp {
                     '<img src="' + img + '" alt="" onerror="this.style.display=\'none\'">' +
                     '<span class="wc-completo-summary-item-label">' + label + '</span>' +
                     '<span class="wc-completo-summary-item-desc">' + desc + '</span>' +
-                    '<span class="wc-completo-summary-item-price">' + this.getPvpUnitarioVisible(item).toFixed(2) + ' EUR</span>' +
+                    '<span class="wc-completo-summary-item-price">' + this.getDisplayAmount(this.getPvpUnitarioVisible(item)).toFixed(2) + ' EUR' + this.getPriceSinIvaLabelHtml() + '</span>' +
                     '</div>');
             }
         });
         itemsEl.innerHTML = parts.length ? parts.join('') : '<p class="wc-completo-summary-empty">Elige modelo y las piezas que quieras anadir.</p>';
-        if (totalEl) totalEl.textContent = parts.length ? 'Total: ' + total.toFixed(2) + ' EUR' : '';
+        if (totalEl) totalEl.textContent = parts.length ? 'Total: ' + total.toFixed(2) + ' EUR' + (this.mostrarPreciosConIva ? '' : ' (sin IVA)') : '';
         if (btn) btn.disabled = parts.length === 0;
     }
 
@@ -6480,37 +6541,84 @@ class ScanAsYouShopApp {
         return this.getPvpUnitarioConTarifa(producto);
     }
 
+    getIvaMultiplier() {
+        return this.mostrarPreciosConIva ? IVA_RATE : 1;
+    }
+
+    getDisplayAmount(sinIva) {
+        const n = Number(sinIva);
+        if (!Number.isFinite(n)) return 0;
+        return n * this.getIvaMultiplier();
+    }
+
+    getPriceSinIvaLabelHtml() {
+        if (this.mostrarPreciosConIva) return '';
+        return ' <span class="price-sin-iva-label">sin IVA</span>';
+    }
+
     getPriceDisplayData(producto) {
         const baseSinIva = producto && producto.pvp != null ? Number(producto.pvp) : 0;
         const dto = this.mostrarPreciosConDescuento ? this.getPorcentajeDtoTarifaParaProducto(producto) : null;
         const dtoPacto = this.mostrarPreciosConDescuento ? this.getPorcentajePactoParaProducto(producto) : null;
         const visibleSinIva = this.getPvpUnitarioVisible(producto);
+        const mult = this.getIvaMultiplier();
         return {
             baseSinIva,
-            dtoPct: dto,
             visibleSinIva,
-            baseConIva: baseSinIva * 1.21,
-            visibleConIva: visibleSinIva * 1.21,
+            dtoPct: dto,
+            baseDisplay: baseSinIva * mult,
+            visibleDisplay: visibleSinIva * mult,
+            baseConIva: baseSinIva * IVA_RATE,
+            visibleConIva: visibleSinIva * IVA_RATE,
             hasDiscountApplied: dto != null && dto > 0 && visibleSinIva < baseSinIva,
             isPactoApplied: dtoPacto != null && dto != null && dto > 0 && visibleSinIva < baseSinIva
         };
     }
 
-    renderPriceHtmlForSearchLike(producto) {
+    formatPriceHtml(producto, options = {}) {
         const priceData = this.getPriceDisplayData(producto);
+        const cssPrefix = options.cssPrefix || 'result';
+        const ivaLabel = this.getPriceSinIvaLabelHtml();
         const showDiscount =
             this.mostrarPreciosConDescuento &&
             priceData.dtoPct != null &&
-            Number(priceData.dtoPct) > 0;
+            Number(priceData.dtoPct) > 0 &&
+            priceData.hasDiscountApplied;
         if (!showDiscount) {
-            return `<div class="result-price">${priceData.visibleConIva.toFixed(2)} €</div>`;
+            return `<div class="${cssPrefix}-price">${priceData.visibleDisplay.toFixed(2)} EUR${ivaLabel}</div>`;
         }
         return `
-            <div class="result-price-container">
-                <div class="result-price-original">${priceData.baseConIva.toFixed(2)} €</div>
-                <div class="result-price-discount">${priceData.visibleConIva.toFixed(2)} € <span class="discount-badge">-${Number(priceData.dtoPct).toFixed(0)}%</span>${priceData.isPactoApplied ? ' <span class="discount-pacto-marker">(P)</span>' : ''}</div>
+            <div class="${cssPrefix}-price-container">
+                <div class="${cssPrefix}-price-original">${priceData.baseDisplay.toFixed(2)} EUR${ivaLabel}</div>
+                <div class="${cssPrefix}-price-discount">${priceData.visibleDisplay.toFixed(2)} EUR <span class="discount-badge">-${Number(priceData.dtoPct).toFixed(0)}%</span>${priceData.isPactoApplied ? ' <span class="discount-pacto-marker">(P)</span>' : ''}${ivaLabel}</div>
             </div>
         `;
+    }
+
+    formatPricePairHtml(originalAmount, discountAmount, badgeHtml, options = {}) {
+        const cssPrefix = options.cssPrefix || 'cart-product';
+        const ivaLabel = this.getPriceSinIvaLabelHtml();
+        return `
+            <div class="${cssPrefix}-price-container">
+                <div class="${cssPrefix}-price-original">${Number(originalAmount).toFixed(2)} EUR${ivaLabel}</div>
+                <div class="${cssPrefix}-price-discount">${Number(discountAmount).toFixed(2)} EUR${badgeHtml || ''}${ivaLabel}</div>
+            </div>
+        `;
+    }
+
+    formatSubtotalPairHtml(originalAmount, discountAmount, options = {}) {
+        const cssPrefix = options.cssPrefix || 'cart-product';
+        const ivaLabel = this.getPriceSinIvaLabelHtml();
+        return `
+            <div class="${cssPrefix}-subtotal-container">
+                <div class="${cssPrefix}-subtotal-original">${Number(originalAmount).toFixed(2)} EUR${ivaLabel}</div>
+                <div class="${cssPrefix}-subtotal-discount">${Number(discountAmount).toFixed(2)} EUR${ivaLabel}</div>
+            </div>
+        `;
+    }
+
+    renderPriceHtmlForSearchLike(producto) {
+        return this.formatPriceHtml(producto, { cssPrefix: 'result' });
     }
 
     refreshVisiblePricesAfterPreferenceChange() {
@@ -6524,6 +6632,24 @@ class ScanAsYouShopApp {
         }
         if (this.currentScreen === 'cart') {
             this.updateCartView();
+            return;
+        }
+        if (this.currentScreen === 'wcCompleto') {
+            this.renderWcCompletoSummary();
+            const sel = this.wcCompletoSelection || {};
+            ['taza', 'tanque', 'asiento'].forEach((tipo) => {
+                const gridId = 'wcCompleto' + (tipo === 'taza' ? 'Tazas' : tipo === 'tanque' ? 'Tanques' : 'Asientos') + 'Grid';
+                const grid = document.getElementById(gridId);
+                if (grid && sel[tipo]) {
+                    this.onWcCompletoProductSelect(tipo, sel[tipo].codigo);
+                }
+            });
+            return;
+        }
+        if (this.currentScreen === 'recambiosVista') {
+            if (this.recambiosVistaProductoCodigo && this.recambiosVistaMode) {
+                this.renderRecambiosVistaPageFromProduct();
+            }
         }
     }
 
@@ -7691,6 +7817,21 @@ class ScanAsYouShopApp {
             });
         }
 
+        const profileIvaToggle = document.getElementById('profileMostrarPreciosConIva');
+        if (profileIvaToggle) {
+            profileIvaToggle.addEventListener('change', () => {
+                const enabled = !!profileIvaToggle.checked;
+                this.saveIvaPreferenceForUser(enabled);
+                const hintEl = document.getElementById('profileIvaToggleHint');
+                if (hintEl) {
+                    hintEl.textContent = enabled
+                        ? 'Los importes incluyen IVA al 21%.'
+                        : 'Los importes son base imponible (sin IVA).';
+                }
+                this.refreshVisiblePricesAfterPreferenceChange();
+            });
+        }
+
         // Perfil: Añadir operario (abre modal)
         const profileAddOperarioBtn = document.getElementById('profileAddOperarioBtn');
         if (profileAddOperarioBtn) {
@@ -8581,12 +8722,12 @@ class ScanAsYouShopApp {
                 }
             }
 
-            // Filtro de precio (PVP sin IVA; comparamos contra pvp * 1.21 para precio con IVA)
+            // Filtro de precio (segun preferencia IVA y descuento del usuario)
             if (precioDesde !== null) {
-                productos = productos.filter(p => this.getPvpUnitarioVisible(p) * 1.21 >= precioDesde);
+                productos = productos.filter(p => this.getDisplayAmount(this.getPvpUnitarioVisible(p)) >= precioDesde);
             }
             if (precioHasta !== null) {
-                productos = productos.filter(p => this.getPvpUnitarioVisible(p) * 1.21 <= precioHasta);
+                productos = productos.filter(p => this.getDisplayAmount(this.getPvpUnitarioVisible(p)) <= precioHasta);
             }
 
             // Ordenar por stock efectivo descendente (mas stock = mas arriba).
@@ -9154,15 +9295,7 @@ class ScanAsYouShopApp {
             codeEl.textContent = producto.codigo;
             descriptionEl.textContent = producto.descripcion;
             const productoPrecio = await this.resolveProductoCatalogoConDescuento(producto.codigo) || producto;
-            const priceDataModal = this.getPriceDisplayData(productoPrecio);
-            if (priceDataModal.hasDiscountApplied) {
-                priceEl.innerHTML = `
-                    <span class="add-to-cart-price-original">${priceDataModal.baseConIva.toFixed(2)} €</span>
-                    <span class="add-to-cart-price-discount">${priceDataModal.visibleConIva.toFixed(2)} € <span class="discount-badge">-${Number(priceDataModal.dtoPct).toFixed(0)}%</span>${priceDataModal.isPactoApplied ? ' <span class="discount-pacto-marker">(P)</span>' : ''}</span>
-                `;
-            } else {
-                priceEl.textContent = `${priceDataModal.visibleConIva.toFixed(2)} €`;
-            }
+            priceEl.innerHTML = this.formatPriceHtml(productoPrecio, { cssPrefix: 'add-to-cart' });
 
             // Verificar si el producto tiene ofertas (solo para usuarios con grupo_cliente)
             let ofertaData = null;
@@ -9637,12 +9770,32 @@ class ScanAsYouShopApp {
             }
         }
 
-        // Actualizar header con totales
-        const totalWithIVA = cart.total_importe * 1.21;
-        this.updateCartHeader(cart.total_productos, totalWithIVA);
+        // Actualizar header con totales visibles (tarifa/oferta segun preferencias)
+        const totalVisible = await this.computeCartVisibleTotal(cart, ofertasByCodigo, intervalosCache, loteCache);
+        this.updateCartHeader(cart.total_productos, totalVisible);
         this.updateCartStaffButtons();
     }
     
+    async getCartDisplayTotal(cart) {
+        if (!cart || !Array.isArray(cart.productos) || cart.productos.length === 0) {
+            return 0;
+        }
+        const codigoCliente = this.getEffectiveGrupoCliente() || null;
+        const ofertasByCodigo = new Map();
+        const intervalosCache = {};
+        const loteCache = {};
+        if (codigoCliente && window.supabaseClient) {
+            const codigosUnicos = [...new Set(cart.productos.map(p => p.codigo_producto))];
+            for (const codigo of codigosUnicos) {
+                const ofertas = await window.supabaseClient.getOfertasProducto(codigo, codigoCliente, true);
+                if (ofertas && ofertas.length > 0) {
+                    ofertasByCodigo.set(codigo, ofertas);
+                }
+            }
+        }
+        return this.computeCartVisibleTotal(cart, ofertasByCodigo, intervalosCache, loteCache);
+    }
+
     /**
      * Actualiza el header del carrito con contadores
      */
@@ -9985,48 +10138,31 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Actualiza una tarjeta de producto existente sin regenerar el DOM
-     * Evita glitches y mantiene la posición de scroll
-     * @param {Map} [ofertasByCodigo] - Mapa precalculado codigo -> ofertas[]
-     * @param {Object} [intervalosCache] - Cache numero_oferta -> intervalos
-     * @param {Object} [loteCache] - Cache numero_oferta -> unidadesLote
+     * Calcula precios de linea de carrito segun tarifa, oferta y preferencias de visualizacion.
      */
-    async updateCartProductCard(card, producto, ofertasByCodigo, intervalosCache, loteCache) {
-        const priceWithIVA = producto.precio_unitario * 1.21;
-        const subtotalWithIVA = producto.subtotal * 1.21;
+    async computeCartLineDisplayPricing(producto, ofertasByCodigo, intervalosCache, loteCache) {
+        const priceStored = this.getDisplayAmount(producto.precio_unitario);
+        const subtotalStored = this.getDisplayAmount(producto.subtotal);
         const productoCatalogo = await this.resolveProductoCatalogoConDescuento(producto.codigo_producto);
         const dtoTarifa = this.mostrarPreciosConDescuento && productoCatalogo
             ? this.getPorcentajeDtoTarifaParaProducto(productoCatalogo)
             : null;
-        const priceWithIVABaseTarifa = productoCatalogo && productoCatalogo.pvp != null
-            ? Number(productoCatalogo.pvp) * 1.21
-            : priceWithIVA;
-        const priceWithIVADtoTarifa = productoCatalogo
-            ? this.getPvpUnitarioConTarifa(productoCatalogo) * 1.21
-            : priceWithIVA;
-        const subtotalWithIVADtoTarifa = priceWithIVADtoTarifa * producto.cantidad;
-        
-        // Actualizar cantidad en el input
-        const qtyInput = card.querySelector('.qty-value-input');
-        if (qtyInput && qtyInput.value != producto.cantidad) {
-            qtyInput.value = producto.cantidad;
-        }
-        
-        // Actualizar badge de cantidad en la imagen
-        const qtyBadge = card.querySelector('.cart-product-quantity-badge');
-        if (qtyBadge) {
-            qtyBadge.textContent = producto.cantidad;
-        }
-        
-        // Recalcular ofertas y precios
+        const priceBaseTarifa = productoCatalogo && productoCatalogo.pvp != null
+            ? this.getDisplayAmount(productoCatalogo.pvp)
+            : priceStored;
+        const priceDtoTarifa = productoCatalogo
+            ? this.getDisplayAmount(this.getPvpUnitarioConTarifa(productoCatalogo))
+            : priceStored;
+        const subtotalDtoTarifa = priceDtoTarifa * producto.cantidad;
+
         const codigoCliente = this.getEffectiveGrupoCliente() || null;
-        let precioConDescuento = priceWithIVA;
-        let subtotalConDescuento = subtotalWithIVA;
+        let precioConDescuento = priceStored;
+        let subtotalConDescuento = subtotalStored;
         let descuentoAplicado = 0;
         let precioNetoOfertaAplicado = false;
         let ofertaActiva = null;
         let resultadoOferta = null;
-        
+
         if (codigoCliente) {
             const ofertas = (ofertasByCodigo && ofertasByCodigo.get(producto.codigo_producto)) ||
                 await window.supabaseClient.getOfertasProducto(producto.codigo_producto, codigoCliente, true);
@@ -10034,13 +10170,12 @@ class ScanAsYouShopApp {
                 ofertaActiva = ofertas[0];
                 const carrito = window.cartManager.getCart();
                 resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito, ofertasByCodigo, intervalosCache, loteCache);
-                
                 if (resultadoOferta && resultadoOferta.cumplida) {
                     const precioNetoOferta = ofertaActiva.precio != null && ofertaActiva.precio !== '' && parseFloat(ofertaActiva.precio) > 0 ? parseFloat(ofertaActiva.precio) : 0;
                     const tipoOfertaNum = Number(ofertaActiva.tipo_oferta);
                     const usarPrecioNetoFijo = precioNetoOferta > 0 && tipoOfertaNum !== 2;
                     if (usarPrecioNetoFijo) {
-                        precioConDescuento = precioNetoOferta * 1.21;
+                        precioConDescuento = this.getDisplayAmount(precioNetoOferta);
                         subtotalConDescuento = precioConDescuento * producto.cantidad;
                         precioNetoOfertaAplicado = true;
                     } else {
@@ -10048,85 +10183,127 @@ class ScanAsYouShopApp {
                         if (descuento > 0 && factor > 0) {
                             descuentoAplicado = descuento;
                             if (ofertaActiva.tipo_oferta === 3 || ofertaActiva.tipo_oferta === 4) {
-                                const precioSinDescuento = priceWithIVA;
-                                const precioConDescuentoTotal = priceWithIVA * (1 - descuento / 100);
+                                const precioSinDescuento = priceStored;
+                                const precioConDescuentoTotal = priceStored * (1 - descuento / 100);
                                 precioConDescuento = (precioConDescuentoTotal * factor) + (precioSinDescuento * (1 - factor));
                                 subtotalConDescuento = precioConDescuento * producto.cantidad;
                             } else {
-                                precioConDescuento = priceWithIVA * (1 - descuento / 100);
-                                subtotalConDescuento = subtotalWithIVA * (1 - descuento / 100);
+                                precioConDescuento = priceStored * (1 - descuento / 100);
+                                subtotalConDescuento = subtotalStored * (1 - descuento / 100);
                             }
                         }
                     }
                 }
             }
         }
-        
-        // Actualizar badge de oferta
-        const ofertaBadge = card.querySelector('.oferta-badge');
-        if (ofertaActiva && resultadoOferta) {
-            if (ofertaBadge) {
-                ofertaBadge.textContent = resultadoOferta.mensaje;
-                ofertaBadge.className = `oferta-badge ${resultadoOferta.cumplida ? 'oferta-cumplida' : 'oferta-pendiente'}`;
-            }
-        }
-        
-        // Actualizar precios aplicando la opción más favorable para el cliente
+
         const mostrarPrecioOferta = descuentoAplicado > 0 || precioNetoOfertaAplicado;
         const badgeTextoOferta = precioNetoOfertaAplicado ? 'Precio oferta' : (descuentoAplicado > 0 ? `-${descuentoAplicado}%` : '');
-        const tarifaDisponible = dtoTarifa != null && dtoTarifa > 0 && priceWithIVADtoTarifa < priceWithIVABaseTarifa;
+        const tarifaDisponible = dtoTarifa != null && dtoTarifa > 0 && priceDtoTarifa < priceBaseTarifa;
         const pactoTarifaAplicado = productoCatalogo && this.getPorcentajePactoParaProducto(productoCatalogo) != null;
-        const ofertaDisponible = mostrarPrecioOferta && precioConDescuento < priceWithIVA;
-        const usarOferta = ofertaDisponible && (!tarifaDisponible || precioConDescuento <= priceWithIVADtoTarifa);
+        const ofertaDisponible = mostrarPrecioOferta && precioConDescuento < priceStored;
+        const usarOferta = ofertaDisponible && (!tarifaDisponible || precioConDescuento <= priceDtoTarifa);
         const usarTarifa = tarifaDisponible && !usarOferta;
 
+        let unitFinal = priceStored;
+        let subtotalFinal = subtotalStored;
         if (usarOferta) {
-            const priceContainer = card.querySelector('.cart-product-price-container, .cart-product-price');
-            if (priceContainer) {
-                priceContainer.innerHTML = `
-                    <div class="cart-product-price-original">${priceWithIVA.toFixed(2)} €</div>
-                    <div class="cart-product-price-discount">${precioConDescuento.toFixed(2)} €${badgeTextoOferta ? ` <span class="discount-badge">${badgeTextoOferta}</span>` : ''}</div>
-                `;
-                priceContainer.className = 'cart-product-price-container';
-            }
-            
-            const subtotalContainer = card.querySelector('.cart-product-subtotal-container, .cart-product-subtotal');
-            if (subtotalContainer) {
-                subtotalContainer.innerHTML = `
-                    <div class="cart-product-subtotal-original">${subtotalWithIVA.toFixed(2)} €</div>
-                    <div class="cart-product-subtotal-discount">${subtotalConDescuento.toFixed(2)} €</div>
-                `;
-                subtotalContainer.className = 'cart-product-subtotal-container';
-            }
+            unitFinal = precioConDescuento;
+            subtotalFinal = subtotalConDescuento;
         } else if (usarTarifa) {
-            const priceContainer = card.querySelector('.cart-product-price-container, .cart-product-price');
-            if (priceContainer) {
-                priceContainer.innerHTML = `
-                    <div class="cart-product-price-original">${priceWithIVABaseTarifa.toFixed(2)} €</div>
-                    <div class="cart-product-price-discount">${priceWithIVADtoTarifa.toFixed(2)} € <span class="discount-badge">-${Number(dtoTarifa).toFixed(0)}%</span>${pactoTarifaAplicado ? ' <span class="discount-pacto-marker">(P)</span>' : ''}</div>
-                `;
-                priceContainer.className = 'cart-product-price-container';
+            unitFinal = priceDtoTarifa;
+            subtotalFinal = subtotalDtoTarifa;
+        }
+
+        return {
+            cantidad: producto.cantidad,
+            priceStored,
+            subtotalStored,
+            priceBaseTarifa,
+            priceDtoTarifa,
+            subtotalDtoTarifa,
+            precioConDescuento,
+            subtotalConDescuento,
+            dtoTarifa,
+            pactoTarifaAplicado,
+            usarOferta,
+            usarTarifa,
+            badgeTextoOferta,
+            unitFinal,
+            subtotalFinal,
+            ofertaActiva,
+            resultadoOferta
+        };
+    }
+
+    async computeCartVisibleTotal(cart, ofertasByCodigo, intervalosCache, loteCache) {
+        let total = 0;
+        for (const producto of cart.productos) {
+            const line = await this.computeCartLineDisplayPricing(producto, ofertasByCodigo, intervalosCache, loteCache);
+            total += line.subtotalFinal;
+        }
+        return total;
+    }
+
+    buildCartLinePriceHtml(linePricing) {
+        const ivaLabel = this.getPriceSinIvaLabelHtml();
+        if (linePricing.usarOferta) {
+            const badge = linePricing.badgeTextoOferta ? ` <span class="discount-badge">${linePricing.badgeTextoOferta}</span>` : '';
+            return {
+                precioHTML: this.formatPricePairHtml(linePricing.priceStored, linePricing.precioConDescuento, badge),
+                subtotalHTML: this.formatSubtotalPairHtml(linePricing.subtotalStored, linePricing.subtotalConDescuento)
+            };
+        }
+        if (linePricing.usarTarifa) {
+            const badge = ` <span class="discount-badge">-${Number(linePricing.dtoTarifa).toFixed(0)}%</span>${linePricing.pactoTarifaAplicado ? ' <span class="discount-pacto-marker">(P)</span>' : ''}`;
+            return {
+                precioHTML: this.formatPricePairHtml(linePricing.priceBaseTarifa, linePricing.priceDtoTarifa, badge),
+                subtotalHTML: this.formatSubtotalPairHtml(linePricing.priceBaseTarifa * linePricing.cantidad, linePricing.subtotalDtoTarifa)
+            };
+        }
+        return {
+            precioHTML: `<div class="cart-product-price">${linePricing.priceStored.toFixed(2)} EUR${ivaLabel}</div>`,
+            subtotalHTML: `<div class="cart-product-subtotal">${linePricing.subtotalStored.toFixed(2)} EUR${ivaLabel}</div>`
+        };
+    }
+
+    /**
+     * Actualiza una tarjeta de producto existente sin regenerar el DOM
+     * Evita glitches y mantiene la posición de scroll
+     * @param {Map} [ofertasByCodigo] - Mapa precalculado codigo -> ofertas[]
+     * @param {Object} [intervalosCache] - Cache numero_oferta -> intervalos
+     * @param {Object} [loteCache] - Cache numero_oferta -> unidadesLote
+     */
+    async updateCartProductCard(card, producto, ofertasByCodigo, intervalosCache, loteCache) {
+        const linePricing = await this.computeCartLineDisplayPricing(producto, ofertasByCodigo, intervalosCache, loteCache);
+        const { precioHTML, subtotalHTML } = this.buildCartLinePriceHtml(linePricing);
+
+        const qtyInput = card.querySelector('.qty-value-input');
+        if (qtyInput && qtyInput.value != producto.cantidad) {
+            qtyInput.value = producto.cantidad;
+        }
+
+        const qtyBadge = card.querySelector('.cart-product-quantity-badge');
+        if (qtyBadge) {
+            qtyBadge.textContent = producto.cantidad;
+        }
+
+        const ofertaBadge = card.querySelector('.oferta-badge');
+        if (linePricing.ofertaActiva && linePricing.resultadoOferta) {
+            if (ofertaBadge) {
+                ofertaBadge.textContent = linePricing.resultadoOferta.mensaje;
+                ofertaBadge.className = `oferta-badge ${linePricing.resultadoOferta.cumplida ? 'oferta-cumplida' : 'oferta-pendiente'}`;
             }
-            const subtotalContainer = card.querySelector('.cart-product-subtotal-container, .cart-product-subtotal');
-            if (subtotalContainer) {
-                subtotalContainer.innerHTML = `
-                    <div class="cart-product-subtotal-original">${(priceWithIVABaseTarifa * producto.cantidad).toFixed(2)} €</div>
-                    <div class="cart-product-subtotal-discount">${subtotalWithIVADtoTarifa.toFixed(2)} €</div>
-                `;
-                subtotalContainer.className = 'cart-product-subtotal-container';
-            }
-        } else {
-            const priceContainer = card.querySelector('.cart-product-price-container, .cart-product-price');
-            if (priceContainer) {
-                priceContainer.textContent = `${priceWithIVA.toFixed(2)} €`;
-                priceContainer.className = 'cart-product-price';
-            }
-            
-            const subtotalContainer = card.querySelector('.cart-product-subtotal-container, .cart-product-subtotal');
-            if (subtotalContainer) {
-                subtotalContainer.textContent = `${subtotalWithIVA.toFixed(2)} €`;
-                subtotalContainer.className = 'cart-product-subtotal';
-            }
+        }
+
+        const priceContainer = card.querySelector('.cart-product-price-container, .cart-product-price');
+        if (priceContainer) {
+            priceContainer.outerHTML = precioHTML;
+        }
+
+        const subtotalContainer = card.querySelector('.cart-product-subtotal-container, .cart-product-subtotal');
+        if (subtotalContainer) {
+            subtotalContainer.outerHTML = subtotalHTML;
         }
     }
 
@@ -10140,111 +10317,14 @@ class ScanAsYouShopApp {
         const card = document.createElement('div');
         card.className = 'cart-product-card';
 
-        const priceWithIVA = producto.precio_unitario * 1.21;
-        const subtotalWithIVA = producto.subtotal * 1.21;
-        const productoCatalogo = await this.resolveProductoCatalogoConDescuento(producto.codigo_producto);
-        const dtoTarifa = this.mostrarPreciosConDescuento && productoCatalogo
-            ? this.getPorcentajeDtoTarifaParaProducto(productoCatalogo)
-            : null;
-        const priceWithIVABaseTarifa = productoCatalogo && productoCatalogo.pvp != null
-            ? Number(productoCatalogo.pvp) * 1.21
-            : priceWithIVA;
-        const priceWithIVADtoTarifa = productoCatalogo
-            ? this.getPvpUnitarioConTarifa(productoCatalogo) * 1.21
-            : priceWithIVA;
-        const subtotalWithIVADtoTarifa = priceWithIVADtoTarifa * producto.cantidad;
-
+        const linePricing = await this.computeCartLineDisplayPricing(producto, ofertasByCodigo, intervalosCache, loteCache);
+        const { precioHTML, subtotalHTML } = this.buildCartLinePriceHtml(linePricing);
         const imageUrl = `https://www.saneamiento-martinez.com/imagenes/articulos/${producto.codigo_producto}_1.JPG`;
-        
-        // Obtener ofertas del producto (mapa precalculado o cache)
-        const codigoCliente = this.getEffectiveGrupoCliente() || null;
-        let resultadoOferta = null;
-        let ofertaActiva = null;
-        let precioConDescuento = priceWithIVA;
-        let subtotalConDescuento = subtotalWithIVA;
-        let descuentoAplicado = 0;
-        let precioNetoOfertaAplicado = false;
-        
-        if (codigoCliente) {
-            const ofertas = (ofertasByCodigo && ofertasByCodigo.get(producto.codigo_producto)) ||
-                await window.supabaseClient.getOfertasProducto(producto.codigo_producto, codigoCliente, true);
-            if (ofertas && ofertas.length > 0) {
-                ofertaActiva = ofertas[0];
-                const carrito = window.cartManager.getCart();
-                resultadoOferta = await this.verificarOfertaCumplida(ofertaActiva, producto.codigo_producto, producto.cantidad, carrito, ofertasByCodigo, intervalosCache, loteCache);
-                if (resultadoOferta && resultadoOferta.cumplida) {
-                    const precioNetoOferta = ofertaActiva.precio != null && ofertaActiva.precio !== '' && parseFloat(ofertaActiva.precio) > 0 ? parseFloat(ofertaActiva.precio) : 0;
-                    const tipoOfertaNum = Number(ofertaActiva.tipo_oferta);
-                    const usarPrecioNetoFijo = precioNetoOferta > 0 && tipoOfertaNum !== 2;
-                    if (usarPrecioNetoFijo) {
-                        precioConDescuento = precioNetoOferta * 1.21;
-                        subtotalConDescuento = precioConDescuento * producto.cantidad;
-                        precioNetoOfertaAplicado = true;
-                    } else {
-                        const { descuento, factor } = await this.calcularDescuentoOferta(ofertaActiva, producto, carrito, ofertasByCodigo, intervalosCache, loteCache);
-                        if (descuento > 0 && factor > 0) {
-                            descuentoAplicado = descuento;
-                            if (ofertaActiva.tipo_oferta === 3 || ofertaActiva.tipo_oferta === 4) {
-                                const precioSinDescuento = priceWithIVA;
-                                const precioConDescuentoTotal = priceWithIVA * (1 - descuento / 100);
-                                precioConDescuento = (precioConDescuentoTotal * factor) + (precioSinDescuento * (1 - factor));
-                                subtotalConDescuento = precioConDescuento * producto.cantidad;
-                            } else {
-                                precioConDescuento = priceWithIVA * (1 - descuento / 100);
-                                subtotalConDescuento = subtotalWithIVA * (1 - descuento / 100);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Generar HTML del rectángulo de oferta con mensaje inteligente
+
         let ofertaHTML = '';
-        if (ofertaActiva && resultadoOferta) {
-            const claseOferta = resultadoOferta.cumplida ? 'oferta-cumplida' : 'oferta-pendiente';
-            ofertaHTML = `<div class="oferta-badge ${claseOferta}" onclick="event.stopPropagation(); window.app.verProductosOfertaDesdeCarrito('${ofertaActiva.numero_oferta}')">${this.escapeForHtmlAttribute(resultadoOferta.mensaje)}</div>`;
-        }
-        
-        // Generar HTML del precio aplicando la opción más favorable para el cliente
-        const mostrarPrecioOferta = descuentoAplicado > 0 || precioNetoOfertaAplicado;
-        const badgeTextoOferta = precioNetoOfertaAplicado ? 'Precio oferta' : (descuentoAplicado > 0 ? `-${descuentoAplicado}%` : '');
-        const tarifaDisponible = dtoTarifa != null && dtoTarifa > 0 && priceWithIVADtoTarifa < priceWithIVABaseTarifa;
-        const pactoTarifaAplicado = productoCatalogo && this.getPorcentajePactoParaProducto(productoCatalogo) != null;
-        const ofertaDisponible = mostrarPrecioOferta && precioConDescuento < priceWithIVA;
-        const usarOferta = ofertaDisponible && (!tarifaDisponible || precioConDescuento <= priceWithIVADtoTarifa);
-        const usarTarifa = tarifaDisponible && !usarOferta;
-        let precioHTML = '';
-        let subtotalHTML = '';
-        if (usarOferta) {
-            precioHTML = `
-                <div class="cart-product-price-container">
-                    <div class="cart-product-price-original">${priceWithIVA.toFixed(2)} €</div>
-                    <div class="cart-product-price-discount">${precioConDescuento.toFixed(2)} €${badgeTextoOferta ? ` <span class="discount-badge">${badgeTextoOferta}</span>` : ''}</div>
-                </div>
-            `;
-            subtotalHTML = `
-                <div class="cart-product-subtotal-container">
-                    <div class="cart-product-subtotal-original">${subtotalWithIVA.toFixed(2)} €</div>
-                    <div class="cart-product-subtotal-discount">${subtotalConDescuento.toFixed(2)} €</div>
-                </div>
-            `;
-        } else if (usarTarifa) {
-            precioHTML = `
-                <div class="cart-product-price-container">
-                    <div class="cart-product-price-original">${priceWithIVABaseTarifa.toFixed(2)} €</div>
-                    <div class="cart-product-price-discount">${priceWithIVADtoTarifa.toFixed(2)} € <span class="discount-badge">-${Number(dtoTarifa).toFixed(0)}%</span>${pactoTarifaAplicado ? ' <span class="discount-pacto-marker">(P)</span>' : ''}</div>
-                </div>
-            `;
-            subtotalHTML = `
-                <div class="cart-product-subtotal-container">
-                    <div class="cart-product-subtotal-original">${(priceWithIVABaseTarifa * producto.cantidad).toFixed(2)} €</div>
-                    <div class="cart-product-subtotal-discount">${subtotalWithIVADtoTarifa.toFixed(2)} €</div>
-                </div>
-            `;
-        } else {
-            precioHTML = `<div class="cart-product-price">${priceWithIVA.toFixed(2)} €</div>`;
-            subtotalHTML = `<div class="cart-product-subtotal">${subtotalWithIVA.toFixed(2)} €</div>`;
+        if (linePricing.ofertaActiva && linePricing.resultadoOferta) {
+            const claseOferta = linePricing.resultadoOferta.cumplida ? 'oferta-cumplida' : 'oferta-pendiente';
+            ofertaHTML = `<div class="oferta-badge ${claseOferta}" onclick="event.stopPropagation(); window.app.verProductosOfertaDesdeCarrito('${linePricing.ofertaActiva.numero_oferta}')">${this.escapeForHtmlAttribute(linePricing.resultadoOferta.mensaje)}</div>`;
         }
 
         // Determinar si hay oferta para ajustar el layout
@@ -10522,11 +10602,11 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            const totalWithIVA = cart.total_importe * 1.21;
+            const totalVisible = await this.getCartDisplayTotal(cart);
             
             const confirm = window.confirm(
                 `¿Dirigirse a caja?\n\n` +
-                `Total: ${totalWithIVA.toFixed(2)}€\n` +
+                `Total: ${totalVisible.toFixed(2)}€\n` +
                 `Productos: ${cart.total_productos}\n\n` +
                 `Escanea el codigo QR de la caja para enviar tu carrito.`
             );
@@ -11950,9 +12030,9 @@ class ScanAsYouShopApp {
             this.notifyOrderConfirmationEmail(result.carrito_id);
 
             window.ui.hideLoading();
-            const totalWithIVA = cart.total_importe * 1.21;
+            const totalVisible = await this.getCartDisplayTotal(cart);
             window.ui.showToast(
-                `Pedido enviado a ${almacen} - ${totalWithIVA.toFixed(2)}€`,
+                `Pedido enviado a ${almacen} - ${totalVisible.toFixed(2)}€`,
                 'success'
             );
 
@@ -12238,7 +12318,7 @@ class ScanAsYouShopApp {
         const observaciones = hasObservaciones ? this.escapeForHtmlContentPreservingNewlines(String(prepedido.observaciones).trim()) : '';
         const hasOperario = prepedido.nombre_operario && String(prepedido.nombre_operario).trim() !== '';
         const operario = hasOperario ? this.escapeForHtmlAttribute(String(prepedido.nombre_operario).trim()) : '';
-        const totalConIva = (prepedido.total_importe || 0) * 1.21;
+        const totalConIVA = this.getDisplayAmount(prepedido.total_importe || 0);
         card.innerHTML = `
             <div class="order-card-header" onclick="window.app.togglePrepedidoDetails(${idAttr})">
                 <div class="order-card-main">
@@ -12256,7 +12336,7 @@ class ScanAsYouShopApp {
                     ${hasOperario ? `<div class="order-operario">Prepedido por ${operario}</div>` : ''}
                     <div class="order-card-totals">
                         <span class="order-items">${prepedido.total_productos} producto${prepedido.total_productos !== 1 ? 's' : ''}</span>
-                        <span class="order-total">${totalConIva.toFixed(2)} €</span>
+                        <span class="order-total">${totalConIVA.toFixed(2)} EUR</span>
                     </div>
                 </div>
                 <div class="order-card-trigger" data-order-id="${idAttr}">
@@ -13669,8 +13749,8 @@ class ScanAsYouShopApp {
         const tipoPedido = pedido.tipo_pedido === 'remoto' ? 'Remoto' : 'Presencial';
         const tipoClass = pedido.tipo_pedido === 'remoto' ? 'remote' : 'presencial';
 
-        // Calcular total con IVA
-        const totalConIVA = (pedido.total_importe || 0) * 1.21;
+        // Calcular total segun preferencia IVA
+        const totalConIVA = this.getDisplayAmount(pedido.total_importe || 0);
 
         // Observaciones y operario (escapados para HTML)
         const hasObservaciones = pedido.observaciones && String(pedido.observaciones).trim() !== '';
@@ -14035,10 +14115,13 @@ class ScanAsYouShopApp {
                 try {
                     const cat = await this.resolveProductoCatalogoConDescuento(cod);
                     const pvp = cat && cat.pvp != null ? Number(cat.pvp) : null;
-                    if (pvp != null && pvp > 0.0001 && precio < pvp - 0.0001) {
-                        const pct = (1 - precio / pvp) * 100;
-                        if (pct > 0.05) {
-                            row._dto_pct = Math.round(pct * 100) / 100;
+                    if (pvp != null && pvp > 0.0001) {
+                        row._pvp_catalog = pvp;
+                        if (precio < pvp - 0.0001) {
+                            const pct = (1 - precio / pvp) * 100;
+                            if (pct > 0.05) {
+                                row._dto_pct = Math.round(pct * 100) / 100;
+                            }
                         }
                     }
                 } catch (_) {
@@ -14061,34 +14144,50 @@ class ScanAsYouShopApp {
         const codigo = String(producto.codigo_producto || producto.codigo || '').trim();
         const descripcion = String(producto.descripcion_producto || producto.descripcion || '-');
         const cantidad = Number(producto.cantidad != null ? producto.cantidad : 0);
+        const ivaLabel = this.getPriceSinIvaLabelHtml();
 
-        let precioConIVA;
-        let subtotalConIVA;
+        let precioDisplay;
+        let subtotalDisplay;
         let discountHtml = '';
+        let priceDetailHtml = '';
 
         if (mode === 'presupuesto') {
             const pvpBase = Number(producto.precio_unitario || 0);
             const dto = Number(producto.dto_pct || 0);
             const imp = Number(producto.importe_linea != null ? producto.importe_linea : 0);
             const unitNet = pvpBase * (1 - Math.min(100, Math.max(0, dto)) / 100);
-            precioConIVA = unitNet * 1.21;
-            subtotalConIVA = imp * 1.21;
-            if (dto > 0.001) {
+            precioDisplay = this.getDisplayAmount(unitNet);
+            subtotalDisplay = this.getDisplayAmount(imp);
+            if (dto > 0.001 && this.mostrarPreciosConDescuento) {
                 const d = dto % 1 === 0 ? dto.toFixed(0) : dto.toFixed(1);
+                const baseDisplay = this.getDisplayAmount(pvpBase);
                 discountHtml = `<span class="order-product-discount" title="Descuento sobre PVP">-${d}%</span>`;
+                priceDetailHtml = `
+                    <span class="order-product-price-original">${baseDisplay.toFixed(2)} EUR</span>
+                    <span class="order-product-price">${precioDisplay.toFixed(2)} EUR/ud${ivaLabel}</span>
+                `;
             }
         } else {
             const pu = Number(producto.precio_unitario != null ? producto.precio_unitario : 0);
             const sub = Number(
                 producto.subtotal != null ? producto.subtotal : pu * (producto.cantidad != null ? producto.cantidad : 0)
             );
-            precioConIVA = pu * 1.21;
-            subtotalConIVA = sub * 1.21;
+            precioDisplay = this.getDisplayAmount(pu);
+            subtotalDisplay = this.getDisplayAmount(sub);
             const dto = producto._dto_pct != null ? Number(producto._dto_pct) : null;
-            if (dto != null && !Number.isNaN(dto) && dto > 0.001) {
+            const pvpCatalog = producto._pvp_catalog != null ? Number(producto._pvp_catalog) : null;
+            if (dto != null && !Number.isNaN(dto) && dto > 0.001 && this.mostrarPreciosConDescuento && pvpCatalog != null) {
                 const d = dto % 1 === 0 ? dto.toFixed(0) : dto.toFixed(1);
                 discountHtml = `<span class="order-product-discount" title="Descuento respecto al PVP del catalogo">-${d}%</span>`;
+                priceDetailHtml = `
+                    <span class="order-product-price-original">${this.getDisplayAmount(pvpCatalog).toFixed(2)} EUR</span>
+                    <span class="order-product-price">${precioDisplay.toFixed(2)} EUR/ud${ivaLabel}</span>
+                `;
             }
+        }
+
+        if (!priceDetailHtml) {
+            priceDetailHtml = `<span class="order-product-price">${precioDisplay.toFixed(2)} EUR/ud${ivaLabel}</span>`;
         }
 
         const safeCodAttr = this.escapeForHtmlAttribute(codigo);
@@ -14129,8 +14228,8 @@ class ScanAsYouShopApp {
                         <div class="order-product-details">
                             <span class="order-product-qty">x${cantidad}</span>
                             ${discountHtml}
-                            <span class="order-product-price">${precioConIVA.toFixed(2)} EUR/ud</span>
-                            <span class="order-product-subtotal">${subtotalConIVA.toFixed(2)} EUR</span>
+                            ${priceDetailHtml}
+                            <span class="order-product-subtotal">${subtotalDisplay.toFixed(2)} EUR${ivaLabel}</span>
                         </div>
                     </div>
                     ${reorderBtn}

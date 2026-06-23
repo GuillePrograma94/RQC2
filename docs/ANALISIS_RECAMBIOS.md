@@ -148,4 +148,13 @@ No requiere cambios en el codigo frontend ni en las API routes.
 | `app.js`                               | showScreen('recambios'), renderRecambios, anadir/quitar recambios y padres.                                                         |
 | `styles.css`                           | Estilos para pantalla recambios (reutilizar .wc-piezas-* o .recambios-*).                                                           |
 
+---
+
+## 7. Precios en la vista de recambios (cliente)
+
+En la pantalla **Recambios / Sirve para** (`recambiosVista`), cada tarjeta de producto muestra el precio con el motor global (`resolveProductoCatalogoConDescuento` + `formatPriceHtml`):
+
+- Aplica descuento por tarifa/pacto si la preferencia **Mostrar precios con descuento** esta activa.
+- Aplica IVA segun **Mostrar precios con IVA incluido** (default: con IVA al 21%).
+- Si no hay descuento, se muestra un unico importe sin badge ni precio tachado.
 

@@ -165,15 +165,20 @@ class ScannerManager {
         const card = document.createElement('div');
         card.className = 'product-card';
 
-        const price = window.app && typeof window.app.getPvpUnitarioConTarifa === 'function'
-            ? window.app.getPvpUnitarioConTarifa(producto)
-            : parseFloat(producto.pvp || 0);
-        const priceWithIVA = price * 1.21;
+        let priceHtml = '';
+        if (window.app && typeof window.app.formatPriceHtml === 'function') {
+            priceHtml = window.app.formatPriceHtml(producto, { cssPrefix: 'product' });
+        } else {
+            const mult = (window.app && typeof window.app.getIvaMultiplier === 'function')
+                ? window.app.getIvaMultiplier()
+                : 1.21;
+            priceHtml = `<span class="product-price">${(parseFloat(producto.pvp || 0) * mult).toFixed(2)} EUR</span>`;
+        }
 
         card.innerHTML = `
             <div class="product-header">
                 <span class="product-code">${producto.codigo}</span>
-                <span class="product-price">${priceWithIVA.toFixed(2)}€</span>
+                ${priceHtml}
             </div>
             <div class="product-description">${producto.descripcion}</div>
             <div class="product-actions">
@@ -235,8 +240,8 @@ class ScannerManager {
      */
     async addToCart(producto, cantidad = 1) {
         try {
-            const pvpAdj = window.app && typeof window.app.getPvpUnitarioConTarifa === 'function'
-                ? window.app.getPvpUnitarioConTarifa(producto)
+            const pvpAdj = window.app && typeof window.app.getPvpUnitarioVisible === 'function'
+                ? window.app.getPvpUnitarioVisible(producto)
                 : parseFloat(producto.pvp || 0);
             const productoCarrito = Object.assign({}, producto, { pvp: pvpAdj });
             const cantidadSeleccionada = await window.app.showAddToCartModal(productoCarrito);
@@ -539,8 +544,8 @@ class ScannerManager {
             
             if (products.length === 1) {
                 const producto = products[0];
-                const pvpCarrito = window.app && typeof window.app.getPvpUnitarioConTarifa === 'function'
-                    ? window.app.getPvpUnitarioConTarifa(producto)
+                const pvpCarrito = window.app && typeof window.app.getPvpUnitarioVisible === 'function'
+                    ? window.app.getPvpUnitarioVisible(producto)
                     : producto.pvp;
                 
                 // Vibración de feedback (si está disponible)
