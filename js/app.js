@@ -5546,8 +5546,15 @@ class ScanAsYouShopApp {
             let versionCheck = null;
             if (manifest && manifest.version_hash_remota) {
                 const manifestStats = window.supabaseClient.buildChangeStatsFromManifest(manifest);
-                const domainChanges = window.supabaseClient.countCatalogDomainChanges(manifestStats);
+                let domainChanges = window.supabaseClient.countCatalogDomainChanges(manifestStats);
                 const hashChanged = !!manifest.hay_actualizacion;
+                if (!hashChanged && domainChanges === 0 && typeof window.supabaseClient.needsClavesDescuentoRefresh === 'function') {
+                    try {
+                        if (await window.supabaseClient.needsClavesDescuentoRefresh()) {
+                            domainChanges = 1;
+                        }
+                    } catch (_) { /* ignorar */ }
+                }
                 versionCheck = {
                     necesitaActualizacion: hashChanged || domainChanges > 0,
                     versionRemota: {
@@ -5580,11 +5587,24 @@ class ScanAsYouShopApp {
             }
 
             if (!versionCheck.necesitaActualizacion) {
+                let clavesActualizadas = false;
+                try {
+                    window.ui.updateSyncIndicator('Comprobando tarifas descuento...');
+                    clavesActualizadas = await this.syncClavesDescuentoInBackground((progress) => {
+                        const percent = progress.total ? Math.round((progress.loaded / progress.total) * 100) : 0;
+                        window.ui.updateSyncIndicator(`Tarifas ${percent}%`);
+                    });
+                } catch (clavesErr) {
+                    console.warn('syncClavesDescuentoInBackground:', clavesErr && clavesErr.message);
+                }
                 window.ui.updateSyncIndicator('Sincronizando pactos cliente...');
                 await this.syncPactosClientesInBackground();
                 this.setCatalogSyncMode(false);
                 window.ui.showSyncIndicator(false);
-                window.ui.showToast('Catálogo actualizado', 'success');
+                window.ui.showToast(
+                    clavesActualizadas ? 'Tarifas de descuento actualizadas' : 'Catálogo actualizado',
+                    'success'
+                );
                 return;
             }
 
@@ -6358,6 +6378,40 @@ class ScanAsYouShopApp {
             this.clavesDescuentoMap = new Map();
             this.clavesDescuentoMapNormalized = new Map();
         }
+    }
+
+    /**
+     * Sincroniza claves_descuento si la fecha maxima remota es mas reciente que la local.
+     * No depende de version_control (cambios desde panel admin de tarifas).
+     */
+    async syncClavesDescuentoInBackground(onProgress = null) {
+        if (!window.supabaseClient || typeof window.supabaseClient.needsClavesDescuentoRefresh !== 'function') {
+            return false;
+        }
+        const needs = await window.supabaseClient.needsClavesDescuentoRefresh();
+        if (!needs) {
+            console.log('claves_descuento: cache local al dia (fecha maxima)');
+            return false;
+        }
+        const remoteMax = await window.supabaseClient.getClavesDescuentoRemoteMaxFecha();
+        const localMax = window.cartManager && typeof window.cartManager.getClavesDescuentoLocalMaxFecha === 'function'
+            ? window.cartManager.getClavesDescuentoLocalMaxFecha()
+            : null;
+        console.log('claves_descuento: actualizando tarifas', { remoteMax, localMax });
+        const rows = await window.supabaseClient.downloadClavesDescuentoFull(onProgress);
+        if (!rows || rows.length === 0) {
+            console.warn('claves_descuento: descarga vacia');
+            return false;
+        }
+        if (window.cartManager && typeof window.cartManager.saveClavesDescuentoToStorage === 'function') {
+            await window.cartManager.saveClavesDescuentoToStorage(rows);
+        }
+        await this.refreshClavesDescuentoCache();
+        if (typeof this.refreshVisiblePricesAfterPreferenceChange === 'function') {
+            this.refreshVisiblePricesAfterPreferenceChange();
+        }
+        console.log(`claves_descuento: ${rows.length} claves guardadas en cache local`);
+        return true;
     }
 
     async refreshPactosClienteCache(codigoCliente = null) {

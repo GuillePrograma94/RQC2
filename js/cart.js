@@ -819,6 +819,7 @@ class CartManager {
         console.log(`Guardando claves_descuento en cache local: ${normalized.length} registros`);
         try {
             await this.replaceStoreChunked('claves_descuento', normalized, 2000);
+            this._persistClavesDescuentoMaxFechaLocal(normalized);
             console.log('Claves_descuento guardadas correctamente');
         } catch (e) {
             const msg = e && e.message ? e.message : String(e);
@@ -878,7 +879,34 @@ class CartManager {
             }
         }
 
+        this._persistClavesDescuentoMaxFechaLocal(normalized);
+
         return { inserted: upserted, updated: 0, upserted: upserted };
+    }
+
+    _persistClavesDescuentoMaxFechaLocal(rows) {
+        if (!Array.isArray(rows) || rows.length === 0) return;
+        let maxFecha = this.getClavesDescuentoLocalMaxFecha();
+        for (const r of rows) {
+            const f = r && r.fecha_actualizacion ? String(r.fecha_actualizacion) : '';
+            if (f && (!maxFecha || f > maxFecha)) maxFecha = f;
+        }
+        if (maxFecha) {
+            try {
+                localStorage.setItem('scan_claves_descuento_max_fecha', maxFecha);
+            } catch (e) {
+                console.warn('_persistClavesDescuentoMaxFechaLocal:', e);
+            }
+        }
+    }
+
+    getClavesDescuentoLocalMaxFecha() {
+        try {
+            const v = localStorage.getItem('scan_claves_descuento_max_fecha');
+            return v && String(v).trim() !== '' ? String(v).trim() : null;
+        } catch (e) {
+            return null;
+        }
     }
 
     /**

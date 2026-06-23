@@ -245,6 +245,49 @@ class SupabaseClient {
     }
 
     /**
+     * Fecha maxima de claves_descuento en servidor (tabla pequena).
+     */
+    async getClavesDescuentoRemoteMaxFecha() {
+        try {
+            if (!this.client) return null;
+            const { data, error } = await this.client
+                .from('claves_descuento')
+                .select('fecha_actualizacion')
+                .order('fecha_actualizacion', { ascending: false })
+                .limit(1);
+            if (error) {
+                console.warn('getClavesDescuentoRemoteMaxFecha:', error.message);
+                return null;
+            }
+            const row = Array.isArray(data) && data.length > 0 ? data[0] : null;
+            return row && row.fecha_actualizacion ? String(row.fecha_actualizacion) : null;
+        } catch (e) {
+            console.warn('getClavesDescuentoRemoteMaxFecha:', e && e.message);
+            return null;
+        }
+    }
+
+    /**
+     * Descarga todas las claves_descuento (tabla pequena).
+     */
+    async downloadClavesDescuentoFull(onProgress = null) {
+        return await this._downloadWithPagination('claves_descuento', onProgress);
+    }
+
+    /**
+     * True si en servidor hay claves_descuento mas recientes que el cache local.
+     */
+    async needsClavesDescuentoRefresh() {
+        const remoteMax = await this.getClavesDescuentoRemoteMaxFecha();
+        if (!remoteMax) return false;
+        const localMax = window.cartManager && typeof window.cartManager.getClavesDescuentoLocalMaxFecha === 'function'
+            ? window.cartManager.getClavesDescuentoLocalMaxFecha()
+            : null;
+        if (!localMax) return true;
+        return remoteMax > localMax;
+    }
+
+    /**
      * Obtiene estadísticas de cambios desde una versión específica
      * Útil para decidir si hacer sincronización incremental o completa
      */
@@ -531,8 +574,14 @@ class SupabaseClient {
                 return [];
             }
             try {
-                if (useIncClave) {
-                    return await this._downloadIncrementalWithPagination({
+                // Tabla pequena: refresco completo si hay cambios por fecha (no depende de version_control).
+                const needsRefresh = await this.needsClavesDescuentoRefresh();
+                if (!needsRefresh && incrementalContext && clN === 0) {
+                    console.log('claves_descuento: sin cambios por fecha, se omite descarga');
+                    return [];
+                }
+                if (useIncClave && clN > 0) {
+                    const inc = await this._downloadIncrementalWithPagination({
                         rpcName: 'obtener_claves_descuento_modificadas_paginado',
                         fallbackRpcName: 'obtener_claves_descuento_modificadas',
                         versionHashLocal: versionHashLocal,
@@ -541,6 +590,8 @@ class SupabaseClient {
                         expectedTotal: clN,
                         pageSize: 2000
                     });
+                    if (inc.length > 0) return inc;
+                    console.warn('claves_descuento incremental vacio; fallback a descarga completa');
                 }
                 return await this._downloadWithPagination('claves_descuento', onProgress);
             } catch (e) {
