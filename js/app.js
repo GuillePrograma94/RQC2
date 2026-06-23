@@ -2379,7 +2379,7 @@ class ScanAsYouShopApp {
         if (ivaHintEl) {
             ivaHintEl.textContent = this.mostrarPreciosConIva
                 ? 'Los importes incluyen IVA al 21%.'
-                : 'Los importes son base imponible (sin IVA).';
+                : 'Los importes son base imponible (IVA no incl.).';
         }
         if (this.currentUser.is_comercial || this.currentUser.is_dependiente) {
             const nameEl = document.getElementById('profileUserName');
@@ -3798,7 +3798,7 @@ class ScanAsYouShopApp {
             }
         });
         itemsEl.innerHTML = parts.length ? parts.join('') : '<p class="wc-completo-summary-empty">Elige modelo y las piezas que quieras anadir.</p>';
-        if (totalEl) totalEl.textContent = parts.length ? 'Total: ' + total.toFixed(2) + ' EUR' + (this.mostrarPreciosConIva ? '' : ' (sin IVA)') : '';
+        if (totalEl) totalEl.textContent = parts.length ? 'Total: ' + total.toFixed(2) + ' EUR' + (this.mostrarPreciosConIva ? '' : ' (IVA no incl.)') : '';
         if (btn) btn.disabled = parts.length === 0;
     }
 
@@ -5545,15 +5545,38 @@ class ScanAsYouShopApp {
             // Verificar si necesita actualización comparando hashes
             let versionCheck = null;
             if (manifest && manifest.version_hash_remota) {
+                const manifestStats = window.supabaseClient.buildChangeStatsFromManifest(manifest);
+                const domainChanges = window.supabaseClient.countCatalogDomainChanges(manifestStats);
+                const hashChanged = !!manifest.hay_actualizacion;
                 versionCheck = {
-                    necesitaActualizacion: !!manifest.hay_actualizacion,
+                    necesitaActualizacion: hashChanged || domainChanges > 0,
                     versionRemota: {
                         version_hash: manifest.version_hash_remota,
                         fecha_actualizacion: manifest.version_fecha_remota || null
                     }
                 };
+                if (!hashChanged && domainChanges > 0) {
+                    console.log(
+                        'Cambios de catalogo sin nueva version_control: ' +
+                        `productos=${manifest.productos_cambios || 0} ` +
+                        `codigos=${manifest.codigos_cambios || 0} ` +
+                        `claves_descuento=${manifest.claves_descuento_cambios || 0}`
+                    );
+                }
             } else {
                 versionCheck = await window.supabaseClient.verificarActualizacionNecesaria();
+                if (!versionCheck.necesitaActualizacion && versionLocalHash) {
+                    window.ui.updateSyncIndicator('Analizando cambios...');
+                    try {
+                        const stats = await window.supabaseClient.getChangeStatistics(versionLocalHash);
+                        if (window.supabaseClient.countCatalogDomainChanges(stats) > 0) {
+                            versionCheck.necesitaActualizacion = true;
+                            console.log('Cambios de catalogo detectados via estadisticas (sin manifest)');
+                        }
+                    } catch (statsErr) {
+                        console.warn('No se pudieron leer estadisticas de cambios:', statsErr && statsErr.message);
+                    }
+                }
             }
 
             if (!versionCheck.necesitaActualizacion) {
@@ -5575,14 +5598,7 @@ class ScanAsYouShopApp {
 
             let changeStats = null;
             if (versionLocalHash && manifest) {
-                changeStats = {
-                    productos_modificados: Number(manifest.productos_cambios) || 0,
-                    productos_nuevos: 0,
-                    codigos_modificados: Number(manifest.codigos_cambios) || 0,
-                    codigos_nuevos: 0,
-                    claves_descuento_modificadas: Number(manifest.claves_descuento_cambios) || 0,
-                    claves_descuento_nuevas: 0
-                };
+                changeStats = window.supabaseClient.buildChangeStatsFromManifest(manifest);
             } else if (versionLocalHash) {
                 window.ui.updateSyncIndicator('Analizando cambios...');
                 try {
@@ -6553,7 +6569,7 @@ class ScanAsYouShopApp {
 
     getPriceSinIvaLabelHtml() {
         if (this.mostrarPreciosConIva) return '';
-        return ' <span class="price-sin-iva-label">sin IVA</span>';
+        return ' <span class="price-sin-iva-label">IVA no incl.</span>';
     }
 
     getPriceDisplayData(producto) {
@@ -7826,7 +7842,7 @@ class ScanAsYouShopApp {
                 if (hintEl) {
                     hintEl.textContent = enabled
                         ? 'Los importes incluyen IVA al 21%.'
-                        : 'Los importes son base imponible (sin IVA).';
+                        : 'Los importes son base imponible (IVA no incl.).';
                 }
                 this.refreshVisiblePricesAfterPreferenceChange();
             });

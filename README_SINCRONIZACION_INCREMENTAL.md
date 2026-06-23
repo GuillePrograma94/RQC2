@@ -190,6 +190,8 @@ Devuelve un resumen único para la toma de decisiones de sync en cliente:
 - conteos auxiliares (`familias_total`, `familias_asignadas_total`)
 - `stock_hash` (si existe `stock_meta`)
 
+`hay_actualizacion` debe ser `true` tambien cuando solo cambian `claves_descuento` (p. ej. % de tarifa en clave `0803`) aunque `version_control` no haya cambiado. Migracion: `migration_fix_manifest_claves_descuento_sync.sql`. El cliente (`syncProductsInBackground`) trata `claves_descuento_cambios > 0` como motivo de sync aunque el hash sea el mismo.
+
 ### 5. `obtener_*_modificados_paginado(version_hash, limit, offset)`
 
 Wrappers paginados para:

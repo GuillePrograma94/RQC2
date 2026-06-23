@@ -218,6 +218,33 @@ class SupabaseClient {
     }
 
     /**
+     * Cuenta cambios pendientes por dominio (productos, codigos, claves_descuento).
+     */
+    countCatalogDomainChanges(changeStats) {
+        if (!changeStats) return 0;
+        return (
+            (Number(changeStats.productos_modificados) || 0) +
+            (Number(changeStats.productos_nuevos) || 0) +
+            (Number(changeStats.codigos_modificados) || 0) +
+            (Number(changeStats.codigos_nuevos) || 0) +
+            (Number(changeStats.claves_descuento_modificadas) || 0) +
+            (Number(changeStats.claves_descuento_nuevas) || 0)
+        );
+    }
+
+    buildChangeStatsFromManifest(manifest) {
+        if (!manifest) return null;
+        return {
+            productos_modificados: Number(manifest.productos_cambios) || 0,
+            productos_nuevos: 0,
+            codigos_modificados: Number(manifest.codigos_cambios) || 0,
+            codigos_nuevos: 0,
+            claves_descuento_modificadas: Number(manifest.claves_descuento_cambios) || 0,
+            claves_descuento_nuevas: 0
+        };
+    }
+
+    /**
      * Obtiene estadísticas de cambios desde una versión específica
      * Útil para decidir si hacer sincronización incremental o completa
      */

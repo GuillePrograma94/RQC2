@@ -736,6 +736,20 @@ BEGIN
         SELECT sm.hash INTO v_stock_hash FROM stock_meta sm WHERE sm.id = 1;
     END IF;
 
+    -- Cambios en claves_descuento (u otros dominios) sin bump de version_control
+    -- deben marcar hay_actualizacion para que el cliente sincronice incrementalmente.
+    IF NOT v_hay_actualizacion
+       AND p_version_hash_local IS NOT NULL
+       AND p_version_hash_local <> ''
+       AND v_local_encontrada
+       AND (
+           COALESCE(v_prod_changes, 0) > 0
+           OR COALESCE(v_cod_changes, 0) > 0
+           OR COALESCE(v_clave_changes, 0) > 0
+       ) THEN
+        v_hay_actualizacion := TRUE;
+    END IF;
+
     RETURN QUERY
     SELECT
         v_hash_remota,
