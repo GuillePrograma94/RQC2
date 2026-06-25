@@ -7217,6 +7217,24 @@ class ScanAsYouShopApp {
                 this.showScreen('panelPedidosPendienteErp');
             });
         }
+        const panelControlEncargadosComercialesBtn = document.getElementById('panelControlEncargadosComercialesBtn');
+        if (panelControlEncargadosComercialesBtn) {
+            panelControlEncargadosComercialesBtn.addEventListener('click', () => {
+                this.showScreen('panelEncargadosComerciales');
+            });
+        }
+        const panelEncargadosComercialesBackBtn = document.getElementById('panelEncargadosComercialesBackBtn');
+        if (panelEncargadosComercialesBackBtn) {
+            panelEncargadosComercialesBackBtn.addEventListener('click', () => {
+                this.showScreen('panelControl');
+            });
+        }
+        const panelEncargadosComercialesAddBtn = document.getElementById('panelEncargadosComercialesAddBtn');
+        if (panelEncargadosComercialesAddBtn) {
+            panelEncargadosComercialesAddBtn.addEventListener('click', () => {
+                this.handleAddEncargadoComercial();
+            });
+        }
         const panelPedidosPendienteErpBackBtn = document.getElementById('panelPedidosPendienteErpBackBtn');
         if (panelPedidosPendienteErpBackBtn) {
             panelPedidosPendienteErpBackBtn.addEventListener('click', () => {
@@ -8532,6 +8550,12 @@ class ScanAsYouShopApp {
             if (screenName === 'panelPedidosPendienteErp') {
                 this.loadPanelPedidosPendienteErp().catch(function (err) {
                     console.error('loadPanelPedidosPendienteErp:', err);
+                });
+            }
+
+            if (screenName === 'panelEncargadosComerciales') {
+                this.loadPanelEncargadosComerciales().catch(function (err) {
+                    console.error('loadPanelEncargadosComerciales:', err);
                 });
             }
 
@@ -13744,6 +13768,238 @@ class ScanAsYouShopApp {
             ordersEmpty.style.display = 'flex';
             window.ui.showToast('Error al cargar tus pedidos', 'error');
         }
+    }
+
+    /**
+     * Panel de control (admin): encargados de comerciales (copia oculta en emails de pedido).
+     */
+    async loadPanelEncargadosComerciales() {
+        const loadingEl = document.getElementById('panelEncargadosComercialesLoading');
+        const emptyEl = document.getElementById('panelEncargadosComercialesEmpty');
+        const layoutEl = document.getElementById('panelEncargadosComercialesLayout');
+        if (!loadingEl || !emptyEl || !layoutEl) return;
+
+        if (!this.currentUser || !this.currentUser.is_administrador) {
+            window.ui.showToast('Solo el administrador puede ver esta pantalla', 'error');
+            this.showScreen('panelControl');
+            return;
+        }
+        if (!window.supabaseClient || typeof window.supabaseClient.getComercialesForAdmin !== 'function') {
+            window.ui.showToast('Servicio no disponible', 'error');
+            return;
+        }
+
+        loadingEl.style.display = 'flex';
+        emptyEl.style.display = 'none';
+        layoutEl.style.display = 'none';
+
+        try {
+            const comerciales = await window.supabaseClient.getComercialesForAdmin();
+            const encargadosRows = await window.supabaseClient.getAllComercialesEncargadosActivos();
+            const elegibles = await window.supabaseClient.getUsuariosElegiblesEncargado();
+
+            const countByNumero = new Map();
+            (encargadosRows || []).forEach(function (row) {
+                const n = row.comercial_numero;
+                if (n == null) return;
+                countByNumero.set(n, (countByNumero.get(n) || 0) + 1);
+            });
+
+            this._panelEncargadosState = {
+                comerciales: comerciales || [],
+                countByNumero: countByNumero,
+                elegibles: elegibles || [],
+                selectedComercialNumero: null,
+                encargadosActuales: []
+            };
+
+            loadingEl.style.display = 'none';
+
+            if (!comerciales || comerciales.length === 0) {
+                emptyEl.style.display = 'flex';
+                return;
+            }
+
+            layoutEl.style.display = '';
+            this.renderPanelEncargadosComercialesList();
+            this.renderPanelEncargadosComercialesDetail();
+        } catch (err) {
+            console.error('loadPanelEncargadosComerciales:', err);
+            loadingEl.style.display = 'none';
+            emptyEl.style.display = 'flex';
+            window.ui.showToast('Error al cargar encargados de comerciales', 'error');
+        }
+    }
+
+    renderPanelEncargadosComercialesList() {
+        const listEl = document.getElementById('panelEncargadosComercialesList');
+        const state = this._panelEncargadosState;
+        if (!listEl || !state) return;
+
+        const selected = state.selectedComercialNumero;
+        listEl.innerHTML = '';
+
+        state.comerciales.forEach((c) => {
+            const num = c.numero != null ? c.numero : c.id;
+            const count = state.countByNumero.get(num) || 0;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'encargados-comerciales-item' + (selected === num ? ' is-selected' : '');
+            btn.innerHTML =
+                '<span class="encargados-comerciales-item-num">Nº ' + this.escapeForHtmlAttribute(String(num)) + '</span>' +
+                '<span class="encargados-comerciales-item-name">' + this.escapeForHtmlAttribute(c.nombre || '') + '</span>' +
+                '<span class="encargados-comerciales-item-count">' + count + ' encargado(s)</span>';
+            const self = this;
+            btn.addEventListener('click', function () {
+                self.selectPanelEncargadoComercial(num);
+            });
+            listEl.appendChild(btn);
+        });
+    }
+
+    async selectPanelEncargadoComercial(comercialNumero) {
+        const state = this._panelEncargadosState;
+        if (!state) return;
+
+        state.selectedComercialNumero = comercialNumero;
+        state.encargadosActuales = await window.supabaseClient.getEncargadosByComercialNumero(comercialNumero);
+        this.renderPanelEncargadosComercialesList();
+        this.renderPanelEncargadosComercialesDetail();
+    }
+
+    renderPanelEncargadosComercialesDetail() {
+        const titleEl = document.getElementById('panelEncargadosComercialesDetailTitle');
+        const hintEl = document.getElementById('panelEncargadosComercialesDetailHint');
+        const detailEl = document.getElementById('panelEncargadosComercialesDetail');
+        const selectEl = document.getElementById('panelEncargadosComercialesSelect');
+        const listEl = document.getElementById('panelEncargadosComercialesEncargadosList');
+        const state = this._panelEncargadosState;
+        if (!titleEl || !hintEl || !detailEl || !selectEl || !listEl || !state) return;
+
+        const num = state.selectedComercialNumero;
+        if (num == null) {
+            titleEl.textContent = 'Selecciona un comercial';
+            hintEl.style.display = '';
+            detailEl.style.display = 'none';
+            listEl.innerHTML = '';
+            return;
+        }
+
+        const comercial = state.comerciales.find(function (c) {
+            const n = c.numero != null ? c.numero : c.id;
+            return n === num;
+        });
+        const nombre = comercial && comercial.nombre ? comercial.nombre : '';
+        titleEl.textContent = 'Comercial Nº ' + num + (nombre ? ' - ' + nombre : '');
+        hintEl.style.display = 'none';
+        detailEl.style.display = '';
+
+        const comercialUsuarioId = comercial && comercial.usuario_id != null ? comercial.usuario_id : null;
+        const assignedIds = new Set((state.encargadosActuales || []).map(function (e) {
+            return e.encargado_usuario_id;
+        }));
+
+        selectEl.innerHTML = '<option value="">Selecciona usuario...</option>';
+        (state.elegibles || []).forEach((u) => {
+            if (assignedIds.has(u.id)) return;
+            if (comercialUsuarioId != null && u.id === comercialUsuarioId) return;
+            const email = (u.email || '').trim();
+            const emailLabel = email ? ' - ' + email : ' - sin email';
+            const opt = document.createElement('option');
+            opt.value = String(u.id);
+            opt.textContent = (u.codigo_usuario || '') + ' - ' + (u.nombre || '') + ' (' + (u.tipo || '') + ')' + emailLabel;
+            selectEl.appendChild(opt);
+        });
+
+        listEl.innerHTML = '';
+        if (!state.encargadosActuales || state.encargadosActuales.length === 0) {
+            listEl.innerHTML = '<p class="encargados-comerciales-empty">Sin encargados asignados.</p>';
+            return;
+        }
+
+        const self = this;
+        state.encargadosActuales.forEach(function (enc) {
+            const row = document.createElement('div');
+            row.className = 'encargados-comerciales-encargado-row';
+            const email = (enc.email || '').trim();
+            const emailHtml = email
+                ? self.escapeForHtmlAttribute(email)
+                : '<span class="encargados-comerciales-no-email">Sin email configurado</span>';
+            row.innerHTML =
+                '<div class="encargados-comerciales-encargado-info">' +
+                '<strong>' + self.escapeForHtmlAttribute(enc.nombre || '') + '</strong>' +
+                '<span class="encargados-comerciales-encargado-meta">' +
+                self.escapeForHtmlAttribute(enc.codigo_usuario || '') + ' · ' + self.escapeForHtmlAttribute(enc.tipo || '') +
+                '</span>' +
+                '<span class="encargados-comerciales-encargado-email">' + emailHtml + '</span>' +
+                '</div>' +
+                '<button type="button" class="btn btn-small btn-danger encargados-comerciales-remove-btn">Quitar</button>';
+            const removeBtn = row.querySelector('.encargados-comerciales-remove-btn');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function () {
+                    self.handleRemoveEncargadoComercial(enc.id, num);
+                });
+            }
+            listEl.appendChild(row);
+        });
+    }
+
+    async handleAddEncargadoComercial() {
+        const state = this._panelEncargadosState;
+        const selectEl = document.getElementById('panelEncargadosComercialesSelect');
+        if (!state || state.selectedComercialNumero == null || !selectEl) return;
+
+        const encargadoId = parseInt(selectEl.value, 10);
+        if (!Number.isFinite(encargadoId)) {
+            window.ui.showToast('Selecciona un encargado', 'error');
+            return;
+        }
+
+        const result = await window.supabaseClient.addComercialEncargado(state.selectedComercialNumero, encargadoId);
+        if (!result || !result.success) {
+            window.ui.showToast(result && result.message ? result.message : 'No se pudo anadir el encargado', 'error');
+            return;
+        }
+
+        const num = state.selectedComercialNumero;
+        const encargadosRows = await window.supabaseClient.getAllComercialesEncargadosActivos();
+        const countByNumero = new Map();
+        (encargadosRows || []).forEach(function (row) {
+            const n = row.comercial_numero;
+            if (n == null) return;
+            countByNumero.set(n, (countByNumero.get(n) || 0) + 1);
+        });
+        state.countByNumero = countByNumero;
+        state.encargadosActuales = await window.supabaseClient.getEncargadosByComercialNumero(num);
+        selectEl.value = '';
+        this.renderPanelEncargadosComercialesList();
+        this.renderPanelEncargadosComercialesDetail();
+        window.ui.showToast('Encargado anadido', 'success');
+    }
+
+    async handleRemoveEncargadoComercial(rowId, comercialNumero) {
+        const state = this._panelEncargadosState;
+        if (!state) return;
+
+        const result = await window.supabaseClient.removeComercialEncargado(rowId);
+        if (!result || !result.success) {
+            window.ui.showToast(result && result.message ? result.message : 'No se pudo quitar el encargado', 'error');
+            return;
+        }
+
+        const num = comercialNumero != null ? comercialNumero : state.selectedComercialNumero;
+        const encargadosRows = await window.supabaseClient.getAllComercialesEncargadosActivos();
+        const countByNumero = new Map();
+        (encargadosRows || []).forEach(function (row) {
+            const n = row.comercial_numero;
+            if (n == null) return;
+            countByNumero.set(n, (countByNumero.get(n) || 0) + 1);
+        });
+        state.countByNumero = countByNumero;
+        state.encargadosActuales = await window.supabaseClient.getEncargadosByComercialNumero(num);
+        this.renderPanelEncargadosComercialesList();
+        this.renderPanelEncargadosComercialesDetail();
+        window.ui.showToast('Encargado eliminado', 'success');
     }
 
     /**

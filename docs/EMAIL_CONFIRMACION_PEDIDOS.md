@@ -21,6 +21,7 @@ Ejecutar en Supabase SQL Editor (en este orden):
 3. `scan_client_mobile/migration_empresas_smtp_pedidos.sql`
 4. `scan_client_mobile/migration_empresas_email_respuesta.sql`
 5. **Si guarda desde Panel de Control (rol ADMINISTRADOR):** `scan_client_mobile/migration_empresas_por_almacen_admin_rls.sql`
+6. **Encargados de comerciales (CCO en confirmacion):** `scan_client_mobile/migration_comerciales_encargados.sql`
 
 Sin (3) y (4) el guardado SMTP falla. Sin (5) un **ADMINISTRADOR** no puede escribir en `empresas_por_almacen` (solo lectura); **ADMINISTRACION** si puede con las politicas de `migration_presupuestos.sql`.
 
@@ -38,8 +39,11 @@ Sin (3) y (4) el guardado SMTP falla. Sin (5) un **ADMINISTRADOR** no puede escr
 | Entidad | Campo | Donde configurarlo |
 |---------|-------|-------------------|
 | Cliente | `usuarios.email` | Panel de usuarios, Excel masivo |
-| Comercial (CC) | `usuarios_comerciales.email` | Tab Comerciales |
-| **ADMINISTRADOR** | `usuarios.email` | Panel usuarios, tipo ADMINISTRADOR |
+| Comercial (CC visible) | `usuarios_comerciales.email` | Tab Comerciales del panel de usuarios |
+| Encargado del comercial (BCC / CCO oculto) | email segun tipo | Panel de Control > Encargados de comerciales (rol ADMINISTRADOR) |
+| **ADMINISTRADOR** (alerta ERP) | `usuarios.email` | Panel usuarios, tipo ADMINISTRADOR |
+
+**Encargados:** usuario `COMERCIAL`, `DEPENDIENTE` o `ADMINISTRADOR` (no `ADMINISTRACION`). Varios encargados por comercial; un mismo usuario puede supervisar varios comerciales. El email del encargado comercial se toma de `usuarios_comerciales.email`; dependiente y administrador de `usuarios.email`.
 
 ---
 
@@ -108,7 +112,7 @@ Tras cambiar SMTP o variables: **redeploy** en Vercel (`npm install` incluye `no
 
 1. Pedido remoto enviado **correctamente al ERP** (`estado_procesamiento = procesando`).
 2. `POST /api/orders/send-confirmation-email`
-3. **To:** cliente. **CC:** comercial asignado.
+3. **To:** cliente. **CC:** comercial asignado (visible para el cliente). **BCC (CCO):** encargados del comercial (ocultos para el cliente).
 
 ## Flujo alerta ADMINISTRADOR
 

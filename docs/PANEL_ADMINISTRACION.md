@@ -50,3 +50,13 @@ Ademas del panel exclusivo de `ADMINISTRACION`, la app de tienda (roles no ADMIN
 - El estado se guarda en `familias.activo_inicio` (BOOLEAN, `TRUE` por defecto).
 - Si una familia queda desactivada, deja de mostrarse solo en el arbol de `Inicio > Catalogo por familia`.
 - Este cambio no modifica la logica general de busqueda/filtro por familia fuera de esa vista.
+
+## Encargados de comerciales (rol ADMINISTRADOR)
+
+En **Panel de Control** de la app tienda (`tipo = ADMINISTRADOR`, no `ADMINISTRACION`):
+
+1. Menu hamburguesa > **Panel de Control** > **Encargados de comerciales**.
+2. Seleccionar un comercial y asignar uno o mas supervisores (comercial, dependiente o administrador con email).
+3. Esos encargados reciben **copia oculta (BCC)** en el email de confirmacion de pedido de los clientes de ese comercial.
+
+Migracion: `scan_client_mobile/migration_comerciales_encargados.sql`. Tabla: `comerciales_encargados`.

@@ -2630,7 +2630,7 @@ class SupabaseClient {
     }
 
     /**
-     * Envia email de confirmacion de pedido remoto al cliente (CC al comercial asignado).
+     * Envia email de confirmacion de pedido remoto al cliente (CC comercial, BCC encargados).
      * Fire-and-forget desde la app; no bloquea el flujo de pedido.
      * @param {string|number} carritoId
      * @returns {Promise<{success?: boolean, skipped?: boolean, sent?: boolean}>}
@@ -4338,6 +4338,294 @@ class SupabaseClient {
         const del = await this.client.storage.from('fotos_familias').remove([path]);
         if (del.error) {
             throw del.error;
+        }
+    }
+
+    /**
+     * Lista comerciales para Panel de Control (admin).
+     */
+    async getComercialesForAdmin() {
+        try {
+            if (!this.client) return [];
+            const { data, error } = await this.client
+                .from('usuarios_comerciales')
+                .select('id, numero, nombre, email, usuario_id')
+                .order('numero', { ascending: true });
+            if (error) {
+                console.error('getComercialesForAdmin:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getComercialesForAdmin:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Todos los encargados activos (para conteos en lista de comerciales).
+     */
+    async getAllComercialesEncargadosActivos() {
+        try {
+            if (!this.client) return [];
+            const { data, error } = await this.client
+                .from('comerciales_encargados')
+                .select('id, comercial_numero, encargado_usuario_id')
+                .eq('activo', true);
+            if (error) {
+                console.error('getAllComercialesEncargadosActivos:', error);
+                return [];
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error('getAllComercialesEncargadosActivos:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Encargados de un comercial con datos de usuario y email resuelto.
+     */
+    async getEncargadosByComercialNumero(comercialNumero) {
+        try {
+            if (!this.client || comercialNumero == null) return [];
+            const num = typeof comercialNumero === 'string' ? parseInt(comercialNumero, 10) : comercialNumero;
+            if (!Number.isFinite(num)) return [];
+
+            const { data: rows, error } = await this.client
+                .from('comerciales_encargados')
+                .select('id, comercial_numero, encargado_usuario_id, activo, fecha_actualizacion')
+                .eq('comercial_numero', num)
+                .eq('activo', true)
+                .order('id', { ascending: true });
+
+            if (error) {
+                console.error('getEncargadosByComercialNumero:', error);
+                return [];
+            }
+            if (!rows || rows.length === 0) return [];
+
+            const usuarioIds = [];
+            const seenIds = new Set();
+            for (let i = 0; i < rows.length; i++) {
+                const uid = rows[i].encargado_usuario_id;
+                if (uid != null && !seenIds.has(uid)) {
+                    seenIds.add(uid);
+                    usuarioIds.push(uid);
+                }
+            }
+            if (usuarioIds.length === 0) return [];
+
+            const { data: usuarios, error: usuariosError } = await this.client
+                .from('usuarios')
+                .select('id, codigo_usuario, nombre, tipo, email')
+                .in('id', usuarioIds);
+
+            if (usuariosError) {
+                console.error('getEncargadosByComercialNumero usuarios:', usuariosError);
+                return rows.map(function (row) {
+                    return {
+                        id: row.id,
+                        encargado_usuario_id: row.encargado_usuario_id,
+                        nombre: 'Usuario ' + row.encargado_usuario_id,
+                        codigo_usuario: '',
+                        tipo: '',
+                        email: ''
+                    };
+                });
+            }
+
+            const comercialEmailsByUsuarioId = new Map();
+            const comercialUserIds = (usuarios || [])
+                .filter(function (u) { return String(u.tipo || '').toUpperCase() === 'COMERCIAL'; })
+                .map(function (u) { return u.id; });
+
+            if (comercialUserIds.length > 0) {
+                const { data: comercialesUsuarios } = await this.client
+                    .from('usuarios_comerciales')
+                    .select('usuario_id, email')
+                    .in('usuario_id', comercialUserIds);
+                (comercialesUsuarios || []).forEach(function (c) {
+                    if (c.usuario_id != null) {
+                        comercialEmailsByUsuarioId.set(c.usuario_id, c.email || '');
+                    }
+                });
+            }
+
+            const usuariosById = new Map();
+            (usuarios || []).forEach(function (u) {
+                usuariosById.set(u.id, u);
+            });
+
+            return rows.map(function (row) {
+                const u = usuariosById.get(row.encargado_usuario_id) || {};
+                const tipo = String(u.tipo || '').toUpperCase();
+                let email = String(u.email || '').trim();
+                if (tipo === 'COMERCIAL' && comercialEmailsByUsuarioId.has(u.id)) {
+                    const comEmail = String(comercialEmailsByUsuarioId.get(u.id) || '').trim();
+                    if (comEmail) email = comEmail;
+                }
+                return {
+                    id: row.id,
+                    encargado_usuario_id: row.encargado_usuario_id,
+                    codigo_usuario: u.codigo_usuario || '',
+                    nombre: u.nombre || '',
+                    tipo: tipo,
+                    email: email
+                };
+            });
+        } catch (err) {
+            console.error('getEncargadosByComercialNumero:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Usuarios que pueden ser encargados (COMERCIAL, DEPENDIENTE, ADMINISTRADOR activos).
+     */
+    async getUsuariosElegiblesEncargado() {
+        try {
+            if (!this.client) return [];
+            const tipos = ['COMERCIAL', 'DEPENDIENTE', 'ADMINISTRADOR'];
+            const batchSize = 1000;
+            let offset = 0;
+            const all = [];
+
+            while (true) {
+                const { data, error } = await this.client
+                    .from('usuarios')
+                    .select('id, codigo_usuario, nombre, tipo, email, activo')
+                    .in('tipo', tipos)
+                    .or('activo.eq.true,activo.is.null')
+                    .order('nombre', { ascending: true })
+                    .range(offset, offset + batchSize - 1);
+
+                if (error) {
+                    console.error('getUsuariosElegiblesEncargado:', error);
+                    break;
+                }
+                if (!data || data.length === 0) break;
+                all.push.apply(all, data);
+                if (data.length < batchSize) break;
+                offset += batchSize;
+            }
+
+            const comercialUserIds = all
+                .filter(function (u) { return String(u.tipo || '').toUpperCase() === 'COMERCIAL'; })
+                .map(function (u) { return u.id; });
+
+            const comercialEmailsByUsuarioId = new Map();
+            if (comercialUserIds.length > 0) {
+                for (let i = 0; i < comercialUserIds.length; i += batchSize) {
+                    const chunk = comercialUserIds.slice(i, i + batchSize);
+                    const { data: comercialesUsuarios } = await this.client
+                        .from('usuarios_comerciales')
+                        .select('usuario_id, email')
+                        .in('usuario_id', chunk);
+                    (comercialesUsuarios || []).forEach(function (c) {
+                        if (c.usuario_id != null) {
+                            comercialEmailsByUsuarioId.set(c.usuario_id, c.email || '');
+                        }
+                    });
+                }
+            }
+
+            return all.map(function (u) {
+                const tipo = String(u.tipo || '').toUpperCase();
+                let email = String(u.email || '').trim();
+                if (tipo === 'COMERCIAL' && comercialEmailsByUsuarioId.has(u.id)) {
+                    const comEmail = String(comercialEmailsByUsuarioId.get(u.id) || '').trim();
+                    if (comEmail) email = comEmail;
+                }
+                return {
+                    id: u.id,
+                    codigo_usuario: u.codigo_usuario || '',
+                    nombre: u.nombre || '',
+                    tipo: tipo,
+                    email: email
+                };
+            });
+        } catch (err) {
+            console.error('getUsuariosElegiblesEncargado:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Asigna un encargado a un comercial (upsert si ya existia inactivo).
+     */
+    async addComercialEncargado(comercialNumero, encargadoUsuarioId) {
+        try {
+            if (!this.client) {
+                return { success: false, message: 'Cliente no inicializado' };
+            }
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) {
+                return { success: false, message: 'Sesion expirada. Vuelve a iniciar sesion.' };
+            }
+
+            const num = typeof comercialNumero === 'string' ? parseInt(comercialNumero, 10) : comercialNumero;
+            const encId = typeof encargadoUsuarioId === 'string'
+                ? parseInt(encargadoUsuarioId, 10)
+                : encargadoUsuarioId;
+            if (!Number.isFinite(num) || !Number.isFinite(encId)) {
+                return { success: false, message: 'Comercial o encargado no valido' };
+            }
+
+            const { data, error } = await this.client
+                .from('comerciales_encargados')
+                .upsert(
+                    {
+                        comercial_numero: num,
+                        encargado_usuario_id: encId,
+                        activo: true
+                    },
+                    { onConflict: 'comercial_numero,encargado_usuario_id' }
+                )
+                .select('id')
+                .single();
+
+            if (error) {
+                const msg = error.message || 'Error al guardar encargado';
+                return { success: false, message: msg };
+            }
+            return { success: true, id: data && data.id != null ? data.id : null };
+        } catch (err) {
+            console.error('addComercialEncargado:', err);
+            return { success: false, message: err && err.message ? err.message : 'Error al guardar' };
+        }
+    }
+
+    /**
+     * Elimina la asignacion de encargado (borrado fisico).
+     */
+    async removeComercialEncargado(encargadoRowId) {
+        try {
+            if (!this.client) {
+                return { success: false, message: 'Cliente no inicializado' };
+            }
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) {
+                return { success: false, message: 'Sesion expirada. Vuelve a iniciar sesion.' };
+            }
+
+            const id = typeof encargadoRowId === 'string' ? parseInt(encargadoRowId, 10) : encargadoRowId;
+            if (!Number.isFinite(id)) {
+                return { success: false, message: 'Id no valido' };
+            }
+
+            const { error } = await this.client
+                .from('comerciales_encargados')
+                .delete()
+                .eq('id', id);
+
+            if (error) {
+                return { success: false, message: error.message || 'Error al eliminar' };
+            }
+            return { success: true };
+        } catch (err) {
+            console.error('removeComercialEncargado:', err);
+            return { success: false, message: err && err.message ? err.message : 'Error al eliminar' };
         }
     }
 }

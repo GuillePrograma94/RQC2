@@ -1,6 +1,6 @@
 /**
  * Serverless: envia email de confirmacion de pedido remoto al cliente.
- * CC al comercial asignado si tiene email.
+ * CC al comercial asignado si tiene email. BCC (CCO) a encargados del comercial.
  *
  * POST { carrito_id: number|string }
  *
@@ -19,7 +19,10 @@ const {
     sendOrderEmail,
     fetchEmpresaForOrderEmail,
     describeEmailConfigIssue,
-    resolveAlmacenDestinoForOrderEmail
+    resolveAlmacenDestinoForOrderEmail,
+    fetchComercialEmailByAsignado,
+    fetchEncargadosEmailsForComercial,
+    buildOrderRecipientLists
 } = require('../../lib/order-email');
 
 function parseRequestBody(req) {
@@ -32,18 +35,6 @@ function parseRequestBody(req) {
         }
     }
     return req.body;
-}
-
-async function fetchComercialEmail(supabase, comercialAsignado) {
-    if (comercialAsignado == null) return null;
-    const { data, error } = await supabase
-        .from('usuarios_comerciales')
-        .select('email, nombre')
-        .or('id.eq.' + comercialAsignado + ',numero.eq.' + comercialAsignado)
-        .limit(1)
-        .maybeSingle();
-    if (error || !data) return null;
-    return isValidEmail(data.email) ? safeText(data.email) : null;
 }
 
 module.exports = async (req, res) => {
@@ -146,7 +137,15 @@ module.exports = async (req, res) => {
         return;
     }
 
-    const comercialEmail = await fetchComercialEmail(supabase, usuario.comercial_asignado);
+    const comercialEmail = await fetchComercialEmailByAsignado(supabase, usuario.comercial_asignado);
+    const encargadoEmails = usuario.comercial_asignado != null
+        ? await fetchEncargadosEmailsForComercial(supabase, usuario.comercial_asignado)
+        : [];
+    const recipientLists = buildOrderRecipientLists({
+        clienteEmail: clienteEmail,
+        comercialEmail: comercialEmail,
+        encargadoEmails: encargadoEmails
+    });
     const almacenResolved = resolveAlmacenDestinoForOrderEmail(carrito, usuario);
     const almacenParaEmail = almacenResolved.almacen;
 
@@ -210,8 +209,11 @@ module.exports = async (req, res) => {
         replyTo: empresa ? empresa.email_respuesta : null
     };
 
-    if (comercialEmail && comercialEmail.toLowerCase() !== clienteEmail.toLowerCase()) {
-        sendOptions.cc = [comercialEmail];
+    if (recipientLists.cc.length > 0) {
+        sendOptions.cc = recipientLists.cc;
+    }
+    if (recipientLists.bcc.length > 0) {
+        sendOptions.bcc = recipientLists.bcc;
     }
 
     try {
@@ -227,6 +229,7 @@ module.exports = async (req, res) => {
             sent: true,
             to: clienteEmail,
             cc: sendOptions.cc || [],
+            bcc: sendOptions.bcc || [],
             provider_id: sendResult && sendResult.id ? sendResult.id : null
         });
     } catch (err) {

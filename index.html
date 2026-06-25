@@ -1009,7 +1009,49 @@
                     <button type="button" id="panelControlRecambiosBtn" class="btn btn-primary btn-lg">Configurar recambios</button>
                     <button type="button" id="panelControlFamiliasCatalogoBtn" class="btn btn-primary btn-lg">Familias en Inicio (imagenes)</button>
                     <button type="button" id="panelControlDatosEmpresaBtn" class="btn btn-primary btn-lg">Datos de Empresa y correo SMTP</button>
+                    <button type="button" id="panelControlEncargadosComercialesBtn" class="btn btn-primary btn-lg">Encargados de comerciales</button>
                     <button type="button" id="panelControlPedidosPendienteErpBtn" class="btn btn-primary btn-lg">Pedidos pendientes de ERP</button>
+                </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA ENCARGADOS DE COMERCIALES (admin)
+             ================================ -->
+        <div id="panelEncargadosComercialesScreen" class="screen">
+            <main class="screen-content">
+                <div class="profile-header">
+                    <button type="button" id="panelEncargadosComercialesBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title">Encargados de comerciales</h2>
+                </div>
+                <p class="encargados-comerciales-intro">Asigna supervisores que reciben copia oculta (CCO) en la confirmacion de pedido de los clientes de cada comercial. El cliente solo ve al comercial en copia visible.</p>
+                <div id="panelEncargadosComercialesLoading" class="loading-state" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Cargando comerciales...</p>
+                </div>
+                <div id="panelEncargadosComercialesEmpty" class="empty-state" style="display: none;">
+                    <h2>Sin comerciales</h2>
+                    <p>No hay comerciales registrados.</p>
+                </div>
+                <div id="panelEncargadosComercialesLayout" class="encargados-comerciales-layout" style="display: none;">
+                    <div class="encargados-comerciales-list-wrap">
+                        <h3 class="encargados-comerciales-subtitle">Comerciales</h3>
+                        <div id="panelEncargadosComercialesList" class="encargados-comerciales-list"></div>
+                    </div>
+                    <div class="encargados-comerciales-detail-wrap">
+                        <h3 id="panelEncargadosComercialesDetailTitle" class="encargados-comerciales-subtitle">Selecciona un comercial</h3>
+                        <p id="panelEncargadosComercialesDetailHint" class="encargados-comerciales-detail-hint">Pulsa un comercial de la lista para gestionar sus encargados.</p>
+                        <div id="panelEncargadosComercialesDetail" class="encargados-comerciales-detail" style="display: none;">
+                            <div class="encargados-comerciales-add-row">
+                                <label for="panelEncargadosComercialesSelect" class="encargados-comerciales-label">Anadir encargado</label>
+                                <select id="panelEncargadosComercialesSelect" class="encargados-comerciales-select">
+                                    <option value="">Selecciona usuario...</option>
+                                </select>
+                                <button type="button" id="panelEncargadosComercialesAddBtn" class="btn btn-primary btn-sm">Anadir</button>
+                            </div>
+                            <div id="panelEncargadosComercialesEncargadosList" class="encargados-comerciales-encargados-list"></div>
+                        </div>
+                    </div>
                 </div>
             </main>
         </div>

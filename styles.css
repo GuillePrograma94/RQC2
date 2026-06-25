@@ -7794,3 +7794,148 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     margin: 0;
     word-break: break-all;
 }
+
+.encargados-comerciales-intro {
+    font-size: 0.88rem;
+    color: var(--gray-600);
+    line-height: 1.45;
+    margin: 0 0 1rem;
+}
+
+.encargados-comerciales-layout {
+    display: grid;
+    grid-template-columns: minmax(220px, 34%) 1fr;
+    gap: 1rem;
+    align-items: start;
+}
+
+@media (max-width: 768px) {
+    .encargados-comerciales-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.encargados-comerciales-subtitle {
+    font-size: 0.95rem;
+    margin: 0 0 0.65rem;
+    color: var(--gray-800);
+}
+
+.encargados-comerciales-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.encargados-comerciales-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    background: var(--white);
+    cursor: pointer;
+}
+
+.encargados-comerciales-item.is-selected {
+    border-color: var(--primary-color, #2563eb);
+    background: #eff6ff;
+}
+
+.encargados-comerciales-item-num {
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.encargados-comerciales-item-name {
+    font-size: 0.88rem;
+    color: var(--gray-800);
+}
+
+.encargados-comerciales-item-count {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+.encargados-comerciales-detail-hint {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    margin: 0;
+}
+
+.encargados-comerciales-detail {
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 0.85rem;
+    background: var(--white);
+}
+
+.encargados-comerciales-add-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: flex-end;
+    margin-bottom: 0.85rem;
+}
+
+.encargados-comerciales-label {
+    display: block;
+    width: 100%;
+    font-size: 0.82rem;
+    color: var(--gray-700);
+    margin-bottom: 0.25rem;
+}
+
+.encargados-comerciales-select {
+    flex: 1 1 220px;
+    min-width: 180px;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 0.88rem;
+}
+
+.encargados-comerciales-encargados-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.encargados-comerciales-encargado-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.7rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    background: var(--gray-50);
+}
+
+.encargados-comerciales-encargado-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.encargados-comerciales-encargado-meta,
+.encargados-comerciales-encargado-email {
+    font-size: 0.78rem;
+    color: var(--gray-600);
+    word-break: break-word;
+}
+
+.encargados-comerciales-no-email {
+    color: #b45309;
+}
+
+.encargados-comerciales-empty {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    margin: 0;
+}
