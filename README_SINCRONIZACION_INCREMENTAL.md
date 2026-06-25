@@ -82,12 +82,30 @@ Los archivos ya incluyen:
    ↓
 5. Persistencia local por lotes (chunked writes) para evitar bloqueos UI
    ↓
-6. Sincroniza `pactos_clientes_descuento` (activos) para overrides por cliente+clave
+6. Sincroniza pactos_clientes_descuento solo si cambió la fecha maxima remota
    ↓
 7. Actualiza version_hash_local
    ↓
-8. Descarga ofertas fuera del camino crítico (post-sync principal)
+8. Descarga ofertas solo si cambió version_hash o hay cambios en productos/códigos
+   ↓
+9. Stock diferido ~45 s tras terminar sync de catálogo (no compite por IndexedDB)
 ```
+
+### Rama solo tarifas (cambios en claves_descuento)
+
+Si el manifest indica cambios **solo** en `claves_descuento` (productos=0, codigos=0), `syncProductsInBackground` usa la rama ligera `_runSoloTarifasSyncBranch`:
+
+- No activa modo híbrido.
+- No invalida ni descarga ofertas.
+- No descarga familias ni reescribe productos/códigos.
+- Actualiza tarifas con `syncClavesDescuentoInBackground` (incremental si hay pocas claves).
+- Comprueba pactos solo si cambió su fecha maxima (`needsPactosClientesRefresh`).
+- Actualiza `version_hash_local` solo si `manifest.hay_actualizacion` es true.
+
+Metadatos adicionales en `localStorage`:
+
+- `scan_pactos_max_fecha` — fecha maxima de pactos guardados localmente
+- `scan_familias_total` / `scan_familias_asignadas_total` — conteos para omitir descarga de familias
 
 ### Flujo de lectura en modo híbrido (nuevo)
 
@@ -423,6 +441,6 @@ Con la política nueva de ofertas, cuando el catálogo y ofertas están vigentes
 
 ---
 
-**Última actualización**: 2026-03-23  
-**Versión**: 1.1  
+**Última actualización**: 2026-06-25  
+**Versión**: 1.2  
 **Autor**: Sistema de Sincronización Incremental

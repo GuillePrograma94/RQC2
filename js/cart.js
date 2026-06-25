@@ -525,8 +525,43 @@ class CartManager {
      */
     async yieldToMainThread() {
         await new Promise(function (resolve) {
-            setTimeout(resolve, 0);
+            if (typeof requestIdleCallback === 'function') {
+                requestIdleCallback(function () { resolve(); }, { timeout: 50 });
+            } else {
+                setTimeout(resolve, 16);
+            }
         });
+    }
+
+    /**
+     * Actualiza entradas del indice en memoria sin reconstruir todo el catalogo.
+     */
+    patchProductSearchIndex(productos) {
+        if (!productos || productos.length === 0) return;
+        if (!this._productSearchIndex) return;
+
+        const indexByCode = new Map();
+        for (let i = 0; i < this._productSearchIndex.length; i++) {
+            indexByCode.set(this._productSearchIndex[i].codigoUpper, i);
+        }
+
+        for (let j = 0; j < productos.length; j++) {
+            const p = productos[j];
+            if (!p || !p.codigo) continue;
+            const codigoUpper = String(p.codigo).toUpperCase();
+            const entry = {
+                product: Object.assign({}, p, { codigo: codigoUpper }),
+                codigoUpper: codigoUpper,
+                searchTextNorm: this.normalizeText(((p.descripcion || '') + ' ' + (p.sinonimos || '')))
+            };
+            const existingIdx = indexByCode.get(codigoUpper);
+            if (existingIdx !== undefined) {
+                this._productSearchIndex[existingIdx] = entry;
+            } else {
+                indexByCode.set(codigoUpper, this._productSearchIndex.length);
+                this._productSearchIndex.push(entry);
+            }
+        }
     }
 
     /**
@@ -585,7 +620,7 @@ class CartManager {
             });
 
             console.log(`Guardando ${normalizedList.length} productos...`);
-            await this.replaceStoreChunked('products', normalizedList, 2000);
+            await this.replaceStoreChunked('products', normalizedList, 2000, 3);
             console.log(`${normalizedList.length} productos guardados (códigos normalizados a MAYÚSCULAS)`);
             this.invalidateProductSearchIndex();
 
@@ -637,7 +672,7 @@ class CartManager {
             }
 
             console.log(`Actualización incremental productos: ${normalized.length} upserts`);
-            this.invalidateProductSearchIndex();
+            this.patchProductSearchIndex(normalized);
             return { inserted: 0, updated: normalized.length, upserted: normalized.length };
 
         } catch (error) {
@@ -959,9 +994,38 @@ class CartManager {
         }
 
         return new Promise((resolve, reject) => {
-            tx.oncomplete = () => resolve();
+            tx.oncomplete = () => {
+                this._persistPactosMaxFechaLocal(list);
+                resolve();
+            };
             tx.onerror = () => reject(tx.error);
         });
+    }
+
+    _persistPactosMaxFechaLocal(rows) {
+        if (!Array.isArray(rows) || rows.length === 0) return;
+        let maxFecha = this.getPactosLocalMaxFecha();
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i] || {};
+            const f = r.fecha_actualizacion ? String(r.fecha_actualizacion) : '';
+            if (f && (!maxFecha || f > maxFecha)) maxFecha = f;
+        }
+        if (maxFecha) {
+            try {
+                localStorage.setItem('scan_pactos_max_fecha', maxFecha);
+            } catch (e) {
+                console.warn('_persistPactosMaxFechaLocal:', e);
+            }
+        }
+    }
+
+    getPactosLocalMaxFecha() {
+        try {
+            const v = localStorage.getItem('scan_pactos_max_fecha');
+            return v && String(v).trim() !== '' ? String(v).trim() : null;
+        } catch (e) {
+            return null;
+        }
     }
 
     /**
@@ -1031,6 +1095,12 @@ class CartManager {
             tx.objectStore('familias_asignadas').clear();
             tx.oncomplete = () => {
                 this.bumpFamiliaImagesCacheBust();
+                try {
+                    localStorage.setItem('scan_familias_total', String(familias.length));
+                    localStorage.setItem('scan_familias_asignadas_total', String(asignadas.length));
+                } catch (e) {
+                    console.warn('saveFamiliasCatalogToStorage: no se guardaron conteos locales', e);
+                }
                 resolve();
             };
             tx.onerror = () => reject(tx.error);
@@ -1828,21 +1898,17 @@ class CartManager {
         try {
             if (!this.db || !ofertas || ofertas.length === 0) return;
 
-            const transaction = this.db.transaction(['ofertas'], 'readwrite');
-            const store = transaction.objectStore('ofertas');
+            const cachedAt = new Date().toISOString();
+            const normalized = ofertas.map(function (oferta) {
+                return Object.assign({}, oferta, { cached_at: cachedAt });
+            });
 
-            for (const oferta of ofertas) {
-                await store.put({
-                    ...oferta,
-                    cached_at: new Date().toISOString()
-                });
-            }
-
-            console.log(`✅ ${ofertas.length} ofertas guardadas en caché`);
+            await this.replaceStoreChunked('ofertas', normalized, 3000, 3);
+            console.log(`${normalized.length} ofertas guardadas en cache`);
             return true;
 
         } catch (error) {
-            console.error('Error al guardar ofertas en caché:', error);
+            console.error('Error al guardar ofertas en cache:', error);
             return false;
         }
     }
@@ -1853,68 +1919,35 @@ class CartManager {
     async saveOfertasProductosToCache(ofertasProductos) {
         try {
             if (!this.db) {
-                console.error('❌ DB no disponible para guardar productos en ofertas');
+                console.error('DB no disponible para guardar productos en ofertas');
                 return false;
             }
-            
+
             if (!ofertasProductos || ofertasProductos.length === 0) {
-                console.log('⚠️ No hay productos en ofertas para guardar');
+                console.log('No hay productos en ofertas para guardar');
                 return false;
             }
 
-            console.log(`💾 Guardando ${ofertasProductos.length} productos en ofertas...`);
-            console.log(`   📋 Muestra de productos a guardar:`, ofertasProductos.slice(0, 5));
-            
-            // Verificar que codigo_articulo está presente
-            const sinCodigo = ofertasProductos.filter(op => !op.codigo_articulo);
-            if (sinCodigo.length > 0) {
-                console.warn(`   ⚠️ ${sinCodigo.length} productos sin codigo_articulo:`, sinCodigo.slice(0, 3));
-            }
-
-            const transaction = this.db.transaction(['ofertas_productos'], 'readwrite');
-            const store = transaction.objectStore('ofertas_productos');
-
-            // Limpiar todos los productos de ofertas anteriores
-            await store.clear();
-            console.log('   🗑️ Productos anteriores eliminados');
-
-            let guardados = 0;
-            let errores = 0;
-            for (const op of ofertasProductos) {
-                try {
-                    // Normalizar codigo_articulo a mayúsculas
-                    const productoNormalizado = {
-                        ...op,
-                        codigo_articulo: op.codigo_articulo ? op.codigo_articulo.toUpperCase() : null,
-                        cached_at: new Date().toISOString()
-                    };
-                    await store.add(productoNormalizado);
-                    guardados++;
-                } catch (addError) {
-                    errores++;
-                    if (errores <= 3) { // Solo mostrar primeros 3 errores
-                        console.error(`   ❌ Error al guardar producto:`, op, addError);
-                    }
-                }
-            }
-
-            console.log(`✅ ${guardados}/${ofertasProductos.length} productos en ofertas guardados en caché`);
-            if (errores > 0) {
-                console.warn(`   ⚠️ ${errores} errores al guardar productos`);
-            }
-            
-            // Verificar que se guardaron correctamente
-            const verificacion = await new Promise((resolve) => {
-                const verifyRequest = store.count();
-                verifyRequest.onsuccess = () => resolve(verifyRequest.result);
-                verifyRequest.onerror = () => resolve(0);
+            const cachedAt = new Date().toISOString();
+            const normalized = ofertasProductos.map(function (op) {
+                return Object.assign({}, op, {
+                    codigo_articulo: op.codigo_articulo ? op.codigo_articulo.toUpperCase() : null,
+                    cached_at: cachedAt
+                });
             });
-            console.log(`   ✓ Verificación: ${verificacion} productos en IndexedDB`);
 
+            const sinCodigo = normalized.filter(function (op) { return !op.codigo_articulo; });
+            if (sinCodigo.length > 0) {
+                console.warn(`${sinCodigo.length} productos en ofertas sin codigo_articulo`);
+            }
+
+            console.log(`Guardando ${normalized.length} productos en ofertas...`);
+            await this.replaceStoreChunked('ofertas_productos', normalized, 3000, 3);
+            console.log(`${normalized.length} productos en ofertas guardados en cache`);
             return true;
 
         } catch (error) {
-            console.error('❌ Error al guardar productos en ofertas en caché:', error);
+            console.error('Error al guardar productos en ofertas en cache:', error);
             return false;
         }
     }
@@ -2061,58 +2094,34 @@ class CartManager {
     async saveOfertasIntervalosToCache(intervalos) {
         try {
             if (!this.db) {
-                console.error('❌ DB no disponible para guardar intervalos');
+                console.error('DB no disponible para guardar intervalos');
                 return false;
             }
-            
+
             if (!intervalos || intervalos.length === 0) {
-                console.log('⚠️ No hay intervalos de ofertas para guardar');
+                console.log('No hay intervalos de ofertas para guardar');
                 return false;
             }
 
-            console.log(`💾 Guardando ${intervalos.length} intervalos de ofertas...`);
-            console.log(`   📋 Muestra de intervalos a guardar:`, intervalos.slice(0, 3));
-            
-            // Verificar que tienen los campos necesarios
-            const sinDescuento = intervalos.filter(i => i.descuento_porcentaje === undefined || i.descuento_porcentaje === null);
-            if (sinDescuento.length > 0) {
-                console.warn(`   ⚠️ ${sinDescuento.length} intervalos sin descuento_porcentaje:`, sinDescuento.slice(0, 3));
-            }
-
-            const transaction = this.db.transaction(['ofertas_intervalos'], 'readwrite');
-            const store = transaction.objectStore('ofertas_intervalos');
-
-            // Limpiar intervalos anteriores
-            await store.clear();
-            console.log('   🗑️ Intervalos anteriores eliminados');
-
-            let guardados = 0;
-            for (const intervalo of intervalos) {
-                try {
-                    await store.add({
-                        ...intervalo,
-                        cached_at: new Date().toISOString()
-                    });
-                    guardados++;
-                } catch (addError) {
-                    console.error(`   ❌ Error al guardar intervalo:`, intervalo, addError);
-                }
-            }
-
-            console.log(`✅ ${guardados}/${intervalos.length} intervalos de ofertas guardados en caché`);
-            
-            // Verificar que se guardaron correctamente
-            const verificacion = await new Promise((resolve) => {
-                const verifyRequest = store.count();
-                verifyRequest.onsuccess = () => resolve(verifyRequest.result);
-                verifyRequest.onerror = () => resolve(0);
+            const cachedAt = new Date().toISOString();
+            const normalized = intervalos.map(function (intervalo) {
+                return Object.assign({}, intervalo, { cached_at: cachedAt });
             });
-            console.log(`   ✓ Verificación: ${verificacion} intervalos en IndexedDB`);
 
+            const sinDescuento = normalized.filter(function (i) {
+                return i.descuento_porcentaje === undefined || i.descuento_porcentaje === null;
+            });
+            if (sinDescuento.length > 0) {
+                console.warn(`${sinDescuento.length} intervalos sin descuento_porcentaje`);
+            }
+
+            console.log(`Guardando ${normalized.length} intervalos de ofertas...`);
+            await this.replaceStoreChunked('ofertas_intervalos', normalized, 3000, 3);
+            console.log(`${normalized.length} intervalos de ofertas guardados en cache`);
             return true;
 
         } catch (error) {
-            console.error('❌ Error al guardar intervalos en caché:', error);
+            console.error('Error al guardar intervalos en cache:', error);
             return false;
         }
     }
@@ -2124,24 +2133,17 @@ class CartManager {
         try {
             if (!this.db || !detalles || detalles.length === 0) return;
 
-            const transaction = this.db.transaction(['ofertas_detalles'], 'readwrite');
-            const store = transaction.objectStore('ofertas_detalles');
+            const cachedAt = new Date().toISOString();
+            const normalized = detalles.map(function (detalle) {
+                return Object.assign({}, detalle, { cached_at: cachedAt });
+            });
 
-            // Limpiar detalles anteriores
-            await store.clear();
-
-            for (const detalle of detalles) {
-                await store.add({
-                    ...detalle,
-                    cached_at: new Date().toISOString()
-                });
-            }
-
-            console.log(`✅ ${detalles.length} detalles de ofertas guardados en caché`);
+            await this.replaceStoreChunked('ofertas_detalles', normalized, 3000, 3);
+            console.log(`${normalized.length} detalles de ofertas guardados en cache`);
             return true;
 
         } catch (error) {
-            console.error('Error al guardar detalles en caché:', error);
+            console.error('Error al guardar detalles en cache:', error);
             return false;
         }
     }
@@ -2152,52 +2154,27 @@ class CartManager {
     async saveOfertasGruposToCache(asignaciones) {
         try {
             if (!this.db) {
-                console.error('❌ DB no disponible para guardar asignaciones');
+                console.error('DB no disponible para guardar asignaciones');
                 return false;
             }
 
             if (!asignaciones || asignaciones.length === 0) {
-                console.log('⚠️ No hay asignaciones de grupos para guardar');
+                console.log('No hay asignaciones de grupos para guardar');
                 return false;
             }
 
-            console.log(`💾 Guardando ${asignaciones.length} asignaciones de grupos...`);
-            console.log(`   📋 Muestra de asignaciones a guardar:`, asignaciones.slice(0, 3));
-
-            const transaction = this.db.transaction(['ofertas_grupos_asignaciones'], 'readwrite');
-            const store = transaction.objectStore('ofertas_grupos_asignaciones');
-
-            // Limpiar asignaciones anteriores
-            await store.clear();
-            console.log('   🗑️ Asignaciones anteriores eliminadas');
-
-            let guardadas = 0;
-            for (const asignacion of asignaciones) {
-                try {
-                    await store.add({
-                        ...asignacion,
-                        cached_at: new Date().toISOString()
-                    });
-                    guardadas++;
-                } catch (addError) {
-                    console.error(`   ❌ Error al guardar asignación:`, asignacion, addError);
-                }
-            }
-
-            console.log(`✅ ${guardadas}/${asignaciones.length} asignaciones de grupos guardadas en caché`);
-            
-            // Verificar que se guardaron correctamente
-            const verificacion = await new Promise((resolve) => {
-                const verifyRequest = store.count();
-                verifyRequest.onsuccess = () => resolve(verifyRequest.result);
-                verifyRequest.onerror = () => resolve(0);
+            const cachedAt = new Date().toISOString();
+            const normalized = asignaciones.map(function (asignacion) {
+                return Object.assign({}, asignacion, { cached_at: cachedAt });
             });
-            console.log(`   ✓ Verificación: ${verificacion} asignaciones en IndexedDB`);
 
+            console.log(`Guardando ${normalized.length} asignaciones de grupos...`);
+            await this.replaceStoreChunked('ofertas_grupos_asignaciones', normalized, 3000, 3);
+            console.log(`${normalized.length} asignaciones de grupos guardadas en cache`);
             return true;
 
         } catch (error) {
-            console.error('❌ Error al guardar asignaciones en caché:', error);
+            console.error('Error al guardar asignaciones en cache:', error);
             return false;
         }
     }

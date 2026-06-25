@@ -59,6 +59,9 @@ class ScanAsYouShopApp {
         this._searchResultsObserver = null;
         this.isCatalogSyncInProgress = false;
         this.catalogDataSourceMode = 'local';
+        this._catalogSyncRunning = false;
+        this._stockSyncScheduled = false;
+        this._stockSyncDelayMs = 45000;
         this.editingPrepedidoId = null;
         this.editingPrepedidoCodigo = null;
         this.editingPrepedidoObservaciones = '';
@@ -4796,10 +4799,10 @@ class ScanAsYouShopApp {
             window.ui.hideLoading();
             console.log('Aplicacion inicializada correctamente');
             
-            // Sincronizar productos EN SEGUNDO PLANO (no bloquea la UI)
-            this.syncProductsInBackground();
-            // Sincronizar stock EN SEGUNDO PLANO (una vez al dia)
-            this.syncStockInBackground();
+            // Catalogo primero; stock diferido para no competir por IndexedDB en movil
+            void this.syncProductsInBackground().finally(() => {
+                this._scheduleDeferredStockSync();
+            });
 
         } catch (error) {
             console.error('Error al inicializar aplicacion:', error);
@@ -5519,11 +5522,116 @@ class ScanAsYouShopApp {
         });
     }
 
+    _countProductChanges(changeStats) {
+        if (!changeStats) return 0;
+        return (Number(changeStats.productos_modificados) || 0) + (Number(changeStats.productos_nuevos) || 0);
+    }
+
+    _countCodeChanges(changeStats) {
+        if (!changeStats) return 0;
+        return (Number(changeStats.codigos_modificados) || 0) + (Number(changeStats.codigos_nuevos) || 0);
+    }
+
+    _countClaveChanges(changeStats) {
+        if (!changeStats) return 0;
+        return (Number(changeStats.claves_descuento_modificadas) || 0) + (Number(changeStats.claves_descuento_nuevas) || 0);
+    }
+
+    async _isSoloTarifasSync(changeStats) {
+        if (!changeStats) return false;
+        if (this._countProductChanges(changeStats) > 0 || this._countCodeChanges(changeStats) > 0) {
+            return false;
+        }
+        if (this._countClaveChanges(changeStats) > 0) {
+            return true;
+        }
+        if (window.supabaseClient && typeof window.supabaseClient.needsClavesDescuentoRefresh === 'function') {
+            try {
+                return await window.supabaseClient.needsClavesDescuentoRefresh();
+            } catch (_) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    _shouldInvalidateOfertasCache(manifest, changeStats, hashChanged) {
+        if (hashChanged) return true;
+        if (this._countProductChanges(changeStats) > 0 || this._countCodeChanges(changeStats) > 0) {
+            return true;
+        }
+        return false;
+    }
+
+    _shouldRefreshFamiliasCatalog(manifest, changeStats) {
+        if (!manifest) return true;
+        if (this._countProductChanges(changeStats) > 0) return true;
+        const remoteFam = Number(manifest.familias_total) || 0;
+        const remoteAsig = Number(manifest.familias_asignadas_total) || 0;
+        let localFam = 0;
+        let localAsig = 0;
+        try {
+            localFam = Number.parseInt(localStorage.getItem('scan_familias_total') || '0', 10) || 0;
+            localAsig = Number.parseInt(localStorage.getItem('scan_familias_asignadas_total') || '0', 10) || 0;
+        } catch (_) { /* ignorar */ }
+        return remoteFam !== localFam || remoteAsig !== localAsig;
+    }
+
+    _scheduleDeferredStockSync() {
+        if (this._stockSyncScheduled) return;
+        this._stockSyncScheduled = true;
+        setTimeout(() => {
+            void this.syncStockInBackground().finally(() => {
+                this._stockSyncScheduled = false;
+            });
+        }, this._stockSyncDelayMs);
+    }
+
+    async _waitForCatalogSyncIfRunning() {
+        const deadline = Date.now() + 120000;
+        while (this._catalogSyncRunning && Date.now() < deadline) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+    }
+
+    async _runSoloTarifasSyncBranch(versionCheck, manifest, changeStats, onProgress) {
+        window.ui.updateSyncIndicator('Actualizando tarifas...');
+        this.setCatalogSyncMode(false);
+
+        let clavesActualizadas = false;
+        try {
+            clavesActualizadas = await this.syncClavesDescuentoInBackground(onProgress, {
+                changeStats: changeStats,
+                versionLocalHash: localStorage.getItem('version_hash_local'),
+                preferIncremental: true
+            });
+        } catch (clavesErr) {
+            console.warn('Rama solo tarifas fallida, se reintentara en sync completa:', clavesErr && clavesErr.message);
+            return false;
+        }
+
+        window.ui.updateSyncIndicator('Comprobando pactos cliente...');
+        await this.syncPactosClientesInBackground(onProgress);
+
+        if (manifest && manifest.hay_actualizacion && versionCheck && versionCheck.versionRemota) {
+            await window.supabaseClient.actualizarVersionLocal(versionCheck.versionRemota);
+        }
+
+        this.setCatalogSyncMode(false);
+        window.ui.showSyncIndicator(false);
+        window.ui.showToast(
+            clavesActualizadas ? 'Tarifas de descuento actualizadas' : 'Catalogo actualizado',
+            'success'
+        );
+        return true;
+    }
+
     /**
      * Sincroniza productos EN SEGUNDO PLANO (solo si hay cambios)
      * Usa sincronización incremental cuando sea posible para mayor velocidad
      */
     async syncProductsInBackground() {
+        this._catalogSyncRunning = true;
         try {
             const syncStartTs = (typeof performance !== 'undefined' && typeof performance.now === 'function')
                 ? performance.now()
@@ -5608,14 +5716,6 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            this.setCatalogSyncMode(true);
-            if (window.supabaseClient && typeof window.supabaseClient.markOfertasCachePending === 'function') {
-                const targetHash = versionCheck && versionCheck.versionRemota
-                    ? versionCheck.versionRemota.version_hash
-                    : null;
-                window.supabaseClient.markOfertasCachePending(targetHash);
-            }
-
             let changeStats = null;
             if (versionLocalHash && manifest) {
                 changeStats = window.supabaseClient.buildChangeStatsFromManifest(manifest);
@@ -5633,6 +5733,27 @@ class ScanAsYouShopApp {
                 const percent = progress.total ? Math.round((progress.loaded / progress.total) * 100) : 0;
                 window.ui.updateSyncIndicator(`${percent}%`);
             };
+
+            if (await this._isSoloTarifasSync(changeStats)) {
+                const ok = await this._runSoloTarifasSyncBranch(versionCheck, manifest, changeStats, onProgress);
+                if (ok) return;
+                console.warn('Rama solo tarifas no completa; continuando con sync de catalogo');
+            }
+
+            const hashChanged = !!(manifest && manifest.hay_actualizacion);
+            const shouldInvalidateOfertas = this._shouldInvalidateOfertasCache(manifest, changeStats, hashChanged);
+
+            this.setCatalogSyncMode(true);
+            if (
+                shouldInvalidateOfertas &&
+                window.supabaseClient &&
+                typeof window.supabaseClient.markOfertasCachePending === 'function'
+            ) {
+                const targetHash = versionCheck && versionCheck.versionRemota
+                    ? versionCheck.versionRemota.version_hash
+                    : null;
+                window.supabaseClient.markOfertasCachePending(targetHash);
+            }
 
             let productos;
             let codigosSecundarios;
@@ -5675,8 +5796,8 @@ class ScanAsYouShopApp {
                     await window.cartManager.updateProductsIncremental(productos);
                 } else {
                     await window.cartManager.saveProductsToStorage(productos);
+                    this.preloadLocalProductSearchIndex();
                 }
-                this.preloadLocalProductSearchIndex();
             }
 
             if (flags.codesSkip) {
@@ -5709,15 +5830,19 @@ class ScanAsYouShopApp {
             window.ui.updateSyncIndicator('Guardando pactos cliente...');
             await this.syncPactosClientesInBackground(onProgress);
 
-            window.ui.updateSyncIndicator('Descargando familias...');
-            try {
-                const fc = await window.supabaseClient.downloadFamiliasCatalog(onProgress);
-                await window.cartManager.saveFamiliasCatalogToStorage(fc.familias, fc.familias_asignadas);
-            } catch (famErr) {
-                console.warn('No se pudieron guardar familias locales:', famErr && famErr.message);
-            }
-            if (this.currentScreen === 'inicio' && typeof this.renderInicioFamiliasNavigator === 'function') {
-                this.renderInicioFamiliasNavigator();
+            if (this._shouldRefreshFamiliasCatalog(manifest, changeStats)) {
+                window.ui.updateSyncIndicator('Descargando familias...');
+                try {
+                    const fc = await window.supabaseClient.downloadFamiliasCatalog(onProgress);
+                    await window.cartManager.saveFamiliasCatalogToStorage(fc.familias, fc.familias_asignadas);
+                } catch (famErr) {
+                    console.warn('No se pudieron guardar familias locales:', famErr && famErr.message);
+                }
+                if (this.currentScreen === 'inicio' && typeof this.renderInicioFamiliasNavigator === 'function') {
+                    this.renderInicioFamiliasNavigator();
+                }
+            } else {
+                console.log('Familias sin cambios: se omite descarga');
             }
 
             if (typeof this.purgeHiddenCatalogProductsLocal === 'function') {
@@ -5740,18 +5865,22 @@ class ScanAsYouShopApp {
             window.ui.updateSyncIndicator('Sincronizando en servidor/local...');
             window.ui.showToast(mensaje, 'success');
 
-            // Ofertas fuera del camino crítico para mejorar fluidez percibida.
-            window.ui.updateSyncIndicator('Descargando ofertas...');
-            void (async () => {
-                try {
-                    await window.supabaseClient.downloadOfertas(onProgress);
-                } catch (ofertaError) {
-                    console.error('Error al descargar ofertas (no crítico):', ofertaError);
-                } finally {
-                    this.setCatalogSyncMode(false);
-                    window.ui.showSyncIndicator(false);
-                }
-            })();
+            if (shouldInvalidateOfertas) {
+                window.ui.updateSyncIndicator('Descargando ofertas...');
+                void (async () => {
+                    try {
+                        await window.supabaseClient.downloadOfertas(onProgress);
+                    } catch (ofertaError) {
+                        console.error('Error al descargar ofertas (no critico):', ofertaError);
+                    } finally {
+                        this.setCatalogSyncMode(false);
+                        window.ui.showSyncIndicator(false);
+                    }
+                })();
+            } else {
+                this.setCatalogSyncMode(false);
+                window.ui.showSyncIndicator(false);
+            }
 
         } catch (error) {
             console.error('Error al sincronizar productos:', error);
@@ -5759,6 +5888,8 @@ class ScanAsYouShopApp {
             window.ui.showSyncIndicator(false);
             // No es crítico, el usuario puede seguir usando la app con datos locales
             // y búsquedas en tiempo real en Supabase
+        } finally {
+            this._catalogSyncRunning = false;
         }
     }
 
@@ -5768,6 +5899,7 @@ class ScanAsYouShopApp {
      */
     async syncStockInBackground() {
         try {
+            await this._waitForCatalogSyncIfRunning();
             // Comparar hash remoto con el local para detectar cambios
             const remoteHash = await window.supabaseClient.getStockHash();
             const localHash  = localStorage.getItem('stock_hash_local');
@@ -6384,7 +6516,7 @@ class ScanAsYouShopApp {
      * Sincroniza claves_descuento si la fecha maxima remota es mas reciente que la local.
      * No depende de version_control (cambios desde panel admin de tarifas).
      */
-    async syncClavesDescuentoInBackground(onProgress = null) {
+    async syncClavesDescuentoInBackground(onProgress = null, options = {}) {
         if (!window.supabaseClient || typeof window.supabaseClient.needsClavesDescuentoRefresh !== 'function') {
             return false;
         }
@@ -6398,6 +6530,49 @@ class ScanAsYouShopApp {
             ? window.cartManager.getClavesDescuentoLocalMaxFecha()
             : null;
         console.log('claves_descuento: actualizando tarifas', { remoteMax, localMax });
+
+        const changeStats = options && options.changeStats ? options.changeStats : null;
+        const versionLocalHash = options && options.versionLocalHash
+            ? options.versionLocalHash
+            : localStorage.getItem('version_hash_local');
+        const preferIncremental = !!(options && options.preferIncremental);
+        const clN = this._countClaveChanges(changeStats);
+        const TH_CLAVE = 400;
+
+        if (
+            preferIncremental &&
+            versionLocalHash &&
+            clN > 0 &&
+            clN < TH_CLAVE &&
+            window.supabaseClient &&
+            typeof window.supabaseClient._downloadIncrementalWithPagination === 'function'
+        ) {
+            try {
+                const rows = await window.supabaseClient._downloadIncrementalWithPagination({
+                    rpcName: 'obtener_claves_descuento_modificadas_paginado',
+                    fallbackRpcName: 'obtener_claves_descuento_modificadas',
+                    versionHashLocal: versionLocalHash,
+                    onProgress: onProgress,
+                    progressTable: 'claves_incremental',
+                    expectedTotal: clN,
+                    pageSize: 2000
+                });
+                if (rows && rows.length > 0 && window.cartManager) {
+                    if (typeof window.cartManager.updateClavesDescuentoIncremental === 'function') {
+                        await window.cartManager.updateClavesDescuentoIncremental(rows);
+                    }
+                    await this.refreshClavesDescuentoCache();
+                    if (typeof this.refreshVisiblePricesAfterPreferenceChange === 'function') {
+                        this.refreshVisiblePricesAfterPreferenceChange();
+                    }
+                    console.log(`claves_descuento: ${rows.length} claves actualizadas incrementalmente`);
+                    return true;
+                }
+            } catch (incErr) {
+                console.warn('claves_descuento incremental fallida, fallback a descarga completa:', incErr && incErr.message);
+            }
+        }
+
         const rows = await window.supabaseClient.downloadClavesDescuentoFull(onProgress);
         if (!rows || rows.length === 0) {
             console.warn('claves_descuento: descarga vacia');
@@ -6449,6 +6624,16 @@ class ScanAsYouShopApp {
         try {
             if (!window.supabaseClient || typeof window.supabaseClient.downloadPactosClientesDescuento !== 'function') {
                 return;
+            }
+            if (typeof window.supabaseClient.needsPactosClientesRefresh === 'function') {
+                const needs = await window.supabaseClient.needsPactosClientesRefresh();
+                if (!needs) {
+                    console.log('pactos_clientes_descuento: cache local al dia (fecha maxima)');
+                    if (typeof this.refreshPactosClienteCache === 'function') {
+                        await this.refreshPactosClienteCache();
+                    }
+                    return;
+                }
             }
             const pactosClientes = await window.supabaseClient.downloadPactosClientesDescuento(onProgress);
             if (window.cartManager && typeof window.cartManager.savePactosClientesDescuentoToStorage === 'function') {

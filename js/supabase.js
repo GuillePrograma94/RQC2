@@ -288,6 +288,43 @@ class SupabaseClient {
     }
 
     /**
+     * Fecha maxima de pactos_clientes_descuento activos en servidor.
+     */
+    async getPactosClientesRemoteMaxFecha() {
+        try {
+            if (!this.client) return null;
+            const { data, error } = await this.client
+                .from('pactos_clientes_descuento')
+                .select('fecha_actualizacion')
+                .eq('activo', true)
+                .order('fecha_actualizacion', { ascending: false })
+                .limit(1);
+            if (error) {
+                console.warn('getPactosClientesRemoteMaxFecha:', error.message);
+                return null;
+            }
+            const row = Array.isArray(data) && data.length > 0 ? data[0] : null;
+            return row && row.fecha_actualizacion ? String(row.fecha_actualizacion) : null;
+        } catch (e) {
+            console.warn('getPactosClientesRemoteMaxFecha:', e && e.message);
+            return null;
+        }
+    }
+
+    /**
+     * True si hay pactos_clientes_descuento activos mas recientes que el cache local.
+     */
+    async needsPactosClientesRefresh() {
+        const remoteMax = await this.getPactosClientesRemoteMaxFecha();
+        if (!remoteMax) return false;
+        const localMax = window.cartManager && typeof window.cartManager.getPactosLocalMaxFecha === 'function'
+            ? window.cartManager.getPactosLocalMaxFecha()
+            : null;
+        if (!localMax) return true;
+        return remoteMax > localMax;
+    }
+
+    /**
      * Obtiene estadísticas de cambios desde una versión específica
      * Útil para decidir si hacer sincronización incremental o completa
      */
