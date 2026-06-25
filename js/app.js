@@ -61,7 +61,7 @@ class ScanAsYouShopApp {
         this.catalogDataSourceMode = 'local';
         this._catalogSyncRunning = false;
         this._stockSyncScheduled = false;
-        this._stockSyncDelayMs = 45000;
+        this._stockSyncDelayMs = 5000;
         this.editingPrepedidoId = null;
         this.editingPrepedidoCodigo = null;
         this.editingPrepedidoObservaciones = '';
@@ -4764,6 +4764,7 @@ class ScanAsYouShopApp {
             if (!cartOK) {
                 throw new Error('No se pudo inicializar el carrito');
             }
+            await this.preloadStockIndexFromLocal();
             this.preloadLocalProductSearchIndex();
 
             await this.refreshClavesDescuentoCache();
@@ -5522,6 +5523,43 @@ class ScanAsYouShopApp {
         });
     }
 
+    /**
+     * Carga stock desde IndexedDB al iniciar (sin red). Evita pantalla sin stock mientras sync catalogo.
+     */
+    async preloadStockIndexFromLocal() {
+        try {
+            if (!window.cartManager || typeof window.cartManager.getStockIndex !== 'function') {
+                return;
+            }
+            const idx = await window.cartManager.getStockIndex();
+            if (idx && idx.size > 0) {
+                this.stockIndex = idx;
+                await this.initStockAlmacenFilter();
+                if (typeof this.updateStockBadgesVisibles === 'function') {
+                    this.updateStockBadgesVisibles();
+                }
+                console.log('Stock local precargado: ' + idx.size + ' articulos');
+            }
+        } catch (error) {
+            console.warn('preloadStockIndexFromLocal:', error && error.message ? error.message : error);
+        }
+    }
+
+    _formatSyncProgressLabel(progress) {
+        if (!progress) return 'Sincronizando...';
+        const loaded = Number(progress.loaded) || 0;
+        const total = Number(progress.total) || 0;
+        const table = progress.table ? String(progress.table) : '';
+        if (total > 0 && loaded >= total) {
+            return table ? `Procesando ${table}...` : 'Procesando datos...';
+        }
+        if (total > 0) {
+            const pct = Math.round((loaded / total) * 100);
+            return table ? `${table} ${pct}%` : `${pct}%`;
+        }
+        return table ? `Descargando ${table}...` : 'Sincronizando...';
+    }
+
     _countProductChanges(changeStats) {
         if (!changeStats) return 0;
         return (Number(changeStats.productos_modificados) || 0) + (Number(changeStats.productos_nuevos) || 0);
@@ -5583,6 +5621,9 @@ class ScanAsYouShopApp {
         setTimeout(() => {
             void this.syncStockInBackground().finally(() => {
                 this._stockSyncScheduled = false;
+                if (this.stockIndex.size === 0) {
+                    void this.preloadStockIndexFromLocal();
+                }
             });
         }, this._stockSyncDelayMs);
     }
@@ -5730,8 +5771,7 @@ class ScanAsYouShopApp {
             }
 
             const onProgress = (progress) => {
-                const percent = progress.total ? Math.round((progress.loaded / progress.total) * 100) : 0;
-                window.ui.updateSyncIndicator(`${percent}%`);
+                window.ui.updateSyncIndicator(this._formatSyncProgressLabel(progress));
             };
 
             if (await this._isSoloTarifasSync(changeStats)) {
@@ -5861,25 +5901,20 @@ class ScanAsYouShopApp {
                 ? performance.now()
                 : Date.now();
             const elapsedMs = Math.max(0, Math.round(syncEndTs - syncStartTs));
+            console.log('Sync catalogo completada en ' + elapsedMs + ' ms');
 
-            window.ui.updateSyncIndicator('Sincronizando en servidor/local...');
+            this.setCatalogSyncMode(false);
+            window.ui.showSyncIndicator(false);
             window.ui.showToast(mensaje, 'success');
 
             if (shouldInvalidateOfertas) {
-                window.ui.updateSyncIndicator('Descargando ofertas...');
                 void (async () => {
                     try {
-                        await window.supabaseClient.downloadOfertas(onProgress);
+                        await window.supabaseClient.downloadOfertas(null);
                     } catch (ofertaError) {
                         console.error('Error al descargar ofertas (no critico):', ofertaError);
-                    } finally {
-                        this.setCatalogSyncMode(false);
-                        window.ui.showSyncIndicator(false);
                     }
                 })();
-            } else {
-                this.setCatalogSyncMode(false);
-                window.ui.showSyncIndicator(false);
             }
 
         } catch (error) {
@@ -5918,11 +5953,17 @@ class ScanAsYouShopApp {
                     this.stockIndex = await window.cartManager.getStockIndex();
                     if (remoteHash) localStorage.setItem('stock_hash_local', remoteHash);
                     await this.initStockAlmacenFilter();
+                    if (typeof this.updateStockBadgesVisibles === 'function') {
+                        this.updateStockBadgesVisibles();
+                    }
                     return;
                 }
                 this.stockIndex = await window.cartManager.getStockIndex();
                 if (this.stockIndex.size > 0) {
                     this.initStockAlmacenFilter();
+                    if (typeof this.updateStockBadgesVisibles === 'function') {
+                        this.updateStockBadgesVisibles();
+                    }
                     if (typeof this.purgeHiddenCatalogProductsLocal === 'function') {
                         await this.purgeHiddenCatalogProductsLocal();
                     }
@@ -5936,6 +5977,9 @@ class ScanAsYouShopApp {
             this.stockIndex = await window.cartManager.getStockIndex();
             if (remoteHash) localStorage.setItem('stock_hash_local', remoteHash);
             await this.initStockAlmacenFilter();
+            if (typeof this.updateStockBadgesVisibles === 'function') {
+                this.updateStockBadgesVisibles();
+            }
         } catch (error) {
             console.error('Error al sincronizar stock (no critico):', error);
             // Intentar cargar lo que haya en local aunque falle la descarga
@@ -5943,6 +5987,9 @@ class ScanAsYouShopApp {
                 this.stockIndex = await window.cartManager.getStockIndex();
                 if (this.stockIndex.size > 0) {
                     this.initStockAlmacenFilter();
+                    if (typeof this.updateStockBadgesVisibles === 'function') {
+                        this.updateStockBadgesVisibles();
+                    }
                 }
             } catch (e) {
                 // Silencioso: sin stock no se muestra el filtro

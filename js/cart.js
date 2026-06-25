@@ -2360,8 +2360,12 @@ class CartManager {
     async saveStockToStorage(stockData) {
         if (!this.db || !stockData) return;
 
+        if (stockData.length === 0) {
+            console.warn('saveStockToStorage: datos vacios, se mantiene stock local existente');
+            return;
+        }
+
         // Reemplazo completo para evitar residuos de sincronizaciones anteriores.
-        // Si no se limpia, pueden quedar almacenes legacy en el filtro.
         await new Promise((resolve, reject) => {
             const txClear = this.db.transaction(['stock'], 'readwrite');
             const storeClear = txClear.objectStore('stock');
@@ -2369,11 +2373,6 @@ class CartManager {
             txClear.oncomplete = () => resolve();
             txClear.onerror = () => reject(txClear.error);
         });
-
-        if (stockData.length === 0) {
-            console.log('Stock local limpiado: no hay datos remotos para guardar');
-            return;
-        }
 
         const CHUNK_SIZE = 2000;
         let offset = 0;

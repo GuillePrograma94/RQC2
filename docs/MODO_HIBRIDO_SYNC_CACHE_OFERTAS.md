@@ -54,9 +54,15 @@ Para evitar `IndexedDB.getAll()` en cada busqueda (lento en WebView2/TiendaPC), 
 
 ## Sync serializada al arrancar
 
-- Catalogo/tarifas primero (`syncProductsInBackground`).
-- Stock diferido ~45 s (`syncStockInBackground`) para no competir por IndexedDB en movil.
-- Flag `_catalogSyncRunning`: stock espera si catalogo sigue activo.
+- Stock local precargado desde IndexedDB al iniciar (`preloadStockIndexFromLocal`), sin esperar red.
+- Catalogo/tarifas: `syncProductsInBackground`.
+- Refresh remoto de stock diferido ~5 s tras terminar sync de catalogo (`syncStockInBackground`), para no competir con escrituras pesadas en IndexedDB.
+- Flag `_catalogSyncRunning`: stock remoto espera si catalogo sigue activo.
+
+## Indicador de sync y ofertas
+
+- El indicador se oculta al terminar la sync de catalogo (precios/productos). Las ofertas se descargan en segundo plano sin bloquear la UI ni mantener el spinner en 100%.
+- Durante descarga, el texto del indicador muestra la fase (`Guardando productos...`, `productos_incremental 45%`, etc.) en lugar de quedarse en `100%` mientras se escribe en IndexedDB.
 
 ## Escritura chunked de ofertas
 
