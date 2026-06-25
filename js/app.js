@@ -36,6 +36,10 @@ class ScanAsYouShopApp {
         this.pactosClienteMapNormalized = new Map();
         this.mostrarPreciosConDescuento = true;
         this.mostrarPreciosConIva = true;
+        /** true cuando el indice de busqueda de productos esta listo en RAM */
+        this._searchIndicesReady = false;
+        /** true tras preloadStockIndexFromLocal al arrancar */
+        this._stockIndexPreloadedAtInit = false;
         // Estado de chips de filtro de búsqueda
         this.filterChips = {
             misCompras: false,
@@ -1444,6 +1448,12 @@ class ScanAsYouShopApp {
                     : null;
                 self.saveUserSession(self.currentUser, self.currentSession);
                 await self.refreshPactosClienteCache();
+                if (window.cartManager && typeof window.cartManager.invalidateAllOfertasProductosIndex === 'function') {
+                    window.cartManager.invalidateAllOfertasProductosIndex();
+                }
+                if (typeof self.preloadOfertasSearchIndex === 'function') {
+                    self.preloadOfertasSearchIndex();
+                }
                 self.updateUserUI();
                 if (self.currentUser.is_dependiente && window.supabaseClient) {
                     window.supabaseClient.registrarRepresentacionDependiente(self.currentUser.user_id, c.id);
@@ -4765,10 +4775,10 @@ class ScanAsYouShopApp {
                 throw new Error('No se pudo inicializar el carrito');
             }
             await this.preloadStockIndexFromLocal();
-            this.preloadLocalProductSearchIndex();
-
             await this.refreshClavesDescuentoCache();
             await this.refreshPactosClienteCache();
+            await this.warmSearchIndicesCritical(8000);
+            this.preloadOfertasSearchIndex();
             try {
                 const tarifa = this.getEffectiveTarifaCodigo();
                 const codigoClientePacto = this.getEffectiveCodigoClientePacto();
@@ -5515,12 +5525,87 @@ class ScanAsYouShopApp {
         if (!window.cartManager || typeof window.cartManager.warmProductSearchIndex !== 'function') {
             return;
         }
-        void window.cartManager.warmProductSearchIndex().catch((error) => {
-            console.warn(
-                'Precarga indice busqueda local:',
-                error && error.message ? error.message : error
-            );
+        void window.cartManager.warmProductSearchIndex()
+            .then(() => {
+                this._searchIndicesReady = true;
+            })
+            .catch((error) => {
+                console.warn(
+                    'Precarga indice busqueda local:',
+                    error && error.message ? error.message : error
+                );
+            });
+    }
+
+    /**
+     * Espera el indice critico de productos antes de habilitar busqueda (timeout suave).
+     */
+    async warmSearchIndicesCritical(timeoutMs = 8000) {
+        this._searchIndicesReady = false;
+        if (!window.cartManager || typeof window.cartManager.warmProductSearchIndex !== 'function') {
+            return;
+        }
+
+        const warmPromise = window.cartManager.warmProductSearchIndex()
+            .then(() => true)
+            .catch((error) => {
+                console.warn('warmSearchIndicesCritical:', error && error.message ? error.message : error);
+                return false;
+            });
+
+        const timeoutPromise = new Promise((resolve) => {
+            setTimeout(() => resolve('timeout'), timeoutMs);
         });
+
+        const result = await Promise.race([
+            warmPromise.then((ok) => (ok ? 'done' : 'error')),
+            timeoutPromise
+        ]);
+
+        if (result === 'done') {
+            this._searchIndicesReady = true;
+            return;
+        }
+
+        if (window.cartManager._productSearchIndex) {
+            this._searchIndicesReady = true;
+            return;
+        }
+
+        if (result === 'timeout') {
+            void warmPromise.then((ok) => {
+                if (ok || window.cartManager._productSearchIndex) {
+                    this._searchIndicesReady = true;
+                }
+            });
+        }
+    }
+
+    /**
+     * Precarga indice RAM de ofertas por grupo_cliente (background, no bloquea UI).
+     */
+    preloadOfertasSearchIndex() {
+        if (!window.cartManager || typeof window.cartManager.warmOfertasProductosIndex !== 'function') {
+            return;
+        }
+        const grupo = this.getEffectiveGrupoCliente();
+        if (!grupo) return;
+        void window.cartManager.warmOfertasProductosIndex(grupo).catch((error) => {
+            console.warn('preloadOfertasSearchIndex:', error && error.message ? error.message : error);
+        });
+    }
+
+    /**
+     * Obtiene Set de SKUs con oferta desde RAM (warm lazy si aun no existe).
+     */
+    async getOfertasSkuSetForSearch() {
+        const codigoGrupo = this.getEffectiveGrupoCliente();
+        if (!codigoGrupo || !window.cartManager) return new Set();
+        let skuSet = window.cartManager.getOfertasSkuSetForGrupo(codigoGrupo);
+        if (!skuSet) {
+            skuSet = await window.cartManager.warmOfertasProductosIndex(codigoGrupo);
+        }
+        return skuSet || new Set();
     }
 
     /**
@@ -5532,6 +5617,7 @@ class ScanAsYouShopApp {
                 return;
             }
             const idx = await window.cartManager.getStockIndex();
+            this._stockIndexPreloadedAtInit = true;
             if (idx && idx.size > 0) {
                 this.stockIndex = idx;
                 await this.initStockAlmacenFilter();
@@ -5911,6 +5997,9 @@ class ScanAsYouShopApp {
                 void (async () => {
                     try {
                         await window.supabaseClient.downloadOfertas(null);
+                        if (typeof this.preloadOfertasSearchIndex === 'function') {
+                            this.preloadOfertasSearchIndex();
+                        }
                     } catch (ofertaError) {
                         console.error('Error al descargar ofertas (no critico):', ofertaError);
                     }
@@ -8934,6 +9023,20 @@ class ScanAsYouShopApp {
             return;
         }
 
+        if (!this._searchIndicesReady) {
+            if (window.cartManager && typeof window.cartManager.warmProductSearchIndex === 'function') {
+                window.ui.showToast('Preparando catalogo para busqueda. Espera un momento...', 'warning');
+                try {
+                    await window.cartManager.warmProductSearchIndex();
+                    this._searchIndicesReady = true;
+                } catch (warmErr) {
+                    console.warn('performSearch warm indice:', warmErr && warmErr.message ? warmErr.message : warmErr);
+                    window.ui.showToast('Catalogo aun no listo. Intenta de nuevo en unos segundos.', 'warning');
+                    return;
+                }
+            }
+        }
+
         // Si el filtro de "solo comprados" está activo, verificar que el usuario esté logueado
         if (onlyPurchased && !this.currentUser) {
             window.ui.showToast('Debes iniciar sesión para filtrar por historial', 'warning');
@@ -9051,9 +9154,7 @@ class ScanAsYouShopApp {
                 if (!window.cartManager || !window.cartManager.db) {
                     window.ui.showToast('Catalogo local aun no listo para filtrar ofertas. Espera la sincronizacion.', 'warning');
                 } else {
-                    const codigoCliente = this.getEffectiveGrupoCliente();
-                    const ofertasProductos = await window.cartManager.getAllOfertasProductosFromCache(codigoCliente);
-                    const codigosConOferta = new Set(ofertasProductos.map(op => op.codigo_articulo.toUpperCase()));
+                    const codigosConOferta = await this.getOfertasSkuSetForSearch();
                     productos = productos.filter(p => codigosConOferta.has(p.codigo.toUpperCase()));
                 }
             }
@@ -9114,28 +9215,22 @@ class ScanAsYouShopApp {
         if (emptyState) emptyState.style.display = 'none';
         if (resultsContainer) resultsContainer.style.display = 'block';
 
-        // Pre-cargar índice de productos con ofertas desde cache LOCAL (RÁPIDO)
-        const productosConOfertas = new Set();
+        // Indice RAM de productos con ofertas (lookup O(1), precargado al init)
+        let productosConOfertas = new Set();
         const codigoCliente = this.getEffectiveGrupoCliente() || null;
-        
+
         if (codigoCliente && window.cartManager && window.cartManager.db) {
-            console.log('Cargando indice de ofertas desde cache local...');
-            const inicio = performance.now();
-            try {
-                // Obtener TODOS los productos en ofertas de UNA SOLA VEZ desde IndexedDB
-                const ofertasProductosCache = await window.cartManager.getAllOfertasProductosFromCache(codigoCliente);
-                for (const op of ofertasProductosCache) {
-                    productosConOfertas.add(op.codigo_articulo.toUpperCase());
-                }
-                const tiempo = (performance.now() - inicio).toFixed(0);
-                console.log(`Indice de ofertas cargado en ${tiempo}ms: ${productosConOfertas.size} productos con ofertas`);
-            } catch (error) {
-                console.error('Error al cargar indice de ofertas:', error);
+            let skuSet = window.cartManager.getOfertasSkuSetForGrupo(codigoCliente);
+            if (!skuSet) {
+                skuSet = await window.cartManager.warmOfertasProductosIndex(codigoCliente);
+            }
+            if (skuSet && skuSet.size > 0) {
+                productosConOfertas = skuSet;
             }
         }
 
-        // Refrescar indice de stock en memoria antes de renderizar (es un Map, muy rapido)
-        if (this.stockIndex.size === 0 && window.cartManager && window.cartManager.db) {
+        // Stock ya precargado al init; solo reintentar si la precarga fallo
+        if (!this._stockIndexPreloadedAtInit && this.stockIndex.size === 0 && window.cartManager && window.cartManager.db) {
             this.stockIndex = await window.cartManager.getStockIndex();
         }
 
@@ -14969,6 +15064,9 @@ class ScanAsYouShopApp {
                         try {
                             await window.supabaseClient.downloadOfertas();
                             console.log('Ofertas descargadas y guardadas en cache');
+                            if (typeof this.preloadOfertasSearchIndex === 'function') {
+                                this.preloadOfertasSearchIndex();
+                            }
                         } catch (error) {
                             console.error('Error al descargar ofertas (no crítico):', error);
                         }

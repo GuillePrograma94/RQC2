@@ -19,11 +19,146 @@ class CartManager {
         this.db = null;
         this._productSearchIndex = null;
         this._productSearchIndexBuildPromise = null;
+        this._ofertasSkuSetByGrupo = new Map();
+        this._ofertasIndexBuildPromiseByGrupo = new Map();
     }
 
     invalidateProductSearchIndex() {
         this._productSearchIndex = null;
         this._productSearchIndexBuildPromise = null;
+    }
+
+    invalidateAllOfertasProductosIndex() {
+        this._ofertasSkuSetByGrupo.clear();
+        this._ofertasIndexBuildPromiseByGrupo.clear();
+    }
+
+    _getOfertasCacheVersionKey() {
+        try {
+            return localStorage.getItem('version_hash_local') || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    _normalizeGrupoClienteKey(codigoGrupoCliente) {
+        const n = Number.parseInt(codigoGrupoCliente, 10);
+        return Number.isFinite(n) && n > 0 ? String(n) : '';
+    }
+
+    _buildOfertasIndexCacheKey(codigoGrupoCliente) {
+        return this._getOfertasCacheVersionKey() + ':' + this._normalizeGrupoClienteKey(codigoGrupoCliente);
+    }
+
+    /**
+     * Precarga Set de SKUs con oferta activa para un grupo_cliente (RAM, una lectura IDB).
+     */
+    warmOfertasProductosIndex(codigoGrupoCliente) {
+        if (!this.db) return Promise.resolve(new Set());
+        const grupoKey = this._normalizeGrupoClienteKey(codigoGrupoCliente);
+        if (!grupoKey) return Promise.resolve(new Set());
+
+        const cacheKey = this._buildOfertasIndexCacheKey(codigoGrupoCliente);
+        const cached = this._ofertasSkuSetByGrupo.get(cacheKey);
+        if (cached) return Promise.resolve(cached);
+
+        if (this._ofertasIndexBuildPromiseByGrupo.has(cacheKey)) {
+            return this._ofertasIndexBuildPromiseByGrupo.get(cacheKey);
+        }
+
+        const buildPromise = this._buildOfertasSkuSet(codigoGrupoCliente)
+            .then((skuSet) => {
+                this._ofertasSkuSetByGrupo.set(cacheKey, skuSet);
+                const elapsed = skuSet._buildMs != null ? skuSet._buildMs : 0;
+                console.log(
+                    'Indice ofertas RAM listo: grupo ' + grupoKey +
+                    ', ' + skuSet.size + ' SKUs en ' + elapsed + 'ms'
+                );
+                return skuSet;
+            })
+            .catch((error) => {
+                console.warn('warmOfertasProductosIndex:', error && error.message ? error.message : error);
+                return new Set();
+            })
+            .finally(() => {
+                this._ofertasIndexBuildPromiseByGrupo.delete(cacheKey);
+            });
+
+        this._ofertasIndexBuildPromiseByGrupo.set(cacheKey, buildPromise);
+        return buildPromise;
+    }
+
+    /**
+     * Lookup sincrono del Set de SKUs con oferta (null si aun no se ha calentado).
+     */
+    getOfertasSkuSetForGrupo(codigoGrupoCliente) {
+        const cacheKey = this._buildOfertasIndexCacheKey(codigoGrupoCliente);
+        return this._ofertasSkuSetByGrupo.get(cacheKey) || null;
+    }
+
+    async _buildOfertasSkuSet(codigoGrupoCliente) {
+        const inicio = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const grupoNum = Number.parseInt(codigoGrupoCliente, 10);
+        const skuSet = new Set();
+
+        const snapshot = await new Promise((resolve, reject) => {
+            const tx = this.db.transaction(
+                ['ofertas', 'ofertas_grupos_asignaciones', 'ofertas_productos'],
+                'readonly'
+            );
+            const out = { ofertas: [], asignaciones: [], productos: [] };
+            let pending = 3;
+
+            const done = () => {
+                pending--;
+                if (pending === 0) resolve(out);
+            };
+
+            tx.objectStore('ofertas').getAll().onsuccess = (ev) => {
+                out.ofertas = ev.target.result || [];
+                done();
+            };
+            tx.objectStore('ofertas_grupos_asignaciones').getAll().onsuccess = (ev) => {
+                out.asignaciones = ev.target.result || [];
+                done();
+            };
+            tx.objectStore('ofertas_productos').getAll().onsuccess = (ev) => {
+                out.productos = ev.target.result || [];
+                done();
+            };
+            tx.onerror = () => reject(tx.error);
+        });
+
+        const ofertasActivas = new Set();
+        for (let i = 0; i < snapshot.ofertas.length; i++) {
+            const o = snapshot.ofertas[i];
+            if (o && o.activa !== false && o.numero_oferta != null) {
+                ofertasActivas.add(o.numero_oferta);
+            }
+        }
+
+        const ofertasAccesibles = new Set();
+        for (let j = 0; j < snapshot.asignaciones.length; j++) {
+            const a = snapshot.asignaciones[j];
+            if (!a) continue;
+            if (Number.parseInt(a.codigo_grupo, 10) === grupoNum && ofertasActivas.has(a.numero_oferta)) {
+                ofertasAccesibles.add(a.numero_oferta);
+            }
+        }
+
+        if (ofertasAccesibles.size > 0) {
+            for (let k = 0; k < snapshot.productos.length; k++) {
+                const p = snapshot.productos[k];
+                if (!p || !ofertasAccesibles.has(p.numero_oferta)) continue;
+                const cod = p.codigo_articulo ? String(p.codigo_articulo).toUpperCase() : '';
+                if (cod) skuSet.add(cod);
+            }
+        }
+
+        skuSet._buildMs = Math.round(
+            ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - inicio
+        );
+        return skuSet;
     }
 
     /**
@@ -1506,82 +1641,60 @@ class CartManager {
         try {
             if (!code || !code.trim()) return [];
             const normalizedCode = code.toUpperCase().trim();
-            
-            console.log('🔍 Búsqueda exacta por código:', normalizedCode);
-            
+
             const results = [];
             const seen = new Set();
-            
-            // 1. Búsqueda directa en productos (código principal) - INSTANTÁNEA
+
             const productoPrincipal = await new Promise((resolve) => {
                 const tx = this.db.transaction(['products'], 'readonly');
                 const store = tx.objectStore('products');
                 const req = store.get(normalizedCode);
                 req.onsuccess = () => resolve(req.result || null);
                 req.onerror = () => {
-                    console.error('❌ Error en búsqueda de productos:', req.error);
+                    console.error('Error en busqueda de productos:', req.error);
                     resolve(null);
                 };
             });
-            
+
             if (productoPrincipal) {
-                console.log('✅ Encontrado en productos:', productoPrincipal.codigo);
                 results.push(productoPrincipal);
                 seen.add(productoPrincipal.codigo);
-            } else {
-                console.log('❌ No encontrado en productos (código principal)');
             }
-            
-            // 2. Búsqueda directa en códigos secundarios (EAN) usando índice - INSTANTÁNEA
-            console.log('🔍 Buscando en códigos secundarios...');
+
             const codigoSecundario = await new Promise((resolve) => {
                 const tx = this.db.transaction(['secondary_codes'], 'readonly');
                 const store = tx.objectStore('secondary_codes');
                 const index = store.index('codigo_secundario');
                 const req = index.get(normalizedCode);
-                req.onsuccess = () => {
-                    const result = req.result;
-                    if (result) {
-                        console.log('✅ Encontrado en códigos secundarios:', result);
-                    } else {
-                        console.log('❌ No encontrado en códigos secundarios');
-                    }
-                    resolve(result || null);
-                };
+                req.onsuccess = () => resolve(req.result || null);
                 req.onerror = () => {
-                    console.error('❌ Error en búsqueda de códigos secundarios:', req.error);
+                    console.error('Error en busqueda de codigos secundarios:', req.error);
                     resolve(null);
                 };
             });
-            
+
             if (codigoSecundario && !seen.has(codigoSecundario.codigo_principal)) {
-                console.log('📦 Obteniendo producto principal:', codigoSecundario.codigo_principal);
-                // Obtener el producto principal
-                const productoPrincipal = await new Promise((resolve) => {
+                const productoDesdeSecundario = await new Promise((resolve) => {
                     const tx = this.db.transaction(['products'], 'readonly');
                     const store = tx.objectStore('products');
                     const req = store.get(codigoSecundario.codigo_principal);
                     req.onsuccess = () => resolve(req.result || null);
                     req.onerror = () => {
-                        console.error('❌ Error al obtener producto principal:', req.error);
+                        console.error('Error al obtener producto principal:', req.error);
                         resolve(null);
                     };
                 });
-                
-                if (productoPrincipal) {
-                    console.log('✅ Producto principal encontrado:', productoPrincipal.codigo);
-                    results.push(productoPrincipal);
-                    seen.add(productoPrincipal.codigo);
-                } else {
-                    console.error('❌ Producto principal no encontrado en base de datos');
+
+                if (productoDesdeSecundario) {
+                    results.push(productoDesdeSecundario);
+                    seen.add(productoDesdeSecundario.codigo);
                 }
             }
-            
-            console.log(`✅ Búsqueda exacta completada: ${results.length} resultado(s)`);
+
             return results;
-            
+
         } catch (error) {
-            console.error('❌ Error en searchProductsExact:', error);
+            console.error('Error en searchProductsExact:', error);
             return [];
         }
     }
@@ -1904,6 +2017,7 @@ class CartManager {
             });
 
             await this.replaceStoreChunked('ofertas', normalized, 3000, 3);
+            this.invalidateAllOfertasProductosIndex();
             console.log(`${normalized.length} ofertas guardadas en cache`);
             return true;
 
@@ -1943,6 +2057,7 @@ class CartManager {
 
             console.log(`Guardando ${normalized.length} productos en ofertas...`);
             await this.replaceStoreChunked('ofertas_productos', normalized, 3000, 3);
+            this.invalidateAllOfertasProductosIndex();
             console.log(`${normalized.length} productos en ofertas guardados en cache`);
             return true;
 
@@ -1981,109 +2096,19 @@ class CartManager {
     }
 
     /**
-     * Obtiene TODOS los productos en ofertas accesibles para un cliente
-     * Usa para crear un índice rápido de productos con ofertas
-     * @param {number} codigoCliente - Código del cliente
-     * @returns {Promise<Array>} - Lista de productos en ofertas
+     * Obtiene SKUs con ofertas accesibles para un grupo_cliente (delega al indice RAM).
+     * @param {number} codigoGrupoCliente - grupo_cliente del usuario o cliente representado
+     * @returns {Promise<Array>} - Lista { codigo_articulo } compatible con codigo legacy
      */
-    async getAllOfertasProductosFromCache(codigoCliente) {
+    async getAllOfertasProductosFromCache(codigoGrupoCliente) {
         try {
-            if (!this.db) {
-                console.log('⚠️ DB no disponible');
-                return [];
-            }
-
-            console.log(`🔍 Buscando TODAS las ofertas para cliente ${codigoCliente}...`);
-
-            const transaction = this.db.transaction(['ofertas_productos', 'ofertas', 'ofertas_grupos_asignaciones'], 'readonly');
-            const productosStore = transaction.objectStore('ofertas_productos');
-            const ofertasStore = transaction.objectStore('ofertas');
-            const gruposStore = transaction.objectStore('ofertas_grupos_asignaciones');
-
-            // 1. Obtener TODAS las asignaciones de grupo (sin filtrar por índice primero)
-            const todasAsignaciones = await new Promise((resolve) => {
-                const request = gruposStore.getAll();
-                request.onsuccess = () => {
-                    const results = request.result || [];
-                    console.log(`   📊 Total asignaciones en DB: ${results.length}`);
-                    if (results.length > 0) {
-                        console.log(`   📋 Muestra de asignaciones:`, results.slice(0, 3));
-                    }
-                    resolve(results);
-                };
-                request.onerror = () => {
-                    console.error('   ❌ Error al obtener asignaciones:', request.error);
-                    resolve([]);
-                };
+            if (!this.db || !codigoGrupoCliente) return [];
+            const skuSet = await this.warmOfertasProductosIndex(codigoGrupoCliente);
+            return Array.from(skuSet).map(function (codigo_articulo) {
+                return { codigo_articulo: codigo_articulo };
             });
-
-            // 2. Filtrar manualmente las asignaciones para este cliente
-            const codigoClienteNum = parseInt(codigoCliente);
-            const asignaciones = todasAsignaciones.filter(a => {
-                const codigoGrupoNum = parseInt(a.codigo_grupo);
-                return codigoGrupoNum === codigoClienteNum;
-            });
-
-            console.log(`   🔐 Asignaciones para cliente ${codigoCliente}: ${asignaciones.length}`);
-            
-            if (asignaciones.length === 0) {
-                console.log(`   ⚠️ Cliente ${codigoCliente} no tiene asignaciones de grupo`);
-                return [];
-            }
-
-            // 3. Crear Set de números de oferta accesibles
-            const ofertasAccesibles = new Set(asignaciones.map(a => a.numero_oferta));
-            console.log(`   ✅ Cliente ${codigoCliente} tiene acceso a ${ofertasAccesibles.size} ofertas:`, Array.from(ofertasAccesibles).slice(0, 10));
-
-            // 4. Obtener TODOS los productos en ofertas
-            const todosProductos = await new Promise((resolve) => {
-                const request = productosStore.getAll();
-                request.onsuccess = () => {
-                    const results = request.result || [];
-                    console.log(`   📦 Total productos en ofertas: ${results.length}`);
-                    resolve(results);
-                };
-                request.onerror = () => resolve([]);
-            });
-
-            // 5. Filtrar solo los productos de ofertas accesibles y activas
-            const resultado = [];
-            const ofertasVerificadas = new Set();
-            
-            for (const producto of todosProductos) {
-                if (ofertasAccesibles.has(producto.numero_oferta)) {
-                    // Verificar que la oferta esté activa (cachear resultado)
-                    if (!ofertasVerificadas.has(producto.numero_oferta)) {
-                        const oferta = await new Promise((resolve) => {
-                            const request = ofertasStore.get(producto.numero_oferta);
-                            request.onsuccess = () => resolve(request.result);
-                            request.onerror = () => resolve(null);
-                        });
-
-                        if (oferta && oferta.activa) {
-                            ofertasVerificadas.add(producto.numero_oferta);
-                        }
-                    }
-
-                    if (ofertasVerificadas.has(producto.numero_oferta)) {
-                        resultado.push({
-                            codigo_articulo: producto.codigo_articulo,
-                            numero_oferta: producto.numero_oferta,
-                            descuento_oferta: producto.descuento_oferta
-                        });
-                    }
-                }
-            }
-
-            console.log(`✅ ${resultado.length} productos con ofertas accesibles para cliente ${codigoCliente}`);
-            if (resultado.length > 0) {
-                console.log(`   📋 Muestra de productos con ofertas:`, resultado.slice(0, 5).map(r => r.codigo_articulo));
-            }
-            
-            return resultado;
-
         } catch (error) {
-            console.error('❌ Error al obtener todos los productos en ofertas:', error);
+            console.error('Error al obtener productos en ofertas desde cache:', error);
             return [];
         }
     }
@@ -2170,6 +2195,7 @@ class CartManager {
 
             console.log(`Guardando ${normalized.length} asignaciones de grupos...`);
             await this.replaceStoreChunked('ofertas_grupos_asignaciones', normalized, 3000, 3);
+            this.invalidateAllOfertasProductosIndex();
             console.log(`${normalized.length} asignaciones de grupos guardadas en cache`);
             return true;
 

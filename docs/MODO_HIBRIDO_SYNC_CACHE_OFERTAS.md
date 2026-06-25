@@ -45,12 +45,46 @@ Un cambio solo de tarifas (`claves_descuento`) **no** invalida ni re-descarga of
 
 ## Indice de busqueda local en memoria
 
-Para evitar `IndexedDB.getAll()` en cada busqueda (lento en WebView2/TiendaPC), `cart.js` mantiene un indice en RAM:
+Para evitar `IndexedDB.getAll()` en cada busqueda (lento en WebView Android), `cart.js` mantiene indices en RAM:
 
-- Se construye una vez leyendo el catalogo y pre-normalizando descripcion + sinonimos.
+### Productos
+
+- Se construye una vez leyendo el catalogo y pre-normalizando descripcion + sinonimos (`_productSearchIndex`).
 - Se invalida al guardar completo o purgar productos; en sync incremental se parchea con `patchProductSearchIndex` sin rebuild completo.
-- Se precarga tras init y sync completa (`preloadLocalProductSearchIndex` en `app.js`).
+- Al arrancar se espera con `warmSearchIndicesCritical` (timeout 8 s) **antes** de `hideLoading()`.
+- Flag `app._searchIndicesReady`: si el usuario busca antes de que termine, `performSearch` muestra aviso y espera el warm.
 - Las busquedas por descripcion y codigo parcial usan solo memoria; no consultan Supabase.
+
+### Ofertas por grupo_cliente
+
+- `warmOfertasProductosIndex(grupo)` construye un `Set<codigo_articulo>` en RAM con una sola transaccion IndexedDB (3 x `getAll`, sin loop N+1).
+- Clave de cache: `version_hash_local + ':' + grupo_cliente`.
+- Lookup sincrono: `getOfertasSkuSetForGrupo(grupo)`.
+- Se precarga en background al init (`preloadOfertasSearchIndex`); **no** bloquea la UI.
+- `displaySearchResults` y filtro chip ofertas usan el Set RAM; no reconstruyen indice por busqueda.
+
+### Invalidacion de indices RAM
+
+| Evento | Productos | Ofertas |
+|--------|-----------|---------|
+| `saveProductsToStorage` / purge | invalidate + rebuild | - |
+| Sync incremental productos | `patchProductSearchIndex` | - |
+| `saveOfertas*ToCache` / `downloadOfertas` | - | invalidate + warm background |
+| Cambio cliente representado | - | invalidate + warm nuevo grupo |
+
+## Orquestacion al arrancar (indices antes de sync)
+
+Secuencia en `initializeApp`:
+
+1. `cartManager.initialize()`
+2. `await preloadStockIndexFromLocal()` — stock en RAM
+3. `await refreshClavesDescuentoCache()` + pactos
+4. `await warmSearchIndicesCritical(8000)` — indice productos (critico busqueda)
+5. `void preloadOfertasSearchIndex()` — ofertas en background
+6. `hideLoading()` — UI usable
+7. `void syncProductsInBackground()` — escrituras pesadas **despues** (evita contencion IDB)
+
+Tras `downloadOfertas` (sync o completar cache): invalidar indice ofertas RAM y `preloadOfertasSearchIndex()`.
 
 ## Sync serializada al arrancar
 

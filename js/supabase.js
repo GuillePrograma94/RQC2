@@ -3128,6 +3128,13 @@ class SupabaseClient {
                 await window.cartManager.saveOfertasGruposToCache(ofertasGruposAsignaciones || []);
             }
 
+            if (window.cartManager && typeof window.cartManager.invalidateAllOfertasProductosIndex === 'function') {
+                window.cartManager.invalidateAllOfertasProductosIndex();
+            }
+            if (window.app && typeof window.app.preloadOfertasSearchIndex === 'function') {
+                void window.app.preloadOfertasSearchIndex();
+            }
+
             this.markOfertasCacheComplete(localStorage.getItem('version_hash_local'));
 
             return {
