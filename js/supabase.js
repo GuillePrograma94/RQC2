@@ -218,6 +218,20 @@ class SupabaseClient {
     }
 
     /**
+     * Umbrales incremental vs completa por dominio (ver APP_CONFIG.sync en config.js).
+     */
+    getCatalogSyncThresholds() {
+        const syncCfg = (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.sync)
+            ? window.APP_CONFIG.sync
+            : {};
+        return {
+            productos: Number(syncCfg.incrementalThresholdProductos) || 25000,
+            codigos_secundarios: Number(syncCfg.incrementalThresholdCodigosSecundarios) || 40000,
+            claves_descuento: Number(syncCfg.incrementalThresholdClavesDescuento) || 1000
+        };
+    }
+
+    /**
      * Cuenta cambios pendientes por dominio (productos, codigos, claves_descuento).
      */
     countCatalogDomainChanges(changeStats) {
@@ -548,9 +562,7 @@ class SupabaseClient {
         const t0 = (typeof performance !== 'undefined' && typeof performance.now === 'function')
             ? performance.now()
             : Date.now();
-        const TH_PROD = 1000;
-        const TH_COD = 2000;
-        const TH_CLAVE = 400;
+        const th = this.getCatalogSyncThresholds();
 
         const prodN = changeStats
             ? (changeStats.productos_modificados || 0) + (changeStats.productos_nuevos || 0)
@@ -574,9 +586,16 @@ class SupabaseClient {
         const skipCod = incrementalContext && codN === 0;
         const skipClave = false;
 
-        const useIncProd = !!(incrementalContext && prodN > 0 && prodN < TH_PROD);
-        const useIncCod = !!(incrementalContext && codN > 0 && codN < TH_COD);
-        const useIncClave = !!(incrementalContext && clN > 0 && clN < TH_CLAVE);
+        const useIncProd = !!(incrementalContext && prodN > 0 && prodN < th.productos);
+        const useIncCod = !!(incrementalContext && codN > 0 && codN < th.codigos_secundarios);
+        const useIncClave = !!(incrementalContext && clN > 0 && clN < th.claves_descuento);
+
+        console.log(
+            'Sync catalogo por dominio: ' +
+            `productos=${prodN} (umbral ${th.productos}, modo ${skipProd ? 'omitir' : useIncProd ? 'incremental' : 'completa'}), ` +
+            `codigos=${codN} (umbral ${th.codigos_secundarios}, modo ${skipCod ? 'omitir' : useIncCod ? 'incremental' : 'completa'}), ` +
+            `claves=${clN} (umbral ${th.claves_descuento}, modo ${useIncClave ? 'incremental' : 'completa'})`
+        );
 
         const productosTask = skipProd
             ? Promise.resolve([])

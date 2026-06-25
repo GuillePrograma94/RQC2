@@ -6537,13 +6537,15 @@ class ScanAsYouShopApp {
             : localStorage.getItem('version_hash_local');
         const preferIncremental = !!(options && options.preferIncremental);
         const clN = this._countClaveChanges(changeStats);
-        const TH_CLAVE = 400;
+        const thClave = window.supabaseClient && typeof window.supabaseClient.getCatalogSyncThresholds === 'function'
+            ? window.supabaseClient.getCatalogSyncThresholds().claves_descuento
+            : ((window.APP_CONFIG && window.APP_CONFIG.sync && window.APP_CONFIG.sync.incrementalThresholdClavesDescuento) || 1000);
 
         if (
             preferIncremental &&
             versionLocalHash &&
             clN > 0 &&
-            clN < TH_CLAVE &&
+            clN < thClave &&
             window.supabaseClient &&
             typeof window.supabaseClient._downloadIncrementalWithPagination === 'function'
         ) {

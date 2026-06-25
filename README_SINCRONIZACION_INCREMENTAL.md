@@ -57,8 +57,8 @@ Los archivos ya incluyen:
    ↓
 3. Si hay versión local:
    ├─ Obtiene estadísticas de cambios
-   ├─ Si hay < 1000 cambios → Sincronización INCREMENTAL ⚡
-   └─ Si hay ≥ 1000 cambios → Sincronización COMPLETA 📦
+   ├─ Si hay pocos cambios (por dominio, ver umbrales en config.js) → Sincronización INCREMENTAL
+   └─ Si hay demasiados cambios en un dominio → Sincronización COMPLETA de ese dominio
    ↓
 4. Si NO hay versión local:
    └─ Primera sincronización → Sincronización COMPLETA 📦
@@ -231,22 +231,27 @@ El sistema decide **por dominio de forma independiente** (`downloadCatalogSplit`
 
 > Nota: `claves_descuento` no se omite (`skipClave = false`) porque su conteo solo es fiable vía manifest; mantiene el comportamiento incremental/completa para no perder cambios.
 
-Umbrales independientes para el modo incremental:
-- Productos: `< 1000`
-- Códigos secundarios: `< 2000`
-- Claves de descuento: `< 400`
+Umbrales independientes para el modo incremental (calibrados para ~60k productos y ~100k+ códigos secundarios):
 
-**Modificar umbrales** (en `js/supabase.js`, función `downloadCatalogSplit`):
+| Dominio | Umbral incremental | Ejemplo |
+|---------|-------------------|---------|
+| Productos | `< 25 000` cambios | 10 000 PVP actualizados → incremental (~50k filas no se tocan) |
+| Códigos secundarios | `< 40 000` cambios | 5 000 EAN en codbarra → incremental |
+| Claves descuento | `< 1 000` cambios | Tabla pequeña |
+
+Por encima del umbral de un dominio, ese dominio pasa a sync **completa** (descarga y reemplazo del store local). Los otros dominios siguen decidiendo por separado (omitir / incremental / completa).
+
+**Modificar umbrales** en [`config.js`](config.js) (`APP_CONFIG.sync`):
+
 ```javascript
-const TH_PROD = 1000;
-const TH_COD = 2000;
-const TH_CLAVE = 400;
+incrementalThresholdProductos: 25000,
+incrementalThresholdCodigosSecundarios: 40000,
+incrementalThresholdClavesDescuento: 1000
 ```
 
-**Recomendaciones**:
-- **< 500 cambios**: Incremental siempre
-- **500-2000 cambios**: Incremental recomendado para códigos secundarios en móvil
-- **> 2000 cambios**: Completa (más eficiente)
+La funcion `getCatalogSyncThresholds()` en `js/supabase.js` lee estos valores.
+
+**Cuándo tiene sentido la sync completa**: cuando cambia una fraccion muy grande del catalogo (p. ej. >40% de productos o >40% de codigos), donde descargar todo puede ser comparable o mas simple que muchas paginas RPC incrementales.
 
 ---
 
@@ -358,7 +363,7 @@ const TH_CLAVE = 400;
 
 ### Sincronización incremental lenta
 
-**Causa**: Hay muchos cambios (cerca del umbral de 1000).
+**Causa**: Hay muchos cambios (cerca del umbral configurado en `APP_CONFIG.sync`).
 
 **Solución**:
 - Es normal si hay > 500 cambios

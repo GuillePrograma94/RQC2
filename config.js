@@ -7,7 +7,13 @@ const APP_CONFIG = {
     sync: {
         autoSyncInterval: 240, // Minutos entre sincronizaciones automáticas
         batchSize: 1000, // Productos por lote
-        maxRetries: 3 // Reintentos en caso de error
+        maxRetries: 3, // Reintentos en caso de error
+        // Por debajo del umbral: sync incremental (solo registros modificados).
+        // Por encima: sync completa del dominio. Calibrado para ~60k productos y ~100k+ codigos secundarios:
+        // 10k cambios sigue siendo incremental; completa solo cuando cambia una fraccion muy grande del catalogo.
+        incrementalThresholdProductos: 25000,
+        incrementalThresholdCodigosSecundarios: 40000,
+        incrementalThresholdClavesDescuento: 1000
     },
     
     // Configuración de búsqueda

@@ -67,10 +67,22 @@ async function diagnosticarSincronizacionIncremental() {
                 console.log('   1. Los triggers no están actualizando fecha_actualizacion');
                 console.log('   2. No se han hecho cambios desde la última sincronización');
                 console.log('   3. La versión local no coincide con ninguna en version_control');
-            } else if (stats.total_cambios < 1000) {
-                console.log(`\n✅ Debería usar sincronización incremental (${stats.total_cambios} cambios < 1000)`);
             } else {
-                console.log(`\nℹ️ Usará sincronización completa (${stats.total_cambios} cambios >= 1000)`);
+                const th = window.supabaseClient && typeof window.supabaseClient.getCatalogSyncThresholds === 'function'
+                    ? window.supabaseClient.getCatalogSyncThresholds()
+                    : { productos: 25000, codigos_secundarios: 40000, claves_descuento: 1000 };
+                const prodN = (stats.productos_modificados || 0) + (stats.productos_nuevos || 0);
+                const codN = (stats.codigos_modificados || 0) + (stats.codigos_nuevos || 0);
+                if (prodN > 0 && prodN < th.productos) {
+                    console.log(`\nProductos: incremental (${prodN} cambios < umbral ${th.productos})`);
+                } else if (prodN >= th.productos) {
+                    console.log(`\nProductos: completa (${prodN} cambios >= umbral ${th.productos})`);
+                }
+                if (codN > 0 && codN < th.codigos_secundarios) {
+                    console.log(`Codigos: incremental (${codN} cambios < umbral ${th.codigos_secundarios})`);
+                } else if (codN >= th.codigos_secundarios) {
+                    console.log(`Codigos: completa (${codN} cambios >= umbral ${th.codigos_secundarios})`);
+                }
             }
         } else {
             console.log('⚠️ Función retornó datos vacíos o nulos');
