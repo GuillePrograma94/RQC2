@@ -15,6 +15,7 @@ const {
     describeEmailConfigIssue,
     resolveAlmacenDestinoForOrderEmail
 } = require('../../lib/order-email');
+const { resolveOrderEmailPricing } = require('../../lib/order-pricing-email');
 
 function parseRequestBody(req) {
     if (!req || req.body == null) return {};
@@ -137,7 +138,7 @@ module.exports = async (req, res) => {
 
     const { data: usuario, error: usuarioError } = await supabase
         .from('usuarios')
-        .select('nombre, almacen_habitual')
+        .select('nombre, almacen_habitual, tarifa, codigo_usuario, grupo_cliente')
         .eq('id', carrito.usuario_id)
         .maybeSingle();
 
@@ -183,6 +184,8 @@ module.exports = async (req, res) => {
         return;
     }
 
+    const pricingResolved = await resolveOrderEmailPricing(supabase, usuario, productos || []);
+
     const motivoFinal = motivo === 'error_erp' ? 'error_erp' : 'pendiente_erp';
     const codigoLabel = safeText(carrito.codigo_qr) || String(carritoId);
     const html = buildErpFailureAdminHtml({
@@ -191,11 +194,11 @@ module.exports = async (req, res) => {
         almacen_destino: almacenParaEmail || carrito.almacen_destino,
         codigo_qr: carrito.codigo_qr,
         observaciones: carrito.observaciones,
-        total_importe: carrito.total_importe,
+        total_importe: pricingResolved.total_importe,
         fecha_creacion: carrito.fecha_creacion,
         motivo: motivoFinal,
         empresa_razon_social: empresa ? empresa.razon_social : null,
-        productos: productos || []
+        productos: pricingResolved.productos
     });
 
     const subject = '[ALERTA ERP] Pedido ' + codigoLabel + ' no enviado al ERP';

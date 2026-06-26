@@ -24,6 +24,7 @@ const {
     fetchEncargadosEmailsForComercial,
     buildOrderRecipientLists
 } = require('../../lib/order-email');
+const { resolveOrderEmailPricing } = require('../../lib/order-pricing-email');
 
 function parseRequestBody(req) {
     if (!req || req.body == null) return {};
@@ -117,7 +118,7 @@ module.exports = async (req, res) => {
 
     const { data: usuario, error: usuarioError } = await supabase
         .from('usuarios')
-        .select('id, nombre, email, comercial_asignado, almacen_habitual')
+        .select('id, nombre, email, comercial_asignado, almacen_habitual, tarifa, codigo_usuario, grupo_cliente')
         .eq('id', carrito.usuario_id)
         .maybeSingle();
 
@@ -183,18 +184,20 @@ module.exports = async (req, res) => {
         return;
     }
 
+    const pricingResolved = await resolveOrderEmailPricing(supabase, usuario, productos || []);
+
     const emailData = {
         cliente_nombre: usuario.nombre,
         almacen_destino: almacenParaEmail || carrito.almacen_destino,
         codigo_qr: carrito.codigo_qr,
         pedido_erp: carrito.pedido_erp,
         observaciones: carrito.observaciones,
-        total_importe: carrito.total_importe,
+        total_importe: pricingResolved.total_importe,
         total_productos: carrito.total_productos,
         fecha_creacion: carrito.fecha_creacion,
         nombre_operario: carrito.nombre_operario,
         empresa_razon_social: empresa ? empresa.razon_social : null,
-        productos: productos || []
+        productos: pricingResolved.productos
     };
 
     const almacenLabel = safeText(almacenParaEmail) || safeText(carrito.almacen_destino) || 'BATMAR';

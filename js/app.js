@@ -10425,6 +10425,73 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * Precarga ofertas del carrito para calculo de precio efectivo en pedidos.
+     */
+    async preloadCartOfertasByCodigo(cart) {
+        const ofertasByCodigo = new Map();
+        const codigoCliente = this.getEffectiveGrupoCliente() || null;
+        if (!codigoCliente || !window.supabaseClient || !cart || !Array.isArray(cart.productos)) {
+            return ofertasByCodigo;
+        }
+        const codigosUnicos = [...new Set(cart.productos.map((p) => p.codigo_producto))];
+        for (const codigo of codigosUnicos) {
+            const ofertas = await window.supabaseClient.getOfertasProducto(codigo, codigoCliente, true);
+            if (ofertas && ofertas.length > 0) {
+                ofertasByCodigo.set(codigo, ofertas);
+            }
+        }
+        return ofertasByCodigo;
+    }
+
+    /**
+     * Lineas de pedido remoto con precio unitario efectivo sin IVA (tarifa, pacto u oferta).
+     */
+    async buildRemoteOrderProductLines(cart) {
+        const productos = cart && Array.isArray(cart.productos) ? cart.productos : [];
+        if (!productos.length) return [];
+        const ofertasByCodigo = await this.preloadCartOfertasByCodigo(cart);
+        const intervalosCache = {};
+        const loteCache = {};
+        const ivaMult = this.getIvaMultiplier();
+        const lines = [];
+        for (const producto of productos) {
+            const pricing = await this.computeCartLineDisplayPricing(
+                producto, ofertasByCodigo, intervalosCache, loteCache
+            );
+            const unitSinIva = pricing.unitFinal / ivaMult;
+            lines.push({
+                codigo: producto.codigo_producto,
+                descripcion: producto.descripcion_producto,
+                pvp: unitSinIva,
+                cantidad: producto.cantidad
+            });
+        }
+        return lines;
+    }
+
+    /**
+     * Snapshot de carrito para cola offline con precios efectivos sin IVA.
+     */
+    async buildOfflineCartSnapshot(cart) {
+        const lines = await this.buildRemoteOrderProductLines(cart);
+        let totalImporte = 0;
+        const productos = lines.map((line) => {
+            const subtotal = line.pvp * line.cantidad;
+            totalImporte += subtotal;
+            return {
+                codigo_producto: line.codigo,
+                descripcion_producto: line.descripcion,
+                precio_unitario: line.pvp,
+                cantidad: line.cantidad
+            };
+        });
+        return {
+            productos: productos,
+            total_importe: totalImporte
+        };
+    }
+
+    /**
      * Actualiza el header del carrito con contadores
      */
     updateCartHeader(itemsCount, totalPrice) {
@@ -12294,15 +12361,15 @@ class ScanAsYouShopApp {
                 }
             }
 
-            for (const producto of cart.productos) {
+            for (const linea of await this.buildRemoteOrderProductLines(cart)) {
                 await window.supabaseClient.addProductToRemoteOrder(
                     result.carrito_id,
                     {
-                        codigo: producto.codigo_producto,
-                        descripcion: producto.descripcion_producto,
-                        pvp: producto.precio_unitario
+                        codigo: linea.codigo,
+                        descripcion: linea.descripcion,
+                        pvp: linea.pvp
                     },
-                    producto.cantidad
+                    linea.cantidad
                 );
             }
 
@@ -12568,20 +12635,13 @@ class ScanAsYouShopApp {
             if (!result.success) {
                 if (result.is_connection_error === true && window.offlineOrderQueue) {
                     const cart = window.cartManager.getCart();
+                    const cartSnapshot = await this.buildOfflineCartSnapshot(cart);
                     const offlineItem = {
                         usuario_id: effectiveUserId,
                         almacen: almacen,
                         observaciones: observacionesFinal,
                         sin_imprimir: sinImprimir,
-                        cart: {
-                            productos: (cart.productos || []).map((p) => ({
-                                codigo_producto: p.codigo_producto || p.codigo,
-                                descripcion_producto: p.descripcion_producto,
-                                precio_unitario: p.precio_unitario,
-                                cantidad: p.cantidad
-                            })),
-                            total_importe: cart.total_importe
-                        },
+                        cart: cartSnapshot,
                         user_snapshot: {
                             grupo_cliente: this.getEffectiveGrupoCliente(),
                             codigo_usuario: this.currentUser.codigo_usuario,
@@ -12604,15 +12664,15 @@ class ScanAsYouShopApp {
                 throw new Error(result.message || 'Error al crear pedido remoto');
             }
 
-            for (const producto of cart.productos) {
+            for (const linea of await this.buildRemoteOrderProductLines(cart)) {
                 await window.supabaseClient.addProductToRemoteOrder(
                     result.carrito_id,
                     {
-                        codigo: producto.codigo_producto,
-                        descripcion: producto.descripcion_producto,
-                        pvp: producto.precio_unitario
+                        codigo: linea.codigo,
+                        descripcion: linea.descripcion,
+                        pvp: linea.pvp
                     },
-                    producto.cantidad
+                    linea.cantidad
                 );
             }
 
@@ -12747,20 +12807,13 @@ class ScanAsYouShopApp {
                     if (this.canRepresentClientes() && this.currentUser.user_name) {
                         observacionesFinalCatch += (observacionesFinalCatch ? '\n\n' : '') + 'Pedido enviado por: ' + this.currentUser.user_name;
                     }
+                    const cartSnapshot = await this.buildOfflineCartSnapshot(cart);
                     const offlineItem = {
                         usuario_id: effectiveUserIdCatch || this.currentUser.user_id,
                         almacen: almacen,
                         observaciones: observacionesFinalCatch,
                         sin_imprimir: sinImprimir,
-                        cart: {
-                            productos: (cart.productos || []).map((p) => ({
-                                codigo_producto: p.codigo_producto || p.codigo,
-                                descripcion_producto: p.descripcion_producto,
-                                precio_unitario: p.precio_unitario,
-                                cantidad: p.cantidad
-                            })),
-                            total_importe: cart.total_importe
-                        },
+                        cart: cartSnapshot,
                         user_snapshot: {
                             grupo_cliente: this.getEffectiveGrupoCliente(),
                             codigo_usuario: this.currentUser.codigo_usuario,
