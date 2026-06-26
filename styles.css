@@ -3118,6 +3118,16 @@ body.gate-visible .app-container {
     gap: 0.15rem;
 }
 
+.add-to-cart-price.is-loading {
+    opacity: 0.55;
+    min-height: 1.5rem;
+}
+
+.add-to-cart-price-pending {
+    letter-spacing: 0.15em;
+    color: var(--gray-400);
+}
+
 .add-to-cart-price-original {
     font-size: 0.8rem;
     color: var(--gray-500);

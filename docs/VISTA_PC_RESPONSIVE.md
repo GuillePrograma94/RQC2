@@ -23,6 +23,16 @@ La web app esta pensada para movil pero es util tambien en PC. A partir de **102
 
 No se requiere cambio de codigo JS: la misma app responde al ancho de la ventana.
 
+## Rendimiento en PC (TiendaPC y escritorio)
+
+Los modales de producto usan el patron **show-first**:
+
+- **Anadir al carrito**: el modal se muestra al instante con codigo, descripcion e imagen `_1.JPG`. Precio de tarifa y badge de oferta se actualizan en segundo plano cuando llegan de IndexedDB/Supabase.
+- **Detalle de producto**: el overlay abre con la primera imagen sin esperar probes de red. Recambios y slides `_2.._4` se cargan despues.
+- **Cache de imagenes**: en la misma sesion no se repiten probes de URLs `_2.._4` ya comprobadas.
+
+En TiendaPC, con `use_local_web: true`, HTML/JS/CSS se sirven desde `tienda_pc/web` embebido (arranque mas rapido que Vercel). Los datos de catalogo siguen en IndexedDB y Supabase.
+
 ## Navegacion y flujo de envio (actualizado)
 
 - **Inicio**: Primera pestaña del nav; pantalla de bienvenida. Mismo estilo que el resto de botones (blanco/gris, sombreado al seleccionar).

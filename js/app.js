@@ -86,6 +86,10 @@ class ScanAsYouShopApp {
         /** Al aceptar prepedido: almacen_destino del carrito (habitual al guardar) para ENVIAR EN RUTA si no hay cliente representado. */
         this._pendingAceptarPrepedidoMeta = null;
         this._aceptarPrepedidoEjecutando = false;
+        /** Cache en memoria: codigo SKU -> array de URLs de imagen validas */
+        this._productImageUrlsCache = {};
+        /** Cache en memoria: URL de imagen -> true|false (probe completado) */
+        this._productImageProbeCache = {};
     }
 
     /**
@@ -9389,25 +9393,106 @@ class ScanAsYouShopApp {
         this._searchResultsObserver.observe(sentinel);
     }
 
-    /**
-     * Comprueba qué imágenes del producto existen (_1 a _4) y devuelve array de URLs
-     */
-    async getAvailableProductImageUrls(codigo) {
-        const baseUrl = 'https://www.saneamiento-martinez.com/imagenes/articulos/';
-        const urls = [];
-        const check = (i) => new Promise((resolve) => {
-            const url = baseUrl + codigo + '_' + i + '.JPG';
+    _productImageBaseUrl() {
+        return 'https://www.saneamiento-martinez.com/imagenes/articulos/';
+    }
+
+    _getProductImageUrl(codigo, index) {
+        const cod = codigo != null ? String(codigo).trim().toUpperCase() : '';
+        return this._productImageBaseUrl() + cod + '_' + index + '.JPG';
+    }
+
+    _normalizeProductImageCodigo(codigo) {
+        return codigo != null ? String(codigo).trim().toUpperCase() : '';
+    }
+
+    _probeProductImageUrl(url) {
+        if (this._productImageProbeCache[url] === true) {
+            return Promise.resolve(true);
+        }
+        if (this._productImageProbeCache[url] === false) {
+            return Promise.resolve(false);
+        }
+        return new Promise((resolve) => {
             const img = new Image();
-            img.onload = () => { urls.push(url); resolve(); };
-            img.onerror = () => resolve();
+            img.onload = () => {
+                this._productImageProbeCache[url] = true;
+                resolve(true);
+            };
+            img.onerror = () => {
+                this._productImageProbeCache[url] = false;
+                resolve(false);
+            };
             img.src = url;
         });
-        await Promise.all([check(1), check(2), check(3), check(4)]);
+    }
+
+    async _probeExtraProductImageUrls(codigo) {
+        const cod = this._normalizeProductImageCodigo(codigo);
+        if (!cod) return [];
+        const urls = [];
+        const checks = await Promise.all([
+            this._probeProductImageUrl(this._getProductImageUrl(cod, 2)),
+            this._probeProductImageUrl(this._getProductImageUrl(cod, 3)),
+            this._probeProductImageUrl(this._getProductImageUrl(cod, 4)),
+        ]);
+        for (let i = 0; i < checks.length; i++) {
+            if (checks[i]) {
+                urls.push(this._getProductImageUrl(cod, i + 2));
+            }
+        }
         return urls;
     }
 
     /**
-     * Abre el overlay de detalle de producto (carousel 1-4 imágenes)
+     * Comprueba que imagenes del producto existen (_1 a _4) y devuelve array de URLs.
+     * Usa cache en memoria por SKU y por URL para no repetir probes en la misma sesion.
+     */
+    async getAvailableProductImageUrls(codigo) {
+        const cod = this._normalizeProductImageCodigo(codigo);
+        if (!cod) return [];
+        if (this._productImageUrlsCache[cod]) {
+            return [...this._productImageUrlsCache[cod]];
+        }
+        const urls = [];
+        const firstUrl = this._getProductImageUrl(cod, 1);
+        if (await this._probeProductImageUrl(firstUrl)) {
+            urls.push(firstUrl);
+        }
+        const extra = await this._probeExtraProductImageUrls(cod);
+        urls.push(...extra);
+        this._productImageUrlsCache[cod] = urls;
+        return [...urls];
+    }
+
+    _appendProductDetailSlide(carouselInner, url, idx, producto, isActive) {
+        const slide = document.createElement('div');
+        slide.className = 'product-detail-carousel-slide' + (isActive ? ' active' : '');
+        slide.dataset.index = String(idx);
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = producto.descripcion
+            ? producto.descripcion + ' (imagen ' + (idx + 1) + ')'
+            : 'Imagen ' + (idx + 1);
+        img.onerror = () => {
+            if (idx === 0 && carouselInner.children.length === 1) {
+                carouselInner.innerHTML = '';
+                const placeholder = document.createElement('div');
+                placeholder.className = 'product-detail-carousel-placeholder';
+                placeholder.style.cssText = 'font-size: 3rem; opacity: 0.4; padding: 2rem;';
+                placeholder.textContent = '\uD83D\uDCE6';
+                carouselInner.appendChild(placeholder);
+            } else {
+                slide.remove();
+            }
+        };
+        slide.appendChild(img);
+        carouselInner.appendChild(slide);
+        return slide;
+    }
+
+    /**
+     * Abre el overlay de detalle de producto (carousel 1-4 imagenes)
      */
     async openProductDetail(producto) {
         if (this._productDetailCleanup) {
@@ -9423,38 +9508,26 @@ class ScanAsYouShopApp {
         const descEl = document.getElementById('productDetailDescription');
         const closeBtn = document.getElementById('closeProductDetailBtn');
         const backdrop = overlayEl ? overlayEl.querySelector('.product-detail-backdrop') : null;
+        const controlsRow = document.getElementById('productDetailCarouselControls');
 
         if (!overlayEl || !carouselInner) return;
 
+        const cod = this._normalizeProductImageCodigo(producto.codigo);
         codeEl.textContent = producto.codigo;
         descEl.textContent = producto.descripcion || '';
 
         const recambiosActionsEl = document.getElementById('productDetailRecambiosActions');
         const verRecambiosBtn = document.getElementById('productDetailVerRecambiosBtn');
         const sirveParaBtn = document.getElementById('productDetailSirveParaBtn');
+        if (recambiosActionsEl) recambiosActionsEl.style.display = 'none';
 
         let recambiosData = [];
         let padresData = [];
-        try {
-            const [recambios, padres] = await Promise.all([
-                window.supabaseClient.getRecambiosDeProducto(producto.codigo),
-                window.supabaseClient.getPadresDeRecambio(producto.codigo)
-            ]);
-            recambiosData = recambios || [];
-            padresData = padres || [];
-        } catch (e) {
-            console.error('Error cargando recambios/padres:', e);
-        }
+        let detailIsActive = true;
+        let recambiosListenerAttached = false;
+        let padresListenerAttached = false;
 
-        if (recambiosActionsEl && (recambiosData.length > 0 || padresData.length > 0)) {
-            recambiosActionsEl.style.display = 'flex';
-            if (verRecambiosBtn) verRecambiosBtn.style.display = recambiosData.length > 0 ? 'inline-block' : 'none';
-            if (sirveParaBtn) sirveParaBtn.style.display = padresData.length > 0 ? 'inline-block' : 'none';
-        } else if (recambiosActionsEl) {
-            recambiosActionsEl.style.display = 'none';
-        }
-
-        const imageUrls = await this.getAvailableProductImageUrls(producto.codigo);
+        const imageUrls = cod ? [this._getProductImageUrl(cod, 1)] : [];
         carouselInner.innerHTML = '';
         prevBtn.style.display = 'none';
         nextBtn.style.display = 'none';
@@ -9467,35 +9540,12 @@ class ScanAsYouShopApp {
             placeholder.textContent = '\uD83D\uDCE6';
             carouselInner.appendChild(placeholder);
         } else {
-            imageUrls.forEach((url, idx) => {
-                const slide = document.createElement('div');
-                slide.className = 'product-detail-carousel-slide' + (idx === 0 ? ' active' : '');
-                slide.dataset.index = String(idx);
-                const img = document.createElement('img');
-                img.src = url;
-                img.alt = producto.descripcion ? producto.descripcion + ' (imagen ' + (idx + 1) + ')' : 'Imagen ' + (idx + 1);
-                slide.appendChild(img);
-                carouselInner.appendChild(slide);
-            });
-            if (imageUrls.length > 1) {
-                prevBtn.style.display = 'flex';
-                nextBtn.style.display = 'flex';
-                imageUrls.forEach((_, idx) => {
-                    const dot = document.createElement('button');
-                    dot.type = 'button';
-                    dot.className = 'product-detail-carousel-dot' + (idx === 0 ? ' active' : '');
-                    dot.setAttribute('aria-label', 'Imagen ' + (idx + 1));
-                    dot.dataset.index = String(idx);
-                    dotsContainer.appendChild(dot);
-                });
-            }
+            this._appendProductDetailSlide(carouselInner, imageUrls[0], 0, producto, true);
         }
 
         overlayEl.style.display = 'flex';
         overlayEl.setAttribute('aria-hidden', 'false');
-
-        const controlsRow = document.getElementById('productDetailCarouselControls');
-        if (controlsRow) controlsRow.style.display = imageUrls.length > 1 ? 'flex' : 'none';
+        if (controlsRow) controlsRow.style.display = 'none';
 
         const onVerRecambiosClick = () => {
             this.recambiosVistaReturnScreen = this.currentScreen;
@@ -9512,12 +9562,51 @@ class ScanAsYouShopApp {
             this.openRecambiosVistaPage(producto, 'sirvePara');
         };
 
-        if (verRecambiosBtn && recambiosData.length > 0) verRecambiosBtn.addEventListener('click', onVerRecambiosClick);
-        if (sirveParaBtn && padresData.length > 0) sirveParaBtn.addEventListener('click', onSirveParaClick);
+        const attachRecambiosListeners = () => {
+            if (verRecambiosBtn && recambiosData.length > 0 && !recambiosListenerAttached) {
+                verRecambiosBtn.addEventListener('click', onVerRecambiosClick);
+                recambiosListenerAttached = true;
+            }
+            if (sirveParaBtn && padresData.length > 0 && !padresListenerAttached) {
+                sirveParaBtn.addEventListener('click', onSirveParaClick);
+                padresListenerAttached = true;
+            }
+        };
+
+        const updateRecambiosActions = () => {
+            if (!detailIsActive || !recambiosActionsEl) return;
+            if (recambiosData.length > 0 || padresData.length > 0) {
+                recambiosActionsEl.style.display = 'flex';
+                if (verRecambiosBtn) {
+                    verRecambiosBtn.style.display = recambiosData.length > 0 ? 'inline-block' : 'none';
+                }
+                if (sirveParaBtn) {
+                    sirveParaBtn.style.display = padresData.length > 0 ? 'inline-block' : 'none';
+                }
+                attachRecambiosListeners();
+            } else {
+                recambiosActionsEl.style.display = 'none';
+            }
+        };
+
+        (async () => {
+            try {
+                const [recambios, padres] = await Promise.all([
+                    window.supabaseClient.getRecambiosDeProducto(producto.codigo),
+                    window.supabaseClient.getPadresDeRecambio(producto.codigo),
+                ]);
+                if (!detailIsActive) return;
+                recambiosData = recambios || [];
+                padresData = padres || [];
+                updateRecambiosActions();
+            } catch (e) {
+                console.error('Error cargando recambios/padres:', e);
+            }
+        })();
 
         let currentIndex = 0;
         let currentScale = 1;
-        const total = imageUrls.length;
+        let total = imageUrls.length;
         const MIN_ZOOM = 1;
         const MAX_ZOOM = 4;
 
@@ -9536,6 +9625,39 @@ class ScanAsYouShopApp {
             carouselInner.querySelectorAll('.product-detail-carousel-slide img').forEach(function (im) {
                 im.style.transform = 'scale(1)';
             });
+        };
+
+        const updateCarouselControls = () => {
+            const multi = total > 1;
+            if (controlsRow) controlsRow.style.display = multi ? 'flex' : 'none';
+            prevBtn.style.display = multi ? 'flex' : 'none';
+            nextBtn.style.display = multi ? 'flex' : 'none';
+        };
+
+        const rebuildDots = () => {
+            dotsContainer.innerHTML = '';
+            if (total <= 1) return;
+            for (let idx = 0; idx < total; idx++) {
+                const dot = document.createElement('button');
+                dot.type = 'button';
+                dot.className = 'product-detail-carousel-dot' + (idx === currentIndex ? ' active' : '');
+                dot.setAttribute('aria-label', 'Imagen ' + (idx + 1));
+                dot.dataset.index = String(idx);
+                dot.addEventListener('click', handleDotClick);
+                dotsContainer.appendChild(dot);
+            }
+        };
+
+        const appendExtraSlides = (extraUrls) => {
+            if (!detailIsActive || !extraUrls || extraUrls.length === 0) return;
+            extraUrls.forEach((url) => {
+                const idx = imageUrls.length;
+                imageUrls.push(url);
+                this._appendProductDetailSlide(carouselInner, url, idx, producto, false);
+            });
+            total = imageUrls.length;
+            updateCarouselControls();
+            rebuildDots();
         };
 
         const showSlide = (index) => {
@@ -9563,6 +9685,24 @@ class ScanAsYouShopApp {
             const idx = parseInt(e.target.dataset.index, 10);
             if (!isNaN(idx)) showSlide(idx);
         };
+
+        if (cod) {
+            (async () => {
+                try {
+                    const extra = await this._probeExtraProductImageUrls(cod);
+                    if (!detailIsActive) return;
+                    if (extra.length > 0) {
+                        appendExtraSlides(extra);
+                    }
+                    const cached = imageUrls.slice();
+                    if (cached.length > 0) {
+                        this._productImageUrlsCache[cod] = cached;
+                    }
+                } catch (e) {
+                    console.error('Error cargando imagenes extra del producto:', e);
+                }
+            })();
+        }
 
         var touchStartX = 0;
         var touchStartY = 0;
@@ -9619,6 +9759,7 @@ class ScanAsYouShopApp {
         carouselInner.addEventListener('touchend', handleTouchEnd, { passive: false });
 
         const handleClose = () => {
+            detailIsActive = false;
             if (overlayEl.contains(document.activeElement)) {
                 document.activeElement.blur();
             }
@@ -9627,8 +9768,12 @@ class ScanAsYouShopApp {
             this._productDetailCleanup = null;
             closeBtn.removeEventListener('click', handleClose);
             if (backdrop) backdrop.removeEventListener('click', handleClose);
-            if (verRecambiosBtn && recambiosData.length > 0) verRecambiosBtn.removeEventListener('click', onVerRecambiosClick);
-            if (sirveParaBtn && padresData.length > 0) sirveParaBtn.removeEventListener('click', onSirveParaClick);
+            if (verRecambiosBtn && recambiosListenerAttached) {
+                verRecambiosBtn.removeEventListener('click', onVerRecambiosClick);
+            }
+            if (sirveParaBtn && padresListenerAttached) {
+                sirveParaBtn.removeEventListener('click', onSirveParaClick);
+            }
             prevBtn.removeEventListener('click', handlePrev);
             nextBtn.removeEventListener('click', handleNext);
             dotsContainer.querySelectorAll('.product-detail-carousel-dot').forEach(function (dot) {
@@ -9643,11 +9788,7 @@ class ScanAsYouShopApp {
         if (backdrop) backdrop.addEventListener('click', handleClose);
         prevBtn.addEventListener('click', handlePrev);
         nextBtn.addEventListener('click', handleNext);
-        dotsContainer.querySelectorAll('.product-detail-carousel-dot').forEach(function (dot) {
-            dot.addEventListener('click', handleDotClick);
-        });
 
-        // Guardar referencia para que la proxima llamada pueda cerrar esta invocacion
         this._productDetailCleanup = handleClose;
     }
 
@@ -9725,45 +9866,19 @@ class ScanAsYouShopApp {
 
             codeEl.textContent = producto.codigo;
             descriptionEl.textContent = producto.descripcion;
-            const productoPrecio = await this.resolveProductoCatalogoConDescuento(producto.codigo) || producto;
-            priceEl.innerHTML = this.formatPriceHtml(productoPrecio, { cssPrefix: 'add-to-cart' });
 
-            // Verificar si el producto tiene ofertas (solo para usuarios con grupo_cliente)
-            let ofertaData = null;
-            const codigoCliente = this.getEffectiveGrupoCliente() || null;
-            
-            if (!codigoCliente) {
-                // Usuario invitado: no mostrar ofertas
-                console.log('🚫 Usuario invitado - no se verifican ofertas en modal');
-                if (ofertaBadge) {
-                    ofertaBadge.style.display = 'none';
-                    ofertaBadge.onclick = null;
-                }
+            const hasProvisionalPrice = producto.pvp != null;
+            priceEl.classList.remove('is-loading');
+            if (hasProvisionalPrice) {
+                priceEl.innerHTML = this.formatPriceHtml(producto, { cssPrefix: 'add-to-cart' });
             } else {
-                // Usuario con código de cliente: verificar ofertas
-                try {
-                    const ofertasProducto = await window.supabaseClient.getOfertasProducto(producto.codigo, codigoCliente, true);
-                    
-                    if (ofertasProducto && ofertasProducto.length > 0 && ofertaBadge) {
-                        // Obtener información completa de la primera oferta
-                        const primeraOferta = ofertasProducto[0];
-                        ofertaData = await this.getOfertaInfo(primeraOferta.numero_oferta);
-                        
-                        ofertaBadge.style.display = 'block';
-                        
-                        // Añadir manejador de clic al badge
-                        ofertaBadge.onclick = () => this.showOfertaInfoModal(ofertaData);
-                    } else if (ofertaBadge) {
-                        ofertaBadge.style.display = 'none';
-                        ofertaBadge.onclick = null;
-                    }
-                } catch (error) {
-                    console.error('Error al verificar ofertas en modal:', error);
-                    if (ofertaBadge) {
-                        ofertaBadge.style.display = 'none';
-                        ofertaBadge.onclick = null;
-                    }
-                }
+                priceEl.classList.add('is-loading');
+                priceEl.innerHTML = '<span class="add-to-cart-price-pending">...</span>';
+            }
+
+            if (ofertaBadge) {
+                ofertaBadge.style.display = 'none';
+                ofertaBadge.onclick = null;
             }
 
             let conjuntos = [];
@@ -9778,10 +9893,8 @@ class ScanAsYouShopApp {
                 wcConjuntosList.innerHTML = '';
             }
 
-            // Resetear cantidad a 1
             qtyInput.value = '1';
 
-            // Mostrar modal
             modal.style.display = 'flex';
             if (modalBody) modalBody.scrollTop = 0;
 
@@ -9790,6 +9903,46 @@ class ScanAsYouShopApp {
                     this.focusQtyInputForEdit(qtyInput);
                 });
             }
+
+            (async () => {
+                try {
+                    const productoPrecio = await this.resolveProductoCatalogoConDescuento(producto.codigo) || producto;
+                    if (!modalIsActive || modal.style.display === 'none') return;
+                    priceEl.classList.remove('is-loading');
+                    priceEl.innerHTML = this.formatPriceHtml(productoPrecio, { cssPrefix: 'add-to-cart' });
+                } catch (error) {
+                    console.error('Error al resolver precio en modal:', error);
+                    if (modalIsActive && modal.style.display !== 'none') {
+                        priceEl.classList.remove('is-loading');
+                    }
+                }
+            })();
+
+            (async () => {
+                const codigoCliente = this.getEffectiveGrupoCliente() || null;
+                if (!codigoCliente) return;
+                try {
+                    const ofertasProducto = await window.supabaseClient.getOfertasProducto(
+                        producto.codigo,
+                        codigoCliente,
+                        true
+                    );
+                    if (!modalIsActive || modal.style.display === 'none' || !ofertaBadge) return;
+                    if (ofertasProducto && ofertasProducto.length > 0) {
+                        const primeraOferta = ofertasProducto[0];
+                        const ofertaData = await this.getOfertaInfo(primeraOferta.numero_oferta);
+                        if (!modalIsActive || modal.style.display === 'none') return;
+                        ofertaBadge.style.display = 'block';
+                        ofertaBadge.onclick = () => this.showOfertaInfoModal(ofertaData);
+                    }
+                } catch (error) {
+                    console.error('Error al verificar ofertas en modal:', error);
+                    if (ofertaBadge && modalIsActive && modal.style.display !== 'none') {
+                        ofertaBadge.style.display = 'none';
+                        ofertaBadge.onclick = null;
+                    }
+                }
+            })();
 
             // Cargar compatibilidades WC en segundo plano para no bloquear la apertura del modal
             (async () => {
