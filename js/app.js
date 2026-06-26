@@ -3823,6 +3823,9 @@ class ScanAsYouShopApp {
      * Anade al carrito las piezas seleccionadas (taza, tanque y/o asiento; las que haya)
      */
     async handleWcCompletoAddToCart() {
+        if (this._wcCompletoAddBusy) {
+            return;
+        }
         const sel = this.wcCompletoSelection;
         if (!sel) return;
         const items = [sel.taza, sel.tanque, sel.asiento].filter(Boolean);
@@ -3830,6 +3833,7 @@ class ScanAsYouShopApp {
             window.ui.showToast('Elige al menos una pieza para anadir', 'error');
             return;
         }
+        this._wcCompletoAddBusy = true;
         try {
             for (const item of items) {
                 await window.cartManager.addProduct(
@@ -3843,6 +3847,8 @@ class ScanAsYouShopApp {
         } catch (e) {
             console.error('Error handleWcCompletoAddToCart:', e);
             window.ui.showToast('Error al anadir al carrito', 'error');
+        } finally {
+            this._wcCompletoAddBusy = false;
         }
     }
 
@@ -6121,59 +6127,88 @@ class ScanAsYouShopApp {
     }
 
     /**
+     * En tactil (PWA movil, iOS, pantallas tactiles en TiendaPC) evita doble disparo touch+click.
+     * En escritorio con raton se comporta como un click normal.
+     */
+    bindTapControl(el, handler) {
+        if (!el || typeof handler !== 'function') return () => {};
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isTouchCapable = isIOS || navigator.maxTouchPoints > 0 || ('ontouchstart' in window);
+
+        if (!isTouchCapable) {
+            el.addEventListener('click', handler);
+            return () => el.removeEventListener('click', handler);
+        }
+
+        let touchMoved = false;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let handledByTouch = false;
+
+        const onTouchStart = (e) => {
+            const t = e.changedTouches && e.changedTouches[0];
+            touchMoved = false;
+            handledByTouch = false;
+            touchStartX = t ? t.clientX : 0;
+            touchStartY = t ? t.clientY : 0;
+        };
+
+        const onTouchMove = (e) => {
+            const t = e.changedTouches && e.changedTouches[0];
+            if (!t) return;
+            if (Math.abs(t.clientX - touchStartX) > 12 || Math.abs(t.clientY - touchStartY) > 12) {
+                touchMoved = true;
+            }
+        };
+
+        const onTouchEnd = (e) => {
+            if (touchMoved) return;
+            handledByTouch = true;
+            e.preventDefault();
+            handler(e);
+        };
+
+        const onClick = (e) => {
+            if (handledByTouch) {
+                handledByTouch = false;
+                return;
+            }
+            handler(e);
+        };
+
+        el.addEventListener('touchstart', onTouchStart, { passive: true });
+        el.addEventListener('touchmove', onTouchMove, { passive: true });
+        el.addEventListener('touchend', onTouchEnd, { passive: false });
+        el.addEventListener('click', onClick);
+
+        return () => {
+            el.removeEventListener('touchstart', onTouchStart);
+            el.removeEventListener('touchmove', onTouchMove);
+            el.removeEventListener('touchend', onTouchEnd);
+            el.removeEventListener('click', onClick);
+        };
+    }
+
+    getCartLineQuantity(codigoProducto) {
+        const cart = window.cartManager && typeof window.cartManager.getCart === 'function'
+            ? window.cartManager.getCart()
+            : null;
+        if (!cart || !Array.isArray(cart.productos)) return 0;
+        const item = cart.productos.find((p) => p.codigo_producto === codigoProducto);
+        return item ? (item.cantidad || 0) : 0;
+    }
+
+    /**
      * Configura toda la logica de interaccion de los chips de filtro de busqueda.
      * Debe llamarse una vez en setupScreens().
      */
     setupFilterChips() {
         const self = this;
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        const bindTap = (el, handler) => {
-            if (!el || typeof handler !== 'function') return;
-            if (!isIOS) {
-                el.addEventListener('click', handler);
-                return;
-            }
-            let touchMoved = false;
-            let touchStartX = 0;
-            let touchStartY = 0;
-            let handledByTouch = false;
-
-            el.addEventListener('touchstart', (e) => {
-                const t = e.changedTouches && e.changedTouches[0];
-                touchMoved = false;
-                handledByTouch = false;
-                touchStartX = t ? t.clientX : 0;
-                touchStartY = t ? t.clientY : 0;
-            }, { passive: true });
-
-            el.addEventListener('touchmove', (e) => {
-                const t = e.changedTouches && e.changedTouches[0];
-                if (!t) return;
-                if (Math.abs(t.clientX - touchStartX) > 12 || Math.abs(t.clientY - touchStartY) > 12) {
-                    touchMoved = true;
-                }
-            }, { passive: true });
-
-            el.addEventListener('touchend', (e) => {
-                if (touchMoved) return;
-                handledByTouch = true;
-                e.preventDefault();
-                handler(e);
-            }, { passive: false });
-
-            el.addEventListener('click', (e) => {
-                if (handledByTouch) {
-                    handledByTouch = false;
-                    return;
-                }
-                handler(e);
-            });
-        };
 
         // --- Chip: Mis compras ---
         const chipMisCompras = document.getElementById('chipMisCompras');
         if (chipMisCompras) {
-            bindTap(chipMisCompras, () => {
+            this.bindTapControl(chipMisCompras, () => {
                 self.filterChips.misCompras = !self.filterChips.misCompras;
                 chipMisCompras.classList.toggle('active', self.filterChips.misCompras);
                 self._closeChipConfig();
@@ -6184,7 +6219,7 @@ class ScanAsYouShopApp {
         // --- Chip: Oferta ---
         const chipOferta = document.getElementById('chipOferta');
         if (chipOferta) {
-            bindTap(chipOferta, () => {
+            this.bindTapControl(chipOferta, () => {
                 self.filterChips.oferta = !self.filterChips.oferta;
                 chipOferta.classList.toggle('active', self.filterChips.oferta);
                 self._closeChipConfig();
@@ -6195,7 +6230,7 @@ class ScanAsYouShopApp {
         // --- Chip: Almacen (abre/cierra mini picker) ---
         const chipAlmacen = document.getElementById('chipAlmacen');
         if (chipAlmacen) {
-            bindTap(chipAlmacen, () => {
+            this.bindTapControl(chipAlmacen, () => {
                 const isOpen = self.filterChips.activeConfig === 'almacen';
                 self._closeChipConfig();
                 if (!isOpen) self._openChipConfig('almacen');
@@ -6205,7 +6240,7 @@ class ScanAsYouShopApp {
         // --- Chip: Fabricante (proveedor / entidad): combobox nombre o alias ---
         const chipFabricanteProveedor = document.getElementById('chipFabricanteProveedor');
         if (chipFabricanteProveedor) {
-            bindTap(chipFabricanteProveedor, () => {
+            this.bindTapControl(chipFabricanteProveedor, () => {
                 const isOpen = self.filterChips.activeConfig === 'fabricanteProveedor';
                 self._closeChipConfig();
                 if (!isOpen) {
@@ -6223,7 +6258,7 @@ class ScanAsYouShopApp {
         // --- Chip: Precio (abre/cierra inputs desde/hasta) ---
         const chipPrecio = document.getElementById('chipPrecio');
         if (chipPrecio) {
-            bindTap(chipPrecio, () => {
+            this.bindTapControl(chipPrecio, () => {
                 const isOpen = self.filterChips.activeConfig === 'precio';
                 self._closeChipConfig();
                 if (!isOpen) {
@@ -6289,7 +6324,7 @@ class ScanAsYouShopApp {
         // --- Chip: Familia (codigo modificar desde Inicio; pulsar para quitar) ---
         const chipFamilia = document.getElementById('chipFamilia');
         if (chipFamilia) {
-            bindTap(chipFamilia, () => {
+            this.bindTapControl(chipFamilia, () => {
                 if (!self.filterChips.codigoModificarFamilia) return;
                 self.filterChips.codigoModificarFamilia = '';
                 self.filterChips.familiaDescripcion = '';
@@ -7875,8 +7910,9 @@ class ScanAsYouShopApp {
 
         // WC Completo: Anadir al carrito
         const wcCompletoAddBtn = document.getElementById('wcCompletoAddBtn');
-        if (wcCompletoAddBtn) {
-            wcCompletoAddBtn.addEventListener('click', () => {
+        if (wcCompletoAddBtn && !wcCompletoAddBtn.dataset.tapBound) {
+            wcCompletoAddBtn.dataset.tapBound = '1';
+            this.bindTapControl(wcCompletoAddBtn, () => {
                 this.handleWcCompletoAddToCart();
             });
         }
@@ -9993,7 +10029,11 @@ class ScanAsYouShopApp {
                 resolve(null);
             };
 
+            let confirming = false;
+
             const handleConfirm = async () => {
+                if (confirming) return;
+                confirming = true;
                 const cantidad = Math.max(1, Math.min(999, parseInt(qtyInput.value, 10) || 1));
                 modal.style.display = 'none';
                 modalIsActive = false;
@@ -10073,15 +10113,19 @@ class ScanAsYouShopApp {
                 this.openWcCompletoWithConjunto(conjuntoId);
             };
 
+            let unbindDecrease = null;
+            let unbindIncrease = null;
+            let unbindConfirm = null;
+
             const cleanup = () => {
                 closeBtn.removeEventListener('click', handleClose);
                 overlay.removeEventListener('click', handleClose);
                 if (imageContainer) imageContainer.removeEventListener('click', handleImageClick);
                 if (wcConjuntosToggle) wcConjuntosToggle.removeEventListener('click', handleWcToggleClick);
                 if (wcConjuntosList) wcConjuntosList.removeEventListener('click', handleWcConjuntoItemClick);
-                confirmBtn.removeEventListener('click', handleConfirm);
-                decreaseBtn.removeEventListener('click', handleDecrease);
-                increaseBtn.removeEventListener('click', handleIncrease);
+                if (unbindConfirm) unbindConfirm();
+                if (unbindDecrease) unbindDecrease();
+                if (unbindIncrease) unbindIncrease();
                 qtyInput.removeEventListener('input', handleInputChange);
                 qtyInput.removeEventListener('focus', handleFocus);
                 qtyInput.removeEventListener('blur', handleBlur);
@@ -10094,9 +10138,9 @@ class ScanAsYouShopApp {
             if (imageContainer) imageContainer.addEventListener('click', handleImageClick);
             if (wcConjuntosToggle) wcConjuntosToggle.addEventListener('click', handleWcToggleClick);
             if (wcConjuntosList) wcConjuntosList.addEventListener('click', handleWcConjuntoItemClick);
-            confirmBtn.addEventListener('click', handleConfirm);
-            decreaseBtn.addEventListener('click', handleDecrease);
-            increaseBtn.addEventListener('click', handleIncrease);
+            unbindConfirm = this.bindTapControl(confirmBtn, handleConfirm);
+            unbindDecrease = this.bindTapControl(decreaseBtn, handleDecrease);
+            unbindIncrease = this.bindTapControl(increaseBtn, handleIncrease);
             qtyInput.addEventListener('input', handleInputChange);
             qtyInput.addEventListener('focus', handleFocus);
             qtyInput.addEventListener('blur', handleBlur);
@@ -10949,12 +10993,14 @@ class ScanAsYouShopApp {
             const decreaseBtn = card.querySelector('[data-action="decrease"]');
             const increaseBtn = card.querySelector('[data-action="increase"]');
             const qtyInput = card.querySelector('.qty-value-input');
+            const codigo = producto.codigo_producto;
+            const self = this;
 
-            decreaseBtn.addEventListener('click', async () => {
-                const newQty = producto.cantidad - 1;
-                
-                // Si la cantidad es 1, preguntar antes de eliminar
-                if (producto.cantidad === 1) {
+            this.bindTapControl(decreaseBtn, async () => {
+                const currentQty = self.getCartLineQuantity(codigo);
+                const newQty = currentQty - 1;
+
+                if (currentQty === 1) {
                     const confirmDelete = await window.ui.showConfirm(
                         '¿ELIMINAR ARTÍCULO?',
                         `¿Deseas eliminar "${producto.descripcion_producto}" del carrito?`,
@@ -10963,23 +11009,24 @@ class ScanAsYouShopApp {
                     );
                     if (!confirmDelete) return;
                 }
-                
-                await this.updateProductQuantity(producto.codigo_producto, newQty);
+
+                await self.updateProductQuantity(codigo, newQty);
             });
 
-            increaseBtn.addEventListener('click', async () => {
-                const newQty = producto.cantidad + 1;
-                await this.updateProductQuantity(producto.codigo_producto, newQty);
+            this.bindTapControl(increaseBtn, async () => {
+                const currentQty = self.getCartLineQuantity(codigo);
+                await self.updateProductQuantity(codigo, currentQty + 1);
             });
 
             // Input manual de cantidad
             qtyInput.addEventListener('blur', async (e) => {
-                let newQty = parseInt(e.target.value) || 0;
-                
+                let newQty = parseInt(e.target.value, 10) || 0;
+                const currentQty = this.getCartLineQuantity(codigo);
+
                 // Limitar entre 0 y 999
                 if (newQty < 0) newQty = 0;
                 if (newQty > 999) newQty = 999;
-                
+
                 // Si ponen 0, preguntar antes de eliminar
                 if (newQty === 0) {
                     const confirmDelete = await window.ui.showConfirm(
@@ -10989,15 +11036,15 @@ class ScanAsYouShopApp {
                         'Cancelar'
                     );
                     if (!confirmDelete) {
-                        e.target.value = producto.cantidad;
+                        e.target.value = currentQty;
                         return;
                     }
                 }
-                
+
                 // Si la cantidad no cambió, no hacer nada
-                if (newQty === producto.cantidad) return;
-                
-                await this.updateProductQuantity(producto.codigo_producto, newQty);
+                if (newQty === currentQty) return;
+
+                await this.updateProductQuantity(codigo, newQty);
             });
 
             // Permitir Enter para confirmar
@@ -11024,6 +11071,14 @@ class ScanAsYouShopApp {
      * Actualiza la cantidad de un producto (sin loading para mejor UX)
      */
     async updateProductQuantity(codigoProducto, newQuantity) {
+        if (!this._cartQtyUpdateLock) {
+            this._cartQtyUpdateLock = new Set();
+        }
+        const lockKey = String(codigoProducto);
+        if (this._cartQtyUpdateLock.has(lockKey)) {
+            return;
+        }
+        this._cartQtyUpdateLock.add(lockKey);
         try {
             await window.cartManager.updateProductQuantity(codigoProducto, newQuantity);
             window.ui.updateCartBadge();
@@ -11033,6 +11088,8 @@ class ScanAsYouShopApp {
         } catch (error) {
             console.error('Error al actualizar cantidad:', error);
             window.ui.showToast('Error al actualizar cantidad', 'error');
+        } finally {
+            this._cartQtyUpdateLock.delete(lockKey);
         }
     }
 

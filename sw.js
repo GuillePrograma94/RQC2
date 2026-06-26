@@ -6,7 +6,7 @@
 // mn961j71 es reemplazado por build.js en cada deployment de Vercel
 // con los primeros 8 caracteres del SHA del commit de Git.
 // En desarrollo local (sin build), permanece como literal y funciona igualmente.
-const CACHE_NAME = 'batmar-mql5f8c8';
+const CACHE_NAME = 'batmar-mqv36bku';
 const urlsToCache = [
     '/',
     '/index.html',

@@ -210,14 +210,22 @@ class ScannerManager {
 
         let quantity = 1;
 
-        decreaseBtn.addEventListener('click', () => {
+        const bindQty = (btn, handler) => {
+            if (window.app && typeof window.app.bindTapControl === 'function') {
+                window.app.bindTapControl(btn, handler);
+                return;
+            }
+            btn.addEventListener('click', handler);
+        };
+
+        bindQty(decreaseBtn, () => {
             if (quantity > 1) {
                 quantity--;
                 qtyDisplay.textContent = quantity;
             }
         });
 
-        increaseBtn.addEventListener('click', () => {
+        bindQty(increaseBtn, () => {
             if (quantity < 99) {
                 quantity++;
                 qtyDisplay.textContent = quantity;
@@ -226,7 +234,7 @@ class ScannerManager {
 
         // Botón añadir al carrito
         const addBtn = card.querySelector('.add-to-cart-btn');
-        addBtn.addEventListener('click', async () => {
+        bindQty(addBtn, async () => {
             await this.addToCart(producto, quantity);
             
             // Reset cantidad después de añadir
@@ -502,7 +510,16 @@ class ScannerManager {
      * Maneja el éxito del escaneo
      */
     async onScanSuccess(decodedText) {
-        
+        const now = Date.now();
+        if (!this._scanDedupe) {
+            this._scanDedupe = { code: '', time: 0 };
+        }
+        if (decodedText === this._scanDedupe.code && now - this._scanDedupe.time < 1500) {
+            return;
+        }
+        this._scanDedupe.code = decodedText;
+        this._scanDedupe.time = now;
+
         // Detener cámara temporalmente
         await this.stopCamera();
         
