@@ -53,6 +53,44 @@ let CONFIG = {
         TOKEN_LIFETIME_HOURS: 8,
         REQUEST_TIMEOUT_MS: 15000
     },
+
+    _apiBaseUrl: '',
+    _apiBaseUrlResolved: false,
+
+    /**
+     * Base URL para /api/* (Vercel). En TiendaPC con UI local usa app_url del config nativo.
+     */
+    async resolveApiBaseUrl() {
+        if (this._apiBaseUrlResolved) {
+            return this._apiBaseUrl;
+        }
+        let base = '';
+        try {
+            if (window.TiendaNative && typeof window.TiendaNative.whenReady === 'function') {
+                await window.TiendaNative.whenReady();
+            }
+            if (window.TiendaNative && typeof window.TiendaNative.getRemoteApiBase === 'function') {
+                base = await window.TiendaNative.getRemoteApiBase();
+            }
+        } catch (e) {
+            console.warn('[Config] No se pudo obtener API base remota de TiendaPC:', e);
+        }
+        if (!base && typeof window !== 'undefined' && window.location && window.location.origin) {
+            base = window.location.origin;
+        }
+        this._apiBaseUrl = String(base || '').replace(/\/+$/, '');
+        this._apiBaseUrlResolved = true;
+        console.log('[Config] API base URL:', this._apiBaseUrl || '(relativa)');
+        return this._apiBaseUrl;
+    },
+
+    buildApiUrl(path) {
+        const cleanPath = path && String(path).startsWith('/') ? String(path) : '/' + String(path || '');
+        if (this._apiBaseUrl) {
+            return this._apiBaseUrl + cleanPath;
+        }
+        return cleanPath;
+    },
     
     /**
      * Carga la configuración de Supabase desde el servidor
@@ -65,10 +103,12 @@ let CONFIG = {
                 console.log('Usando credenciales configuradas directamente');
                 return true;
             }
+
+            await this.resolveApiBaseUrl();
             
             // Intentar cargar desde serverless function (Vercel/Netlify)
             // Forzar .js explícitamente para evitar que cargue .php cacheado
-            const configUrl = '/api/config.js';
+            const configUrl = this.buildApiUrl('/api/config.js');
             console.log('[Config] Solicitando configuracion:', configUrl);
             let response = await fetch(configUrl);
 

@@ -157,8 +157,15 @@ class ERPClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
+        if (window.CONFIG && typeof window.CONFIG.resolveApiBaseUrl === 'function') {
+            await window.CONFIG.resolveApiBaseUrl();
+        }
+        const url = window.CONFIG && typeof window.CONFIG.buildApiUrl === 'function'
+            ? window.CONFIG.buildApiUrl(path)
+            : path;
+
         try {
-            const response = await fetch(path, {
+            const response = await fetch(url, {
                 method: options.method || 'GET',
                 headers,
                 body: options.body || null,

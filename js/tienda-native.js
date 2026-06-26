@@ -102,6 +102,58 @@
     }
 
     /**
+     * URL remota (Vercel) para APIs /api/* cuando la UI se sirve en local embebida.
+     */
+    async function getRemoteApiBase() {
+        const api = getApi();
+        if (!api || typeof api.get_app_url !== 'function') {
+            return '';
+        }
+        try {
+            const result = await api.get_app_url();
+            const url = result && result.url ? String(result.url).trim() : '';
+            return url.replace(/\/+$/, '');
+        } catch (e) {
+            tiendaLog('warn', 'get_app_url: ' + (e.message || String(e)), 'config');
+            return '';
+        }
+    }
+
+    async function getAlbaranFirmaOptions() {
+        const api = getApi();
+        if (!api || !api.get_albaran_firma_options) {
+            return { modo: 'canvas', signproExePath: '', signproExeFound: false };
+        }
+        try {
+            return await api.get_albaran_firma_options();
+        } catch (e) {
+            console.warn('TiendaNative.getAlbaranFirmaOptions:', e);
+            return { modo: 'canvas', signproExePath: '', signproExeFound: false };
+        }
+    }
+
+    async function openAlbaranInSignpro(albaran) {
+        const api = getApi();
+        if (!api || !api.open_albaran_in_signpro) {
+            tiendaLog('error', 'open_albaran_in_signpro no disponible', 'signpro');
+            return { success: false, message: 'open_albaran_in_signpro no disponible' };
+        }
+        tiendaLog('info', 'Abriendo albaran ' + albaran + ' en Sign Pro...', 'signpro');
+        try {
+            const result = await api.open_albaran_in_signpro(albaran);
+            if (result && result.success === true) {
+                tiendaLog('ok', 'Albaran abierto en Sign Pro', 'signpro');
+            } else {
+                tiendaLog('error', (result && result.message) || 'No se pudo abrir Sign Pro', 'signpro');
+            }
+            return result;
+        } catch (e) {
+            tiendaLog('error', 'open_albaran_in_signpro: ' + (e.message || String(e)), 'signpro');
+            return { success: false, message: e.message || String(e) };
+        }
+    }
+
+    /**
      * Mueve la ventana de TiendaPC a la XPPEN (pantalla 2) para firmar con el lapiz.
      * Devuelve { moved: true } si la coloco en la pantalla 2; { moved: false } si hay
      * un solo monitor (la firma se hace en la pantalla 1, como siempre).
@@ -274,14 +326,17 @@
     global.TiendaNative = {
         isAvailable,
         whenReady,
+        getRemoteApiBase,
         checkAlbaranPdfReady,
         waitForAlbaranPdfReady,
         getSignaturePadOptions,
+        getAlbaranFirmaOptions,
         moveToSigningScreen,
         restoreFromSigningScreen,
         applyAlbaranSignature,
         sendModulaPedido,
         printAlbaran,
+        openAlbaranInSignpro,
         clearAccessDataOnExit
     };
 })(window);

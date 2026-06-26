@@ -1196,10 +1196,12 @@ class SupabaseClient {
 
             console.log('Intentando login para usuario:', codigoUsuario);
 
-            const apiBase = typeof window !== 'undefined' && window.location && window.location.origin
-                ? window.location.origin
-                : '';
-            const loginUrl = apiBase ? `${apiBase}/api/auth/login` : '/api/auth/login';
+            if (window.CONFIG && typeof window.CONFIG.resolveApiBaseUrl === 'function') {
+                await window.CONFIG.resolveApiBaseUrl();
+            }
+            const loginUrl = window.CONFIG && typeof window.CONFIG.buildApiUrl === 'function'
+                ? window.CONFIG.buildApiUrl('/api/auth/login')
+                : '/api/auth/login';
 
             const response = await fetch(loginUrl, {
                 method: 'POST',
@@ -1655,10 +1657,12 @@ class SupabaseClient {
             if (!this.client || !codigoUsuario) {
                 throw new Error('Cliente no inicializado o codigo de usuario no indicado');
             }
-            const apiBase = typeof window !== 'undefined' && window.location && window.location.origin
-                ? window.location.origin
-                : '';
-            const url = apiBase ? `${apiBase}/api/auth/change-password-user` : '/api/auth/change-password-user';
+            if (window.CONFIG && typeof window.CONFIG.resolveApiBaseUrl === 'function') {
+                await window.CONFIG.resolveApiBaseUrl();
+            }
+            const url = window.CONFIG && typeof window.CONFIG.buildApiUrl === 'function'
+                ? window.CONFIG.buildApiUrl('/api/auth/change-password-user')
+                : '/api/auth/change-password-user';
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -2512,10 +2516,12 @@ class SupabaseClient {
 
     async generarPdfPresupuesto(presupuestoId) {
         try {
-            const apiBase = typeof window !== 'undefined' && window.location && window.location.origin
-                ? window.location.origin
-                : '';
-            const url = apiBase ? `${apiBase}/api/quotes/generate-pdf` : '/api/quotes/generate-pdf';
+            if (window.CONFIG && typeof window.CONFIG.resolveApiBaseUrl === 'function') {
+                await window.CONFIG.resolveApiBaseUrl();
+            }
+            const url = window.CONFIG && typeof window.CONFIG.buildApiUrl === 'function'
+                ? window.CONFIG.buildApiUrl('/api/quotes/generate-pdf')
+                : '/api/quotes/generate-pdf';
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -2696,7 +2702,13 @@ class SupabaseClient {
             if (carritoId == null || String(carritoId).trim() === '') {
                 return { success: false, skipped: true };
             }
-            const response = await fetch('/api/orders/send-confirmation-email', {
+            if (window.CONFIG && typeof window.CONFIG.resolveApiBaseUrl === 'function') {
+                await window.CONFIG.resolveApiBaseUrl();
+            }
+            const confirmEmailUrl = window.CONFIG && typeof window.CONFIG.buildApiUrl === 'function'
+                ? window.CONFIG.buildApiUrl('/api/orders/send-confirmation-email')
+                : '/api/orders/send-confirmation-email';
+            const response = await fetch(confirmEmailUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ carrito_id: carritoId })
@@ -2729,7 +2741,13 @@ class SupabaseClient {
             if (carritoId == null || String(carritoId).trim() === '') {
                 return { success: false, skipped: true };
             }
-            const response = await fetch('/api/orders/send-erp-failure-alert', {
+            if (window.CONFIG && typeof window.CONFIG.resolveApiBaseUrl === 'function') {
+                await window.CONFIG.resolveApiBaseUrl();
+            }
+            const erpAlertUrl = window.CONFIG && typeof window.CONFIG.buildApiUrl === 'function'
+                ? window.CONFIG.buildApiUrl('/api/orders/send-erp-failure-alert')
+                : '/api/orders/send-erp-failure-alert';
+            const response = await fetch(erpAlertUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

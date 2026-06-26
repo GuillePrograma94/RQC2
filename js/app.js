@@ -12053,9 +12053,24 @@ class ScanAsYouShopApp {
         }
     }
 
+    async getAlbaranFirmaModoTienda() {
+        if (!window.TiendaNative || typeof window.TiendaNative.getAlbaranFirmaOptions !== 'function') {
+            return 'canvas';
+        }
+        try {
+            const opts = await window.TiendaNative.getAlbaranFirmaOptions();
+            const modo = opts && opts.modo ? String(opts.modo).trim().toLowerCase() : 'canvas';
+            return modo === 'wacom_signpro' ? 'wacom_signpro' : 'canvas';
+        } catch (e) {
+            console.warn('getAlbaranFirmaModoTienda:', e);
+            return 'canvas';
+        }
+    }
+
     async sendPresencialAlbaranOrder(options) {
         const opts = options || {};
         const modo = opts.modo === 'firmar' ? 'firmar' : 'imprimir_sin_firma';
+        let useSignProFirma = false;
         try {
             this._tiendaDiagLog('info', 'Inicio generar albaran presencial (modo: ' + modo + ')', 'albaran');
             if (!this.currentUser) {
@@ -12069,6 +12084,14 @@ class ScanAsYouShopApp {
             if (!window.TiendaNative || !window.TiendaNative.isAvailable()) {
                 window.ui.showToast('Generar albaran requiere TiendaPC.exe en este equipo', 'warning');
                 return;
+            }
+
+            if (modo === 'firmar') {
+                const firmaModoTienda = await this.getAlbaranFirmaModoTienda();
+                useSignProFirma = firmaModoTienda === 'wacom_signpro';
+                if (useSignProFirma) {
+                    this._tiendaDiagLog('info', 'Modo firma configurado: Wacom Sign Pro', 'albaran');
+                }
             }
 
             if (this.canRepresentClientes() && !this.currentUser.cliente_representado_id) {
@@ -12106,7 +12129,7 @@ class ScanAsYouShopApp {
                 observacionesFinal += '\n\nGenerado por: ' + this.currentUser.user_name;
             }
 
-            if (modo === 'firmar') {
+            if (modo === 'firmar' && !useSignProFirma) {
                 this._tiendaDiagLog('info', 'Solicitando nombre y obra antes de generar el albaran', 'albaran');
                 const datosFirma = await this.showAlbaranFirmaDatosModal();
                 if (!datosFirma || !datosFirma.nombreFirma) {
@@ -12281,6 +12304,32 @@ class ScanAsYouShopApp {
                 this._tiendaDiagLog('error', 'PDF del albaran no disponible en UNC', 'albaran');
                 window.ui.hideLoading();
                 window.ui.showToast('El PDF del albaran no esta disponible en la ruta de red', 'error');
+                return;
+            }
+
+            if (modo === 'firmar' && useSignProFirma) {
+                window.ui.hideLoading();
+                this._tiendaDiagLog('info', 'Abriendo albaran en Sign Pro', 'albaran');
+                const openResult = await window.TiendaNative.openAlbaranInSignpro(albaranErp);
+                if (!openResult || openResult.success !== true) {
+                    this._tiendaDiagLog('error', (openResult && openResult.message) || 'No se pudo abrir Sign Pro', 'albaran');
+                    window.ui.showToast((openResult && openResult.message) || 'No se pudo abrir Sign Pro', 'error');
+                    if (window.TiendaLog && window.TiendaLog.openPanel) {
+                        window.TiendaLog.openPanel();
+                    }
+                    return;
+                }
+                this._tiendaDiagLog('ok', 'Albaran abierto en Sign Pro; TiendaPC finaliza el flujo', 'albaran');
+                window.ui.showToast('Albaran abierto en Sign Pro', 'success');
+                await this._marcarAlbaranTiendaCompletado(result.carrito_id);
+                if (window.purchaseCache) {
+                    window.purchaseCache.invalidateUser(effectiveUserId || this.currentUser.user_id);
+                }
+                await window.cartManager.clearCart();
+                window.ui.updateCartBadge();
+                this.showScreen('cart');
+                this.updateActiveNav('cart');
+                this.updateCartView();
                 return;
             }
 

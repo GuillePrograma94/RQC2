@@ -1920,17 +1920,27 @@
     <script src="js/tienda-log.js"></script>
     <script src="js/app.js"></script>
 
-    <!-- Service Worker con auto-actualizacion -->
+    <!-- Service Worker con auto-actualizacion (solo PWA/navegador; no en TiendaPC/pywebview) -->
     <script>
-        if ('serviceWorker' in navigator) {
-            // Guardamos si ya habia un SW controlando la pagina antes de registrar.
-            // Esto nos permite distinguir una primera instalacion (no recargar)
-            // de una actualizacion real (recargar para aplicar la nueva version).
+        (function () {
+            if (!('serviceWorker' in navigator)) {
+                return;
+            }
+            // TiendaPC sirve la UI con el HTTP interno de pywebview. El SW cachea '/'
+            // y rompe bottle (asset() sin argumento file). Desregistrar y no registrar.
+            if (window.pywebview) {
+                navigator.serviceWorker.getRegistrations().then(function (regs) {
+                    regs.forEach(function (reg) {
+                        reg.unregister().catch(function () {});
+                    });
+                }).catch(function () {});
+                console.log('TiendaPC: Service Worker desactivado (UI local embebida)');
+                return;
+            }
+
             var _swHadController = !!navigator.serviceWorker.controller;
             var _swRefreshing = false;
 
-            // Cuando el SW activo cambia (nuevo SW toma el control tras skipWaiting),
-            // recargamos la pagina una sola vez para que el usuario vea la version nueva.
             navigator.serviceWorker.addEventListener('controllerchange', function () {
                 if (_swHadController && !_swRefreshing) {
                     _swRefreshing = true;
@@ -1948,7 +1958,7 @@
                         console.error('Error al registrar Service Worker:', error);
                     });
             });
-        }
+        })();
     </script>
 
     <!-- Fullscreen Mode Handler -->
