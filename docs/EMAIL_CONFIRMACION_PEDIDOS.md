@@ -112,7 +112,7 @@ Tras cambiar SMTP o variables: **redeploy** en Vercel (`npm install` incluye `no
 
 1. Pedido remoto enviado **correctamente al ERP** (`estado_procesamiento = procesando`).
 2. `POST /api/orders/send-confirmation-email`
-3. El servidor recalcula importes con la misma logica que la app (mejor precio: pacto > tarifa > oferta).
+3. El servidor recalcula importes con la misma logica que la app (mejor precio: pacto > tarifa > oferta). Cada linea muestra PVP unitario, precio neto unitario e importe de linea (sin IVA); el total incluye IVA 21%.
 4. **To:** cliente. **CC:** comercial asignado (visible para el cliente). **BCC (CCO):** encargados del comercial (ocultos para el cliente).
 
 ## Flujo alerta ADMINISTRADOR
@@ -127,7 +127,7 @@ Tras cambiar SMTP o variables: **redeploy** en Vercel (`npm install` incluye `no
 
 | Archivo | Rol |
 |---------|-----|
-| `lib/order-email.js` | SMTP (nodemailer) + Resend + plantillas HTML (texto final del correo cliente en `buildOrderConfirmationHtml`) |
+| `lib/order-email.js` | SMTP (nodemailer) + Resend + plantillas HTML responsive (tarjetas por producto, legible en movil) |
 | `lib/order-pricing-email.js` | Recalculo de precios efectivos (tarifa, pacto, ofertas) para importes del email |
 | `api/orders/send-confirmation-email.js` | Confirmacion cliente |
 | `api/orders/send-erp-failure-alert.js` | Alerta ADMINISTRADOR |
