@@ -107,7 +107,16 @@ A continuacion, el frontend llama a `supabase.auth.signInWithPassword()` para ob
 
 El cliente de la app guarda su propia sesion en `localStorage['current_user']` (sin expiry). La sesion de Supabase Auth (JWT) se guarda por separado por el cliente Supabase y tiene un tiempo de vida limitado (access token ~1h, refresh token ~7 dias). Si el usuario vuelve despues de que ambos tokens hayan expirado, el JWT es nulo y las operaciones escritura con RLS fallan con `42501`.
 
-**Solucion implementada en `initialize()`** (desde marzo 2026): al restaurar la sesion de la app desde `localStorage`, se verifica inmediatamente si el JWT de Supabase Auth sigue activo con `auth.getSession()`. Si la sesion JWT ha expirado, se limpia el `localStorage` de la app y se fuerza al usuario a hacer login de nuevo. Esto garantiza que la sesion de la app y el JWT siempre esten sincronizados.
+**Solucion implementada en `initialize()`** (desde marzo 2026): al restaurar la sesion de la app desde `localStorage`, se verifica si el JWT de Supabase Auth sigue activo. Si la sesion JWT ha expirado, se limpia el `localStorage` de la app y se fuerza al usuario a hacer login de nuevo. Esto garantiza que la sesion de la app y el JWT siempre esten sincronizados.
+
+**Acceso rapido al login** (junio 2026): para evitar la rueda de carga antes del gate cuando no hay sesion util:
+
+1. Script inline en `index.html` (antes de cargar `app.js`): si no hay `current_user`, o el token Auth local esta ausente/caducado (access expirado sin refresh, o access expirado hace mas de 5 dias), se muestra el gate y se oculta el loading de inmediato.
+2. `SupabaseClient.probeLocalAuthState()` en `js/supabase.js`: misma logica sincrona reutilizada en `initialize()`.
+3. Sin sesion restorable: no se bloquea en `/api/config.js` ni en `getSession()`; Supabase se inicializa en segundo plano (`_startBackgroundSupabaseInit`) y `handleLogin` usa `ensureSupabaseReady()` al pulsar Entrar.
+4. Sesion con refresh reciente posible: spinner breve con timeout en `verifyAuthSessionWithTimeout()` (4,5 s max) para no esperar indefinidamente un refresh invalido.
+
+La seguridad se mantiene: no se entra a la app sin JWT valido; solo se evita trabajo de red innecesario cuando ya se sabe localmente que hay que volver a autenticarse.
 
 **Evitar 42501 tras rato trabajando** (acceso caduca ~1h): para que el admin no vea el error de golpe tras llevar un rato logueado, se ha implementado: (1) Refresco periodico del JWT cada 50 min con `auth.refreshSession()` al tener sesion; (2) Antes de cada escritura en recambios, `ensureAuthSessionForWrite()`; (3) Reintento en 42501 (refresh + repetir operacion); (4) Si sigue fallando o no hay sesion valida, error `SESSION_EXPIRED` y la app muestra "Sesion expirada. Por favor, inicia sesion de nuevo." y lleva a la pantalla de login. El timer de refresco se detiene al cerrar sesion o al detectar sesion expirada.
 

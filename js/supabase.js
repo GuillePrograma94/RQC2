@@ -17,6 +17,15 @@ function formatEmpresaUpsertError(error) {
 }
 
 class SupabaseClient {
+    /** Margen (ms) antes de expirar el access token para considerarlo aun valido. */
+    static AUTH_ACCESS_VALID_BUFFER_MS = 30000;
+
+    /**
+     * Tiempo maximo desde la expiracion del access token sin refresco local.
+     * Pasado este umbral el refresh token de Supabase suele estar caducado (~7 dias).
+     */
+    static AUTH_REFRESH_STALE_AFTER_MS = 5 * 24 * 60 * 60 * 1000;
+
     constructor() {
         this.client = null;
         this.isConnected = false;
@@ -24,6 +33,95 @@ class SupabaseClient {
         this.OFERTAS_CACHE_VERSION_KEY = 'ofertas_cache_version_hash';
         this.OFERTAS_CACHE_COMPLETED_AT_KEY = 'ofertas_cache_completed_at';
         this.OFERTAS_CACHE_TARGET_VERSION_KEY = 'ofertas_cache_target_version_hash';
+    }
+
+    /**
+     * Busca la clave de localStorage donde Supabase guarda la sesion Auth.
+     * @returns {string|null}
+     */
+    static findAuthStorageKey() {
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.indexOf('sb-') === 0 && key.indexOf('auth-token') !== -1) {
+                    return key;
+                }
+            }
+        } catch (e) {
+            console.warn('findAuthStorageKey:', e);
+        }
+        return null;
+    }
+
+    /**
+     * Lee y parsea la sesion Auth almacenada localmente (sin red).
+     * @returns {object|null}
+     */
+    static readStoredAuthSession() {
+        const key = SupabaseClient.findAuthStorageKey();
+        if (!key) return null;
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
+     * Evalua el estado de auth solo con localStorage (sin red).
+     * @returns {'none'|'valid'|'refresh_needed'|'stale'}
+     */
+    static probeLocalAuthState() {
+        const hasAppUser = !!localStorage.getItem('current_user');
+        if (!hasAppUser) {
+            return 'none';
+        }
+
+        const session = SupabaseClient.readStoredAuthSession();
+        if (!session || (!session.access_token && !session.refresh_token)) {
+            return 'stale';
+        }
+
+        const expiresAtMs = typeof session.expires_at === 'number'
+            ? session.expires_at * 1000
+            : 0;
+        const accessStillValid = expiresAtMs > (Date.now() + SupabaseClient.AUTH_ACCESS_VALID_BUFFER_MS);
+        if (accessStillValid) {
+            return 'valid';
+        }
+
+        if (!session.refresh_token) {
+            return 'stale';
+        }
+
+        if (expiresAtMs > 0 && (Date.now() - expiresAtMs) > SupabaseClient.AUTH_REFRESH_STALE_AFTER_MS) {
+            return 'stale';
+        }
+
+        return 'refresh_needed';
+    }
+
+    /**
+     * Borra las claves de Supabase Auth en localStorage (sin red).
+     */
+    static clearLocalAuthStorage() {
+        try {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.indexOf('sb-') === 0 && key.indexOf('auth') !== -1) {
+                    keysToRemove.push(key);
+                }
+            }
+            keysToRemove.forEach(function (key) {
+                localStorage.removeItem(key);
+            });
+        } catch (e) {
+            console.warn('clearLocalAuthStorage:', e);
+        }
     }
 
     isNetworkError(errorLike) {
@@ -1862,6 +1960,37 @@ class SupabaseClient {
             }
         } catch (e) {
             console.warn('signOutAuth:', e);
+        }
+        SupabaseClient.clearLocalAuthStorage();
+    }
+
+    /**
+     * Comprueba la sesion Auth con limite de tiempo (evita esperas largas con refresh invalido).
+     * @param {number} timeoutMs
+     * @returns {Promise<boolean>}
+     */
+    async verifyAuthSessionWithTimeout(timeoutMs) {
+        if (!this.client || !this.client.auth) {
+            return false;
+        }
+        const limit = typeof timeoutMs === 'number' && timeoutMs > 0 ? timeoutMs : 4000;
+        try {
+            const result = await Promise.race([
+                this.client.auth.getSession(),
+                new Promise(function (_, reject) {
+                    setTimeout(function () {
+                        reject(new Error('SESSION_CHECK_TIMEOUT'));
+                    }, limit);
+                })
+            ]);
+            return !!(result && result.data && result.data.session);
+        } catch (e) {
+            if (e && e.message === 'SESSION_CHECK_TIMEOUT') {
+                console.warn('verifyAuthSessionWithTimeout: tiempo de espera agotado');
+            } else {
+                console.warn('verifyAuthSessionWithTimeout:', e);
+            }
+            return false;
         }
     }
 

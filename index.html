@@ -86,6 +86,100 @@
         </div>
     </div>
 
+    <!-- Gate rapido: sin sesion valida local, mostrar login antes de cargar todos los scripts -->
+    <script>
+        (function () {
+            var ACCESS_BUFFER_MS = 30000;
+            var REFRESH_STALE_AFTER_MS = 5 * 24 * 60 * 60 * 1000;
+
+            function showGateEarly() {
+                document.body.classList.add('gate-visible');
+                var loading = document.getElementById('loadingScreen');
+                if (loading) {
+                    loading.classList.add('hidden');
+                }
+                var gate = document.getElementById('gateScreen');
+                if (gate) {
+                    gate.setAttribute('aria-hidden', 'false');
+                }
+            }
+
+            function findAuthStorageKey() {
+                try {
+                    for (var i = 0; i < localStorage.length; i++) {
+                        var key = localStorage.key(i);
+                        if (key && key.indexOf('sb-') === 0 && key.indexOf('auth-token') !== -1) {
+                            return key;
+                        }
+                    }
+                } catch (e) {}
+                return null;
+            }
+
+            function clearStaleLocalSession() {
+                try {
+                    localStorage.removeItem('current_user');
+                    localStorage.removeItem('current_session');
+                    var keysToRemove = [];
+                    for (var j = 0; j < localStorage.length; j++) {
+                        var k = localStorage.key(j);
+                        if (k && k.indexOf('sb-') === 0 && k.indexOf('auth') !== -1) {
+                            keysToRemove.push(k);
+                        }
+                    }
+                    for (var r = 0; r < keysToRemove.length; r++) {
+                        localStorage.removeItem(keysToRemove[r]);
+                    }
+                } catch (e2) {}
+            }
+
+            function shouldShowGateEarly() {
+                try {
+                    if (!localStorage.getItem('current_user')) {
+                        return true;
+                    }
+                    var authKey = findAuthStorageKey();
+                    if (!authKey) {
+                        clearStaleLocalSession();
+                        return true;
+                    }
+                    var raw = localStorage.getItem(authKey);
+                    var session = null;
+                    try {
+                        session = raw ? JSON.parse(raw) : null;
+                    } catch (parseErr) {
+                        session = null;
+                    }
+                    if (!session || (!session.access_token && !session.refresh_token)) {
+                        clearStaleLocalSession();
+                        return true;
+                    }
+                    var expiresAtMs = typeof session.expires_at === 'number'
+                        ? session.expires_at * 1000
+                        : 0;
+                    if (expiresAtMs > (Date.now() + ACCESS_BUFFER_MS)) {
+                        return false;
+                    }
+                    if (!session.refresh_token) {
+                        clearStaleLocalSession();
+                        return true;
+                    }
+                    if (expiresAtMs > 0 && (Date.now() - expiresAtMs) > REFRESH_STALE_AFTER_MS) {
+                        clearStaleLocalSession();
+                        return true;
+                    }
+                    return false;
+                } catch (err) {
+                    return false;
+                }
+            }
+
+            if (shouldShowGateEarly()) {
+                showGateEarly();
+            }
+        })();
+    </script>
+
     <!-- Almacén Selection Modal (Recoger en Almacén) -->
     <div id="almacenModal" class="login-modal almacen-modal" style="display: none;">
         <div class="login-modal-overlay"></div>

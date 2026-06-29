@@ -21,6 +21,7 @@ class ScanAsYouShopApp {
         this.recambiosProductoCodigo = null;
         this.recambiosPreviewRecambio = null;
         this.recambiosPreviewPadre = null;
+        this._supabaseInitPromise = null;
         // Stock
         this.stockAlmacenFiltro = null; // null = global; string = almacen especifico
         this.stockIndex = new Map();    // Map<codigo_articulo_upper, {stock_global, por_almacen}>
@@ -136,26 +137,37 @@ class ScanAsYouShopApp {
         try {
             console.log('Iniciando BATMAR...');
 
-            // Inicializar UI primero (para poder usar showLoading)
             window.ui.initialize();
             this.setupGlobalErrorReporting();
-            window.ui.showLoading('Iniciando aplicacion...');
-
-            // Configurar pantalla de acceso (gate) y modal de login (debe estar antes del gate para que el submit no recargue la pagina)
             this.setupGateScreen();
 
-            // Inicializar Supabase
-            const supabaseOK = await window.supabaseClient.initialize();
+            const localAuthState = SupabaseClient.probeLocalAuthState();
+            if (localAuthState === 'none' || localAuthState === 'stale') {
+                if (localAuthState === 'stale') {
+                    console.log('Sesion local caducada o incompleta. Mostrando login.');
+                    this.clearStaleSessionLocally();
+                }
+                this.showLanding();
+                window.ui.hideLoading();
+                this._startBackgroundSupabaseInit();
+                return;
+            }
+
+            window.ui.showLoading(
+                localAuthState === 'refresh_needed'
+                    ? 'Verificando sesion...'
+                    : 'Iniciando aplicacion...'
+            );
+
+            const supabaseOK = await this.ensureSupabaseReady();
             if (!supabaseOK) {
                 throw new Error('No se pudo conectar con el servidor');
             }
 
-            // Inicializar cliente ERP (sin bloqueo)
             if (window.erpClient) {
                 window.erpClient.initialize();
             }
 
-            // Verificar si hay sesion guardada: sin usuario solo se muestra la landing
             const savedUser = this.loadUserSession();
             if (!savedUser) {
                 this.showLanding();
@@ -163,15 +175,12 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            // Verificar que la sesion de Supabase Auth sigue activa.
-            // Si el JWT expiro y el refresh token ya no es valido, forzar re-login
-            // para garantizar que las operaciones de escritura con RLS funcionen.
-            const { data: authSessionData } = await window.supabaseClient.client.auth.getSession();
-            if (!authSessionData?.session) {
+            const sessionTimeoutMs = localAuthState === 'valid' ? 2500 : 4500;
+            const hasAuthSession = await window.supabaseClient.verifyAuthSessionWithTimeout(sessionTimeoutMs);
+            if (!hasAuthSession) {
                 console.log('Sesion de Supabase Auth expirada. Requiere nuevo login.');
-                localStorage.removeItem('current_user');
-                localStorage.removeItem('current_session');
-                await window.supabaseClient.client.auth.signOut().catch(() => {});
+                this.clearStaleSessionLocally();
+                await window.supabaseClient.signOutAuth().catch(() => {});
                 this.showLanding();
                 window.ui.hideLoading();
                 return;
@@ -309,6 +318,43 @@ class ScanAsYouShopApp {
             }
         };
         document.addEventListener('visibilitychange', this._visibilityPauseBound);
+    }
+
+    /**
+     * Inicializa Supabase en segundo plano (login sin sesion previa).
+     */
+    _startBackgroundSupabaseInit() {
+        if (!this._supabaseInitPromise) {
+            this._supabaseInitPromise = window.supabaseClient.initialize().catch(function (err) {
+                console.warn('Inicializacion en segundo plano de Supabase fallida:', err);
+                return false;
+            });
+        }
+    }
+
+    /**
+     * Garantiza que el cliente Supabase este listo (login o restauracion de sesion).
+     * @returns {Promise<boolean>}
+     */
+    async ensureSupabaseReady() {
+        if (window.supabaseClient && window.supabaseClient.isConnected) {
+            return true;
+        }
+        if (!this._supabaseInitPromise) {
+            this._supabaseInitPromise = window.supabaseClient.initialize();
+        }
+        return this._supabaseInitPromise;
+    }
+
+    /**
+     * Limpia datos de sesion locales sin llamadas de red.
+     */
+    clearStaleSessionLocally() {
+        localStorage.removeItem('current_user');
+        localStorage.removeItem('current_session');
+        SupabaseClient.clearLocalAuthStorage();
+        this.currentUser = null;
+        this.currentSession = null;
     }
 
     /**
@@ -461,6 +507,16 @@ class ScanAsYouShopApp {
         }
 
         try {
+            const supabaseOK = await this.ensureSupabaseReady();
+            if (!supabaseOK) {
+                this.showLoginError('No se pudo conectar con el servidor. Comprueba tu conexion.');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Entrar';
+                }
+                return;
+            }
+
             // Intentar login
             const loginResult = await window.supabaseClient.loginUser(codigo, password);
 
@@ -4736,10 +4792,7 @@ class ScanAsYouShopApp {
             await window.supabaseClient.closeUserSession(this.currentSession).catch(() => {});
         }
         await window.supabaseClient.signOutAuth();
-        localStorage.removeItem('current_user');
-        localStorage.removeItem('current_session');
-        this.currentUser = null;
-        this.currentSession = null;
+        this.clearStaleSessionLocally();
         this.updateUserUI();
         document.body.classList.remove('admin-panel-visible');
         this.showLanding();
