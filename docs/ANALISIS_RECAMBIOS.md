@@ -118,6 +118,13 @@ El cliente de la app guarda su propia sesion en `localStorage['current_user']` (
 
 La seguridad se mantiene: no se entra a la app sin JWT valido; solo se evita trabajo de red innecesario cuando ya se sabe localmente que hay que volver a autenticarse.
 
+**Login rapido al pulsar Entrar** (junio 2026):
+
+1. Cache local de `/api/config.js` en `localStorage` (`batmar_server_config_cache`, 7 dias). La segunda visita no espera cold start de Vercel para inicializar Supabase.
+2. Prefetch en `index.html`: al cargar la pagina se pide `/api/config.js` y un `OPTIONS` a `/api/auth/login` mientras el usuario escribe credenciales (calienta serverless).
+3. `createUserSession` (RPC) ya no bloquea el paso a la app; se ejecuta en segundo plano tras login exitoso.
+4. `initializeApp` muestra la pantalla Inicio tras inicializar el carrito; stock, tarifas e indice de busqueda cargan en paralelo despues (`_completeAppInitAfterFirstPaint`), sin esperar hasta 8 s de `warmSearchIndicesCritical`.
+
 **Evitar 42501 tras rato trabajando** (acceso caduca ~1h): para que el admin no vea el error de golpe tras llevar un rato logueado, se ha implementado: (1) Refresco periodico del JWT cada 50 min con `auth.refreshSession()` al tener sesion; (2) Antes de cada escritura en recambios, `ensureAuthSessionForWrite()`; (3) Reintento en 42501 (refresh + repetir operacion); (4) Si sigue fallando o no hay sesion valida, error `SESSION_EXPIRED` y la app muestra "Sesion expirada. Por favor, inicia sesion de nuevo." y lleva a la pantalla de login. El timer de refresco se detiene al cerrar sesion o al detectar sesion expirada.
 
 ### Politicas RLS de producto_recambios

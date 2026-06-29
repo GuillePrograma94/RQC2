@@ -324,6 +324,9 @@ class ScanAsYouShopApp {
      * Inicializa Supabase en segundo plano (login sin sesion previa).
      */
     _startBackgroundSupabaseInit() {
+        if (window.CONFIG && typeof window.CONFIG.prefetchServerConfig === 'function') {
+            window.CONFIG.prefetchServerConfig();
+        }
         if (!this._supabaseInitPromise) {
             this._supabaseInitPromise = window.supabaseClient.initialize().catch(function (err) {
                 console.warn('Inicializacion en segundo plano de Supabase fallida:', err);
@@ -339,6 +342,11 @@ class ScanAsYouShopApp {
     async ensureSupabaseReady() {
         if (window.supabaseClient && window.supabaseClient.isConnected) {
             return true;
+        }
+        if (window.CONFIG && window.CONFIG._serverConfigRefreshPromise) {
+            try {
+                await window.CONFIG._serverConfigRefreshPromise;
+            } catch (_) {}
         }
         if (!this._supabaseInitPromise) {
             this._supabaseInitPromise = window.supabaseClient.initialize();
@@ -550,33 +558,30 @@ class ScanAsYouShopApp {
                 this.loadPricingPreferenceForUser(this.currentUser);
                 this.loadIvaPreferenceForUser(this.currentUser);
 
-                // Crear sesion en sesiones_usuario solo para clientes (titular/operario).
-                // Comerciales y dependientes actuan como representantes y no usan sesiones_usuario.
-                let sessionId = null;
-                if (!isComercial && !isDependiente) {
-                    sessionId = await window.supabaseClient.createUserSession(codigo);
-                    if (sessionId) this.currentSession = sessionId;
-                }
+                this.saveUserSession(this.currentUser, null);
 
-                // Guardar sesión en localStorage
-                this.saveUserSession(this.currentUser, sessionId);
-
-                // Persistir / limpiar credenciales recordadas segun el check "Recordar".
-                // Lo hacemos despues de validar el login para no guardar credenciales invalidas.
                 this.persistRememberedCredentials(codigo, password);
-
-                // Refresco periodico del JWT para evitar 42501 tras ~1h trabajando
                 this.startAuthRefreshTimer();
-
-                // Actualizar UI con nombre del usuario
                 this.updateUserUI();
 
-                // Ocultar página de login y mostrar la app
                 this.hideLanding();
                 this.hideLoginModal();
-
-                // Cerrar menú
                 this.closeMenu();
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Entrar';
+                }
+
+                window.ui.showToast(`Bienvenido, ${this.currentUser.user_name}`, 'success');
+
+                if (!isComercial && !isDependiente) {
+                    const self = this;
+                    void window.supabaseClient.createUserSession(codigo).then(function (sessionId) {
+                        if (!sessionId) return;
+                        self.currentSession = sessionId;
+                        localStorage.setItem('current_session', sessionId.toString());
+                    });
+                }
 
                 // Inicializar app si aun no se ha hecho (primer login desde la landing)
                 if (!this.isInitialized) {
@@ -598,9 +603,6 @@ class ScanAsYouShopApp {
                     }
                 }
 
-                // Mostrar mensaje de bienvenida
-                window.ui.showToast(`Bienvenido, ${this.currentUser.user_name}`, 'success');
-
                 const esRepresentante = this.currentUser.is_comercial || this.currentUser.is_dependiente || this.currentUser.is_administrador;
 
                 // Precargar historial y listener de pedidos solo para clientes (no representantes)
@@ -612,7 +614,6 @@ class ScanAsYouShopApp {
                     this.setupOrderStatusListener();
                 }
 
-                // Solicitar permisos de notificaciones en segundo plano (no bloquear)
                 this.requestNotificationPermission().catch(() => {});
 
             } else {
@@ -4832,16 +4833,44 @@ class ScanAsYouShopApp {
         try {
             window.ui.showLoading('Cargando aplicacion...');
 
-            // Inicializar carrito
             const cartOK = await window.cartManager.initialize();
             if (!cartOK) {
                 throw new Error('No se pudo inicializar el carrito');
             }
-            await this.preloadStockIndexFromLocal();
-            await this.refreshClavesDescuentoCache();
-            await this.refreshPactosClienteCache();
-            await this.warmSearchIndicesCritical(8000);
-            this.preloadOfertasSearchIndex();
+
+            window.scannerManager.initialize();
+            this.setupScreens();
+            this.showScreen('inicio');
+            this.updateActiveNav('inicio');
+            this.isInitialized = true;
+            window.ui.hideLoading();
+
+            void this._completeAppInitAfterFirstPaint();
+
+            void this.syncProductsInBackground().finally(() => {
+                this._scheduleDeferredStockSync();
+            });
+
+        } catch (error) {
+            console.error('Error al inicializar aplicacion:', error);
+            window.ui.hideLoading();
+            window.ui.showToast(
+                'Error al iniciar la aplicacion. Verifica tu conexion.',
+                'error'
+            );
+        }
+    }
+
+    /**
+     * Carga stock, tarifas e indices de busqueda tras mostrar la primera pantalla.
+     */
+    async _completeAppInitAfterFirstPaint() {
+        try {
+            await Promise.all([
+                this.preloadStockIndexFromLocal(),
+                this.refreshClavesDescuentoCache(),
+                this.refreshPactosClienteCache()
+            ]);
             try {
                 const tarifa = this.getEffectiveTarifaCodigo();
                 const codigoClientePacto = this.getEffectiveCodigoClientePacto();
@@ -4857,34 +4886,12 @@ class ScanAsYouShopApp {
                 console.warn('Estado pricing (log):', e && e.message ? e.message : e);
             }
 
-            // Inicializar scanner
-            window.scannerManager.initialize();
-
-            // Configurar pantallas
-            this.setupScreens();
-
-            // Pantalla principal: Inicio (familias, bienvenida). Carrito desde la pestaña inferior.
-            this.showScreen('inicio');
-            this.updateActiveNav('inicio');
             void this.updateCartView();
-
-            this.isInitialized = true;
-
-            window.ui.hideLoading();
+            void this.warmSearchIndicesCritical(8000);
+            this.preloadOfertasSearchIndex();
             console.log('Aplicacion inicializada correctamente');
-            
-            // Catalogo primero; stock diferido para no competir por IndexedDB en movil
-            void this.syncProductsInBackground().finally(() => {
-                this._scheduleDeferredStockSync();
-            });
-
         } catch (error) {
-            console.error('Error al inicializar aplicacion:', error);
-            window.ui.hideLoading();
-            window.ui.showToast(
-                'Error al iniciar la aplicacion. Verifica tu conexion.',
-                'error'
-            );
+            console.warn('_completeAppInitAfterFirstPaint:', error && error.message ? error.message : error);
         }
     }
 

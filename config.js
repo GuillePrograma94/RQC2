@@ -56,6 +56,113 @@ let CONFIG = {
 
     _apiBaseUrl: '',
     _apiBaseUrlResolved: false,
+    _serverConfigRefreshPromise: null,
+
+    SERVER_CONFIG_CACHE_KEY: 'batmar_server_config_cache',
+    SERVER_CONFIG_CACHE_MAX_AGE_MS: 7 * 24 * 60 * 60 * 1000,
+
+    readServerConfigCache() {
+        try {
+            const raw = localStorage.getItem(this.SERVER_CONFIG_CACHE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed || !parsed.config || !parsed.savedAt) return null;
+            if (Date.now() - Number(parsed.savedAt) > this.SERVER_CONFIG_CACHE_MAX_AGE_MS) {
+                return null;
+            }
+            return parsed.config;
+        } catch (e) {
+            return null;
+        }
+    },
+
+    saveServerConfigCache(config) {
+        if (!config || !config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) return;
+        try {
+            localStorage.setItem(this.SERVER_CONFIG_CACHE_KEY, JSON.stringify({
+                savedAt: Date.now(),
+                config: config
+            }));
+        } catch (e) {
+            console.warn('[Config] No se pudo guardar cache de configuracion:', e);
+        }
+    },
+
+    applyServerConfig(config) {
+        if (!config) return false;
+        let applied = false;
+        if (config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
+            this.SUPABASE_URL = config.SUPABASE_URL;
+            this.SUPABASE_ANON_KEY = config.SUPABASE_ANON_KEY;
+            applied = true;
+        }
+        if (config.ERP) {
+            this.ERP = Object.assign({}, this.ERP, config.ERP);
+        }
+        if (config.ERP_BASE_URL || config.ERP_LOGIN_PATH || config.ERP_CREATE_ORDER_PATH || config.ERP_PROXY_PATH) {
+            this.ERP = Object.assign({}, this.ERP, {
+                BASE_URL: config.ERP_BASE_URL || this.ERP.BASE_URL,
+                LOGIN_PATH: config.ERP_LOGIN_PATH || this.ERP.LOGIN_PATH,
+                CREATE_ORDER_PATH: config.ERP_CREATE_ORDER_PATH || this.ERP.CREATE_ORDER_PATH,
+                PROXY_PATH: config.ERP_PROXY_PATH || this.ERP.PROXY_PATH,
+                USER: config.ERP_USER || this.ERP.USER,
+                PASSWORD: config.ERP_PASSWORD || this.ERP.PASSWORD
+            });
+        }
+        return applied;
+    },
+
+    async fetchServerConfigFromNetwork() {
+        await this.resolveApiBaseUrl();
+        const configUrl = this.buildApiUrl('/api/config.js');
+        const response = await fetch(configUrl);
+        if (!response.ok) {
+            return null;
+        }
+        const responseText = await response.text();
+        let config;
+        try {
+            config = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('[Config] La respuesta no es JSON valido:', parseError.message);
+            return null;
+        }
+        if (config && config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
+            this.saveServerConfigCache(config);
+        }
+        return config;
+    },
+
+    refreshServerConfigInBackground() {
+        if (this._serverConfigRefreshPromise) {
+            return this._serverConfigRefreshPromise;
+        }
+        this._serverConfigRefreshPromise = this.fetchServerConfigFromNetwork()
+            .then((config) => {
+                if (config) {
+                    this.applyServerConfig(config);
+                }
+                return !!config;
+            })
+            .catch((error) => {
+                console.warn('[Config] Actualizacion en segundo plano fallida:', error);
+                return false;
+            })
+            .finally(() => {
+                this._serverConfigRefreshPromise = null;
+            });
+        return this._serverConfigRefreshPromise;
+    },
+
+    /**
+     * Precarga /api/config.js mientras el usuario esta en el gate (calienta serverless y llena cache).
+     */
+    prefetchServerConfig() {
+        if (this._serverConfigRefreshPromise) {
+            return this._serverConfigRefreshPromise;
+        }
+        return this.refreshServerConfigInBackground();
+    },
 
     /**
      * Base URL para /api/* (Vercel). En TiendaPC con UI local usa app_url del config nativo.
@@ -97,20 +204,24 @@ let CONFIG = {
      */
     async loadSupabaseConfig() {
         try {
-            // Si ya hay credenciales configuradas, usarlas directamente
-            if (this.SUPABASE_URL && this.SUPABASE_ANON_KEY && 
+            if (this.SUPABASE_URL && this.SUPABASE_ANON_KEY &&
                 this.SUPABASE_URL !== 'https://tu-proyecto.supabase.co') {
                 console.log('Usando credenciales configuradas directamente');
                 return true;
             }
 
             await this.resolveApiBaseUrl();
-            
-            // Intentar cargar desde serverless function (Vercel/Netlify)
-            // Forzar .js explícitamente para evitar que cargue .php cacheado
+
+            const cachedConfig = this.readServerConfigCache();
+            if (cachedConfig && this.applyServerConfig(cachedConfig)) {
+                console.log('[Config] Configuracion cargada desde cache local');
+                void this.refreshServerConfigInBackground();
+                return true;
+            }
+
             const configUrl = this.buildApiUrl('/api/config.js');
             console.log('[Config] Solicitando configuracion:', configUrl);
-            let response = await fetch(configUrl);
+            const response = await fetch(configUrl);
 
             console.log('[Config] Respuesta recibida:', {
                 status: response.status,
@@ -118,17 +229,14 @@ let CONFIG = {
             });
 
             if (!response.ok) {
-                // Fallback: leer desde variables de entorno del navegador (desarrollo)
                 console.warn('[Config] No se pudo cargar config desde servidor (status ' + response.status + '), usando valores configurados');
-                // Si hay credenciales hardcodeadas, considerarlo válido
                 if (this.SUPABASE_URL && this.SUPABASE_ANON_KEY) {
                     return true;
                 }
                 return false;
             }
-            
+
             const responseText = await response.text();
-            // No loguear el cuerpo de la respuesta: puede contener SUPABASE_ANON_KEY
 
             let config;
             try {
@@ -138,26 +246,10 @@ let CONFIG = {
                 console.error('[Config] Posible causa: el Service Worker o el servidor devolvieron otro archivo (p. ej. sw.js). Comprueba que /api/config.js no este siendo cacheado.');
                 throw parseError;
             }
-            
-            if (config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
-                this.SUPABASE_URL = config.SUPABASE_URL;
-                this.SUPABASE_ANON_KEY = config.SUPABASE_ANON_KEY;
+
+            if (this.applyServerConfig(config)) {
+                this.saveServerConfigCache(config);
                 console.log('Configuracion de Supabase cargada correctamente desde servidor');
-            }
-
-            if (config.ERP) {
-                this.ERP = Object.assign({}, this.ERP, config.ERP);
-            }
-
-            if (config.ERP_BASE_URL || config.ERP_LOGIN_PATH || config.ERP_CREATE_ORDER_PATH || config.ERP_PROXY_PATH) {
-                this.ERP = Object.assign({}, this.ERP, {
-                    BASE_URL: config.ERP_BASE_URL || this.ERP.BASE_URL,
-                    LOGIN_PATH: config.ERP_LOGIN_PATH || this.ERP.LOGIN_PATH,
-                    CREATE_ORDER_PATH: config.ERP_CREATE_ORDER_PATH || this.ERP.CREATE_ORDER_PATH,
-                    PROXY_PATH: config.ERP_PROXY_PATH || this.ERP.PROXY_PATH,
-                    USER: config.ERP_USER || this.ERP.USER,
-                    PASSWORD: config.ERP_PASSWORD || this.ERP.PASSWORD
-                });
             }
 
             return !!(this.SUPABASE_URL && this.SUPABASE_ANON_KEY);

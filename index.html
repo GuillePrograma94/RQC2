@@ -177,6 +177,37 @@
             if (shouldShowGateEarly()) {
                 showGateEarly();
             }
+
+            function prefetchServerConfig() {
+                try {
+                    var origin = window.location && window.location.origin;
+                    if (!origin) return;
+                    fetch(origin + '/api/config.js', { credentials: 'same-origin' })
+                        .then(function (response) {
+                            if (!response.ok) return null;
+                            return response.json();
+                        })
+                        .then(function (cfg) {
+                            if (!cfg || !cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) return;
+                            localStorage.setItem('batmar_server_config_cache', JSON.stringify({
+                                savedAt: Date.now(),
+                                config: cfg
+                            }));
+                        })
+                        .catch(function () {});
+                } catch (prefetchErr) {}
+            }
+
+            function warmAuthApi() {
+                try {
+                    var origin = window.location && window.location.origin;
+                    if (!origin) return;
+                    fetch(origin + '/api/auth/login', { method: 'OPTIONS' }).catch(function () {});
+                } catch (warmErr) {}
+            }
+
+            prefetchServerConfig();
+            warmAuthApi();
         })();
     </script>
 
