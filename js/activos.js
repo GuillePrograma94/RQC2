@@ -1,6 +1,6 @@
 /**
  * Gestion de activos de empresa (mobiliario).
- * Registro extensible de categorias; UI admin (ADMINISTRACION) y trabajador (DEPENDIENTE/COMERCIAL).
+ * Registro extensible de categorias; UI admin (ADMINISTRACION) y usuarios asignados (DEPENDIENTE/COMERCIAL/ADMINISTRADOR).
  */
 
 const ACTIVOS_CATEGORIAS = {
@@ -83,6 +83,7 @@ class ActivosManager {
         this._adminActivoId = null;
         this._workerActivo = null;
         this._trabajadoresCache = null;
+        this._almacenesCache = null;
         this._initialized = false;
     }
 
@@ -222,8 +223,9 @@ class ActivosManager {
 
         listEl.innerHTML = list.map(a => {
             const asignado = a.asignado_nombre
-                ? this._esc(a.asignado_nombre) + ' (' + this._esc(a.asignado_codigo || '') + ')'
+                ? this._esc(a.asignado_nombre) + ' (' + this._esc(a.asignado_tipo || '') + ' - ' + this._esc(a.asignado_codigo || '') + ')'
                 : 'Sin asignar';
+            const almacenTxt = a.almacen ? 'Almacen: ' + this._esc(a.almacen) + ' | ' : '';
             const itv = categoria === 'vehiculo' && a.datos && a.datos.fecha_itv
                 ? this._formatItvBadge(a.datos.fecha_itv)
                 : '';
@@ -231,7 +233,7 @@ class ActivosManager {
                 '<button type="button" class="admin-list-item activos-list-item" data-id="' + this._esc(a.id) + '">' +
                 '<strong>' + this._esc(a.nombre) + '</strong>' +
                 (a.identificador ? ' <span class="activos-list-id">' + this._esc(a.identificador) + '</span>' : '') +
-                '<br><span class="activos-list-meta">Estado: ' + this._esc(a.estado) + ' | ' + asignado + '</span>' +
+                '<br><span class="activos-list-meta">' + almacenTxt + 'Estado: ' + this._esc(a.estado) + ' | ' + asignado + '</span>' +
                 itv +
                 '</button>'
             );
@@ -276,7 +278,18 @@ class ActivosManager {
         if (!fieldsEl || !cfg) return;
 
         const datos = (activo && activo.datos) || {};
+        const almacenes = await this._loadAlmacenes();
         let html = '';
+        html += '<div class="admin-solicitud-field"><label for="activoFormAlmacen">Almacen</label>';
+        html += '<select id="activoFormAlmacen" required>';
+        html += '<option value="">-- Seleccionar almacen --</option>';
+        (almacenes || []).forEach(al => {
+            const cod = al.almacen || al;
+            const label = typeof al === 'object' ? (al.almacen + (al.razon_social ? ' - ' + al.razon_social : '')) : cod;
+            const selected = activo && activo.almacen === cod ? ' selected' : '';
+            html += '<option value="' + this._esc(cod) + '"' + selected + '>' + this._esc(label) + '</option>';
+        });
+        html += '</select></div>';
         html += '<div class="admin-solicitud-field"><label for="activoFormNombre">Nombre</label>';
         html += '<input type="text" id="activoFormNombre" required value="' + this._esc(activo ? activo.nombre : '') + '"></div>';
         html += '<div class="admin-solicitud-field"><label for="activoFormIdentificador">' + this._esc(cfg.identificadorLabel) + '</label>';
@@ -316,6 +329,11 @@ class ActivosManager {
 
         const identificador = (document.getElementById('activoFormIdentificador')?.value || '').trim() || null;
         const estado = document.getElementById('activoFormEstado')?.value || 'activo';
+        const almacen = (document.getElementById('activoFormAlmacen')?.value || '').trim();
+        if (!almacen) {
+            window.ui.showToast('Selecciona un almacen', 'error');
+            return;
+        }
         const datos = {};
         cfg.adminFields.forEach(f => {
             const el = document.getElementById('activoForm_' + f.key);
@@ -333,6 +351,7 @@ class ActivosManager {
             nombre,
             identificador,
             estado,
+            almacen,
             datos
         };
 
@@ -374,6 +393,9 @@ class ActivosManager {
         html += '<h3>' + this._esc(activo.nombre) + '</h3>';
         if (activo.identificador) html += '<p><strong>' + this._esc(cfg ? cfg.identificadorLabel : 'ID') + ':</strong> ' + this._esc(activo.identificador) + '</p>';
         html += '<p><strong>Estado:</strong> ' + this._esc(activo.estado) + '</p>';
+        if (activo.almacen) {
+            html += '<p><strong>Almacen:</strong> ' + this._esc(activo.almacen) + '</p>';
+        }
 
         if (cfg && activo.datos) {
             cfg.adminFields.forEach(f => {
@@ -454,6 +476,12 @@ class ActivosManager {
         if (d.descripcion) return d.descripcion;
         if (d.contador_paginas != null) return 'Paginas: ' + d.contador_paginas;
         return JSON.stringify(d);
+    }
+
+    async _loadAlmacenes() {
+        if (this._almacenesCache) return this._almacenesCache;
+        this._almacenesCache = await window.supabaseClient.getEmpresasPorAlmacen();
+        return this._almacenesCache;
     }
 
     async _loadTrabajadores() {
@@ -541,7 +569,11 @@ class ActivosManager {
     updateWorkerVisibility(currentUser) {
         const btn = document.getElementById('herramientaMisActivosBtn');
         if (!btn) return;
-        const show = currentUser && (currentUser.is_dependiente || currentUser.is_comercial);
+        const show = currentUser && (
+            currentUser.is_dependiente ||
+            currentUser.is_comercial ||
+            currentUser.is_administrador
+        );
         btn.style.display = show ? '' : 'none';
     }
 
@@ -571,6 +603,7 @@ class ActivosManager {
                 html += '<button type="button" class="btn btn-secondary activos-mis-item" data-id="' + this._esc(a.id) + '">';
                 html += this._esc(a.nombre);
                 if (a.identificador) html += ' <span class="activos-list-id">(' + this._esc(a.identificador) + ')</span>';
+                if (a.almacen) html += '<br><span class="activos-list-meta">Almacen: ' + this._esc(a.almacen) + '</span>';
                 html += '</button>';
             });
         });
@@ -598,6 +631,9 @@ class ActivosManager {
         let html = '<h3>' + this._esc(activo.nombre) + '</h3>';
         if (activo.identificador) {
             html += '<p><strong>' + this._esc(cfg ? cfg.identificadorLabel : 'ID') + ':</strong> ' + this._esc(activo.identificador) + '</p>';
+        }
+        if (activo.almacen) {
+            html += '<p><strong>Almacen:</strong> ' + this._esc(activo.almacen) + '</p>';
         }
         if (cfg && activo.datos) {
             cfg.adminFields.forEach(f => {

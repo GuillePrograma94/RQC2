@@ -34,7 +34,7 @@ Navegacion inferior: Inicio, Solicitudes, Proveedores, Perfil.
 
 ## Archivos implicados
 
-- **Migraciones**: `migration_usuarios_tipo_administracion.sql`, `migration_solicitudes_rls_administracion.sql`, `migration_solicitudes_codigo_producto.sql`, `migration_proveedores_alias.sql` (tabla de alias de proveedores para busqueda en Solicitar articulo nuevo), `migration_crear_producto_desde_solicitud.sql` (RPC para crear producto al completar solicitud), `migration_activos_empresa_core.sql`, `migration_activos_vehiculo_rpc.sql` (gestion de activos de empresa).
+- **Migraciones**: `migration_usuarios_tipo_administracion.sql`, `migration_solicitudes_rls_administracion.sql`, `migration_solicitudes_codigo_producto.sql`, `migration_proveedores_alias.sql` (tabla de alias de proveedores para busqueda en Solicitar articulo nuevo), `migration_crear_producto_desde_solicitud.sql` (RPC para crear producto al completar solicitud), `migration_activos_empresa_core.sql`, `migration_activos_vehiculo_rpc.sql`, `migration_activos_almacen_y_administrador.sql` (gestion de activos de empresa).
 - **API**: `api/auth/login.js` (app_metadata y respuesta).
 - **Frontend**: `index.html` (contenedor `#appContainerAdministracion` con pantallas Proveedores y bottom nav), `js/app.js` (rama en `initialize()`, `initializeAppAdministracion`, `setupScreensAdministracion`, `showScreenAdmin`, ...), `js/activos.js` (UI activos empresa), `js/supabase.js` (`getProveedores`, ... metodos activos), `styles.css` (estilos del panel, bloque completar y pantalla Proveedores, `.activos-*`).
 

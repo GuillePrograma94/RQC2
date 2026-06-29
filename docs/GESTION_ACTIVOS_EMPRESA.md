@@ -6,10 +6,11 @@ Modulo para gestionar el mobiliario y equipamiento de la empresa (vehiculos, imp
 
 | Rol | Acceso |
 |-----|--------|
-| **ADMINISTRACION** | Panel Administracion: CRUD de activos, asignacion a trabajadores, eventos de mantenimiento |
-| **DEPENDIENTE / COMERCIAL** | Herramientas > Mis activos: ver asignaciones y registrar uso diario del vehiculo |
-| **ADMINISTRADOR** | Sin acceso (distinto de Administracion) |
+| **ADMINISTRACION** | Panel Administracion: CRUD de activos, asignacion a usuarios, eventos de mantenimiento |
+| **DEPENDIENTE / COMERCIAL / ADMINISTRADOR** | Herramientas > Mis activos: ver asignaciones y registrar uso diario del vehiculo (si aplica) |
 | **CLIENTE** | Sin acceso (RLS) |
+
+Nota: **ADMINISTRADOR** (tienda) puede recibir activos asignados y usarlos desde Herramientas; no gestiona el parc (eso es rol **ADMINISTRACION**).
 
 ## Modelo de datos
 
@@ -18,7 +19,7 @@ Modulo para gestionar el mobiliario y equipamiento de la empresa (vehiculos, imp
 | Tabla | Proposito |
 |-------|-----------|
 | `activos_categorias` | Catalogo extensible de tipos (`vehiculo`, `impresora`, `ordenador`, `telefono`) |
-| `activos` | Ficha maestra: `nombre`, `identificador`, `estado`, `datos` (JSONB) |
+| `activos` | Ficha maestra: `nombre`, `identificador`, `estado`, `almacen` (FK `empresas_por_almacen`), `datos` (JSONB) |
 | `activos_asignaciones` | Vinculo trabajador (`auth_uid`) con activo |
 | `activos_registros` | Historial: uso diario vehiculo, eventos impresora/ordenador/telefono |
 
@@ -38,6 +39,7 @@ Ejecutar en Supabase SQL Editor en este orden:
 
 1. `migration_activos_empresa_core.sql` — tablas, RLS, seed categorias, RPCs base
 2. `migration_activos_vehiculo_rpc.sql` — uso vehiculo, eventos, listado admin
+3. `migration_activos_almacen_y_administrador.sql` — columna `almacen`, asignacion a ADMINISTRADOR
 
 ## Storage
 
@@ -48,12 +50,12 @@ Bucket **`activos-ficheros`** para facturas y adjuntos (crear manualmente en Das
 | RPC | Quien | Descripcion |
 |-----|-------|-------------|
 | `activos_get_conteos_categorias` | ADMINISTRACION | Conteos para hub admin |
-| `activos_get_trabajadores_asignables` | ADMINISTRACION | DEPENDIENTE + COMERCIAL con auth |
+| `activos_get_trabajadores_asignables` | ADMINISTRACION | DEPENDIENTE, COMERCIAL y ADMINISTRADOR con auth |
 | `activos_listar_por_categoria` | ADMINISTRACION | Listado con asignacion |
 | `activos_asignar_trabajador` | ADMINISTRACION | Asignar / reasignar |
 | `activos_desasignar` | ADMINISTRACION | Quitar asignacion |
-| `activos_get_mis_activos` | Trabajador | Activos del JWT actual |
-| `activos_registrar_uso_vehiculo` | Trabajador asignado / ADMINISTRACION | Km, litros, coste del dia |
+| `activos_get_mis_activos` | Usuario asignado | Activos del JWT actual (incl. ADMINISTRADOR) |
+| `activos_registrar_uso_vehiculo` | Usuario asignado / ADMINISTRACION | Km, litros, coste del dia |
 | `activos_registrar_evento` | ADMINISTRACION | Eventos impresora/ordenador/telefono |
 
 ## Frontend
