@@ -18,6 +18,10 @@
         if (isAvailable()) {
             return true;
         }
+        // PWA / navegador: pywebview no existe; no bloquear 15 s en cada login o fetch API.
+        if (!global.pywebview) {
+            return false;
+        }
         return new Promise((resolve) => {
             const deadline = Date.now() + 15000;
             const onReady = () => {

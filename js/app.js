@@ -149,6 +149,9 @@ class ScanAsYouShopApp {
                 }
                 this.showLanding();
                 window.ui.hideLoading();
+                if (window.CONFIG && typeof window.CONFIG.resolveApiBaseUrl === 'function') {
+                    void window.CONFIG.resolveApiBaseUrl();
+                }
                 this._startBackgroundSupabaseInit();
                 return;
             }
@@ -617,14 +620,14 @@ class ScanAsYouShopApp {
                         if (tiendaEl) tiendaEl.style.display = 'none';
                         if (adminEl) adminEl.style.display = 'block';
                         document.body.classList.add('admin-panel-visible');
-                        await this.initializeAppAdministracion();
+                        void this.initializeAppAdministracion();
                     } else {
                         document.body.classList.remove('admin-panel-visible');
                         const tiendaEl = document.getElementById('appContainerTienda');
                         const adminEl = document.getElementById('appContainerAdministracion');
                         if (tiendaEl) tiendaEl.style.display = '';
                         if (adminEl) adminEl.style.display = 'none';
-                        await this.initializeApp();
+                        void this.initializeApp();
                     }
                 }
 

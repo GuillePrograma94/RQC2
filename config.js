@@ -172,18 +172,29 @@ let CONFIG = {
             return this._apiBaseUrl;
         }
         let base = '';
+        if (typeof window !== 'undefined' && window.location && window.location.origin) {
+            base = window.location.origin;
+        }
         try {
-            if (window.TiendaNative && typeof window.TiendaNative.whenReady === 'function') {
+            const tiendaReady = window.TiendaNative
+                && typeof window.TiendaNative.isAvailable === 'function'
+                && window.TiendaNative.isAvailable();
+            if (tiendaReady && typeof window.TiendaNative.getRemoteApiBase === 'function') {
+                const remote = await window.TiendaNative.getRemoteApiBase();
+                if (remote) {
+                    base = remote;
+                }
+            } else if (window.pywebview && window.TiendaNative && typeof window.TiendaNative.whenReady === 'function') {
                 await window.TiendaNative.whenReady();
-            }
-            if (window.TiendaNative && typeof window.TiendaNative.getRemoteApiBase === 'function') {
-                base = await window.TiendaNative.getRemoteApiBase();
+                if (typeof window.TiendaNative.getRemoteApiBase === 'function') {
+                    const remote = await window.TiendaNative.getRemoteApiBase();
+                    if (remote) {
+                        base = remote;
+                    }
+                }
             }
         } catch (e) {
             console.warn('[Config] No se pudo obtener API base remota de TiendaPC:', e);
-        }
-        if (!base && typeof window !== 'undefined' && window.location && window.location.origin) {
-            base = window.location.origin;
         }
         this._apiBaseUrl = String(base || '').replace(/\/+$/, '');
         this._apiBaseUrlResolved = true;

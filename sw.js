@@ -3,10 +3,17 @@
  * Maneja cache y funcionamiento offline
  */
 
+// Logs por peticion (cache/red) solo en depuracion local; en produccion generan ruido en consola.
+const SW_DEBUG = false;
+
+function swLog() {
+    if (SW_DEBUG) console.log.apply(console, arguments);
+}
+
 // mn961j71 es reemplazado por build.js en cada deployment de Vercel
 // con los primeros 8 caracteres del SHA del commit de Git.
 // En desarrollo local (sin build), permanece como literal y funciona igualmente.
-const CACHE_NAME = 'batmar-mqz059su';
+const CACHE_NAME = 'batmar-mqz0hmpl';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -89,7 +96,7 @@ self.addEventListener('fetch', event => {
 
     // No cachear ni interceptar rutas /api/* (serverless): siempre ir a red
     if (url.pathname.startsWith('/api/')) {
-        console.log('Service Worker: /api/ detectado, pasando a red sin cache:', url.pathname);
+        swLog('Service Worker: /api/ detectado, pasando a red sin cache:', url.pathname);
         event.respondWith(fetch(event.request));
         return;
     }
@@ -104,12 +111,12 @@ self.addEventListener('fetch', event => {
             .then(response => {
                 // Retornar desde cache si existe
                 if (response) {
-                    console.log('Service Worker: sirviendo desde cache:', url.pathname || url.href);
+                    swLog('Service Worker: sirviendo desde cache:', url.pathname || url.href);
                     return response;
                 }
 
                 // Si no está en cache, hacer fetch
-                console.log('Service Worker: solicitando a red:', url.pathname || url.href);
+                swLog('Service Worker: solicitando a red:', url.pathname || url.href);
                 return fetch(event.request)
                     .then(response => {
                         // Verificar respuesta válida
