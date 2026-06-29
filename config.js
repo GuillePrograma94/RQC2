@@ -219,6 +219,17 @@ let CONFIG = {
                 return true;
             }
 
+            if (this._serverConfigRefreshPromise) {
+                try {
+                    await this._serverConfigRefreshPromise;
+                } catch (_) {}
+                const afterPrefetch = this.readServerConfigCache();
+                if (afterPrefetch && this.applyServerConfig(afterPrefetch)) {
+                    console.log('[Config] Configuracion cargada tras prefetch en curso');
+                    return true;
+                }
+            }
+
             const configUrl = this.buildApiUrl('/api/config.js');
             console.log('[Config] Solicitando configuracion:', configUrl);
             const response = await fetch(configUrl);

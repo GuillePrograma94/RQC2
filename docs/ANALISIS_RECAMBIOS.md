@@ -124,6 +124,9 @@ La seguridad se mantiene: no se entra a la app sin JWT valido; solo se evita tra
 2. Prefetch en `index.html`: al cargar la pagina se pide `/api/config.js` y un `OPTIONS` a `/api/auth/login` mientras el usuario escribe credenciales (calienta serverless).
 3. `createUserSession` (RPC) ya no bloquea el paso a la app; se ejecuta en segundo plano tras login exitoso.
 4. `initializeApp` muestra la pantalla Inicio tras inicializar el carrito; stock, tarifas e indice de busqueda cargan en paralelo despues (`_completeAppInitAfterFirstPaint`), sin esperar hasta 8 s de `warmSearchIndicesCritical`.
+5. **No bloquear login por refresh de config en red** si ya hay cache local (`ensureSupabaseReady` solo espera prefetch sin cache).
+6. **Esperar al loader ESM** de `@supabase/supabase-js` antes de `createClient` (los scripts clasicos pueden ejecutarse antes que el `type="module"`).
+7. **Login en paralelo**: `fetchLoginApi` y `ensureSupabaseReady` con `Promise.all` al pulsar Entrar.
 
 **Evitar 42501 tras rato trabajando** (acceso caduca ~1h): para que el admin no vea el error de golpe tras llevar un rato logueado, se ha implementado: (1) Refresco periodico del JWT cada 50 min con `auth.refreshSession()` al tener sesion; (2) Antes de cada escritura en recambios, `ensureAuthSessionForWrite()`; (3) Reintento en 42501 (refresh + repetir operacion); (4) Si sigue fallando o no hay sesion valida, error `SESSION_EXPIRED` y la app muestra "Sesion expirada. Por favor, inicia sesion de nuevo." y lleva a la pantalla de login. El timer de refresco se detiene al cerrar sesion o al detectar sesion expirada.
 

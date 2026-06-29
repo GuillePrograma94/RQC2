@@ -124,6 +124,35 @@ class SupabaseClient {
         }
     }
 
+    /**
+     * Espera a que el loader ESM exponga window.supabase (los scripts clasicos pueden ejecutarse antes).
+     */
+    static waitForSupabaseLibrary(timeoutMs) {
+        const limit = typeof timeoutMs === 'number' && timeoutMs > 0 ? timeoutMs : 12000;
+        return new Promise(function (resolve, reject) {
+            function isReady() {
+                return typeof supabase !== 'undefined' && supabase && typeof supabase.createClient === 'function';
+            }
+            if (isReady()) {
+                resolve();
+                return;
+            }
+            const deadline = Date.now() + limit;
+            function tick() {
+                if (isReady()) {
+                    resolve();
+                    return;
+                }
+                if (Date.now() > deadline) {
+                    reject(new Error('Biblioteca Supabase no disponible'));
+                    return;
+                }
+                setTimeout(tick, 25);
+            }
+            tick();
+        });
+    }
+
     isNetworkError(errorLike) {
         if (errorLike == null) return false;
         const msg = String(errorLike && (errorLike.message || errorLike.error_description || errorLike) || '');
@@ -135,7 +164,8 @@ class SupabaseClient {
      */
     async initialize() {
         try {
-            // Cargar configuración
+            await SupabaseClient.waitForSupabaseLibrary();
+
             const configLoaded = await window.CONFIG.loadSupabaseConfig();
             
             if (!configLoaded) {
@@ -1283,10 +1313,99 @@ class SupabaseClient {
     }
 
     /**
+     * Llama a la API de login (Vercel). No requiere cliente Supabase inicializado.
+     */
+    async fetchLoginApi(codigoUsuario, password) {
+        if (window.CONFIG && typeof window.CONFIG.resolveApiBaseUrl === 'function') {
+            await window.CONFIG.resolveApiBaseUrl();
+        }
+        const loginUrl = window.CONFIG && typeof window.CONFIG.buildApiUrl === 'function'
+            ? window.CONFIG.buildApiUrl('/api/auth/login')
+            : '/api/auth/login';
+
+        const response = await fetch(loginUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                codigo_usuario: codigoUsuario,
+                password: password
+            })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                return { ok: false, message: data.message || 'Usuario o contrasena incorrectos' };
+            }
+            return {
+                ok: false,
+                message: data.message || 'Error de conexion. Intenta de nuevo.'
+            };
+        }
+
+        if (!data.success || !data.email) {
+            return {
+                ok: false,
+                message: data.message || 'Usuario o contrasena incorrectos'
+            };
+        }
+
+        return { ok: true, data: data };
+    }
+
+    /**
+     * Completa el login con signInWithPassword tras respuesta exitosa de la API.
+     */
+    async completeLoginFromApi(apiData, password, codigoUsuario) {
+        if (!this.client) {
+            throw new Error('Cliente de Supabase no inicializado');
+        }
+
+        const { error: signInError } = await this.client.auth.signInWithPassword({
+            email: apiData.email,
+            password: this._toAuthPassword(password)
+        });
+
+        if (signInError) {
+            console.error('Error signInWithPassword:', signInError);
+            return {
+                success: false,
+                message: 'Error al iniciar sesion. Intenta de nuevo.'
+            };
+        }
+
+        console.log('Login exitoso (Supabase Auth):', apiData.user_name);
+        const tipo = (apiData.tipo && String(apiData.tipo).toUpperCase()) || 'CLIENTE';
+        const codigo = codigoUsuario || apiData.codigo_usuario;
+        return {
+            success: true,
+            user_id: apiData.user_id ?? null,
+            user_name: apiData.user_name,
+            codigo_usuario: apiData.codigo_usuario || codigo,
+            grupo_cliente: apiData.grupo_cliente ?? null,
+            tarifa: apiData.tarifa != null && String(apiData.tarifa).trim() !== '' ? String(apiData.tarifa).trim() : null,
+            codigo_usuario_titular: apiData.codigo_usuario_titular ?? null,
+            almacen_habitual: apiData.almacen_habitual ?? null,
+            es_operario: !!apiData.es_operario,
+            nombre_operario: apiData.nombre_operario || null,
+            nombre_titular: apiData.nombre_titular || null,
+            tipo: tipo,
+            es_comercial: tipo === 'COMERCIAL' || !!apiData.es_comercial,
+            es_dependiente: tipo === 'DEPENDIENTE' || !!apiData.es_dependiente,
+            almacen_tienda: apiData.almacen_tienda ?? null,
+            es_administrador: !!apiData.es_administrador,
+            es_administracion: tipo === 'ADMINISTRACION' || !!apiData.es_administracion,
+            comercial_id: apiData.comercial_id ?? null,
+            comercial_numero: apiData.comercial_numero ?? null
+        };
+    }
+
+    /**
      * Verifica credenciales y establece sesion Supabase Auth (JWT con app_metadata.usuario_id).
      * Llama a la API de login (Vercel) que crea/actualiza el usuario en Auth y devuelve el perfil.
      */
-    async loginUser(codigoUsuario, password) {
+    async loginUser(codigoUsuario, password, prefetchedApiResult) {
         try {
             if (!this.client) {
                 throw new Error('Cliente de Supabase no inicializado');
@@ -1294,77 +1413,12 @@ class SupabaseClient {
 
             console.log('Intentando login para usuario:', codigoUsuario);
 
-            if (window.CONFIG && typeof window.CONFIG.resolveApiBaseUrl === 'function') {
-                await window.CONFIG.resolveApiBaseUrl();
-            }
-            const loginUrl = window.CONFIG && typeof window.CONFIG.buildApiUrl === 'function'
-                ? window.CONFIG.buildApiUrl('/api/auth/login')
-                : '/api/auth/login';
-
-            const response = await fetch(loginUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    codigo_usuario: codigoUsuario,
-                    password: password
-                })
-            });
-
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                if (response.status === 401) {
-                    return { success: false, message: data.message || 'Usuario o contrasena incorrectos' };
-                }
-                return {
-                    success: false,
-                    message: data.message || 'Error de conexion. Intenta de nuevo.'
-                };
+            const apiResult = prefetchedApiResult || await this.fetchLoginApi(codigoUsuario, password);
+            if (!apiResult.ok) {
+                return { success: false, message: apiResult.message };
             }
 
-            if (!data.success || !data.email) {
-                return {
-                    success: false,
-                    message: data.message || 'Usuario o contrasena incorrectos'
-                };
-            }
-
-            const { error: signInError } = await this.client.auth.signInWithPassword({
-                email: data.email,
-                password: this._toAuthPassword(password)
-            });
-
-            if (signInError) {
-                console.error('Error signInWithPassword:', signInError);
-                return {
-                    success: false,
-                    message: 'Error al iniciar sesion. Intenta de nuevo.'
-                };
-            }
-
-            console.log('Login exitoso (Supabase Auth):', data.user_name);
-            const tipo = (data.tipo && String(data.tipo).toUpperCase()) || 'CLIENTE';
-            return {
-                success: true,
-                user_id: data.user_id ?? null,
-                user_name: data.user_name,
-                codigo_usuario: data.codigo_usuario || codigoUsuario,
-                grupo_cliente: data.grupo_cliente ?? null,
-                tarifa: data.tarifa != null && String(data.tarifa).trim() !== '' ? String(data.tarifa).trim() : null,
-                codigo_usuario_titular: data.codigo_usuario_titular ?? null,
-                almacen_habitual: data.almacen_habitual ?? null,
-                es_operario: !!data.es_operario,
-                nombre_operario: data.nombre_operario || null,
-                nombre_titular: data.nombre_titular || null,
-                tipo: tipo,
-                es_comercial: tipo === 'COMERCIAL' || !!data.es_comercial,
-                es_dependiente: tipo === 'DEPENDIENTE' || !!data.es_dependiente,
-                almacen_tienda: data.almacen_tienda ?? null,
-                es_administrador: !!data.es_administrador,
-                es_administracion: tipo === 'ADMINISTRACION' || !!data.es_administracion,
-                comercial_id: data.comercial_id ?? null,
-                comercial_numero: data.comercial_numero ?? null
-            };
+            return await this.completeLoginFromApi(apiResult.data, password, codigoUsuario);
         } catch (error) {
             console.error('Error al verificar login:', error);
             return {

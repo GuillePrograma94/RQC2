@@ -324,7 +324,9 @@ class ScanAsYouShopApp {
      * Inicializa Supabase en segundo plano (login sin sesion previa).
      */
     _startBackgroundSupabaseInit() {
-        if (window.CONFIG && typeof window.CONFIG.prefetchServerConfig === 'function') {
+        const hasCache = window.CONFIG && typeof window.CONFIG.readServerConfigCache === 'function'
+            && window.CONFIG.readServerConfigCache();
+        if (!hasCache && window.CONFIG && typeof window.CONFIG.prefetchServerConfig === 'function') {
             window.CONFIG.prefetchServerConfig();
         }
         if (!this._supabaseInitPromise) {
@@ -343,7 +345,10 @@ class ScanAsYouShopApp {
         if (window.supabaseClient && window.supabaseClient.isConnected) {
             return true;
         }
-        if (window.CONFIG && window.CONFIG._serverConfigRefreshPromise) {
+        const hasCachedConfig = window.CONFIG
+            && typeof window.CONFIG.readServerConfigCache === 'function'
+            && window.CONFIG.readServerConfigCache();
+        if (!hasCachedConfig && window.CONFIG && window.CONFIG._serverConfigRefreshPromise) {
             try {
                 await window.CONFIG._serverConfigRefreshPromise;
             } catch (_) {}
@@ -515,7 +520,15 @@ class ScanAsYouShopApp {
         }
 
         try {
-            const supabaseOK = await this.ensureSupabaseReady();
+            if (window.CONFIG && typeof window.CONFIG.resolveApiBaseUrl === 'function') {
+                void window.CONFIG.resolveApiBaseUrl();
+            }
+
+            const apiPromise = window.supabaseClient.fetchLoginApi(codigo, password);
+            const supabasePromise = this.ensureSupabaseReady();
+
+            const [supabaseOK, apiResult] = await Promise.all([supabasePromise, apiPromise]);
+
             if (!supabaseOK) {
                 this.showLoginError('No se pudo conectar con el servidor. Comprueba tu conexion.');
                 if (submitBtn) {
@@ -525,8 +538,20 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            // Intentar login
-            const loginResult = await window.supabaseClient.loginUser(codigo, password);
+            if (!apiResult.ok) {
+                this.showLoginError(apiResult.message || 'Usuario o contrasena incorrectos');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Entrar';
+                }
+                return;
+            }
+
+            const loginResult = await window.supabaseClient.completeLoginFromApi(
+                apiResult.data,
+                password,
+                codigo
+            );
 
             if (loginResult.success) {
                 const tipo = (loginResult.tipo && String(loginResult.tipo).toUpperCase()) || 'CLIENTE';
