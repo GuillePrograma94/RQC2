@@ -11,6 +11,25 @@ El cliente recibe la notificacion push en la app si tiene permisos (Realtime sob
 
 ---
 
+## Seguridad (no esta abierta al publico)
+
+La URL es publica en internet, pero **sin clave secreta no se ejecuta ninguna accion**:
+
+| Situacion | Respuesta HTTP |
+|-----------|----------------|
+| Sin cabecera `Authorization` / `X-Api-Key` | `401 No autorizado` |
+| Clave incorrecta | `401 No autorizado` |
+| `ORDER_COMPLETE_API_KEY` no definida en Vercel | `503` (API deshabilitada) |
+| Clave correcta | Procesa el pedido |
+
+Configura en Vercel una clave larga y aleatoria (min. 32 caracteres), por ejemplo generada con:
+
+`openssl rand -hex 32`
+
+**No** la subas al repositorio ni la pongas en el frontend. Solo tu programa externo (ERP, script de almacen, etc.) debe conocerla.
+
+---
+
 ## Endpoint
 
 | Metodo | URL |
@@ -21,23 +40,29 @@ En desarrollo local (si aplica): `http://localhost:3000/api/orders/complete`
 
 ---
 
-## Autenticacion
+## Autenticacion (obligatoria)
 
 Variable de entorno en Vercel:
 
 | Variable | Obligatoria | Descripcion |
 |----------|-------------|-------------|
-| `ORDER_COMPLETE_API_KEY` | Si | Clave secreta para programas externos |
+| `ORDER_COMPLETE_API_KEY` | Si | Clave secreta compartida solo con sistemas de confianza |
 | `SUPABASE_URL` | Si | Ya usada por otras APIs |
 | `SUPABASE_SERVICE_ROLE_KEY` | Si | Ya usada por otras APIs |
 
-Formas de enviar la clave (elige una):
+Enviar la clave **solo por cabecera** (nunca en el body JSON del pedido):
 
-1. Cabecera recomendada: `Authorization: Bearer TU_CLAVE`
-2. Cabecera: `X-Api-Key: TU_CLAVE`
-3. Body JSON: `"api_key": "TU_CLAVE"` (solo para scripts simples)
+1. **Recomendado:** `Authorization: Bearer TU_CLAVE_SECRETA`
+2. Alternativa: `X-Api-Key: TU_CLAVE_SECRETA`
 
-Sin clave valida: respuesta `401`.
+Ejemplo de cabeceras:
+
+```
+Content-Type: application/json
+Authorization: Bearer a1b2c3d4e5f6...
+```
+
+Sin clave valida: `401`. Sin variable en el servidor: `503`.
 
 ---
 

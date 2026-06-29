@@ -4,10 +4,9 @@
  * POST /api/orders/complete
  * Body JSON: { "codigo_qr": "123456" }
  *
- * Autenticacion (ORDER_COMPLETE_API_KEY en Vercel):
+ * Autenticacion obligatoria (ORDER_COMPLETE_API_KEY en Vercel):
  * - Authorization: Bearer <clave>
  * - X-Api-Key: <clave>
- * - body.api_key (solo scripts internos; preferir cabeceras)
  *
  * Variables: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ORDER_COMPLETE_API_KEY
  */
@@ -40,7 +39,7 @@ module.exports = async (req, res) => {
     }
 
     const body = parseRequestBody(req);
-    const auth = validateOrderCompleteApiKey(req, body);
+    const auth = validateOrderCompleteApiKey(req);
     if (!auth.ok) {
         res.status(auth.status || 401).json({ success: false, message: auth.message });
         return;
