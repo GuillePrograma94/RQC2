@@ -952,7 +952,41 @@
                 </div>
                 <div class="herramientas-actions">
                     <button type="button" id="herramientaWcCompletoBtn" class="btn btn-primary btn-lg">WC Completo</button>
+                    <button type="button" id="herramientaMisActivosBtn" class="btn btn-primary btn-lg" style="display: none;">Mis activos</button>
                     <button type="button" id="herramientaSolicitudArticuloBtn" class="btn btn-primary btn-lg" style="display: none;">Solicitar artículo nuevo</button>
+                </div>
+            </main>
+        </div>
+
+        <!-- ================================
+             PANTALLA MIS ACTIVOS (Dependiente / Comercial)
+             ================================ -->
+        <div id="misActivosScreen" class="screen">
+            <main class="screen-content">
+                <div class="profile-header">
+                    <button type="button" id="misActivosBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title">Mis activos</h2>
+                </div>
+                <p class="activos-mis-hint">Equipamiento asignado por administracion.</p>
+                <div id="misActivosList" class="activos-mis-list"></div>
+            </main>
+        </div>
+
+        <div id="misActivoDetailScreen" class="screen">
+            <main class="screen-content">
+                <div class="profile-header">
+                    <button type="button" id="misActivoDetailBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
+                    <h2 class="profile-title">Detalle activo</h2>
+                </div>
+                <div id="misActivoDetailContent" class="activos-detail-content"></div>
+                <div id="misActivoUsoVehiculoBlock" class="activos-uso-block" style="display: none;">
+                    <h3 class="activos-uso-title">Registro del dia (vehiculo)</h3>
+                    <div class="admin-solicitud-fields">
+                        <div class="admin-solicitud-field"><label for="misActivoKmActual">Kilometraje actual</label><input type="number" id="misActivoKmActual" min="0" step="1" placeholder="Lectura del cuentakilometros"></div>
+                        <div class="admin-solicitud-field"><label for="misActivoLitros">Litros</label><input type="number" id="misActivoLitros" min="0" step="0.01"></div>
+                        <div class="admin-solicitud-field"><label for="misActivoCoste">Coste combustible (EUR)</label><input type="number" id="misActivoCoste" min="0" step="0.01"></div>
+                    </div>
+                    <button type="button" id="misActivoUsoVehiculoBtn" class="btn btn-primary">Guardar uso del dia</button>
                 </div>
             </main>
         </div>
@@ -1735,6 +1769,11 @@
                 <p class="admin-inicio-subtitle">Solicitudes de creacion de articulos pendientes</p>
                 <div id="adminPendientesCount" class="admin-stat-number">-</div>
                 <button type="button" id="adminVerSolicitudesBtn" class="btn btn-primary btn-lg">Ver solicitudes</button>
+                <div class="admin-inicio-activos-card activos-inicio-card">
+                    <p class="admin-inicio-subtitle">Activos de empresa</p>
+                    <div id="adminActivosCount" class="admin-stat-number">-</div>
+                    <button type="button" id="adminVerActivosBtn" class="btn btn-primary btn-lg">Gestionar activos</button>
+                </div>
             </main>
         </div>
         <div id="adminSolicitudesListScreen" class="screen screen-admin">
@@ -1870,6 +1909,69 @@
             <main class="screen-content">
                 <p>Perfil administracion</p>
                 <button type="button" id="adminLogoutBtn" class="btn">Cerrar sesion</button>
+            </main>
+        </div>
+        <div id="adminActivosHubScreen" class="screen screen-admin">
+            <header class="screen-header">
+                <button type="button" id="adminActivosHubBackBtn" class="profile-back-btn">Volver</button>
+                <h2>Activos de empresa</h2>
+            </header>
+            <main class="screen-content">
+                <p class="activos-admin-hint">Selecciona una categoria para gestionar el parc.</p>
+                <div id="adminActivosHubList" class="activos-hub-list"></div>
+            </main>
+        </div>
+        <div id="adminActivosListScreen" class="screen screen-admin">
+            <header class="screen-header">
+                <button type="button" id="adminActivosListBackBtn" class="profile-back-btn">Volver</button>
+                <h2 id="adminActivosListTitle">Activos</h2>
+            </header>
+            <main class="screen-content">
+                <div class="activos-list-actions">
+                    <button type="button" id="adminActivosNuevoBtn" class="btn btn-primary">Nuevo activo</button>
+                </div>
+                <div id="adminActivosList" class="admin-list activos-admin-list"></div>
+            </main>
+        </div>
+        <div id="adminActivoFormScreen" class="screen screen-admin">
+            <header class="screen-header">
+                <button type="button" id="adminActivoFormBackBtn" class="profile-back-btn">Volver</button>
+                <h2 id="adminActivoFormTitle">Activo</h2>
+            </header>
+            <main class="screen-content">
+                <div id="adminActivoFormFields" class="admin-solicitud-fields"></div>
+                <div class="admin-detail-actions">
+                    <button type="button" id="adminActivoGuardarBtn" class="btn btn-primary">Guardar</button>
+                </div>
+            </main>
+        </div>
+        <div id="adminActivoDetailScreen" class="screen screen-admin">
+            <header class="screen-header">
+                <button type="button" id="adminActivoDetailBackBtn" class="profile-back-btn">Volver</button>
+                <h2>Detalle activo</h2>
+            </header>
+            <main class="screen-content">
+                <div id="adminActivoDetailContent" class="activos-detail-content"></div>
+                <div id="adminActivoAsignacionBlock" class="activos-asignacion-block admin-detail-block">
+                    <h4 class="admin-detail-completar-title">Asignacion</h4>
+                    <div class="admin-solicitud-field admin-solicitud-field-full">
+                        <label for="adminActivoTrabajadorSelect">Trabajador</label>
+                        <select id="adminActivoTrabajadorSelect"></select>
+                    </div>
+                    <div class="admin-detail-actions">
+                        <button type="button" id="adminActivoAsignarBtn" class="btn btn-primary">Asignar</button>
+                        <button type="button" id="adminActivoDesasignarBtn" class="btn btn-secondary">Quitar asignacion</button>
+                    </div>
+                </div>
+                <div id="adminActivoEventoBlock" class="activos-evento-block admin-detail-block" style="display: none;">
+                    <h4 class="admin-detail-completar-title">Registrar evento</h4>
+                    <div class="admin-solicitud-fields">
+                        <div class="admin-solicitud-field"><label for="adminActivoEventoTipo">Tipo</label><select id="adminActivoEventoTipo"></select></div>
+                        <div class="admin-solicitud-field activos-evento-contador-field"><label for="adminActivoEventoContador">Contador paginas</label><input type="number" id="adminActivoEventoContador" min="0"></div>
+                        <div class="admin-solicitud-field admin-solicitud-field-full"><label for="adminActivoEventoDesc">Descripcion</label><textarea id="adminActivoEventoDesc" rows="2"></textarea></div>
+                    </div>
+                    <button type="button" id="adminActivoEventoBtn" class="btn btn-primary">Registrar evento</button>
+                </div>
             </main>
         </div>
         <nav class="bottom-nav bottom-nav-admin" aria-label="Administracion">
@@ -2043,6 +2145,7 @@
     <script src="js/signature-pad.js"></script>
     <script src="js/tienda-native.js"></script>
     <script src="js/tienda-log.js"></script>
+    <script src="js/activos.js"></script>
     <script src="js/app.js"></script>
 
     <!-- Service Worker con auto-actualizacion (solo PWA/navegador; no en TiendaPC/pywebview) -->

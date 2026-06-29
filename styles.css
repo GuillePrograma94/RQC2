@@ -4744,7 +4744,6 @@ body.gate-visible .app-container {
 .pdf-header-preview-logo {
     display: block;
     object-fit: contain;
-    vertical-align: top;
     background: #fafbfc;
 }
 
@@ -5525,6 +5524,7 @@ body.gate-visible .app-container {
     line-height: 1.35;
     display: -webkit-box;
     -webkit-line-clamp: 3;
+    line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -5766,6 +5766,7 @@ body.gate-visible .app-container {
     line-height: 1.3;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     padding: 0 0.5rem 0.75rem;
@@ -5873,6 +5874,7 @@ body.gate-visible .app-container {
     grid-row: 2;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -7958,4 +7960,140 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     font-size: 0.85rem;
     color: var(--gray-600);
     margin: 0;
+}
+
+/* --- Activos empresa --- */
+.activos-inicio-card {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.activos-hub-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.activos-hub-card {
+    text-align: left;
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.activos-hub-card-title {
+    display: block;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.35rem;
+}
+
+.activos-hub-card-meta {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+
+.activos-list-item {
+    margin-bottom: 0.5rem;
+}
+
+.activos-list-id {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+
+.activos-list-meta {
+    font-size: 0.8rem;
+    color: var(--gray-600);
+}
+
+.activos-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    margin-top: 0.25rem;
+}
+
+.activos-badge-itv-ok {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.activos-badge-itv-vencida {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.activos-list-actions {
+    margin-bottom: 1rem;
+}
+
+.activos-detail-content {
+    margin-bottom: 1rem;
+}
+
+.activos-detail-block p {
+    margin: 0.35rem 0;
+}
+
+.activos-asignacion-block,
+.activos-evento-block {
+    margin-top: 1rem;
+}
+
+.activos-registros-block {
+    margin-top: 1rem;
+}
+
+.activos-registros-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0;
+}
+
+.activos-registros-list li {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--gray-100);
+    font-size: 0.85rem;
+}
+
+.activos-mis-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.activos-mis-cat-title {
+    margin: 1rem 0 0.5rem;
+    font-size: 0.95rem;
+    color: var(--gray-700);
+}
+
+.activos-mis-item {
+    text-align: left;
+    width: 100%;
+}
+
+.activos-mis-hint,
+.activos-admin-hint {
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    margin-bottom: 1rem;
+}
+
+.activos-uso-block {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.activos-uso-title {
+    font-size: 1rem;
+    margin: 0 0 0.75rem;
 }

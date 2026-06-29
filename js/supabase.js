@@ -4892,6 +4892,295 @@ class SupabaseClient {
             return { success: false, message: err && err.message ? err.message : 'Error al eliminar' };
         }
     }
+
+    // --- Activos empresa ---
+
+    async getActivosConteosCategorias() {
+        try {
+            if (!this.client) return [];
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return [];
+            const { data, error } = await this.client.rpc('activos_get_conteos_categorias');
+            if (error) {
+                console.error('getActivosConteosCategorias:', error);
+                return [];
+            }
+            return data || [];
+        } catch (err) {
+            console.error('getActivosConteosCategorias:', err);
+            return [];
+        }
+    }
+
+    async getActivosTrabajadoresAsignables() {
+        try {
+            if (!this.client) return [];
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return [];
+            const { data, error } = await this.client.rpc('activos_get_trabajadores_asignables');
+            if (error) {
+                console.error('getActivosTrabajadoresAsignables:', error);
+                return [];
+            }
+            return data || [];
+        } catch (err) {
+            console.error('getActivosTrabajadoresAsignables:', err);
+            return [];
+        }
+    }
+
+    async getActivosPorCategoria(categoria) {
+        try {
+            if (!this.client) return [];
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return [];
+            const { data, error } = await this.client.rpc('activos_listar_por_categoria', {
+                p_categoria: categoria
+            });
+            if (error) {
+                console.error('getActivosPorCategoria:', error);
+                return [];
+            }
+            return data || [];
+        } catch (err) {
+            console.error('getActivosPorCategoria:', err);
+            return [];
+        }
+    }
+
+    async getMisActivos() {
+        try {
+            if (!this.client) return [];
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return [];
+            const { data, error } = await this.client.rpc('activos_get_mis_activos');
+            if (error) {
+                console.error('getMisActivos:', error);
+                return [];
+            }
+            return data || [];
+        } catch (err) {
+            console.error('getMisActivos:', err);
+            return [];
+        }
+    }
+
+    async getActivoById(id) {
+        try {
+            if (!this.client || !id) return null;
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return null;
+            const { data, error } = await this.client
+                .from('activos')
+                .select('*')
+                .eq('id', id)
+                .maybeSingle();
+            if (error) {
+                console.error('getActivoById:', error);
+                return null;
+            }
+            return data;
+        } catch (err) {
+            console.error('getActivoById:', err);
+            return null;
+        }
+    }
+
+    async createActivo(payload) {
+        try {
+            if (!this.client) return { success: false, message: 'Cliente no inicializado' };
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return { success: false, message: 'Sesion expirada' };
+
+            const { data, error } = await this.client
+                .from('activos')
+                .insert([payload])
+                .select('id')
+                .single();
+
+            if (error) {
+                return { success: false, message: error.message || 'Error al crear activo' };
+            }
+            return { success: true, id: data && data.id };
+        } catch (err) {
+            console.error('createActivo:', err);
+            return { success: false, message: err && err.message ? err.message : 'Error al crear' };
+        }
+    }
+
+    async updateActivo(id, payload) {
+        try {
+            if (!this.client || !id) return { success: false, message: 'Id no valido' };
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return { success: false, message: 'Sesion expirada' };
+
+            const { error } = await this.client
+                .from('activos')
+                .update(payload)
+                .eq('id', id);
+
+            if (error) {
+                return { success: false, message: error.message || 'Error al actualizar' };
+            }
+            return { success: true, id };
+        } catch (err) {
+            console.error('updateActivo:', err);
+            return { success: false, message: err && err.message ? err.message : 'Error al actualizar' };
+        }
+    }
+
+    async patchActivoDatos(id, patch) {
+        try {
+            const activo = await this.getActivoById(id);
+            if (!activo) return { success: false, message: 'Activo no encontrado' };
+            const datos = Object.assign({}, activo.datos || {}, patch);
+            return this.updateActivo(id, { datos });
+        } catch (err) {
+            console.error('patchActivoDatos:', err);
+            return { success: false, message: err && err.message ? err.message : 'Error' };
+        }
+    }
+
+    async getActivoAsignacionActiva(activoId) {
+        try {
+            if (!this.client || !activoId) return null;
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return null;
+
+            const { data, error } = await this.client
+                .from('activos_asignaciones')
+                .select('id, auth_uid, usuario_id, comercial_id, fecha_desde')
+                .eq('activo_id', activoId)
+                .eq('activa', true)
+                .maybeSingle();
+
+            if (error || !data) return null;
+
+            const trabajadores = await this.getActivosTrabajadoresAsignables();
+            const t = (trabajadores || []).find(x => x.auth_uid === data.auth_uid);
+            return {
+                ...data,
+                asignado_nombre: t ? t.nombre : null,
+                asignado_codigo: t ? t.codigo : null
+            };
+        } catch (err) {
+            console.error('getActivoAsignacionActiva:', err);
+            return null;
+        }
+    }
+
+    async asignarActivoTrabajador(activoId, authUid, usuarioId, comercialId) {
+        try {
+            if (!this.client) return { success: false, message: 'Cliente no inicializado' };
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return { success: false, message: 'Sesion expirada' };
+
+            const { data, error } = await this.client.rpc('activos_asignar_trabajador', {
+                p_activo_id: activoId,
+                p_auth_uid: authUid,
+                p_usuario_id: usuarioId,
+                p_comercial_id: comercialId
+            });
+
+            if (error) {
+                return { success: false, message: error.message || 'Error al asignar' };
+            }
+            return { success: true, id: data };
+        } catch (err) {
+            console.error('asignarActivoTrabajador:', err);
+            return { success: false, message: err && err.message ? err.message : 'Error al asignar' };
+        }
+    }
+
+    async desasignarActivo(activoId) {
+        try {
+            if (!this.client) return { success: false, message: 'Cliente no inicializado' };
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return { success: false, message: 'Sesion expirada' };
+
+            const { error } = await this.client.rpc('activos_desasignar', {
+                p_activo_id: activoId
+            });
+
+            if (error) {
+                return { success: false, message: error.message || 'Error al desasignar' };
+            }
+            return { success: true };
+        } catch (err) {
+            console.error('desasignarActivo:', err);
+            return { success: false, message: err && err.message ? err.message : 'Error al desasignar' };
+        }
+    }
+
+    async getActivoRegistros(activoId, limit) {
+        try {
+            if (!this.client || !activoId) return [];
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return [];
+
+            const { data, error } = await this.client
+                .from('activos_registros')
+                .select('id, tipo, datos, fecha, created_at')
+                .eq('activo_id', activoId)
+                .order('fecha', { ascending: false })
+                .order('created_at', { ascending: false })
+                .limit(limit || 20);
+
+            if (error) {
+                console.error('getActivoRegistros:', error);
+                return [];
+            }
+            return data || [];
+        } catch (err) {
+            console.error('getActivoRegistros:', err);
+            return [];
+        }
+    }
+
+    async registrarUsoVehiculo(activoId, kmActual, litros, coste) {
+        try {
+            if (!this.client) return { success: false, message: 'Cliente no inicializado' };
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return { success: false, message: 'Sesion expirada' };
+
+            const { data, error } = await this.client.rpc('activos_registrar_uso_vehiculo', {
+                p_activo_id: activoId,
+                p_km_actual: kmActual,
+                p_litros: litros,
+                p_coste: coste
+            });
+
+            if (error) {
+                return { success: false, message: error.message || 'Error al registrar uso' };
+            }
+            return { success: true, data };
+        } catch (err) {
+            console.error('registrarUsoVehiculo:', err);
+            return { success: false, message: err && err.message ? err.message : 'Error al registrar' };
+        }
+    }
+
+    async registrarActivoEvento(activoId, tipo, datos) {
+        try {
+            if (!this.client) return { success: false, message: 'Cliente no inicializado' };
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return { success: false, message: 'Sesion expirada' };
+
+            const { data, error } = await this.client.rpc('activos_registrar_evento', {
+                p_activo_id: activoId,
+                p_tipo: tipo,
+                p_datos: datos || {}
+            });
+
+            if (error) {
+                return { success: false, message: error.message || 'Error al registrar evento' };
+            }
+            return { success: true, id: data };
+        } catch (err) {
+            console.error('registrarActivoEvento:', err);
+            return { success: false, message: err && err.message ? err.message : 'Error al registrar' };
+        }
+    }
 }
 
 // Crear instancia global

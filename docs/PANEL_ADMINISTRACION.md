@@ -2,7 +2,7 @@
 
 ## Descripcion
 
-Usuarios con rol **ADMINISTRACION** (`tipo = 'ADMINISTRACION'` en `public.usuarios`) ven una vista distinta de la app: un panel dedicado a la gestion de tareas de administracion. De momento incluye la gestion de **solicitudes de creacion de articulos nuevos** (creadas por Dependientes y Comerciales desde Herramientas).
+Usuarios con rol **ADMINISTRACION** (`tipo = 'ADMINISTRACION'` en `public.usuarios`) ven una vista distinta de la app: un panel dedicado a la gestion de tareas de administracion. De momento incluye la gestion de **solicitudes de creacion de articulos nuevos** (creadas por Dependientes y Comerciales desde Herramientas) y la **gestion de activos de empresa** (vehiculos, impresoras, ordenadores, telefonos: asignacion a trabajadores). Ver [GESTION_ACTIVOS_EMPRESA.md](GESTION_ACTIVOS_EMPRESA.md).
 
 La misma SPA (scan_client_mobile) muestra un contenedor distinto segun el tipo de usuario: los demas roles (CLIENTE, COMERCIAL, DEPENDIENTE, ADMINISTRADOR) ven la app de tienda; solo ADMINISTRACION ve el panel con Inicio, Solicitudes, **Proveedores** y Perfil.
 
@@ -16,7 +16,7 @@ Ver tambien [../../docs/SUPABASE_AUTH_VERCEL.md](../../docs/SUPABASE_AUTH_VERCEL
 
 ## Vista exclusiva
 
-- **Inicio**: pantalla de arranque con la estadistica de **solicitudes de creacion de articulos pendientes** (conteo de `solicitudes_articulos_nuevos` donde `estado = 'pendiente'`) y un boton para ir al listado.
+- **Inicio**: pantalla de arranque con la estadistica de **solicitudes de creacion de articulos pendientes** (conteo de `solicitudes_articulos_nuevos` donde `estado = 'pendiente'`) y un boton para ir al listado. Tarjeta **Activos de empresa** con acceso al hub de mobiliario (vehiculos, impresoras, etc.).
 - **Solicitudes**: listado de todas las solicitudes (fecha, estado, descripcion); al pulsar una se abre el detalle.
 - **Detalle**: datos completos de la solicitud; **Estado** mostrado con etiquetas (Pendiente, Aprobado, Rechazado, **COMPLETO**, **Articulo ya existente**). Si la solicitud tiene `codigo_producto`, se muestra. Botones **Aprobar** / **Rechazar** (solo si `estado = 'pendiente'`). Ademas, bloque **Completar solicitud**: campo **Codigo del producto**, desplegable **Fabricante (proveedor)** (por defecto el de la solicitud; Administracion puede cambiarlo), checkbox **Articulo ya existente** (para indicar que el articulo ya existia y el trabajador podra anadirlo al carrito con ese codigo) y boton **Guardar respuesta**. Al guardar:
   - Si no se marca "Articulo ya existente": se **crea el producto** en `productos` (codigo, descripcion, PVP sin IVA, fabricante seleccionado), se pone estado **COMPLETO**, se guarda el codigo, se **elimina la imagen** del bucket Storage y se borra `foto_url` en la fila.
@@ -34,9 +34,9 @@ Navegacion inferior: Inicio, Solicitudes, Proveedores, Perfil.
 
 ## Archivos implicados
 
-- **Migraciones**: `migration_usuarios_tipo_administracion.sql`, `migration_solicitudes_rls_administracion.sql`, `migration_solicitudes_codigo_producto.sql`, `migration_proveedores_alias.sql` (tabla de alias de proveedores para busqueda en Solicitar articulo nuevo), `migration_crear_producto_desde_solicitud.sql` (RPC para crear producto al completar solicitud).
+- **Migraciones**: `migration_usuarios_tipo_administracion.sql`, `migration_solicitudes_rls_administracion.sql`, `migration_solicitudes_codigo_producto.sql`, `migration_proveedores_alias.sql` (tabla de alias de proveedores para busqueda en Solicitar articulo nuevo), `migration_crear_producto_desde_solicitud.sql` (RPC para crear producto al completar solicitud), `migration_activos_empresa_core.sql`, `migration_activos_vehiculo_rpc.sql` (gestion de activos de empresa).
 - **API**: `api/auth/login.js` (app_metadata y respuesta).
-- **Frontend**: `index.html` (contenedor `#appContainerAdministracion` con pantallas Proveedores y bottom nav), `js/app.js` (rama en `initialize()`, `initializeAppAdministracion`, `setupScreensAdministracion`, `showScreenAdmin`, `loadAdminProveedores`, `renderAdminProveedorAliasBlock`, `renderAdminSolicitudDetail`, `getAdminSolicitudEstadoLabel`, carga de conteo/listado/detalle, logout), `js/supabase.js` (`getProveedores`, `getProveedoresAlias`, `addProveedorAlias`, `removeProveedorAlias`, `getSolicitudesPendientesCount`, `getSolicitudesArticulosNuevos`, `getSolicitudArticuloNuevoById`, `updateSolicitudArticuloEstado`, `crearProductoDesdeSolicitud`, `eliminarFotoSolicitudArticulo`, `updateSolicitudArticuloRespuesta`), `styles.css` (estilos del panel, bloque completar y pantalla Proveedores).
+- **Frontend**: `index.html` (contenedor `#appContainerAdministracion` con pantallas Proveedores y bottom nav), `js/app.js` (rama en `initialize()`, `initializeAppAdministracion`, `setupScreensAdministracion`, `showScreenAdmin`, ...), `js/activos.js` (UI activos empresa), `js/supabase.js` (`getProveedores`, ... metodos activos), `styles.css` (estilos del panel, bloque completar y pantalla Proveedores, `.activos-*`).
 
 ## Relacion con Solicitud de articulo nuevo
 

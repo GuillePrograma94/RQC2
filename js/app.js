@@ -1193,6 +1193,9 @@ class ScanAsYouShopApp {
             }
             var herramientasBtn = document.getElementById('herramientasBtn');
             if (herramientasBtn) herramientasBtn.style.display = '';
+            if (this.activosManager) {
+                this.activosManager.updateWorkerVisibility(this.currentUser);
+            }
             var panelControlBtn = document.getElementById('panelControlBtn');
             if (panelControlBtn) panelControlBtn.style.display = this.currentUser.is_administrador ? '' : 'none';
         } else {
@@ -4868,6 +4871,10 @@ class ScanAsYouShopApp {
 
             window.scannerManager.initialize();
             this.setupScreens();
+            if (!this.activosManager && window.ActivosManager) {
+                this.activosManager = new window.ActivosManager(this);
+                this.activosManager.init();
+            }
             this.showScreen('inicio');
             this.updateActiveNav('inicio');
             this.isInitialized = true;
@@ -4929,6 +4936,10 @@ class ScanAsYouShopApp {
     async initializeAppAdministracion() {
         try {
             window.ui.hideLoading();
+            if (!this.activosManager && window.ActivosManager) {
+                this.activosManager = new window.ActivosManager(this);
+                this.activosManager.init();
+            }
             this.setupScreensAdministracion();
             this.showScreenAdmin('inicio');
             this.updateActiveNavAdmin('inicio');
@@ -5016,6 +5027,23 @@ class ScanAsYouShopApp {
             const el = document.getElementById('adminInicioScreen');
             if (el) el.classList.add('screen-active');
             this.loadAdminPendientesCount();
+            if (this.activosManager) this.activosManager.loadAdminActivosCard();
+        } else if (screenName === 'activosHub') {
+            const el = document.getElementById('adminActivosHubScreen');
+            if (el) el.classList.add('screen-active');
+            if (this.activosManager) this.activosManager.onShowScreenAdmin('activosHub');
+        } else if (screenName === 'activosList') {
+            const el = document.getElementById('adminActivosListScreen');
+            if (el) el.classList.add('screen-active');
+            if (this.activosManager) this.activosManager.onShowScreenAdmin('activosList', id);
+        } else if (screenName === 'activoForm') {
+            const el = document.getElementById('adminActivoFormScreen');
+            if (el) el.classList.add('screen-active');
+            if (this.activosManager) this.activosManager.onShowScreenAdmin('activoForm', id);
+        } else if (screenName === 'activoDetail') {
+            const el = document.getElementById('adminActivoDetailScreen');
+            if (el) el.classList.add('screen-active');
+            if (this.activosManager) this.activosManager.onShowScreenAdmin('activoDetail', id);
         } else if (screenName === 'solicitudesList') {
             const el = document.getElementById('adminSolicitudesListScreen');
             if (el) el.classList.add('screen-active');
@@ -8975,6 +9003,17 @@ class ScanAsYouShopApp {
                 if (solicitudBtn) {
                     solicitudBtn.style.display = (this.currentUser && (this.currentUser.is_dependiente || this.currentUser.is_comercial)) ? '' : 'none';
                 }
+                if (this.activosManager) {
+                    this.activosManager.updateWorkerVisibility(this.currentUser);
+                }
+            }
+
+            if (screenName === 'misActivos' || screenName === 'misActivoDetail') {
+                if (!this.activosManager && window.ActivosManager) {
+                    this.activosManager = new window.ActivosManager(this);
+                    this.activosManager.init();
+                }
+                if (this.activosManager) this.activosManager.onShowScreen(screenName);
             }
 
             if (screenName === 'solicitudArticulo') {
