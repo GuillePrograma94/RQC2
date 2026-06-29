@@ -180,7 +180,7 @@ print(response.status_code, response.json())
 
 | Archivo | Rol |
 |---------|-----|
-| `api/orders/complete.js` | Endpoint Vercel |
+| `api/orders/[action].js` (ruta `complete`) | Endpoint Vercel |
 | `lib/order-complete-api.js` | Validacion y actualizacion Supabase |
 
 Tras anadir `ORDER_COMPLETE_API_KEY` en Vercel: **redeploy** del proyecto `scan_client_mobile`.

@@ -1,5 +1,25 @@
 # Desplegar en Vercel - BATMAR
 
+## Limite Hobby: 12 funciones serverless
+
+El plan **Hobby** de Vercel permite como maximo **12 funciones serverless por deployment**. Cada archivo `.js` bajo `api/` cuenta como una funcion.
+
+Este proyecto usa **routers dinamicos** para compactar rutas sin cambiar las URLs publicas:
+
+| Router (1 funcion) | Rutas que atiende |
+|--------------------|-------------------|
+| `api/erp/[route].js` | `/api/erp/test`, `/login`, `/pedidos`, `/pvp`, `/create-order`, `/debug-pedido` |
+| `api/orders/[action].js` | `/api/orders/complete`, `/send-confirmation-email`, `/send-erp-failure-alert` |
+| `api/auth/[action].js` | `/api/auth/login`, `/change-password-user` |
+
+Logica de cada ruta en `lib/erp-handlers/`, `lib/orders-handlers/`, `lib/auth-handlers/`.
+
+**Total actual: 5 funciones** (`config`, `quotes/generate-pdf`, y los 3 routers). Margen para nuevas APIs sin pasar a Pro solo por el limite.
+
+Las URLs que usa la app, el ERP externo y la documentacion **no cambian**.
+
+---
+
 ## Pasos para desplegar
 
 ### 1. Preparar el repositorio
