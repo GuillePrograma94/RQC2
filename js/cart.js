@@ -2009,7 +2009,13 @@ class CartManager {
      */
     async saveOfertasToCache(ofertas) {
         try {
-            if (!this.db || !ofertas || ofertas.length === 0) return;
+            if (!this.db) return false;
+            if (!ofertas || ofertas.length === 0) {
+                await this.replaceStoreChunked('ofertas', [], 3000, 3);
+                this.invalidateAllOfertasProductosIndex();
+                console.log('Cache de ofertas vaciada (sin ofertas activas remotas)');
+                return true;
+            }
 
             const cachedAt = new Date().toISOString();
             const normalized = ofertas.map(function (oferta) {
@@ -2038,8 +2044,10 @@ class CartManager {
             }
 
             if (!ofertasProductos || ofertasProductos.length === 0) {
-                console.log('No hay productos en ofertas para guardar');
-                return false;
+                await this.replaceStoreChunked('ofertas_productos', [], 3000, 3);
+                this.invalidateAllOfertasProductosIndex();
+                console.log('Cache de ofertas_productos vaciada');
+                return true;
             }
 
             const cachedAt = new Date().toISOString();
@@ -2124,8 +2132,9 @@ class CartManager {
             }
 
             if (!intervalos || intervalos.length === 0) {
-                console.log('No hay intervalos de ofertas para guardar');
-                return false;
+                await this.replaceStoreChunked('ofertas_intervalos', [], 3000, 3);
+                console.log('Cache de ofertas_intervalos vaciada');
+                return true;
             }
 
             const cachedAt = new Date().toISOString();
@@ -2156,7 +2165,12 @@ class CartManager {
      */
     async saveOfertasDetallesToCache(detalles) {
         try {
-            if (!this.db || !detalles || detalles.length === 0) return;
+            if (!this.db) return false;
+            if (!detalles || detalles.length === 0) {
+                await this.replaceStoreChunked('ofertas_detalles', [], 3000, 3);
+                console.log('Cache de ofertas_detalles vaciada');
+                return true;
+            }
 
             const cachedAt = new Date().toISOString();
             const normalized = detalles.map(function (detalle) {
@@ -2184,8 +2198,10 @@ class CartManager {
             }
 
             if (!asignaciones || asignaciones.length === 0) {
-                console.log('No hay asignaciones de grupos para guardar');
-                return false;
+                await this.replaceStoreChunked('ofertas_grupos_asignaciones', [], 3000, 3);
+                this.invalidateAllOfertasProductosIndex();
+                console.log('Cache de ofertas_grupos_asignaciones vaciada');
+                return true;
             }
 
             const cachedAt = new Date().toISOString();

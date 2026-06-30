@@ -279,9 +279,6 @@ class ScanAsYouShopApp {
             // Solicitar permisos de notificaciones en segundo plano (no bloquear la entrada a la app)
             this.requestNotificationPermission().catch(() => {});
 
-            // Cargar ofertas en segundo plano si no estan en cache
-            this.loadOfertasIfNeeded();
-
             // Pausar conexiones activas cuando la pagina queda oculta (pantalla bloqueada, otra app)
             // para evitar consumo de bateria en segundo plano en iPhone/Android.
             this._setupVisibilityPause();
@@ -3911,7 +3908,8 @@ class ScanAsYouShopApp {
      * Anade al carrito las piezas seleccionadas (taza, tanque y/o asiento; las que haya)
      */
     async handleWcCompletoAddToCart() {
-        if (this._wcCompletoAddBusy) {
+        const now = Date.now();
+        if (this._wcCompletoAddBusy || (this._wcCompletoLastAddAt && now - this._wcCompletoLastAddAt < 800)) {
             return;
         }
         const sel = this.wcCompletoSelection;
@@ -3922,6 +3920,7 @@ class ScanAsYouShopApp {
             return;
         }
         this._wcCompletoAddBusy = true;
+        this._wcCompletoLastAddAt = now;
         try {
             for (const item of items) {
                 await window.cartManager.addProduct(
@@ -4923,6 +4922,7 @@ class ScanAsYouShopApp {
 
             void this.updateCartView();
             void this.warmSearchIndicesCritical(8000);
+            await this.loadOfertasIfNeeded();
             this.preloadOfertasSearchIndex();
             console.log('Aplicacion inicializada correctamente');
         } catch (error) {
@@ -5716,9 +5716,27 @@ class ScanAsYouShopApp {
         }
         const grupo = this.getEffectiveGrupoCliente();
         if (!grupo) return;
-        void window.cartManager.warmOfertasProductosIndex(grupo).catch((error) => {
-            console.warn('preloadOfertasSearchIndex:', error && error.message ? error.message : error);
-        });
+        void window.cartManager.warmOfertasProductosIndex(grupo)
+            .then((skuSet) => {
+                if (!skuSet || skuSet.size > 0 || !navigator.onLine || !window.supabaseClient) {
+                    return skuSet;
+                }
+                const cacheReciente = typeof window.supabaseClient.isOfertasCacheStale === 'function'
+                    && !window.supabaseClient.isOfertasCacheStale(30 * 60 * 1000);
+                if (cacheReciente) {
+                    return skuSet;
+                }
+                console.log('Indice ofertas vacio con grupo_cliente; forzando refresco remoto...');
+                return this.loadOfertasIfNeeded().then(() => {
+                    if (window.cartManager && typeof window.cartManager.invalidateAllOfertasProductosIndex === 'function') {
+                        window.cartManager.invalidateAllOfertasProductosIndex();
+                    }
+                    return window.cartManager.warmOfertasProductosIndex(grupo);
+                });
+            })
+            .catch((error) => {
+                console.warn('preloadOfertasSearchIndex:', error && error.message ? error.message : error);
+            });
     }
 
     /**
@@ -6243,23 +6261,41 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * En tactil (PWA movil, iOS, pantallas tactiles en TiendaPC) evita doble disparo touch+click.
-     * En escritorio con raton se comporta como un click normal.
+     * En tactil (PWA movil, iOS) evita doble disparo touch+click.
+     * TiendaPC (pywebview) usa solo click de raton: WebView2 puede reportar maxTouchPoints>0
+     * aunque solo haya raton, y la ruta tactil hace que toggles abran+cierren en el mismo pulso.
      */
     bindTapControl(el, handler) {
         if (!el || typeof handler !== 'function') return () => {};
+        const isPywebview = !!(window.pywebview);
+        const debounceMs = isPywebview ? 400 : 450;
+        let lastInvokeAt = 0;
+
+        const invoke = (e) => {
+            const now = Date.now();
+            if (now - lastInvokeAt < debounceMs) {
+                if (e && typeof e.preventDefault === 'function') e.preventDefault();
+                if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+                return;
+            }
+            lastInvokeAt = now;
+            handler(e);
+        };
+
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         const isTouchCapable = isIOS || navigator.maxTouchPoints > 0 || ('ontouchstart' in window);
 
-        if (!isTouchCapable) {
-            el.addEventListener('click', handler);
-            return () => el.removeEventListener('click', handler);
+        if (isPywebview || !isTouchCapable) {
+            el.addEventListener('click', invoke);
+            return () => el.removeEventListener('click', invoke);
         }
 
         let touchMoved = false;
         let touchStartX = 0;
         let touchStartY = 0;
         let handledByTouch = false;
+        let lastTouchEndAt = 0;
+        const clickSuppressMs = isPywebview ? 1000 : 600;
 
         const onTouchStart = (e) => {
             const t = e.changedTouches && e.changedTouches[0];
@@ -6280,16 +6316,19 @@ class ScanAsYouShopApp {
         const onTouchEnd = (e) => {
             if (touchMoved) return;
             handledByTouch = true;
+            lastTouchEndAt = Date.now();
             e.preventDefault();
-            handler(e);
+            invoke(e);
         };
 
         const onClick = (e) => {
-            if (handledByTouch) {
+            if (handledByTouch || (lastTouchEndAt && Date.now() - lastTouchEndAt < clickSuppressMs)) {
                 handledByTouch = false;
+                e.preventDefault();
+                e.stopPropagation();
                 return;
             }
-            handler(e);
+            invoke(e);
         };
 
         el.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -6323,7 +6362,8 @@ class ScanAsYouShopApp {
 
         // --- Chip: Mis compras ---
         const chipMisCompras = document.getElementById('chipMisCompras');
-        if (chipMisCompras) {
+        if (chipMisCompras && !chipMisCompras.dataset.tapBound) {
+            chipMisCompras.dataset.tapBound = '1';
             this.bindTapControl(chipMisCompras, () => {
                 self.filterChips.misCompras = !self.filterChips.misCompras;
                 chipMisCompras.classList.toggle('active', self.filterChips.misCompras);
@@ -6334,7 +6374,8 @@ class ScanAsYouShopApp {
 
         // --- Chip: Oferta ---
         const chipOferta = document.getElementById('chipOferta');
-        if (chipOferta) {
+        if (chipOferta && !chipOferta.dataset.tapBound) {
+            chipOferta.dataset.tapBound = '1';
             this.bindTapControl(chipOferta, () => {
                 self.filterChips.oferta = !self.filterChips.oferta;
                 chipOferta.classList.toggle('active', self.filterChips.oferta);
@@ -6345,22 +6386,21 @@ class ScanAsYouShopApp {
 
         // --- Chip: Almacen (abre/cierra mini picker) ---
         const chipAlmacen = document.getElementById('chipAlmacen');
-        if (chipAlmacen) {
+        if (chipAlmacen && !chipAlmacen.dataset.tapBound) {
+            chipAlmacen.dataset.tapBound = '1';
             this.bindTapControl(chipAlmacen, () => {
-                const isOpen = self.filterChips.activeConfig === 'almacen';
-                self._closeChipConfig();
-                if (!isOpen) self._openChipConfig('almacen');
+                self._toggleChipConfigDropdown('almacen');
             });
         }
 
         // --- Chip: Fabricante (proveedor / entidad): combobox nombre o alias ---
         const chipFabricanteProveedor = document.getElementById('chipFabricanteProveedor');
-        if (chipFabricanteProveedor) {
+        if (chipFabricanteProveedor && !chipFabricanteProveedor.dataset.tapBound) {
+            chipFabricanteProveedor.dataset.tapBound = '1';
             this.bindTapControl(chipFabricanteProveedor, () => {
-                const isOpen = self.filterChips.activeConfig === 'fabricanteProveedor';
-                self._closeChipConfig();
-                if (!isOpen) {
-                    self._openChipConfig('fabricanteProveedor');
+                const wasOpen = self.filterChips.activeConfig === 'fabricanteProveedor';
+                self._toggleChipConfigDropdown('fabricanteProveedor');
+                if (!wasOpen && self.filterChips.activeConfig === 'fabricanteProveedor') {
                     self._initProveedoresCombobox();
                     setTimeout(() => {
                         const input = document.getElementById('fabricanteProveedorInput');
@@ -6373,12 +6413,12 @@ class ScanAsYouShopApp {
 
         // --- Chip: Precio (abre/cierra inputs desde/hasta) ---
         const chipPrecio = document.getElementById('chipPrecio');
-        if (chipPrecio) {
+        if (chipPrecio && !chipPrecio.dataset.tapBound) {
+            chipPrecio.dataset.tapBound = '1';
             this.bindTapControl(chipPrecio, () => {
-                const isOpen = self.filterChips.activeConfig === 'precio';
-                self._closeChipConfig();
-                if (!isOpen) {
-                    self._openChipConfig('precio');
+                const wasOpen = self.filterChips.activeConfig === 'precio';
+                self._toggleChipConfigDropdown('precio');
+                if (!wasOpen && self.filterChips.activeConfig === 'precio') {
                     setTimeout(() => {
                         const input = document.getElementById('precioDesdeInput');
                         if (input) input.focus();
@@ -6439,7 +6479,8 @@ class ScanAsYouShopApp {
 
         // --- Chip: Familia (codigo modificar desde Inicio; pulsar para quitar) ---
         const chipFamilia = document.getElementById('chipFamilia');
-        if (chipFamilia) {
+        if (chipFamilia && !chipFamilia.dataset.tapBound) {
+            chipFamilia.dataset.tapBound = '1';
             this.bindTapControl(chipFamilia, () => {
                 if (!self.filterChips.codigoModificarFamilia) return;
                 self.filterChips.codigoModificarFamilia = '';
@@ -6466,6 +6507,19 @@ class ScanAsYouShopApp {
                 }
             });
         }
+    }
+
+    /**
+     * Abre o cierra el panel desplegable de un chip (almacen, precio, fabricante).
+     * Evita el patron cerrar+reabrir en el mismo handler, que con doble evento deja el panel cerrado.
+     * @param {'fabricanteProveedor'|'precio'|'almacen'} tipo
+     */
+    _toggleChipConfigDropdown(tipo) {
+        if (this.filterChips.activeConfig === tipo) {
+            this._closeChipConfig();
+            return;
+        }
+        this._openChipConfig(tipo);
     }
 
     /**
@@ -6629,6 +6683,8 @@ class ScanAsYouShopApp {
         const dropdown = document.getElementById('fabricanteProveedorDropdown');
         const hiddenCodigo = document.getElementById('fabricanteProveedorCodigo');
         if (!input || !dropdown || !hiddenCodigo) return;
+        if (input.dataset.comboboxBound === '1') return;
+        input.dataset.comboboxBound = '1';
 
         input.addEventListener('input', () => {
             const val = input.value.trim();
@@ -15484,51 +15540,49 @@ class ScanAsYouShopApp {
      * Carga ofertas si no están en cache o si es necesario actualizarlas
      */
     async loadOfertasIfNeeded() {
-        try {
-            // Verificar si hay ofertas en cache
-            if (window.cartManager && window.cartManager.db) {
-                const transaction = window.cartManager.db.transaction(['ofertas'], 'readonly');
-                const store = transaction.objectStore('ofertas');
-                const countRequest = store.count();
-                
-                countRequest.onsuccess = async () => {
-                    const count = countRequest.result;
-                    const cacheOfertasCompleta = window.supabaseClient
-                        && typeof window.supabaseClient.isOfertasCacheCompleteAndCurrent === 'function'
-                        && window.supabaseClient.isOfertasCacheCompleteAndCurrent();
-
-                    if (count === 0 || !cacheOfertasCompleta) {
-                        // No hay ofertas en cache o la version de ofertas no coincide con el catalogo local
-                        console.log('Descargando ofertas para completar cache local...');
-                        try {
-                            await window.supabaseClient.downloadOfertas();
-                            console.log('Ofertas descargadas y guardadas en cache');
-                            if (typeof this.preloadOfertasSearchIndex === 'function') {
-                                this.preloadOfertasSearchIndex();
-                            }
-                        } catch (error) {
-                            console.error('Error al descargar ofertas (no crítico):', error);
-                        }
-                    } else {
-                        console.log(`Ofertas en cache vigentes: ${count}`);
-                    }
-                };
-                
-                countRequest.onerror = () => {
-                    console.log('No se pudo verificar cache de ofertas, descargando...');
-                    window.supabaseClient.downloadOfertas().catch(err => {
-                        console.error('Error al descargar ofertas (no crítico):', err);
-                    });
-                };
-            } else {
-                // Si no hay db, intentar descargar directamente
-                window.supabaseClient.downloadOfertas().catch(err => {
-                    console.error('Error al descargar ofertas (no crítico):', err);
-                });
-            }
-        } catch (error) {
-            console.error('Error al verificar ofertas en cache:', error);
+        if (this._loadOfertasPromise) {
+            return this._loadOfertasPromise;
         }
+
+        this._loadOfertasPromise = (async () => {
+            try {
+                if (!window.supabaseClient || typeof window.supabaseClient.downloadOfertas !== 'function') {
+                    return;
+                }
+
+                let count = 0;
+                if (window.cartManager && window.cartManager.db) {
+                    count = await new Promise((resolve, reject) => {
+                        const tx = window.cartManager.db.transaction(['ofertas'], 'readonly');
+                        const req = tx.objectStore('ofertas').count();
+                        req.onsuccess = () => resolve(req.result || 0);
+                        req.onerror = () => reject(req.error);
+                    });
+                }
+
+                const cacheComplete = typeof window.supabaseClient.isOfertasCacheCompleteAndCurrent === 'function'
+                    && window.supabaseClient.isOfertasCacheCompleteAndCurrent();
+                const cacheStale = typeof window.supabaseClient.isOfertasCacheStale === 'function'
+                    && window.supabaseClient.isOfertasCacheStale();
+
+                if (count === 0 || !cacheComplete || cacheStale) {
+                    const motivo = count === 0
+                        ? 'cache vacia'
+                        : (!cacheComplete ? 'version desalineada' : 'cache antigua');
+                    console.log('Descargando ofertas (' + motivo + ')...');
+                    await window.supabaseClient.downloadOfertas();
+                    console.log('Ofertas descargadas y guardadas en cache');
+                } else {
+                    console.log('Ofertas en cache vigentes: ' + count);
+                }
+            } catch (error) {
+                console.error('Error al descargar ofertas (no critico):', error);
+            } finally {
+                this._loadOfertasPromise = null;
+            }
+        })();
+
+        return this._loadOfertasPromise;
     }
 
     /**
