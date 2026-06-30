@@ -8097,3 +8097,1671 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     font-size: 1rem;
     margin: 0 0 0.75rem;
 }
+
+/* --- Fichas vehiculo: tienda (Mis activos / detalle trabajador) --- */
+#appContainerTienda .activos-mis-vehiculos-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+@media (min-width: 520px) {
+    #appContainerTienda .activos-mis-vehiculos-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+}
+
+#appContainerTienda .activos-worker-vehiculo-detail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+#appContainerTienda .activos-vehiculo-ficha--detail {
+    width: 100%;
+    max-width: 100%;
+}
+
+#appContainerTienda .activos-vehiculo-ficha--static {
+    cursor: default;
+    pointer-events: none;
+}
+
+#appContainerTienda .activos-vehiculo-ficha--static .activos-vehiculo-ficha-body .activos-vehiculo-uso-hoy {
+    pointer-events: auto;
+}
+
+#appContainerTienda .activos-worker-historial {
+    width: 100%;
+    text-align: center;
+}
+
+/* Bloc Hoy (detail travailleur) */
+#appContainerTienda .activos-hoy-worker {
+    margin-top: 0.5rem;
+    padding: 0.85rem 0.75rem 0.9rem;
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgba(120, 81, 169, 0.12) 0%, rgba(120, 81, 169, 0.04) 100%);
+    border: 1px solid rgba(120, 81, 169, 0.2);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+#appContainerTienda .activos-hoy-worker-head {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.65rem;
+}
+
+#appContainerTienda .activos-hoy-worker-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #fff;
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    box-shadow: 0 2px 8px rgba(120, 81, 169, 0.28);
+}
+
+#appContainerTienda .activos-hoy-worker-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+#appContainerTienda .activos-hoy-worker-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.55rem 0.35rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(120, 81, 169, 0.1);
+    min-width: 0;
+}
+
+#appContainerTienda .activos-hoy-worker-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--gray-600);
+    text-align: center;
+    line-height: 1.2;
+}
+
+#appContainerTienda .activos-hoy-worker-value {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    line-height: 1.15;
+    text-align: center;
+}
+
+#appContainerTienda .activos-hoy-worker-value small {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--gray-600);
+}
+
+/* Historial depliable */
+#appContainerTienda .activos-historial-collapsible {
+    width: 100%;
+    text-align: left;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
+}
+
+#appContainerTienda .activos-historial-collapsible-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    background: var(--gray-50);
+    border-bottom: 1px solid transparent;
+    transition: background 0.15s ease;
+}
+
+#appContainerTienda .activos-historial-collapsible-summary::-webkit-details-marker {
+    display: none;
+}
+
+#appContainerTienda .activos-historial-collapsible-summary::after {
+    content: '';
+    flex-shrink: 0;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-right: 2px solid var(--primary);
+    border-bottom: 2px solid var(--primary);
+    transform: rotate(45deg);
+    margin-top: -0.2rem;
+    transition: transform 0.2s ease;
+}
+
+#appContainerTienda .activos-historial-collapsible[open] .activos-historial-collapsible-summary {
+    border-bottom-color: var(--gray-200);
+    background: rgba(120, 81, 169, 0.06);
+}
+
+#appContainerTienda .activos-historial-collapsible[open] .activos-historial-collapsible-summary::after {
+    transform: rotate(-135deg);
+    margin-top: 0.15rem;
+}
+
+#appContainerTienda .activos-historial-collapsible-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--gray-800);
+}
+
+#appContainerTienda .activos-historial-collapsible-meta {
+    font-size: 0.78rem;
+    color: var(--gray-600);
+    margin-right: auto;
+    padding-left: 0.5rem;
+}
+
+#appContainerTienda .activos-historial-collapsible .activos-vehiculo-historial-table-wrap {
+    padding: 0.75rem 0.5rem 1rem;
+}
+
+#appContainerTienda .activos-worker-extras-wrap {
+    margin-top: 0.75rem;
+}
+
+#appContainerTienda .activos-worker-extras {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+#appContainerTienda .activos-worker-panel-body {
+    padding-top: 0.15rem;
+}
+
+#appContainerTienda .activos-worker-talleres-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+#appContainerTienda .activos-worker-registro-hint {
+    margin: 0 0 0.75rem;
+    font-size: 0.88rem;
+    color: var(--gray-600);
+    text-align: center;
+}
+
+#appContainerTienda .activos-worker-registro-open-btn {
+    width: 100%;
+}
+
+.activos-registro-modal-content {
+    max-width: 420px;
+    width: calc(100% - 2rem);
+}
+
+.activos-registro-modal-actions {
+    display: flex;
+    gap: 0.65rem;
+    margin-top: 1rem;
+}
+
+.activos-registro-modal-actions .btn {
+    flex: 1;
+}
+
+.activos-list-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.activos-config-modal-content {
+    max-width: 560px;
+    width: calc(100% - 2rem);
+    max-height: min(90vh, 720px);
+    overflow: auto;
+}
+
+.activos-config-modal-hint {
+    margin: 0 0 1rem;
+    font-size: 0.88rem;
+    color: var(--gray-600);
+}
+
+.activos-config-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.activos-config-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 0.65rem;
+    align-items: end;
+    padding: 0.75rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    background: var(--gray-50, #f9fafb);
+}
+
+.activos-config-row-taller {
+    grid-template-columns: 1fr 1fr;
+}
+
+.activos-config-row-taller .activos-config-row-remove {
+    grid-column: 1 / -1;
+    justify-self: start;
+}
+
+.activos-config-modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+    .activos-config-row {
+        grid-template-columns: 1fr;
+    }
+
+    .activos-config-row-taller {
+        grid-template-columns: 1fr;
+    }
+}
+
+.app-container-administracion .activos-admin-vehiculos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.app-container-administracion .activos-admin-vehiculo-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.75rem 0.9rem;
+    width: 100%;
+    text-align: left;
+    border-radius: 12px;
+}
+
+.app-container-administracion .activos-admin-vehiculo-row-img {
+    width: 56px;
+    height: 42px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+    background: var(--gray-100);
+}
+
+.app-container-administracion .activos-admin-vehiculo-row-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.app-container-administracion .activos-admin-vehiculo-row-nombre {
+    font-size: 1.08rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    line-height: 1.2;
+}
+
+.app-container-administracion .activos-admin-vehiculo-row-matricula {
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--gray-600);
+}
+
+.app-container-administracion .activos-admin-vehiculo-row-meta,
+.app-container-administracion .activos-admin-vehiculo-row-asignado {
+    font-size: 0.88rem;
+    color: var(--gray-600);
+    line-height: 1.3;
+}
+
+.app-container-administracion .activos-admin-vehiculo-row-badge {
+    position: static;
+    flex-shrink: 0;
+    font-size: 0.72rem;
+}
+
+.app-container-administracion .activos-admin-block {
+    width: 100%;
+    max-width: 680px;
+    margin: 0 auto;
+    border: 1px solid var(--gray-200);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+}
+
+.app-container-administracion .activos-admin-block-header {
+    padding: 0.9rem 1.15rem;
+    background: linear-gradient(135deg, rgba(120, 81, 169, 0.14) 0%, rgba(120, 81, 169, 0.04) 100%);
+    border-bottom: 1px solid rgba(120, 81, 169, 0.12);
+}
+
+.app-container-administracion .activos-admin-block-header .activos-admin-block-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.app-container-administracion .activos-admin-block-body {
+    padding: 1.05rem 1.15rem 1.2rem;
+}
+
+.app-container-administracion .activos-admin-block--collapsible .activos-admin-block-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.9rem 1.15rem;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    background: linear-gradient(135deg, rgba(120, 81, 169, 0.14) 0%, rgba(120, 81, 169, 0.04) 100%);
+    border-bottom: 1px solid transparent;
+}
+
+.app-container-administracion .activos-admin-block--collapsible .activos-admin-block-summary::-webkit-details-marker {
+    display: none;
+}
+
+.app-container-administracion .activos-admin-block--collapsible[open] .activos-admin-block-summary {
+    border-bottom-color: var(--gray-200);
+}
+
+.app-container-administracion .activos-admin-block--collapsible .activos-admin-block-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.app-container-administracion .activos-admin-block-chevron {
+    flex-shrink: 0;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-right: 2px solid var(--primary);
+    border-bottom: 2px solid var(--primary);
+    transform: rotate(45deg);
+    margin-top: -0.15rem;
+    transition: transform 0.2s ease;
+}
+
+.app-container-administracion .activos-admin-block--collapsible[open] .activos-admin-block-chevron {
+    transform: rotate(-135deg);
+    margin-top: 0.15rem;
+}
+
+.app-container-administracion .activos-admin-block-actions {
+    margin-top: 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.app-container-administracion .activos-admin-hoy-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.app-container-administracion .activos-admin-hoy-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.9rem 0.5rem;
+    border-radius: 12px;
+    background: var(--gray-50, #f9fafb);
+    border: 1px solid var(--gray-200);
+}
+
+.app-container-administracion .activos-admin-hoy-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--gray-600);
+    text-align: center;
+}
+
+.app-container-administracion .activos-admin-hoy-value {
+    font-size: 1.28rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    line-height: 1.15;
+    text-align: center;
+}
+
+.app-container-administracion .activos-admin-hoy-value small {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--gray-600);
+}
+
+@media (max-width: 520px) {
+    .app-container-administracion .activos-admin-hoy-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.app-container-administracion .activos-admin-historial-search-wrap {
+    margin-bottom: 0.85rem;
+}
+
+.app-container-administracion .activos-admin-historial-search {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid rgba(120, 81, 169, 0.22);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    background: #fff;
+}
+
+.activos-talleres-almacen-field {
+    margin-bottom: 1.5rem !important;
+}
+
+#appContainerTienda .activos-worker-collapsible-body {
+    padding: 0.75rem 1rem 1rem;
+}
+
+#appContainerTienda .activos-worker-extras .activos-historial-collapsible {
+    width: 100%;
+}
+
+#appContainerTienda .activos-worker-extra-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+#appContainerTienda .activos-worker-extra-contact {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+#appContainerTienda .activos-worker-extra-contact-name,
+#appContainerTienda .activos-worker-extra-taller-name {
+    margin: 0;
+    font-weight: 700;
+    color: var(--gray-800);
+    font-size: 0.95rem;
+}
+
+#appContainerTienda .activos-worker-extra-contact-tel {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+}
+
+#appContainerTienda .activos-worker-extra-taller-dir,
+#appContainerTienda .activos-worker-extra-empty {
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--gray-600);
+    line-height: 1.4;
+}
+
+#appContainerTienda .activos-vehiculo-ficha-badge,
+#appContainerTienda .activos-badge {
+    text-transform: uppercase;
+}
+
+#appContainerTienda .activos-vehiculo-historial-title {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    text-align: center;
+}
+
+#appContainerTienda .activos-vehiculo-ficha {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    background: #fff;
+    overflow: hidden;
+    cursor: pointer;
+    text-align: left;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.07);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    font-family: inherit;
+}
+
+#appContainerTienda button.activos-vehiculo-ficha {
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+#appContainerTienda .activos-vehiculo-ficha:not(.activos-vehiculo-ficha--static):hover,
+#appContainerTienda .activos-vehiculo-ficha:not(.activos-vehiculo-ficha--static):focus-visible {
+    border-color: var(--primary-light);
+    box-shadow: 0 4px 14px rgba(120, 81, 169, 0.14);
+    transform: translateY(-1px);
+}
+
+#appContainerTienda .activos-vehiculo-ficha-img-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: linear-gradient(145deg, var(--primary-light), var(--primary));
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+#appContainerTienda .activos-vehiculo-ficha-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+#appContainerTienda .activos-vehiculo-ficha-img-wrap .activos-vehiculo-ficha-badge {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    z-index: 2;
+    min-width: 5.2rem;
+    padding: 0.28rem 0.5rem;
+    font-size: 0.72rem;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.16);
+}
+
+#appContainerTienda .activos-vehiculo-ficha-body {
+    flex: 1;
+    min-width: 0;
+    padding: 0.7rem 0.75rem 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+#appContainerTienda .activos-vehiculo-ficha-nombre {
+    display: block;
+    font-weight: 700;
+    font-size: 0.98rem;
+    color: var(--gray-900, #111827);
+    line-height: 1.25;
+}
+
+#appContainerTienda .activos-vehiculo-ficha-matricula {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--gray-600);
+    text-transform: uppercase;
+}
+
+#appContainerTienda .activos-vehiculo-ficha-meta {
+    font-size: 0.78rem;
+    color: var(--gray-600);
+    line-height: 1.3;
+}
+
+#appContainerTienda .activos-vehiculo-ficha-km-actual {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    line-height: 1.25;
+}
+
+#appContainerTienda .activos-vehiculo-ficha-body .activos-vehiculo-uso-hoy--compact {
+    margin-top: 0.35rem;
+    padding: 0.45rem 0.5rem;
+}
+
+#appContainerTienda .activos-vehiculo-ficha-body .activos-vehiculo-uso-hoy.admin-detail-completar {
+    margin-top: 0.35rem;
+    padding: 0.75rem;
+    width: 100%;
+    text-align: center;
+}
+
+#appContainerTienda .activos-vehiculo-historial-wrap {
+    margin-top: 0;
+    text-align: center;
+    padding: 1rem;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+#appContainerTienda .activos-vehiculo-historial-table-wrap {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+#appContainerTienda .activos-vehiculo-historial-table {
+    width: auto;
+    min-width: min(100%, 420px);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    border-collapse: collapse;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+}
+
+#appContainerTienda .activos-vehiculo-historial-table thead {
+    background: var(--primary);
+    color: #fff;
+}
+
+#appContainerTienda .activos-vehiculo-historial-table th,
+#appContainerTienda .activos-vehiculo-historial-table td {
+    padding: 0.5rem 0.55rem;
+    font-size: 0.78rem;
+    text-align: center;
+}
+
+#appContainerTienda .activos-vehiculo-historial-table th {
+    font-weight: 700;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+#appContainerTienda .activos-vehiculo-historial-table td {
+    color: var(--gray-800);
+    border-top: 1px solid var(--gray-100);
+}
+
+#appContainerTienda .activos-vehiculo-historial-table tbody tr:nth-child(even) {
+    background: rgba(120, 81, 169, 0.04);
+}
+
+#appContainerTienda .activos-registro-dia-card {
+    width: 100%;
+    max-width: 480px;
+    margin: 1.25rem auto 0;
+    padding: 1.1rem 1.15rem 1.15rem;
+    background: linear-gradient(180deg, rgba(120, 81, 169, 0.07) 0%, #fff 42%);
+    border: 1px solid rgba(120, 81, 169, 0.22);
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(120, 81, 169, 0.1);
+}
+
+#appContainerTienda .activos-registro-dia-header {
+    text-align: center;
+    margin-bottom: 0.85rem;
+}
+
+#appContainerTienda .activos-registro-dia-title {
+    margin: 0 0 0.35rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    letter-spacing: 0.01em;
+}
+
+#appContainerTienda .activos-registro-dia-hint {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--gray-600);
+}
+
+#appContainerTienda .activos-registro-dia-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem 0.85rem;
+    margin-bottom: 1rem;
+}
+
+#appContainerTienda .activos-registro-dia-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+#appContainerTienda .activos-registro-dia-field-full {
+    grid-column: 1 / -1;
+}
+
+#appContainerTienda .activos-registro-dia-field label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+#appContainerTienda .activos-registro-dia-field input {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 10px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: #fff;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#appContainerTienda .activos-registro-dia-field input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(120, 81, 169, 0.15);
+}
+
+#appContainerTienda .activos-registro-dia-field-hint {
+    font-size: 0.74rem;
+    line-height: 1.35;
+    color: var(--gray-600);
+}
+
+#appContainerTienda .activos-registro-dia-btn {
+    width: 100%;
+    padding: 0.8rem 1.25rem;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+#appContainerTienda .activos-uso-block {
+    width: 100%;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* --- Fichas vehiculos (verticales, 2 por fila en escritorio) --- */
+/* Prioridad sobre .admin-list que fuerza flex en columna */
+.app-container-administracion .admin-list.activos-vehiculos-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: stretch;
+}
+
+@media (min-width: 1100px) {
+    .app-container-administracion .admin-list.activos-vehiculos-grid {
+        gap: 1.15rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .app-container-administracion .admin-list.activos-vehiculos-grid {
+        grid-template-columns: 1fr;
+        gap: 0.85rem;
+    }
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+    .app-container-administracion .admin-list.activos-vehiculos-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem;
+    }
+}
+
+.app-container-administracion .activos-vehiculo-ficha {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    background: #fff;
+    overflow: hidden;
+    cursor: pointer;
+    text-align: left;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.07);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.app-container-administracion .activos-vehiculo-ficha:hover,
+.app-container-administracion .activos-vehiculo-ficha:focus-visible {
+    border-color: var(--primary-light);
+    box-shadow: 0 4px 14px rgba(120, 81, 169, 0.14);
+    transform: translateY(-1px);
+}
+
+.app-container-administracion .activos-vehiculo-ficha-img-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: linear-gradient(145deg, var(--primary-light), var(--primary));
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.app-container-administracion .activos-vehiculo-ficha-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.activos-vehiculo-ficha-img-wrap .activos-vehiculo-ficha-badge {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    z-index: 2;
+    min-width: 5.2rem;
+    padding: 0.28rem 0.5rem;
+    font-size: 0.72rem;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.16);
+}
+
+.activos-vehiculo-ficha-body {
+    flex: 1;
+    min-width: 0;
+    padding: 0.7rem 0.75rem 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.activos-vehiculo-ficha-nombre {
+    display: block;
+    font-weight: 700;
+    font-size: 0.98rem;
+    color: var(--gray-900, #111827);
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activos-vehiculo-ficha-matricula {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--gray-600);
+    text-transform: uppercase;
+}
+
+.activos-vehiculo-ficha-meta {
+    font-size: 0.78rem;
+    color: var(--gray-600);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activos-vehiculo-ficha-km-actual {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    line-height: 1.25;
+}
+
+.activos-vehiculo-ficha-asignado {
+    font-size: 0.78rem;
+    color: var(--gray-700);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activos-vehiculo-ficha-body .activos-vehiculo-uso-hoy--compact {
+    margin-top: 0.35rem;
+    padding: 0.45rem 0.5rem;
+}
+
+.activos-vehiculo-ficha-body .activos-vehiculo-uso-hoy--compact .activos-vehiculo-uso-hoy-title {
+    font-size: 0.65rem;
+    margin-bottom: 0.25rem;
+}
+
+.activos-vehiculo-ficha-body .activos-vehiculo-uso-hoy--compact .activos-vehiculo-uso-hoy-label {
+    font-size: 0.62rem;
+}
+
+.activos-vehiculo-ficha-body .activos-vehiculo-uso-hoy--compact .activos-vehiculo-uso-hoy-value {
+    font-size: 0.8rem;
+}
+
+.activos-vehiculo-ficha-itv .activos-badge {
+    margin-top: 0;
+    font-size: 0.72rem;
+    padding: 0.15rem 0.45rem;
+}
+
+.activos-vehiculo-ficha-badge {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 5.5rem;
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: lowercase;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.activos-vehiculo-badge-ok {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #86efac;
+}
+
+.activos-vehiculo-badge-disponible {
+    background: #e0e7ff;
+    color: #3730a3;
+    border: 1px solid #a5b4fc;
+}
+
+.activos-vehiculo-badge-no-disponible {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.activos-seguro-admin,
+.activos-taller-admin {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.activos-seguro-admin-hint {
+    margin: 0 0 0.75rem;
+    font-size: 0.82rem;
+    color: var(--gray-600);
+}
+
+.activos-seguro-admin-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+@media (max-width: 640px) {
+    .activos-seguro-admin-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Formulario edicion vehiculo + historial */
+.app-container-administracion #adminActivoFormVehiculoExtra.activos-vehiculo-form-extra {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2.5rem;
+    width: 100%;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.app-container-administracion #adminActivoFormFields.activos-vehiculo-form-wrap {
+    display: block;
+    width: 100%;
+    max-width: 880px;
+    margin: 0 auto;
+}
+
+.app-container-administracion .activos-vehiculo-form-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    width: 100%;
+    padding: 1.25rem 1.35rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+    align-items: stretch;
+}
+
+.app-container-administracion .activos-vehiculo-form-media {
+    flex-shrink: 0;
+}
+
+.app-container-administracion .activos-vehiculo-form-media-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.7rem;
+}
+
+.app-container-administracion .activos-vehiculo-form-fields {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.app-container-administracion .activos-vehiculo-form-fields .activos-vehiculo-form-field-full {
+    grid-column: 1 / -1;
+}
+
+.app-container-administracion .activos-vehiculo-form-metrics-block {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+        "km itv"
+        ". asignacion";
+    gap: 0.85rem 1rem;
+    align-items: start;
+}
+
+.app-container-administracion .activos-vehiculo-form-km {
+    grid-area: km;
+}
+
+.app-container-administracion .activos-vehiculo-form-itv {
+    grid-area: itv;
+}
+
+.app-container-administracion .activos-vehiculo-form-asignacion {
+    grid-area: asignacion;
+}
+
+.app-container-administracion .activos-vehiculo-form-asignacion-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 0.35rem;
+}
+
+.app-container-administracion .activos-vehiculo-form-asignacion-field {
+    margin-bottom: 0;
+}
+
+.app-container-administracion #adminActivoFormVehiculoExtra .activos-admin-block--historial {
+    margin-top: 1.5rem;
+}
+
+@media (max-width: 639px) {
+    .app-container-administracion .activos-vehiculo-form-metrics-block {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "km"
+            "itv"
+            "asignacion";
+    }
+}
+
+@media (min-width: 640px) {
+    .app-container-administracion .activos-vehiculo-form-fields {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.85rem 1rem;
+    }
+}
+
+@media (min-width: 768px) {
+    .app-container-administracion .activos-vehiculo-form-card {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 1.5rem;
+        padding: 1.35rem 1.5rem;
+    }
+
+    .app-container-administracion .activos-vehiculo-form-media {
+        width: 240px;
+    }
+}
+
+@media (max-width: 639px) {
+    .app-container-administracion .activos-vehiculo-form-fields {
+        grid-template-columns: 1fr;
+    }
+}
+
+#appContainerTienda .activos-worker-registro-btn {
+    width: 100%;
+    margin-top: 0.65rem;
+}
+
+#appContainerTienda .activos-vehiculo-ficha-body .activos-worker-registro-btn {
+    align-self: stretch;
+}
+
+.app-container-administracion #adminActivoFormVehiculoExtra .admin-detail-completar,
+.app-container-administracion #adminActivoFormVehiculoExtra .activos-vehiculo-form-asignacion {
+    width: 100%;
+    text-align: center;
+}
+
+.app-container-administracion #adminActivoFormVehiculoExtra .admin-detail-completar-title {
+    text-align: center;
+}
+
+.app-container-administracion #adminActivoFormVehiculoExtra .admin-solicitud-field {
+    align-items: center;
+    text-align: center;
+}
+
+.app-container-administracion #adminActivoFormVehiculoExtra .admin-solicitud-field select {
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.app-container-administracion #adminActivoFormVehiculoExtra .admin-detail-actions,
+.app-container-administracion #adminActivoFormScreen > .screen-content > .admin-detail-actions {
+    justify-content: center;
+    width: 100%;
+}
+
+.app-container-administracion #adminActivoFormVehiculoExtra .admin-detail-actions {
+    margin-top: 0.5rem;
+    padding-top: 0;
+    border-top: none;
+}
+
+/* Botones del formulario vehiculo: misma base que Guardar, colores originales */
+.app-container-administracion #adminActivoFormScreen .btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    min-height: 0;
+    width: auto;
+    flex: 0 0 auto;
+}
+
+.activos-form-error {
+    color: #991b1b;
+    background: #fee2e2;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.app-container-administracion #adminActivoFormVehiculoExtra .activos-vehiculo-form-asignacion {
+    margin-top: 1.25rem;
+}
+
+.app-container-administracion #adminActivoFormScreen .btn-danger {
+    background: #dc2626;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.35);
+}
+
+.app-container-administracion #adminActivoFormScreen .btn-danger:active {
+    background: #b91c1c;
+    transform: scale(0.98);
+}
+
+.app-container-administracion #adminActivoFormScreen .activos-vehiculo-form-actions {
+    gap: 0.75rem;
+}
+
+.app-container-administracion .activos-vehiculo-historial-wrap {
+    margin-top: 0;
+    text-align: center;
+}
+
+.app-container-administracion .activos-vehiculo-historial-wrap.admin-detail-completar {
+    padding: 1rem;
+}
+
+.app-container-administracion .activos-vehiculo-historial-table-wrap {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.app-container-administracion .activos-vehiculo-historial-table {
+    width: auto;
+    min-width: min(100%, 560px);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    border-collapse: collapse;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.app-container-administracion .activos-vehiculo-historial-table thead {
+    background: var(--primary);
+    color: #fff;
+}
+
+.app-container-administracion .activos-vehiculo-historial-table th {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.app-container-administracion .activos-vehiculo-historial-table td {
+    padding: 0.45rem 0.55rem;
+    font-size: 0.78rem;
+    text-align: center;
+    color: var(--gray-800);
+    border-top: 1px solid var(--gray-100);
+}
+
+.app-container-administracion .activos-vehiculo-historial-table tbody tr:nth-child(even) {
+    background: rgba(120, 81, 169, 0.04);
+}
+
+.app-container-administracion .activos-vehiculo-historial-table tbody tr:hover {
+    background: rgba(120, 81, 169, 0.08);
+}
+
+.app-container-administracion .activos-vehiculo-historial-empty {
+    padding: 1rem !important;
+    color: var(--gray-600);
+    font-style: italic;
+}
+
+/* Detalle vehiculo (vertical) */
+.activos-vehiculo-detail-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    border: 1px solid var(--gray-200);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.activos-vehiculo-detail-img-wrap {
+    position: relative;
+    width: 100%;
+    max-width: none;
+    border-radius: 0;
+    overflow: hidden;
+    background: linear-gradient(145deg, var(--primary-light), var(--primary));
+}
+
+.activos-vehiculo-detail-img-wrap .activos-vehiculo-ficha-badge {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 2;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.2);
+}
+
+.activos-vehiculo-detail-img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+}
+
+.activos-vehiculo-detail-img-actions {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.55rem;
+    background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.72));
+}
+
+.activos-vehiculo-detail-img-actions .btn {
+    font-size: 0.78rem;
+    padding: 0.35rem 0.55rem;
+}
+
+.activos-vehiculo-detail-body {
+    flex: 1;
+    min-width: 0;
+    padding: 1rem 1rem 1.1rem;
+}
+
+.activos-vehiculo-detail-nombre {
+    margin: 0;
+    font-size: 1.25rem;
+    line-height: 1.25;
+}
+
+.activos-vehiculo-detail-matricula {
+    margin: 0.2rem 0 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--gray-600);
+    text-transform: uppercase;
+}
+
+.activos-vehiculo-detail-modelo {
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
+    color: var(--gray-700);
+}
+
+.activos-vehiculo-detail-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.65rem;
+}
+
+.activos-vehiculo-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.22rem 0.55rem;
+    border-radius: 999px;
+    background: var(--gray-100);
+    color: var(--gray-700);
+    font-size: 0.78rem;
+}
+
+.activos-vehiculo-detail-asignado {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.activos-vehiculo-detail-extra p {
+    margin: 0.35rem 0;
+}
+
+/* Editor imagen formulario vehiculo */
+.app-container-administracion .activos-vehiculo-form-media .activos-vehiculo-imagen-preview-wrap {
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--gray-200);
+    background: linear-gradient(145deg, rgba(120, 81, 169, 0.08), var(--gray-50));
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.app-container-administracion .activos-vehiculo-form-media .activos-vehiculo-imagen-preview {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+}
+
+.app-container-administracion .activos-vehiculo-form-media .activos-vehiculo-imagen-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.app-container-administracion .activos-vehiculo-form-media .activos-vehiculo-imagen-actions .btn {
+    width: 100%;
+    justify-content: center;
+}
+
+.app-container-administracion .activos-vehiculo-form-fields .admin-solicitud-field {
+    align-items: stretch;
+    text-align: left;
+}
+
+.app-container-administracion .activos-vehiculo-form-fields .admin-solicitud-field label {
+    text-align: left;
+}
+
+.app-container-administracion .activos-vehiculo-imagen-field.admin-solicitud-field-full {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.app-container-administracion .activos-vehiculo-imagen-field label {
+    width: 100%;
+    text-align: center;
+}
+
+.app-container-administracion .activos-vehiculo-imagen-editor {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    max-width: 240px;
+    margin: 0 auto;
+}
+
+.app-container-administracion .activos-vehiculo-imagen-preview-wrap {
+    width: 100%;
+    max-width: 240px;
+    margin: 0 auto;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--gray-200);
+    background: var(--gray-50);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.app-container-administracion .activos-vehiculo-imagen-preview {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+}
+
+.app-container-administracion .activos-vehiculo-imagen-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.app-container-administracion .activos-vehiculo-imagen-hint {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--gray-600);
+    text-align: center;
+    max-width: 240px;
+}
+
+/* Uso del dia (vehiculos) */
+.app-container-administracion .activos-vehiculo-uso-hoy.admin-detail-completar {
+    margin-top: 0;
+    padding: 1rem;
+    width: 100%;
+}
+
+.app-container-administracion #adminActivoFormVehiculoExtra .activos-vehiculo-uso-hoy-grid {
+    justify-items: center;
+    text-align: center;
+}
+
+.app-container-administracion #adminActivoFormVehiculoExtra .activos-vehiculo-uso-hoy-item {
+    align-items: center;
+}
+
+/* Bureau : annuler la grille admin-detail-completar (solicitudes) pour garder le centrage */
+@media (min-width: 768px) {
+    .app-container-administracion #adminActivoFormScreen .screen-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .app-container-administracion #adminActivoFormScreen #adminActivoFormFields {
+        width: 100%;
+        max-width: 720px;
+    }
+
+    .app-container-administracion #adminActivoFormScreen #adminActivoFormFields.activos-vehiculo-form-wrap {
+        max-width: 880px;
+    }
+
+    .app-container-administracion #adminActivoFormVehiculoExtra.activos-vehiculo-form-extra {
+        max-width: 720px;
+    }
+
+    .app-container-administracion #adminActivoFormVehiculoExtra .admin-detail-completar,
+    .app-container-administracion #adminActivoFormVehiculoExtra .activos-vehiculo-form-asignacion.admin-detail-completar {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .app-container-administracion #adminActivoFormVehiculoExtra .admin-detail-completar-title {
+        width: 100%;
+        text-align: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .app-container-administracion #adminActivoFormVehiculoExtra .admin-solicitud-field,
+    .app-container-administracion #adminActivoFormVehiculoExtra .admin-detail-actions,
+    .app-container-administracion #adminActivoFormVehiculoExtra .activos-vehiculo-historial-table-wrap,
+    .app-container-administracion #adminActivoFormVehiculoExtra .activos-vehiculo-uso-hoy-grid {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .app-container-administracion #adminActivoFormVehiculoExtra .activos-vehiculo-uso-hoy-grid {
+        max-width: 520px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .app-container-administracion #adminActivoFormVehiculoExtra .activos-vehiculo-historial-table {
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .app-container-administracion #adminActivoFormScreen > .screen-content > .admin-detail-actions {
+        max-width: 720px;
+    }
+}
+
+.activos-vehiculo-uso-hoy--compact {
+    margin-top: 0.45rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: 8px;
+    background: rgba(120, 81, 169, 0.05);
+    border: 1px solid rgba(120, 81, 169, 0.12);
+}
+
+.activos-vehiculo-uso-hoy-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--primary-dark);
+    margin-bottom: 0.35rem;
+}
+
+.activos-vehiculo-uso-hoy-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+}
+
+.activos-vehiculo-uso-hoy--compact .activos-vehiculo-uso-hoy-grid {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+}
+
+@media (min-width: 420px) {
+    .activos-vehiculo-uso-hoy:not(.activos-vehiculo-uso-hoy--compact) .activos-vehiculo-uso-hoy-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+}
+
+.activos-vehiculo-uso-hoy-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+.activos-vehiculo-uso-hoy-label {
+    font-size: 0.68rem;
+    line-height: 1.25;
+    color: var(--gray-600);
+}
+
+.activos-vehiculo-uso-hoy--compact .activos-vehiculo-uso-hoy-label {
+    font-size: 0.62rem;
+}
+
+.activos-vehiculo-uso-hoy-value {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    line-height: 1.2;
+}
+
+.activos-vehiculo-uso-hoy--compact .activos-vehiculo-uso-hoy-value {
+    font-size: 0.82rem;
+}

@@ -26,7 +26,7 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     
     <!-- Styles -->
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=activos-dev-19">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -979,16 +979,35 @@
                     <h2 class="profile-title">Detalle activo</h2>
                 </div>
                 <div id="misActivoDetailContent" class="activos-detail-content"></div>
-                <div id="misActivoUsoVehiculoBlock" class="activos-uso-block" style="display: none;">
-                    <h3 class="activos-uso-title">Registro del dia (vehiculo)</h3>
-                    <div class="admin-solicitud-fields">
-                        <div class="admin-solicitud-field"><label for="misActivoKmActual">Kilometraje actual</label><input type="number" id="misActivoKmActual" min="0" step="1" placeholder="Lectura del cuentakilometros"></div>
-                        <div class="admin-solicitud-field"><label for="misActivoLitros">Litros</label><input type="number" id="misActivoLitros" min="0" step="0.01"></div>
-                        <div class="admin-solicitud-field"><label for="misActivoCoste">Coste combustible (EUR)</label><input type="number" id="misActivoCoste" min="0" step="0.01"></div>
+            </main>
+        </div>
+
+        <div id="activosRegistroModal" class="login-modal activos-registro-modal" style="display: none;">
+            <div class="login-modal-overlay" id="activosRegistroModalOverlay"></div>
+            <div class="login-modal-content activos-registro-modal-content">
+                <div class="login-modal-header">
+                    <h2 class="login-modal-title">Registro de datos</h2>
+                    <button type="button" id="activosRegistroModalClose" class="login-modal-close" aria-label="Cerrar">×</button>
+                </div>
+                <div class="activos-registro-dia-fields">
+                    <div class="activos-registro-dia-field activos-registro-dia-field-full">
+                        <label for="misActivoKmActual">Kilometraje actual</label>
+                        <input type="number" id="misActivoKmActual" min="0" step="1" placeholder="Lectura del cuentakilometros" inputmode="numeric">
                     </div>
+                    <div class="activos-registro-dia-field">
+                        <label for="misActivoLitros">Litros</label>
+                        <input type="number" id="misActivoLitros" min="0" step="0.1" placeholder="0" inputmode="decimal">
+                    </div>
+                    <div class="activos-registro-dia-field">
+                        <label for="misActivoCoste">Coste (EUR)</label>
+                        <input type="number" id="misActivoCoste" min="0" step="0.01" placeholder="0.00" inputmode="decimal">
+                    </div>
+                </div>
+                <div class="activos-registro-modal-actions">
+                    <button type="button" id="activosRegistroModalCancelBtn" class="btn btn-secondary">Cancelar</button>
                     <button type="button" id="misActivoUsoVehiculoBtn" class="btn btn-primary">Guardar uso del dia</button>
                 </div>
-            </main>
+            </div>
         </div>
 
         <!-- ================================
@@ -1929,6 +1948,8 @@
             <main class="screen-content">
                 <div class="activos-list-actions">
                     <button type="button" id="adminActivosNuevoBtn" class="btn btn-primary">Nuevo activo</button>
+                    <button type="button" id="adminActivosSeguroBtn" class="btn btn-secondary" style="display: none;">Contactos seguro</button>
+                    <button type="button" id="adminActivosTalleresBtn" class="btn btn-secondary" style="display: none;">Talleres referencia</button>
                 </div>
                 <div id="adminActivosList" class="admin-list activos-admin-list"></div>
             </main>
@@ -1940,8 +1961,10 @@
             </header>
             <main class="screen-content">
                 <div id="adminActivoFormFields" class="admin-solicitud-fields"></div>
-                <div class="admin-detail-actions">
+                <div id="adminActivoFormVehiculoExtra" class="activos-vehiculo-form-extra" style="display: none;"></div>
+                <div class="admin-detail-actions activos-vehiculo-form-actions">
                     <button type="button" id="adminActivoGuardarBtn" class="btn btn-primary">Guardar</button>
+                    <button type="button" id="adminActivoEliminarBtn" class="btn btn-danger activos-vehiculo-eliminar-btn" style="display: none;">Eliminar vehiculo</button>
                 </div>
             </main>
         </div>
@@ -1973,6 +1996,38 @@
                     <button type="button" id="adminActivoEventoBtn" class="btn btn-primary">Registrar evento</button>
                 </div>
             </main>
+        </div>
+        <div id="adminActivosSeguroModal" class="login-modal activos-config-modal" style="display: none;">
+            <div class="login-modal-overlay" id="adminActivosSeguroModalOverlay"></div>
+            <div class="login-modal-content activos-config-modal-content">
+                <div class="login-modal-header">
+                    <h2 class="login-modal-title">Contactos de seguro</h2>
+                    <button type="button" id="adminActivosSeguroModalClose" class="login-modal-close" aria-label="Cerrar">×</button>
+                </div>
+                <div id="adminActivosSeguroList" class="activos-config-list"></div>
+                <div class="activos-config-modal-actions">
+                    <button type="button" id="adminActivosSeguroAddBtn" class="btn btn-secondary">Anadir contacto</button>
+                    <button type="button" id="adminActivosSeguroGuardarBtn" class="btn btn-primary">Guardar</button>
+                </div>
+            </div>
+        </div>
+        <div id="adminActivosTalleresModal" class="login-modal activos-config-modal" style="display: none;">
+            <div class="login-modal-overlay" id="adminActivosTalleresModalOverlay"></div>
+            <div class="login-modal-content activos-config-modal-content">
+                <div class="login-modal-header">
+                    <h2 class="login-modal-title">Talleres de referencia</h2>
+                    <button type="button" id="adminActivosTalleresModalClose" class="login-modal-close" aria-label="Cerrar">×</button>
+                </div>
+                <div class="admin-solicitud-field activos-talleres-almacen-field">
+                    <label for="adminActivosTalleresAlmacen">Almacen</label>
+                    <select id="adminActivosTalleresAlmacen"></select>
+                </div>
+                <div id="adminActivosTalleresList" class="activos-config-list"></div>
+                <div class="activos-config-modal-actions">
+                    <button type="button" id="adminActivosTalleresAddBtn" class="btn btn-secondary">Anadir taller</button>
+                    <button type="button" id="adminActivosTalleresGuardarBtn" class="btn btn-primary">Guardar</button>
+                </div>
+            </div>
         </div>
         <nav class="bottom-nav bottom-nav-admin" aria-label="Administracion">
             <button type="button" id="navAdminInicio" class="nav-item nav-item-admin active">Inicio</button>
@@ -2133,6 +2188,8 @@
     
     <!-- App Scripts -->
     <script src="config.js"></script>
+    <script src="config.local.js"></script>
+    <script>if (window.CONFIG) window.CONFIG.applyLocalOverrides();</script>
     <script src="js/supabase.js"></script>
     <script src="js/erp.js"></script>
     <script src="js/erp-retry-queue.js"></script>
@@ -2145,7 +2202,9 @@
     <script src="js/signature-pad.js"></script>
     <script src="js/tienda-native.js"></script>
     <script src="js/tienda-log.js"></script>
-    <script src="js/activos.js"></script>
+    <script src="js/activos.js?v=activos-dev-19"></script>
+    <!-- Login de demo + base de datos factice para disenar ACTIVOS en local (usuario DEMO / DEMO). Inerte en produccion. -->
+    <script src="js/activos-mock.js?v=activos-dev-19"></script>
     <script src="js/app.js"></script>
 
     <!-- Service Worker con auto-actualizacion (solo PWA/navegador; no en TiendaPC/pywebview) -->
