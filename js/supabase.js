@@ -302,6 +302,24 @@ class SupabaseClient {
         }
     }
 
+    /**
+     * True si la cache de ofertas lleva demasiado tiempo sin refrescarse.
+     * Los cambios en tablas de ofertas no siempre bumpan version_control.
+     */
+    isOfertasCacheStale(maxAgeMs = 30 * 24 * 60 * 60 * 1000) {
+        try {
+            const completedAt = localStorage.getItem(this.OFERTAS_CACHE_COMPLETED_AT_KEY);
+            if (!completedAt) {
+                return true;
+            }
+            const ageMs = Date.now() - new Date(completedAt).getTime();
+            return !Number.isFinite(ageMs) || ageMs > maxAgeMs;
+        } catch (error) {
+            console.error('Error al comprobar antiguedad de cache de ofertas:', error);
+            return true;
+        }
+    }
+
     shouldFallbackToSupabaseOnOfertasCacheMiss() {
         const hybridModeActive = !!(
             window.app &&
@@ -309,6 +327,9 @@ class SupabaseClient {
             window.app.isHybridCatalogReadModeEnabled()
         );
         if (hybridModeActive) {
+            return true;
+        }
+        if (this.isOfertasCacheStale()) {
             return true;
         }
         return !this.isOfertasCacheCompleteAndCurrent();
@@ -3321,12 +3342,21 @@ class SupabaseClient {
             const ofertasDetalles = await this._downloadWithPagination('ofertas_detalles', onProgress);
             const ofertasGruposAsignaciones = await this._downloadWithPagination('ofertas_grupos_asignaciones', onProgress);
 
+            let cacheSavedOk = true;
             if (window.cartManager) {
-                await window.cartManager.saveOfertasToCache(ofertas || []);
-                await window.cartManager.saveOfertasProductosToCache(ofertasProductos || []);
-                await window.cartManager.saveOfertasIntervalosToCache(ofertasIntervalos || []);
-                await window.cartManager.saveOfertasDetallesToCache(ofertasDetalles || []);
-                await window.cartManager.saveOfertasGruposToCache(ofertasGruposAsignaciones || []);
+                const saves = await Promise.all([
+                    window.cartManager.saveOfertasToCache(ofertas || []),
+                    window.cartManager.saveOfertasProductosToCache(ofertasProductos || []),
+                    window.cartManager.saveOfertasIntervalosToCache(ofertasIntervalos || []),
+                    window.cartManager.saveOfertasDetallesToCache(ofertasDetalles || []),
+                    window.cartManager.saveOfertasGruposToCache(ofertasGruposAsignaciones || [])
+                ]);
+                cacheSavedOk = saves.every(function (ok) { return ok !== false; });
+            }
+
+            if (!cacheSavedOk) {
+                this.markOfertasCachePending(localStorage.getItem('version_hash_local'));
+                throw new Error('No se pudo guardar la cache local de ofertas');
             }
 
             if (window.cartManager && typeof window.cartManager.invalidateAllOfertasProductosIndex === 'function') {

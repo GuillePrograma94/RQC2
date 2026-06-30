@@ -17,6 +17,46 @@
     <meta name="theme-color" content="#5B3A87" media="(prefers-color-scheme: dark)">
     
     <title>BATMAR</title>
+
+    <!-- TiendaPC: desactivar Service Worker antes de cargar recursos (pywebview HTTP interno) -->
+    <script>
+        (function () {
+            function isTiendaPCEmbedded() {
+                try {
+                    if (window.pywebview) {
+                        return true;
+                    }
+                    if (window.__TIENDAPC_EMBEDDED__) {
+                        return true;
+                    }
+                    var loc = window.location;
+                    var params = new URLSearchParams(loc.search || '');
+                    return params.get('tiendapc') === '1';
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            window.__TIENDAPC_EMBEDDED__ = isTiendaPCEmbedded();
+            if (window.__TIENDAPC_EMBEDDED__) {
+                try {
+                    var locHead = window.location;
+                    var apiBaseParam = new URLSearchParams((locHead && locHead.search) || '').get('api_base');
+                    if (apiBaseParam) {
+                        window.__TIENDAPC_API_BASE__ = String(apiBaseParam).trim().replace(/\/+$/, '');
+                    }
+                } catch (apiBaseErr) {}
+            }
+            if (!window.__TIENDAPC_EMBEDDED__ || !('serviceWorker' in navigator)) {
+                return;
+            }
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+                regs.forEach(function (reg) {
+                    reg.unregister().catch(function () {});
+                });
+            }).catch(function () {});
+        })();
+    </script>
     
     <!-- Manifest -->
     <link rel="manifest" href="manifest.json">
@@ -180,6 +220,9 @@
 
             function prefetchServerConfig() {
                 try {
+                    if (window.__TIENDAPC_EMBEDDED__) {
+                        return;
+                    }
                     var origin = window.location && window.location.origin;
                     if (!origin) return;
                     fetch(origin + '/api/config.js', { credentials: 'same-origin' })
@@ -200,6 +243,9 @@
 
             function warmAuthApi() {
                 try {
+                    if (window.__TIENDAPC_EMBEDDED__) {
+                        return;
+                    }
                     var origin = window.location && window.location.origin;
                     if (!origin) return;
                     fetch(origin + '/api/auth/login', { method: 'OPTIONS' }).catch(function () {});
@@ -604,32 +650,32 @@
                         <div class="filter-chips-wrapper">
                             <div class="filter-chips-row" id="filterChipsRow">
                                 <!-- Mis compras: solo visible para usuarios logueados -->
-                                <button class="filter-chip chip-toggle" id="chipMisCompras" style="display:none" data-chip="misCompras"
+                                <button type="button" class="filter-chip chip-toggle" id="chipMisCompras" style="display:none" data-chip="misCompras"
                                         title="Muestra solo artículos que has pedido anteriormente">
                                     <span class="chip-icon">☑</span>
                                     <span class="chip-label">Solo mis compras</span>
                                 </button>
                                 <!-- Almacén stock: solo visible con stock sincronizado -->
-                                <button class="filter-chip chip-with-dropdown" id="chipAlmacen" style="display:none" data-chip="almacen"
+                                <button type="button" class="filter-chip chip-with-dropdown" id="chipAlmacen" style="display:none" data-chip="almacen"
                                         title="Elige de qué almacén ver el stock">
                                     <span class="chip-icon">📦</span>
                                     <span class="chip-label" id="chipAlmacenLabel">Stock global</span>
                                     <span class="chip-arrow">▾</span>
                                 </button>
                                 <!-- Oferta: solo visible para usuarios logueados -->
-                                <button class="filter-chip chip-toggle" id="chipOferta" style="display:none" data-chip="oferta"
+                                <button type="button" class="filter-chip chip-toggle" id="chipOferta" style="display:none" data-chip="oferta"
                                         title="Muestra solo artículos que tienen oferta para tu tarifa">
                                     <span class="chip-icon">☑</span>
                                     <span class="chip-label">Solo en oferta</span>
                                 </button>
                                 <!-- Fabricante (proveedor): filtrar por entidad fabricante -->
-                                <button class="filter-chip chip-expandable" id="chipFabricanteProveedor" data-chip="fabricanteProveedor"
+                                <button type="button" class="filter-chip chip-expandable" id="chipFabricanteProveedor" data-chip="fabricanteProveedor"
                                         title="Filtrar por fabricante o proveedor del articulo">
                                     <span class="chip-label" id="chipFabricanteProveedorLabel">Fabricante</span>
                                     <span class="chip-arrow">▾</span>
                                 </button>
                                 <!-- Precio: siempre visible -->
-                                <button class="filter-chip chip-expandable" id="chipPrecio" data-chip="precio"
+                                <button type="button" class="filter-chip chip-expandable" id="chipPrecio" data-chip="precio"
                                         title="Filtra resultados por rango de precio con IVA">
                                     <span class="chip-label" id="chipPrecioLabel">Precio €</span>
                                     <span class="chip-arrow">▾</span>
@@ -2215,7 +2261,20 @@
             }
             // TiendaPC sirve la UI con el HTTP interno de pywebview. El SW cachea '/'
             // y rompe bottle (asset() sin argumento file). Desregistrar y no registrar.
-            if (window.pywebview) {
+            function isTiendaPCEmbedded() {
+                if (window.pywebview) {
+                    return true;
+                }
+                if (window.__TIENDAPC_EMBEDDED__) {
+                    return true;
+                }
+                try {
+                    return new URLSearchParams(window.location.search || '').get('tiendapc') === '1';
+                } catch (e) {
+                    return false;
+                }
+            }
+            if (isTiendaPCEmbedded()) {
                 navigator.serviceWorker.getRegistrations().then(function (regs) {
                     regs.forEach(function (reg) {
                         reg.unregister().catch(function () {});

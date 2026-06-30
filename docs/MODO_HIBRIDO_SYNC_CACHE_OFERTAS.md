@@ -22,7 +22,10 @@ En `supabase.js#getOfertasProducto`:
 - Si la cache tiene ofertas para el producto/grupo, se devuelve cache.
 - Si no hay ofertas en cache:
   - si la cache de ofertas esta completa y vigente (`ofertas_cache_status=complete` y `ofertas_cache_version_hash=version_hash_local`), se devuelve `[]` sin consultar Supabase;
+  - si la cache lleva mas de 30 dias sin refrescarse (`ofertas_cache_completed_at`), se permite fallback remoto;
   - si esta en sync hibrido o la cache no esta completa/vigente, se permite fallback remoto.
+
+Ademas, al arrancar `loadOfertasIfNeeded` re-descarga ofertas si la cache tiene mas de 30 dias.
 
 ## Cuando se invalidan y descargan ofertas
 
@@ -80,9 +83,10 @@ Secuencia en `initializeApp`:
 2. `await preloadStockIndexFromLocal()` — stock en RAM
 3. `await refreshClavesDescuentoCache()` + pactos
 4. `await warmSearchIndicesCritical(8000)` — indice productos (critico busqueda)
-5. `void preloadOfertasSearchIndex()` — ofertas en background
-6. `hideLoading()` — UI usable
-7. `void syncProductsInBackground()` — escrituras pesadas **despues** (evita contencion IDB)
+5. `await loadOfertasIfNeeded()` — descarga/valida cache ofertas (refresco si >30 dias)
+6. `preloadOfertasSearchIndex()` — ofertas en background (reintenta si indice vacio y cache antigua)
+7. `hideLoading()` — UI usable
+8. `void syncProductsInBackground()` — escrituras pesadas **despues** (evita contencion IDB)
 
 Tras `downloadOfertas` (sync o completar cache): invalidar indice ofertas RAM y `preloadOfertasSearchIndex()`.
 
