@@ -118,7 +118,9 @@
             const url = result && result.url ? String(result.url).trim() : '';
             const normalized = url.replace(/\/+$/, '');
             if (normalized) {
-                tiendaLog('info', 'app_url para API: ' + normalized, 'config');
+                if (!global.__TIENDAPC_API_BASE__ || global.__TIENDAPC_API_BASE__ !== normalized) {
+                    tiendaLog('info', 'app_url para API: ' + normalized, 'config');
+                }
             } else {
                 tiendaLog('warn', 'app_url vacia en tienda_config.json', 'config');
             }

@@ -38,6 +38,15 @@
             }
 
             window.__TIENDAPC_EMBEDDED__ = isTiendaPCEmbedded();
+            if (window.__TIENDAPC_EMBEDDED__) {
+                try {
+                    var locHead = window.location;
+                    var apiBaseParam = new URLSearchParams((locHead && locHead.search) || '').get('api_base');
+                    if (apiBaseParam) {
+                        window.__TIENDAPC_API_BASE__ = String(apiBaseParam).trim().replace(/\/+$/, '');
+                    }
+                } catch (apiBaseErr) {}
+            }
             if (!window.__TIENDAPC_EMBEDDED__ || !('serviceWorker' in navigator)) {
                 return;
             }
