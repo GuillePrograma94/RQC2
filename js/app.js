@@ -327,7 +327,12 @@ class ScanAsYouShopApp {
         const hasCache = window.CONFIG && typeof window.CONFIG.readServerConfigCache === 'function'
             && window.CONFIG.readServerConfigCache();
         if (!hasCache && window.CONFIG && typeof window.CONFIG.prefetchServerConfig === 'function') {
-            window.CONFIG.prefetchServerConfig();
+            const prefetch = window.CONFIG.isTiendaPCEmbedded && window.CONFIG.isTiendaPCEmbedded()
+                ? window.CONFIG.resolveApiBaseUrl().then(function () {
+                    return window.CONFIG.prefetchServerConfig();
+                })
+                : window.CONFIG.prefetchServerConfig();
+            void prefetch;
         }
         if (!this._supabaseInitPromise) {
             this._supabaseInitPromise = window.supabaseClient.initialize().catch(function (err) {
@@ -521,7 +526,7 @@ class ScanAsYouShopApp {
 
         try {
             if (window.CONFIG && typeof window.CONFIG.resolveApiBaseUrl === 'function') {
-                void window.CONFIG.resolveApiBaseUrl();
+                await window.CONFIG.resolveApiBaseUrl();
             }
 
             const apiPromise = window.supabaseClient.fetchLoginApi(codigo, password);

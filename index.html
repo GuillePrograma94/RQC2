@@ -17,6 +17,37 @@
     <meta name="theme-color" content="#5B3A87" media="(prefers-color-scheme: dark)">
     
     <title>BATMAR</title>
+
+    <!-- TiendaPC: desactivar Service Worker antes de cargar recursos (pywebview HTTP interno) -->
+    <script>
+        (function () {
+            function isTiendaPCEmbedded() {
+                try {
+                    if (window.pywebview) {
+                        return true;
+                    }
+                    if (window.__TIENDAPC_EMBEDDED__) {
+                        return true;
+                    }
+                    var loc = window.location;
+                    var params = new URLSearchParams(loc.search || '');
+                    return params.get('tiendapc') === '1';
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            window.__TIENDAPC_EMBEDDED__ = isTiendaPCEmbedded();
+            if (!window.__TIENDAPC_EMBEDDED__ || !('serviceWorker' in navigator)) {
+                return;
+            }
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+                regs.forEach(function (reg) {
+                    reg.unregister().catch(function () {});
+                });
+            }).catch(function () {});
+        })();
+    </script>
     
     <!-- Manifest -->
     <link rel="manifest" href="manifest.json">
@@ -180,6 +211,9 @@
 
             function prefetchServerConfig() {
                 try {
+                    if (window.__TIENDAPC_EMBEDDED__) {
+                        return;
+                    }
                     var origin = window.location && window.location.origin;
                     if (!origin) return;
                     fetch(origin + '/api/config.js', { credentials: 'same-origin' })
@@ -200,6 +234,9 @@
 
             function warmAuthApi() {
                 try {
+                    if (window.__TIENDAPC_EMBEDDED__) {
+                        return;
+                    }
                     var origin = window.location && window.location.origin;
                     if (!origin) return;
                     fetch(origin + '/api/auth/login', { method: 'OPTIONS' }).catch(function () {});
@@ -2156,7 +2193,20 @@
             }
             // TiendaPC sirve la UI con el HTTP interno de pywebview. El SW cachea '/'
             // y rompe bottle (asset() sin argumento file). Desregistrar y no registrar.
-            if (window.pywebview) {
+            function isTiendaPCEmbedded() {
+                if (window.pywebview) {
+                    return true;
+                }
+                if (window.__TIENDAPC_EMBEDDED__) {
+                    return true;
+                }
+                try {
+                    return new URLSearchParams(window.location.search || '').get('tiendapc') === '1';
+                } catch (e) {
+                    return false;
+                }
+            }
+            if (isTiendaPCEmbedded()) {
                 navigator.serviceWorker.getRegistrations().then(function (regs) {
                     regs.forEach(function (reg) {
                         reg.unregister().catch(function () {});

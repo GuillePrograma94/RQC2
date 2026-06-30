@@ -165,17 +165,60 @@ let CONFIG = {
     },
 
     /**
+     * TiendaPC con UI local embebida (pywebview HTTP en 127.0.0.1).
+     * Las APIs /api/* deben ir a app_url (Vercel), no al origen local.
+     */
+    isTiendaPCEmbedded() {
+        try {
+            if (typeof window === 'undefined') {
+                return false;
+            }
+            if (window.__TIENDAPC_EMBEDDED__) {
+                return true;
+            }
+            if (window.pywebview) {
+                return true;
+            }
+            const params = new URLSearchParams(window.location.search || '');
+            return params.get('tiendapc') === '1';
+        } catch (e) {
+            return false;
+        }
+    },
+
+    _isLocalApiOrigin(url) {
+        if (!url) {
+            return false;
+        }
+        try {
+            const parsed = new URL(url, window.location.href);
+            return parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost';
+        } catch (e) {
+            return false;
+        }
+    },
+
+    /**
      * Base URL para /api/* (Vercel). En TiendaPC con UI local usa app_url del config nativo.
      */
     async resolveApiBaseUrl() {
+        const embedded = this.isTiendaPCEmbedded();
         if (this._apiBaseUrlResolved) {
-            return this._apiBaseUrl;
+            if (!embedded || (this._apiBaseUrl && !this._isLocalApiOrigin(this._apiBaseUrl))) {
+                return this._apiBaseUrl;
+            }
+            this._apiBaseUrlResolved = false;
         }
+
         let base = '';
-        if (typeof window !== 'undefined' && window.location && window.location.origin) {
+        if (!embedded && typeof window !== 'undefined' && window.location && window.location.origin) {
             base = window.location.origin;
         }
+
         try {
+            if (embedded && window.TiendaNative && typeof window.TiendaNative.whenReady === 'function') {
+                await window.TiendaNative.whenReady();
+            }
             const tiendaReady = window.TiendaNative
                 && typeof window.TiendaNative.isAvailable === 'function'
                 && window.TiendaNative.isAvailable();
@@ -184,7 +227,7 @@ let CONFIG = {
                 if (remote) {
                     base = remote;
                 }
-            } else if (window.pywebview && window.TiendaNative && typeof window.TiendaNative.whenReady === 'function') {
+            } else if (!embedded && window.pywebview && window.TiendaNative && typeof window.TiendaNative.whenReady === 'function') {
                 await window.TiendaNative.whenReady();
                 if (typeof window.TiendaNative.getRemoteApiBase === 'function') {
                     const remote = await window.TiendaNative.getRemoteApiBase();
@@ -196,9 +239,22 @@ let CONFIG = {
         } catch (e) {
             console.warn('[Config] No se pudo obtener API base remota de TiendaPC:', e);
         }
+
         this._apiBaseUrl = String(base || '').replace(/\/+$/, '');
-        this._apiBaseUrlResolved = true;
+        const resolvedOk = !!this._apiBaseUrl && (!embedded || !this._isLocalApiOrigin(this._apiBaseUrl));
+        this._apiBaseUrlResolved = resolvedOk;
         console.log('[Config] API base URL:', this._apiBaseUrl || '(relativa)');
+        if (embedded && window.TiendaLog && typeof window.TiendaLog.append === 'function') {
+            if (resolvedOk) {
+                window.TiendaLog.append('info', 'API remota: ' + this._apiBaseUrl, 'config');
+            } else {
+                window.TiendaLog.append(
+                    'error',
+                    'API remota no disponible. Revisa app_url en tienda_config.json',
+                    'config'
+                );
+            }
+        }
         return this._apiBaseUrl;
     },
 
