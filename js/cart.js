@@ -1198,6 +1198,8 @@ class CartManager {
      */
     async saveFamiliasCatalogToStorage(familiasRows, asignadasRows) {
         if (!this.db) return;
+        const rawFamCount = Array.isArray(familiasRows) ? familiasRows.length : 0;
+        const rawAsigCount = Array.isArray(asignadasRows) ? asignadasRows.length : 0;
         const familias = (familiasRows || []).map((r) => ({
             codigo: CartManager.normalizeFamiliaCodigoCatalogo(
                 r.CODIGO != null ? r.CODIGO : r.codigo != null ? r.codigo : ''
@@ -1231,8 +1233,9 @@ class CartManager {
             tx.oncomplete = () => {
                 this.bumpFamiliaImagesCacheBust();
                 try {
-                    localStorage.setItem('scan_familias_total', String(familias.length));
-                    localStorage.setItem('scan_familias_asignadas_total', String(asignadas.length));
+                    // Conteos brutos (filas remotas) para alinear con manifest.familias_total del servidor.
+                    localStorage.setItem('scan_familias_total', String(rawFamCount));
+                    localStorage.setItem('scan_familias_asignadas_total', String(rawAsigCount));
                 } catch (e) {
                     console.warn('saveFamiliasCatalogToStorage: no se guardaron conteos locales', e);
                 }

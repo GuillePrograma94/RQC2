@@ -44,7 +44,7 @@ Un cambio solo de tarifas (`claves_descuento`) **no** invalida ni re-descarga of
 - `ofertas_cache_target_version_hash`
 - `scan_claves_descuento_max_fecha`
 - `scan_pactos_max_fecha`
-- `scan_familias_total` / `scan_familias_asignadas_total`
+- `scan_familias_total` / `scan_familias_asignadas_total` — conteos brutos de filas remotas (alineados con `manifest.familias_total`); se usan para omitir la descarga de `familias` / `familias_asignadas` cuando no cambia el total en servidor. Cambios de UI de familia (titulo, imagen) se refrescan con **Forzar cache de la app** en Mi perfil.
 
 ## Indice de busqueda local en memoria
 

@@ -5867,17 +5867,26 @@ class ScanAsYouShopApp {
         return false;
     }
 
-    _shouldRefreshFamiliasCatalog(manifest, changeStats) {
-        if (!manifest) return true;
-        if (this._countProductChanges(changeStats) > 0) return true;
-        const remoteFam = Number(manifest.familias_total) || 0;
-        const remoteAsig = Number(manifest.familias_asignadas_total) || 0;
+    _shouldRefreshFamiliasCatalog(manifest) {
         let localFam = 0;
         let localAsig = 0;
         try {
             localFam = Number.parseInt(localStorage.getItem('scan_familias_total') || '0', 10) || 0;
             localAsig = Number.parseInt(localStorage.getItem('scan_familias_asignadas_total') || '0', 10) || 0;
         } catch (_) { /* ignorar */ }
+
+        if (!manifest) {
+            // Sin manifest no hay conteos remotos: solo descargar si nunca se guardo cache local.
+            return localFam === 0 && localAsig === 0;
+        }
+
+        const remoteFam = Number(manifest.familias_total) || 0;
+        const remoteAsig = Number(manifest.familias_asignadas_total) || 0;
+
+        if (localFam === 0 && localAsig === 0) {
+            return remoteFam > 0 || remoteAsig > 0;
+        }
+
         return remoteFam !== localFam || remoteAsig !== localAsig;
     }
 
@@ -6136,7 +6145,7 @@ class ScanAsYouShopApp {
             window.ui.updateSyncIndicator('Guardando pactos cliente...');
             await this.syncPactosClientesInBackground(onProgress);
 
-            if (this._shouldRefreshFamiliasCatalog(manifest, changeStats)) {
+            if (this._shouldRefreshFamiliasCatalog(manifest)) {
                 window.ui.updateSyncIndicator('Descargando familias...');
                 try {
                     const fc = await window.supabaseClient.downloadFamiliasCatalog(onProgress);

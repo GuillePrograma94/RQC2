@@ -105,7 +105,7 @@ Si el manifest indica cambios **solo** en `claves_descuento` (productos=0, codig
 Metadatos adicionales en `localStorage`:
 
 - `scan_pactos_max_fecha` — fecha maxima de pactos guardados localmente
-- `scan_familias_total` / `scan_familias_asignadas_total` — conteos para omitir descarga de familias
+- `scan_familias_total` / `scan_familias_asignadas_total` — conteos brutos remotos para omitir descarga de familias (solo se vuelven a descargar si cambian los totales del manifest o si aun no hay cache local)
 
 ### Flujo de lectura en modo híbrido (nuevo)
 
