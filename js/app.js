@@ -167,10 +167,6 @@ class ScanAsYouShopApp {
                 throw new Error('No se pudo conectar con el servidor');
             }
 
-            if (window.erpClient) {
-                window.erpClient.initialize();
-            }
-
             const savedUser = this.loadUserSession();
             if (!savedUser) {
                 this.showLanding();
@@ -335,11 +331,36 @@ class ScanAsYouShopApp {
             void prefetch;
         }
         if (!this._supabaseInitPromise) {
-            this._supabaseInitPromise = window.supabaseClient.initialize().catch(function (err) {
-                console.warn('Inicializacion en segundo plano de Supabase fallida:', err);
-                return false;
-            });
+            this._supabaseInitPromise = window.supabaseClient.initialize()
+                .then((ok) => {
+                    if (ok) {
+                        return this.ensureErpClientReady().then(() => ok);
+                    }
+                    return ok;
+                })
+                .catch(function (err) {
+                    console.warn('Inicializacion en segundo plano de Supabase fallida:', err);
+                    return false;
+                });
         }
+    }
+
+    /**
+     * Carga CONFIG.ERP y deja listo el cliente para /api/erp/pedidos.
+     * Tras login por gate, sin esto sendRemoteOrder no llama al ERP (pedido solo en Supabase).
+     */
+    async ensureErpClientReady() {
+        if (window.CONFIG && typeof window.CONFIG.resolveApiBaseUrl === 'function') {
+            try {
+                await window.CONFIG.resolveApiBaseUrl();
+            } catch (e) {
+                console.warn('ensureErpClientReady resolveApiBaseUrl:', e);
+            }
+        }
+        if (window.erpClient && typeof window.erpClient.initialize === 'function') {
+            window.erpClient.initialize();
+        }
+        return !!(window.erpClient && (window.erpClient.proxyPath || window.erpClient.createOrderPath));
     }
 
     /**
@@ -348,6 +369,7 @@ class ScanAsYouShopApp {
      */
     async ensureSupabaseReady() {
         if (window.supabaseClient && window.supabaseClient.isConnected) {
+            await this.ensureErpClientReady();
             return true;
         }
         const hasCachedConfig = window.CONFIG
@@ -359,9 +381,18 @@ class ScanAsYouShopApp {
             } catch (_) {}
         }
         if (!this._supabaseInitPromise) {
-            this._supabaseInitPromise = window.supabaseClient.initialize();
+            this._supabaseInitPromise = window.supabaseClient.initialize().then(async (ok) => {
+                if (ok) {
+                    await this.ensureErpClientReady();
+                }
+                return ok;
+            });
         }
-        return this._supabaseInitPromise;
+        const ok = await this._supabaseInitPromise;
+        if (ok) {
+            await this.ensureErpClientReady();
+        }
+        return ok;
     }
 
     /**
@@ -12481,6 +12512,8 @@ class ScanAsYouShopApp {
 
             window.ui.showLoading('Generando albaran presencial...');
 
+            await this.ensureErpClientReady();
+
             const result = await window.supabaseClient.crearPedidoPresencialTienda(
                 effectiveUserId,
                 almacen,
@@ -12807,6 +12840,10 @@ class ScanAsYouShopApp {
 
             window.ui.showLoading(`Enviando pedido a ${almacen}...`);
 
+            if (sinImprimir) {
+                this._tiendaDiagLog('info', 'Inicio pedido remoto sin imprimir (' + almacen + ')', 'pedido');
+            }
+
             const crearPedidoFn =
                 sinImprimir && window.supabaseClient && typeof window.supabaseClient.crearPedidoRemotoSinImprimir === 'function'
                     ? window.supabaseClient.crearPedidoRemotoSinImprimir
@@ -12869,9 +12906,13 @@ class ScanAsYouShopApp {
 
             let erpResponse = null;
             let erpError = null;
-            if (window.erpClient && (window.erpClient.proxyPath || window.erpClient.createOrderPath)) {
+            const erpReady = await this.ensureErpClientReady();
+            if (erpReady && window.erpClient && (window.erpClient.proxyPath || window.erpClient.createOrderPath)) {
                 window.ui.showLoading(`Conectando con ERP para ${almacen}...`);
                 try {
+                    if (sinImprimir) {
+                        this._tiendaDiagLog('info', 'Enviando pedido REMOTO sin imprimir a ERP (' + almacen + ')', 'pedido');
+                    }
                     console.log('ERP create-order POST payload (detalles enviados):', JSON.stringify(erpPayload, null, 2));
                     erpResponse = await window.erpClient.createRemoteOrder(erpPayload);
                     if (erpResponse && erpResponse.success === false) {
@@ -12883,7 +12924,11 @@ class ScanAsYouShopApp {
                     erpError = e;
                 }
             } else {
-                console.log('ERP no configurado o endpoint de pedidos no disponible aun');
+                erpError = new Error('ERP no configurado');
+                if (sinImprimir) {
+                    this._tiendaDiagLog('error', 'ERP no configurado (proxy no cargado tras login)', 'pedido');
+                }
+                console.error('ERP no configurado o endpoint de pedidos no disponible');
             }
 
             if (erpError) {
@@ -12944,12 +12989,22 @@ class ScanAsYouShopApp {
                 return;
             }
 
-            const pedidoErp = erpResponse && erpResponse.data && erpResponse.data.pedido != null ? erpResponse.data.pedido : null;
+            const parsedErp = this.parseErpCreateOrderResponse(erpResponse);
+            const pedidoErp = parsedErp.ok ? parsedErp.pedido : null;
+            if (!erpError && erpResponse && !parsedErp.ok) {
+                erpError = new Error('El ERP no devolvio un pedido valido');
+                if (sinImprimir) {
+                    this._tiendaDiagLog('error', 'El ERP no devolvio un pedido valido', 'pedido');
+                }
+            }
             if (pedidoErp && result.carrito_id) {
                 try {
                     await window.supabaseClient.updatePedidoErp(result.carrito_id, pedidoErp);
                 } catch (e) {
                     console.warn('No se pudo guardar pedido_erp en Supabase:', e);
+                }
+                if (sinImprimir) {
+                    this._tiendaDiagLog('ok', 'Pedido ERP ' + pedidoErp + ' (sin imprimir)', 'pedido');
                 }
             }
 

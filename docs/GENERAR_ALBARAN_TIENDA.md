@@ -139,6 +139,8 @@ Payload via proxy existente `/api/erp/pedidos`:
 - REMOTO: `tipo: 'REMOTO'` (pedido staff remoto)
 - PRESENCIAL: `tipo: 'PRESENCIAL'` (albaran tienda)
 
+Tras login por gate, la app llama a `ensureErpClientReady()` (carga `CONFIG.ERP.PROXY_PATH` desde `/api/config.js`) antes de enviar al ERP. Sin eso, **Generar sin imprimir** creaba el carrito en Supabase pero no llamaba al ERP.
+
 Respuesta esperada: `pedido` y `albaran` en el cuerpo (mismo criterio que checkout_pc).
 
 ## Estados del pedido (Supabase)
