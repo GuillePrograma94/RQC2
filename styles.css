@@ -8016,13 +8016,42 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     border-top: 1px solid var(--gray-200);
 }
 
+.activos-hub-search-wrap {
+    margin-bottom: 1rem;
+}
+
+.activos-hub-search {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    background: #fff;
+}
+
+.activos-hub-search:focus {
+    outline: none;
+    border-color: var(--primary, #2563eb);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.activos-hub-search-empty {
+    margin: 0.5rem 0 0;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+}
+
 .activos-hub-list {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
 }
 
-.activos-hub-card {
+.activos-hub-card,
+.activos-hub-search-item {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
     text-align: left;
     width: 100%;
     padding: 1rem;
@@ -8032,11 +8061,49 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     cursor: pointer;
 }
 
+.activos-hub-card-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 10px;
+    background: var(--gray-100, #f3f4f6);
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.activos-hub-card-body,
+.activos-hub-search-item-body {
+    flex: 1;
+    min-width: 0;
+}
+
 .activos-hub-card-title {
     display: block;
     font-weight: 600;
     font-size: 1rem;
     margin-bottom: 0.35rem;
+}
+
+.activos-hub-search-item-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+}
+
+.activos-hub-search-item-head .activos-hub-card-title {
+    margin-bottom: 0;
+    flex: 1;
+    min-width: 0;
+}
+
+.activos-hub-search-badge {
+    flex-shrink: 0;
+    box-shadow: none;
 }
 
 .activos-hub-card-meta {
@@ -8760,11 +8827,33 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
 #appContainerTienda .activos-worker-extra-contact-tel {
     font-size: 1rem;
     font-weight: 600;
-    color: var(--primary);
-    text-decoration: none;
+    color: var(--primary, #2563eb);
+    text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
-#appContainerTienda .activos-worker-extra-taller-dir,
+#appContainerTienda .activos-worker-extra-contact-tel:hover {
+    color: var(--primary-dark, #1d4ed8);
+}
+
+#appContainerTienda .activos-worker-extra-taller-dir {
+    margin: 0.15rem 0 0;
+    font-size: 0.88rem;
+    color: var(--gray-600);
+    line-height: 1.45;
+}
+
+#appContainerTienda .activos-worker-extra-address-link {
+    color: var(--gray-900, #111827);
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+#appContainerTienda .activos-worker-extra-address-link:hover {
+    color: var(--gray-700, #374151);
+}
+
 #appContainerTienda .activos-worker-extra-empty {
     margin: 0;
     font-size: 0.88rem;
@@ -9103,6 +9192,1234 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     }
 }
 
+/* --- Bandeaux telefonos (admin + user) --- */
+.app-container-administracion .admin-list.activos-admin-telefonos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.app-container-administracion .admin-list.activos-admin-impresoras-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.activos-telefono-band {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.9rem 1rem 0.95rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.05);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.app-container-administracion .activos-telefono-band:hover,
+.app-container-administracion .activos-telefono-band:focus-visible,
+#appContainerTienda .activos-telefono-band:hover,
+#appContainerTienda .activos-telefono-band:focus-visible {
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.1);
+}
+
+.activos-telefono-band-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.activos-telefono-band-title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.activos-telefono-band-nombre {
+    display: block;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--gray-900, #111827);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activos-telefono-band-subtitle {
+    display: block;
+    font-size: 0.82rem;
+    line-height: 1.3;
+    color: var(--gray-600);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activos-telefono-band-badge {
+    position: static;
+    flex-shrink: 0;
+    min-width: auto;
+    margin-top: 0.05rem;
+    box-shadow: none;
+}
+
+.activos-telefono-band-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.activos-telefono-band-chip {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0.38rem 0.55rem;
+    border-radius: 8px;
+    background: var(--gray-50, #f9fafb);
+    border: 1px solid var(--gray-200);
+}
+
+.activos-telefono-band-chip-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    line-height: 1.1;
+}
+
+.activos-telefono-band-chip-value {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--gray-800, #1f2937);
+    line-height: 1.25;
+    word-break: break-word;
+}
+
+.activos-telefono-band-tel {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.activos-telefono-band-tel:hover {
+    text-decoration: underline;
+}
+
+#appContainerTienda .activos-telefono-band.activos-mis-item {
+    background: #fff;
+    color: inherit;
+    border: 1px solid var(--gray-200);
+}
+
+@media (min-width: 640px) {
+    .activos-telefono-band-details {
+        gap: 0.5rem;
+    }
+
+    .activos-telefono-band-chip {
+        flex: 0 1 auto;
+        min-width: 7.5rem;
+        max-width: calc(50% - 0.25rem);
+    }
+}
+
+/* --- Ficha telefono user --- */
+#appContainerTienda .activos-worker-telefono-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+#appContainerTienda .activos-worker-telefono-card {
+    padding: 1.1rem 1.15rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 14px;
+    background: linear-gradient(160deg, rgba(59, 130, 246, 0.07) 0%, #fff 42%);
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+}
+
+#appContainerTienda .activos-worker-telefono-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+}
+
+#appContainerTienda .activos-worker-telefono-title {
+    margin: 0;
+    font-size: 1.15rem;
+    line-height: 1.25;
+    color: var(--gray-900, #111827);
+}
+
+#appContainerTienda .activos-worker-telefono-fields {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+}
+
+@media (min-width: 480px) {
+    #appContainerTienda .activos-worker-telefono-fields {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem 1rem;
+    }
+}
+
+#appContainerTienda .activos-worker-telefono-fields .activos-activo-detail-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+#appContainerTienda .activos-worker-telefono-fields .activos-activo-detail-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+#appContainerTienda .activos-worker-telefono-fields .activos-activo-detail-value {
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.92);
+    font-size: 0.92rem;
+    min-height: 2.2rem;
+}
+
+.app-container-administracion #adminActivoFormEventoBlock #activoFormEventoBtn {
+    margin-top: 1.35rem;
+}
+
+.app-container-administracion #adminActivoFormTelefonoExtra.activos-telefono-form-extra {
+    gap: 1.75rem;
+}
+
+/* --- Ordenadores (admin + user) --- */
+.app-container-administracion .admin-list.activos-admin-ordenadores-list,
+#appContainerTienda .activos-mis-list--ordenadores {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.activos-ordenador-band {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    width: 100%;
+    padding: 0.75rem 0.85rem 0.8rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.05);
+}
+
+.activos-ordenador-band-open {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.35rem 0.25rem;
+    margin: -0.35rem -0.25rem 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    color: inherit;
+    transition: background 0.15s ease;
+}
+
+.app-container-administracion .activos-ordenador-band-open:hover,
+.app-container-administracion .activos-ordenador-band-open:focus-visible,
+#appContainerTienda .activos-ordenador-band-open:hover,
+#appContainerTienda .activos-ordenador-band-open:focus-visible {
+    background: rgba(59, 130, 246, 0.06);
+    outline: none;
+}
+
+.activos-ordenador-band-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.activos-ordenador-band-mainline {
+    flex: 1;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--gray-900, #111827);
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.activos-ordenador-band-sep {
+    color: var(--gray-400);
+    font-weight: 400;
+    padding: 0 0.15rem;
+}
+
+.activos-ordenador-band-compra {
+    font-size: 0.82rem;
+    color: var(--gray-600);
+    line-height: 1.35;
+}
+
+.activos-ordenador-band-compra-fecha {
+    font-weight: 500;
+}
+
+.activos-ordenador-factura-link {
+    color: var(--primary, #2563eb);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.activos-ordenador-factura-link:hover {
+    text-decoration: underline;
+}
+
+.activos-ordenador-band-badge {
+    position: static;
+    flex-shrink: 0;
+    box-shadow: none;
+}
+
+.activos-ordenador-band-panel {
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    background: var(--gray-50, #f9fafb);
+    overflow: hidden;
+}
+
+.activos-ordenador-band-panel > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--gray-700);
+    user-select: none;
+}
+
+.activos-ordenador-band-panel > summary::-webkit-details-marker {
+    display: none;
+}
+
+.activos-ordenador-band-panel > summary::before {
+    content: '▸';
+    display: inline-block;
+    margin-right: 0.45rem;
+    transition: transform 0.15s ease;
+    color: var(--gray-500);
+}
+
+.activos-ordenador-band-panel[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.activos-ordenador-panel-count {
+    font-weight: 500;
+    color: var(--gray-500);
+}
+
+.activos-ordenador-panel-body {
+    padding: 0 0.75rem 0.65rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.activos-ordenador-licencias-band-list {
+    list-style: none;
+    margin: 0.45rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.activos-ordenador-licencias-band-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.65rem;
+    font-size: 0.84rem;
+}
+
+.activos-ordenador-licencias-band-nombre {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.activos-ordenador-licencias-band-meta {
+    color: var(--gray-600);
+    font-size: 0.8rem;
+}
+
+.activos-ordenador-tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    gap: 0.45rem 0.85rem;
+    padding-top: 0.45rem;
+}
+
+.activos-ordenador-tech-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.activos-ordenador-tech-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--gray-500);
+}
+
+.activos-ordenador-tech-value {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    word-break: break-word;
+}
+
+#appContainerTienda .activos-ordenador-band {
+    background: #fff;
+    color: inherit;
+}
+
+#appContainerTienda .activos-ordenador-band-open.activos-mis-item {
+    background: transparent;
+    border: none;
+}
+
+.activos-ordenador-visual {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.1rem 0.85rem 1rem;
+    background: linear-gradient(155deg, rgba(16, 185, 129, 0.14) 0%, rgba(59, 130, 246, 0.12) 55%, rgba(255, 255, 255, 0.92) 100%);
+}
+
+.activos-ordenador-visual--form,
+.activos-ordenador-visual--detail {
+    min-height: 220px;
+    border-radius: 12px;
+}
+
+.activos-ordenador-device {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    width: min(100%, 150px);
+}
+
+.activos-ordenador-device-screen {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    border-radius: 10px 10px 4px 4px;
+    border: 2px solid rgba(15, 23, 42, 0.82);
+    background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    padding: 0.45rem;
+    text-align: center;
+}
+
+.activos-ordenador-device-base {
+    width: 42%;
+    height: 0.35rem;
+    border-radius: 0 0 8px 8px;
+    background: rgba(15, 23, 42, 0.75);
+}
+
+.activos-ordenador-device-modelo {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.activos-ordenador-device-serie {
+    font-size: 0.54rem;
+    color: rgba(255, 255, 255, 0.82);
+    word-break: break-word;
+}
+
+.app-container-administracion #adminActivoFormFields.activos-ordenador-form-wrap,
+.app-container-administracion .activos-ordenador-form-card {
+    display: block;
+    width: 100%;
+    max-width: 880px;
+    margin: 0 auto;
+}
+
+.app-container-administracion #adminActivoFormFields.activos-impresora-form-wrap {
+    display: block;
+    width: 100%;
+    max-width: 880px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.app-container-administracion .activos-ordenador-form-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.25rem 1.35rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+}
+
+.app-container-administracion .activos-ordenador-form-card .activos-ordenador-form-fields,
+.app-container-administracion .activos-ordenador-form-card .activos-ordenador-form-section {
+    width: 100%;
+    align-items: center;
+}
+
+.app-container-administracion .activos-ordenador-form-card .activos-ordenador-form-section .admin-detail-completar-title {
+    width: 100%;
+    max-width: 680px;
+    text-align: center;
+}
+
+.app-container-administracion .activos-ordenador-form-card .activos-ordenador-form-general,
+.app-container-administracion .activos-ordenador-form-card .activos-ordenador-form-tech,
+.app-container-administracion .activos-ordenador-form-card .activos-ordenador-compra-section .admin-solicitud-fields,
+.app-container-administracion .activos-ordenador-form-card .activos-ordenador-licencias-form-summary {
+    width: 100%;
+    max-width: 680px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.app-container-administracion .activos-ordenador-form-card .activos-ordenador-licencias-form-head {
+    width: 100%;
+    max-width: 680px;
+    margin-left: auto;
+    margin-right: auto;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.app-container-administracion .activos-ordenador-form-card .activos-ordenador-licencias-form-head .admin-detail-completar-title {
+    text-align: center;
+}
+
+.app-container-administracion .activos-ordenador-form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.activos-ordenador-form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.activos-ordenador-form-section .admin-detail-completar-title {
+    margin: 0;
+}
+
+.activos-ordenador-form-general,
+.activos-ordenador-form-tech,
+.activos-ordenador-compra-section .admin-solicitud-fields {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+}
+
+.activos-ordenador-compra-section {
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.activos-ordenador-tech-section {
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.activos-ordenador-licencias-form-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.activos-ordenador-licencias-form-summary {
+    margin-top: 0.15rem;
+}
+
+.activos-ordenador-licencias-summary-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.activos-ordenador-licencias-summary-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.65rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    background: var(--gray-50, #f9fafb);
+    font-size: 0.86rem;
+}
+
+.activos-ordenador-licencias-summary-nombre {
+    font-weight: 600;
+}
+
+.activos-ordenador-licencias-summary-meta {
+    color: var(--gray-600);
+    font-size: 0.8rem;
+}
+
+.activos-ordenador-factura-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.activos-ordenador-factura-empty {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+}
+
+.activos-config-modal-hint {
+    margin: 0 0 0.85rem;
+    font-size: 0.86rem;
+    color: var(--gray-600);
+}
+
+.activos-worker-collapsible.activos-ordenador-licencias-panel,
+.activos-worker-collapsible.activos-ordenador-tech-panel {
+    margin-top: 0.65rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.activos-worker-collapsible.activos-ordenador-licencias-panel > summary,
+.activos-worker-collapsible.activos-ordenador-tech-panel > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--gray-800);
+}
+
+.activos-worker-collapsible.activos-ordenador-licencias-panel > summary::-webkit-details-marker,
+.activos-worker-collapsible.activos-ordenador-tech-panel > summary::-webkit-details-marker {
+    display: none;
+}
+
+.activos-worker-ordenador-modelo {
+    margin: 0.2rem 0 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--gray-700, #374151);
+    line-height: 1.35;
+}
+
+.activos-worker-ordenador-serie {
+    margin: 0.35rem 0 0;
+    font-size: 0.82rem;
+    color: var(--gray-600);
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.activos-worker-ordenador-serie-label {
+    font-weight: 600;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.72rem;
+}
+
+#appContainerTienda .activos-worker-ordenador-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+#appContainerTienda .activos-worker-ordenador-card {
+    padding: 1.15rem 1.2rem 1.2rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 16px;
+    background: linear-gradient(155deg, rgba(16, 185, 129, 0.1) 0%, rgba(59, 130, 246, 0.05) 38%, #fff 68%);
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.07);
+}
+
+#appContainerTienda .activos-worker-ordenador-hero {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+}
+
+#appContainerTienda .activos-worker-ordenador-hero-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.12);
+    font-size: 1.55rem;
+    line-height: 1;
+}
+
+@media (max-width: 767px) {
+    #appContainerTienda .activos-worker-ordenador-hero-icon {
+        display: none;
+    }
+}
+
+#appContainerTienda .activos-worker-ordenador-hero-body {
+    flex: 1;
+    min-width: 0;
+}
+
+#appContainerTienda .activos-worker-ordenador-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0;
+}
+
+#appContainerTienda .activos-worker-ordenador-title {
+    margin: 0;
+    font-size: 1.2rem;
+    line-height: 1.25;
+    font-weight: 700;
+    color: var(--gray-900, #111827);
+}
+
+#appContainerTienda .activos-worker-ordenador-badge {
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+}
+
+#appContainerTienda .activos-worker-ordenador-meta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+@media (min-width: 480px) {
+    #appContainerTienda .activos-worker-ordenador-meta {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.6rem;
+    }
+}
+
+#appContainerTienda .activos-worker-ordenador-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.62rem 0.75rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(15, 23, 42, 0.07);
+    min-width: 0;
+}
+
+#appContainerTienda .activos-worker-ordenador-chip--action {
+    background: rgba(37, 99, 235, 0.06);
+    border-color: rgba(37, 99, 235, 0.14);
+}
+
+#appContainerTienda .activos-worker-ordenador-chip-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--gray-500);
+}
+
+#appContainerTienda .activos-worker-ordenador-chip-value {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--gray-800, #1f2937);
+    word-break: break-word;
+}
+
+#appContainerTienda .activos-worker-ordenador-chip-link {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--primary, #2563eb);
+    text-decoration: none;
+    word-break: break-word;
+}
+
+#appContainerTienda .activos-worker-ordenador-chip-link:hover {
+    text-decoration: underline;
+}
+
+#appContainerTienda .activos-worker-ordenador-fields {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+}
+
+.app-container-administracion #adminActivoFormOrdenadorExtra.activos-ordenador-form-extra,
+.app-container-administracion #adminActivoFormImpresoraExtra.activos-ordenador-form-extra {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+    width: 100%;
+    max-width: 880px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.app-container-administracion #adminActivoFormOrdenadorEventoBlock .activos-ordenador-evento-btn,
+.app-container-administracion #adminActivoFormImpresoraEventoBlock .activos-ordenador-evento-btn {
+    margin-top: 1.35rem;
+}
+
+.activos-ordenador-licencias-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+
+.activos-ordenador-licencias-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.activos-ordenador-licencia-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    background: #fff;
+}
+
+.activos-ordenador-licencia-row--vencida {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(254, 242, 242, 0.55);
+}
+
+.activos-ordenador-licencia-fields {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.activos-licencia-factura-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.activos-licencia-factura-empty {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+}
+
+.activos-ordenador-licencias-empty {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+}
+
+.activos-ordenador-licencias-readonly-list {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.activos-ordenador-licencias-readonly-item {
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    background: #fff;
+}
+
+@media (min-width: 640px) {
+    .app-container-administracion .activos-ordenador-form-fields,
+    .activos-ordenador-licencia-fields {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.85rem 1rem;
+    }
+
+    .activos-ordenador-licencia-fields .activos-licencia-factura-field {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (min-width: 768px) {
+    .app-container-administracion .activos-ordenador-form-card {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .app-container-administracion .activos-ordenador-form-media {
+        width: 220px;
+        flex-shrink: 0;
+    }
+}
+
+/* --- Fichas telefonos (admin) — visuel formulaire uniquement --- */
+.app-container-administracion .admin-list.activos-telefonos-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: stretch;
+}
+
+@media (min-width: 1100px) {
+    .app-container-administracion .admin-list.activos-telefonos-grid {
+        gap: 1.15rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .app-container-administracion .admin-list.activos-telefonos-grid {
+        grid-template-columns: 1fr;
+        gap: 0.85rem;
+    }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+    .app-container-administracion .admin-list.activos-telefonos-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem;
+    }
+}
+
+.app-container-administracion .activos-telefono-ficha {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 1px solid var(--gray-200);
+    border-radius: 14px;
+    background: #fff;
+    overflow: hidden;
+    cursor: pointer;
+    text-align: left;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.07);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.app-container-administracion .activos-telefono-ficha:hover,
+.app-container-administracion .activos-telefono-ficha:focus-visible {
+    border-color: rgba(59, 130, 246, 0.45);
+    box-shadow: 0 6px 18px rgba(59, 130, 246, 0.14);
+    transform: translateY(-1px);
+}
+
+.activos-telefono-visual,
+.activos-ordenador-visual,
+.activos-impresora-visual {
+    position: relative;
+}
+
+.activos-telefono-visual .activos-vehiculo-ficha-badge,
+.activos-ordenador-visual .activos-vehiculo-ficha-badge,
+.activos-impresora-visual .activos-vehiculo-ficha-badge {
+    position: absolute;
+    top: 0.55rem;
+    right: 0.55rem;
+    z-index: 2;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.16);
+}
+
+.activos-vehiculo-ficha-badge.activos-activo-band-badge,
+.activos-vehiculo-ficha-badge.activos-hub-search-badge {
+    position: static;
+    flex-shrink: 0;
+    margin-top: 0.05rem;
+    min-width: 5.5rem;
+    box-shadow: none;
+}
+
+.activos-vehiculo-ficha-badge.activos-worker-ordenador-badge {
+    position: static;
+    flex-shrink: 0;
+    box-shadow: none;
+}
+
+.activos-telefono-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.1rem 0.85rem 1rem;
+    background: linear-gradient(155deg, rgba(59, 130, 246, 0.16) 0%, rgba(120, 81, 169, 0.1) 55%, rgba(255, 255, 255, 0.9) 100%);
+}
+
+.activos-telefono-visual--detail,
+.activos-telefono-visual--form {
+    min-height: 220px;
+    border-radius: 12px;
+}
+
+.activos-telefono-ficha-badge {
+    position: absolute;
+    top: 0.55rem;
+    right: 0.55rem;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 4.8rem;
+    padding: 0.24rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.14);
+}
+
+.activos-telefono-badge-activo {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.activos-telefono-badge-inactivo {
+    background: #f3f4f6;
+    color: #4b5563;
+}
+
+.activos-telefono-badge-mantenimiento {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.activos-telefono-badge-averia {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.activos-telefono-badge-default {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+
+.activos-impresora-detail-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.65rem;
+    margin-bottom: 0.75rem;
+}
+
+.activos-impresora-detail-card {
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 1rem;
+    background: #fff;
+}
+
+.activos-impresora-detail-title {
+    margin: 0;
+    font-size: 1.05rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.activos-impresora-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.1rem 0.85rem 1rem;
+    background: linear-gradient(155deg, rgba(16, 185, 129, 0.14) 0%, rgba(59, 130, 246, 0.08) 55%, rgba(255, 255, 255, 0.92) 100%);
+}
+
+.activos-impresora-visual--detail,
+.activos-impresora-visual--form {
+    min-height: 200px;
+    border-radius: 12px;
+}
+
+.activos-impresora-device {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    text-align: center;
+    padding: 0.5rem;
+}
+
+.activos-impresora-device-icon {
+    font-size: 2.6rem;
+    line-height: 1;
+}
+
+.activos-impresora-device-modelo {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--gray-900, #111827);
+}
+
+.activos-impresora-device-ubicacion,
+.activos-impresora-device-contador {
+    font-size: 0.76rem;
+    color: var(--gray-600);
+}
+
+.activos-impresora-worker-visual-wrap {
+    margin-bottom: 0.85rem;
+}
+
+.activos-impresora-worker-visual-wrap .activos-impresora-visual--detail {
+    min-height: 160px;
+}
+
+.activos-telefono-device {
+    position: relative;
+    width: min(100%, 118px);
+    aspect-ratio: 9 / 18;
+    border-radius: 22px;
+    border: 2px solid rgba(15, 23, 42, 0.82);
+    background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    padding: 0.45rem 0.35rem 0.55rem;
+}
+
+.activos-telefono-visual--detail .activos-telefono-device,
+.activos-telefono-visual--form .activos-telefono-device {
+    width: min(100%, 132px);
+}
+
+.activos-telefono-device-notch {
+    display: block;
+    width: 34%;
+    height: 0.28rem;
+    margin: 0 auto 0.35rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.activos-telefono-device-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    height: calc(100% - 0.65rem);
+    border-radius: 14px;
+    background: linear-gradient(160deg, rgba(120, 81, 169, 0.95) 0%, rgba(59, 130, 246, 0.88) 100%);
+    padding: 0.45rem 0.35rem;
+    text-align: center;
+}
+
+.activos-telefono-device-linea {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #fff;
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+.activos-telefono-device-modelo {
+    display: block;
+    font-size: 0.56rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.88);
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+.activos-telefono-ficha-body {
+    flex: 1;
+    min-width: 0;
+    padding: 0.75rem 0.8rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.activos-telefono-ficha-nombre {
+    display: block;
+    font-weight: 700;
+    font-size: 0.96rem;
+    color: var(--gray-900, #111827);
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activos-telefono-ficha-meta {
+    font-size: 0.76rem;
+    color: var(--gray-600);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activos-telefono-ficha-asignado {
+    font-size: 0.76rem;
+    color: var(--gray-700);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .app-container-administracion .activos-vehiculo-ficha {
     display: flex;
     flex-direction: column;
@@ -9296,7 +10613,10 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
 }
 
 /* Formulario edicion vehiculo + historial */
-.app-container-administracion #adminActivoFormVehiculoExtra.activos-vehiculo-form-extra {
+.app-container-administracion #adminActivoFormVehiculoExtra.activos-vehiculo-form-extra,
+.app-container-administracion #adminActivoFormTelefonoExtra.activos-telefono-form-extra,
+.app-container-administracion #adminActivoFormOrdenadorExtra.activos-ordenador-form-extra,
+.app-container-administracion #adminActivoFormImpresoraExtra.activos-ordenador-form-extra {
     margin-top: 1.5rem;
     display: flex;
     flex-direction: column;
@@ -9308,14 +10628,32 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     margin-right: auto;
 }
 
-.app-container-administracion #adminActivoFormFields.activos-vehiculo-form-wrap {
+.app-container-administracion #adminActivoFormFields.activos-vehiculo-form-wrap,
+.app-container-administracion #adminActivoFormFields.activos-telefono-form-wrap,
+.app-container-administracion #adminActivoDetailContent .activos-telefono-form-card {
     display: block;
     width: 100%;
     max-width: 880px;
     margin: 0 auto;
 }
 
-.app-container-administracion .activos-vehiculo-form-card {
+.app-container-administracion .activos-ordenador-form-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 1.25rem 1.35rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+}
+
+.app-container-administracion .activos-vehiculo-form-card,
+.app-container-administracion .activos-telefono-form-card {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
@@ -9329,6 +10667,10 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
 }
 
 .app-container-administracion .activos-vehiculo-form-media {
+    flex-shrink: 0;
+}
+
+.app-container-administracion .activos-telefono-form-media {
     flex-shrink: 0;
 }
 
@@ -9347,6 +10689,59 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     min-width: 0;
 }
 
+.app-container-administracion .activos-telefono-form-fields {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.app-container-administracion .activos-ordenador-form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.app-container-administracion .activos-activo-detail-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+.app-container-administracion .activos-activo-detail-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    letter-spacing: 0.01em;
+}
+
+.app-container-administracion .activos-activo-detail-value {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    background: var(--gray-50);
+    font-size: 0.9375rem;
+    line-height: 1.35;
+    min-height: 2.45rem;
+    display: flex;
+    align-items: center;
+}
+
+.app-container-administracion .activos-activo-detail-tel {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.app-container-administracion .activos-activo-detail-tel:hover {
+    text-decoration: underline;
+}
+
 .app-container-administracion .activos-vehiculo-form-fields .activos-vehiculo-form-field-full {
     grid-column: 1 / -1;
 }
@@ -9356,14 +10751,16 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
 }
 
 @media (min-width: 640px) {
-    .app-container-administracion .activos-vehiculo-form-fields {
+    .app-container-administracion .activos-vehiculo-form-fields,
+    .app-container-administracion .activos-telefono-form-fields {
         grid-template-columns: 1fr 1fr;
         gap: 0.85rem 1rem;
     }
 }
 
 @media (min-width: 768px) {
-    .app-container-administracion .activos-vehiculo-form-card {
+    .app-container-administracion .activos-vehiculo-form-card,
+    .app-container-administracion .activos-telefono-form-card {
         flex-direction: row;
         align-items: flex-start;
         gap: 1.5rem;
@@ -9372,6 +10769,10 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
 
     .app-container-administracion .activos-vehiculo-form-media {
         width: 240px;
+    }
+
+    .app-container-administracion .activos-telefono-form-media {
+        width: 220px;
     }
 }
 
@@ -9755,11 +11156,22 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
         max-width: 720px;
     }
 
-    .app-container-administracion #adminActivoFormScreen #adminActivoFormFields.activos-vehiculo-form-wrap {
+    .app-container-administracion #adminActivoFormScreen #adminActivoFormFields.activos-vehiculo-form-wrap,
+    .app-container-administracion #adminActivoFormScreen #adminActivoFormFields.activos-ordenador-form-wrap,
+    .app-container-administracion #adminActivoFormScreen #adminActivoFormFields.activos-impresora-form-wrap {
         max-width: 880px;
     }
 
-    .app-container-administracion #adminActivoFormVehiculoExtra.activos-vehiculo-form-extra {
+    .app-container-administracion #adminActivoFormScreen:has(#adminActivoFormFields.activos-impresora-form-wrap) #adminActivoFormImpresoraExtra.activos-ordenador-form-extra,
+    .app-container-administracion #adminActivoFormScreen:has(#adminActivoFormFields.activos-impresora-form-wrap) > .screen-content > .admin-detail-actions {
+        max-width: 880px;
+        width: 100%;
+    }
+
+    .app-container-administracion #adminActivoFormVehiculoExtra.activos-vehiculo-form-extra,
+    .app-container-administracion #adminActivoFormTelefonoExtra.activos-telefono-form-extra,
+    .app-container-administracion #adminActivoFormOrdenadorExtra.activos-ordenador-form-extra,
+    .app-container-administracion #adminActivoFormImpresoraExtra.activos-ordenador-form-extra {
         max-width: 720px;
     }
 

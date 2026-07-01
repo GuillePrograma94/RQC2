@@ -66,7 +66,7 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     
     <!-- Styles -->
-    <link rel="stylesheet" href="styles.css?v=activos-dev-28">
+    <link rel="stylesheet" href="styles.css?v=activos-dev-49">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -1982,7 +1982,9 @@
                 <h2>Activos de empresa</h2>
             </header>
             <main class="screen-content">
-                <p class="activos-admin-hint">Selecciona una categoria para gestionar el parc.</p>
+                <div class="activos-hub-search-wrap">
+                    <input type="search" id="adminActivosHubSearch" class="activos-hub-search" placeholder="Buscar en todo el parc..." autocomplete="off">
+                </div>
                 <div id="adminActivosHubList" class="activos-hub-list"></div>
             </main>
         </div>
@@ -2011,6 +2013,41 @@
             <main class="screen-content">
                 <div id="adminActivoFormFields" class="admin-solicitud-fields"></div>
                 <div id="adminActivoFormVehiculoExtra" class="activos-vehiculo-form-extra" style="display: none;"></div>
+                <div id="adminActivoFormTelefonoExtra" class="activos-telefono-form-extra" style="display: none;">
+                    <div id="adminActivoFormEventoBlock" class="activos-evento-block admin-detail-block">
+                        <h4 class="admin-detail-completar-title">Registrar evento</h4>
+                        <div class="admin-solicitud-fields">
+                            <div class="admin-solicitud-field"><label for="activoFormEventoTipo">Tipo</label><select id="activoFormEventoTipo"></select></div>
+                            <div class="admin-solicitud-field activos-evento-contador-field" style="display: none;"><label for="activoFormEventoContador">Contador paginas</label><input type="number" id="activoFormEventoContador" min="0"></div>
+                            <div class="admin-solicitud-field admin-solicitud-field-full"><label for="activoFormEventoDesc">Descripcion</label><textarea id="activoFormEventoDesc" rows="2"></textarea></div>
+                        </div>
+                        <button type="button" id="activoFormEventoBtn" class="btn btn-primary">Registrar evento</button>
+                    </div>
+                    <div id="adminActivoFormTelefonoHistorial"></div>
+                </div>
+                <div id="adminActivoFormOrdenadorExtra" class="activos-ordenador-form-extra" style="display: none;">
+                    <div id="adminActivoFormOrdenadorEventoBlock" class="activos-evento-block admin-detail-block">
+                        <h4 class="admin-detail-completar-title">Registrar evento</h4>
+                        <div class="admin-solicitud-fields">
+                            <div class="admin-solicitud-field"><label for="activoFormOrdenadorEventoTipo">Tipo</label><select id="activoFormOrdenadorEventoTipo"></select></div>
+                            <div class="admin-solicitud-field activos-evento-contador-field" style="display: none;"><label for="activoFormOrdenadorEventoContador">Contador paginas</label><input type="number" id="activoFormOrdenadorEventoContador" min="0"></div>
+                            <div class="admin-solicitud-field admin-solicitud-field-full"><label for="activoFormOrdenadorEventoDesc">Descripcion</label><textarea id="activoFormOrdenadorEventoDesc" rows="2"></textarea></div>
+                        </div>
+                        <button type="button" id="activoFormOrdenadorEventoBtn" class="btn btn-primary activos-ordenador-evento-btn">Registrar evento</button>
+                    </div>
+                    <div id="adminActivoFormOrdenadorHistorial"></div>
+                </div>
+                <div id="adminActivoFormImpresoraExtra" class="activos-ordenador-form-extra" style="display: none;">
+                    <div id="adminActivoFormImpresoraEventoBlock" class="activos-evento-block admin-detail-block">
+                        <h4 class="admin-detail-completar-title">Registrar evento</h4>
+                        <div class="admin-solicitud-fields">
+                            <div class="admin-solicitud-field"><label for="activoFormImpresoraEventoTipo">Tipo</label><select id="activoFormImpresoraEventoTipo"></select></div>
+                            <div class="admin-solicitud-field admin-solicitud-field-full"><label for="activoFormImpresoraEventoDesc">Descripcion</label><textarea id="activoFormImpresoraEventoDesc" rows="2"></textarea></div>
+                        </div>
+                        <button type="button" id="activoFormImpresoraEventoBtn" class="btn btn-primary activos-ordenador-evento-btn">Registrar evento</button>
+                    </div>
+                    <div id="adminActivoFormImpresoraHistorial"></div>
+                </div>
                 <div class="admin-detail-actions activos-vehiculo-form-actions">
                     <button type="button" id="adminActivoGuardarBtn" class="btn btn-primary">Guardar</button>
                     <button type="button" id="adminActivoEliminarBtn" class="btn btn-danger activos-vehiculo-eliminar-btn" style="display: none;">Eliminar vehiculo</button>
@@ -2075,6 +2112,21 @@
                 <div class="activos-config-modal-actions">
                     <button type="button" id="adminActivosTalleresAddBtn" class="btn btn-secondary">Anadir taller</button>
                     <button type="button" id="adminActivosTalleresGuardarBtn" class="btn btn-primary">Guardar</button>
+                </div>
+            </div>
+        </div>
+        <div id="adminActivosOrdenadorLicenciasModal" class="login-modal activos-config-modal" style="display: none;">
+            <div class="login-modal-overlay" id="adminActivosOrdenadorLicenciasModalOverlay"></div>
+            <div class="login-modal-content activos-config-modal-content">
+                <div class="login-modal-header">
+                    <h2 class="login-modal-title">Licencias de software</h2>
+                    <button type="button" id="adminActivosOrdenadorLicenciasModalClose" class="login-modal-close" aria-label="Cerrar">×</button>
+                </div>
+                <p class="activos-config-modal-hint">Licencias propias de este ordenador.</p>
+                <div id="adminActivosOrdenadorLicenciasList" class="activos-config-list"></div>
+                <div class="activos-config-modal-actions">
+                    <button type="button" id="adminActivosOrdenadorLicenciasAddBtn" class="btn btn-secondary">Anadir licencia</button>
+                    <button type="button" id="adminActivosOrdenadorLicenciasGuardarBtn" class="btn btn-primary">Guardar</button>
                 </div>
             </div>
         </div>
@@ -2251,9 +2303,9 @@
     <script src="js/signature-pad.js"></script>
     <script src="js/tienda-native.js"></script>
     <script src="js/tienda-log.js"></script>
-    <script src="js/activos.js?v=activos-dev-27"></script>
+    <script src="js/activos.js?v=activos-dev-49"></script>
     <!-- Login de demo + base de datos factice para disenar ACTIVOS en local (usuario DEMO / DEMO). Inerte en produccion. -->
-    <script src="js/activos-mock.js?v=activos-dev-21"></script>
+    <script src="js/activos-mock.js?v=activos-dev-24"></script>
     <script src="js/app.js"></script>
 
     <!-- Service Worker con auto-actualizacion (solo PWA/navegador; no en TiendaPC/pywebview) -->

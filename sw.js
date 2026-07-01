@@ -13,7 +13,7 @@ function swLog() {
 // mn961j71 es reemplazado por build.js en cada deployment de Vercel
 // con los primeros 8 caracteres del SHA del commit de Git.
 // En desarrollo local (sin build), permanece como literal y funciona igualmente.
-const CACHE_NAME = 'batmar-activos-dev-19';
+const CACHE_NAME = 'batmar-activos-dev-22';
 const urlsToCache = [
     '/',
     '/index.html',

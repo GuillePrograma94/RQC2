@@ -170,18 +170,30 @@
         },
         {
             id: uuid(), categoria_codigo: 'impresora', nombre: 'Impresora oficina',
-            identificador: 'Recepcion', estado: 'activo', almacen: 'CENTRAL',
-            datos: { modelo: 'HP LaserJet Pro', localizacion: 'Recepcion', contador_paginas: 15820, tipo_tinta: 'Toner negro' }
+            identificador: null, estado: 'activo', almacen: 'CENTRAL',
+            datos: {
+                modelo: 'HP LaserJet Pro', localizacion: 'Recepcion', tipo_tinta: 'Toner negro',
+                fecha_compra: '2023-05-12', factura_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                factura_nombre: 'Factura HP LaserJet.pdf'
+            }
         },
         {
             id: uuid(), categoria_codigo: 'impresora', nombre: 'Plotter almacen',
-            identificador: 'Nave 2', estado: 'averia', almacen: 'NORTE',
-            datos: { modelo: 'Epson SureColor', localizacion: 'Nave 2', contador_paginas: 4210, tipo_tinta: 'Tinta color' }
+            identificador: null, estado: 'averia', almacen: 'NORTE',
+            datos: { modelo: 'Epson SureColor', localizacion: 'Nave 2', tipo_tinta: 'Tinta color', fecha_compra: '2022-11-03' }
         },
         {
             id: uuid(), categoria_codigo: 'ordenador', nombre: 'PC administracion',
             identificador: 'SN-AB12-CD34', estado: 'activo', almacen: 'CENTRAL',
-            datos: { modelo: 'Dell OptiPlex', procesador: 'Intel i5', ram_gb: 16, almacenamiento: '512 GB SSD' }
+            datos: {
+                modelo: 'Dell OptiPlex', procesador: 'Intel i5', ram_gb: 16, almacenamiento: '512 GB SSD',
+                sistema_operativo: 'Windows 11 Pro', garantia_fecha_fin: '2026-06-01',
+                fecha_compra: '2024-01-15', factura_url: null, factura_nombre: null,
+                licencias: [
+                    { id: 'lic-demo-excel', nombre: 'Microsoft Excel', fecha_fin: '2026-01-10' },
+                    { id: 'lic-demo-office', nombre: 'Microsoft 365', fecha_fin: '2026-01-10' }
+                ]
+            }
         },
         {
             id: uuid(), categoria_codigo: 'ordenador', nombre: 'Portatil comercial',
@@ -198,6 +210,7 @@
     const asignaciones = [
         { id: uuid(), activo_id: activos[0].id, auth_uid: 'uid-ana', usuario_id: 101, comercial_id: null, fecha_desde: hoy(-30), activa: true },
         { id: uuid(), activo_id: activos[2].id, auth_uid: 'uid-luis', usuario_id: null, comercial_id: 201, fecha_desde: hoy(-12), activa: true },
+        { id: uuid(), activo_id: activos[5].id, auth_uid: 'uid-ana', usuario_id: 101, comercial_id: null, fecha_desde: hoy(-8), activa: true },
         { id: uuid(), activo_id: activos[6].id, auth_uid: 'uid-luis', usuario_id: null, comercial_id: 201, fecha_desde: hoy(-5), activa: true },
         { id: uuid(), activo_id: activos[7].id, auth_uid: 'uid-ana', usuario_id: 101, comercial_id: null, fecha_desde: hoy(-3), activa: true }
     ];
@@ -207,8 +220,9 @@
         { id: uuid(), activo_id: activos[0].id, auth_uid: 'uid-ana', tipo: 'uso_vehiculo', datos: { km_dia: 120, km_actual: 84413, litros: 35, coste: 52.4 }, fecha: hoy(-1), created_at: new Date().toISOString() },
         { id: uuid(), activo_id: activos[0].id, auth_uid: 'uid-luis', tipo: 'uso_vehiculo', datos: { km_dia: 95, km_actual: 84380, litros: 30, coste: 44.1 }, fecha: hoy(-2), created_at: new Date().toISOString() },
         { id: uuid(), activo_id: activos[3].id, auth_uid: 'uid-marta', tipo: 'evento_impresora', datos: { subtipo: 'toner', descripcion: 'Cambio de toner negro' }, fecha: hoy(-7), created_at: new Date().toISOString() },
-        { id: uuid(), activo_id: activos[3].id, auth_uid: 'uid-marta', tipo: 'evento_impresora', datos: { subtipo: 'compteur', contador_paginas: 15820 }, fecha: hoy(-3), created_at: new Date().toISOString() },
-        { id: uuid(), activo_id: activos[4].id, auth_uid: 'uid-jose', tipo: 'evento_impresora', datos: { subtipo: 'panne', descripcion: 'Atasco de papel recurrente' }, fecha: hoy(-4), created_at: new Date().toISOString() }
+        { id: uuid(), activo_id: activos[4].id, auth_uid: 'uid-jose', tipo: 'evento_impresora', datos: { subtipo: 'panne', descripcion: 'Atasco de papel recurrente' }, fecha: hoy(-4), created_at: new Date().toISOString() },
+        { id: uuid(), activo_id: activos[5].id, auth_uid: 'uid-ana', tipo: 'evento_ordenador', datos: { subtipo: 'maintenance', descripcion: 'Actualizacion de seguridad Windows' }, fecha: hoy(-14), created_at: new Date().toISOString() },
+        { id: uuid(), activo_id: activos[5].id, auth_uid: 'uid-ana', tipo: 'evento_ordenador', datos: { subtipo: 'mise_a_jour', descripcion: 'Instalacion Microsoft 365' }, fecha: hoy(-2), created_at: new Date().toISOString() }
     ];
 
     // ------------------------------------------------------------------
