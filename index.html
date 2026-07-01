@@ -66,7 +66,7 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     
     <!-- Styles -->
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=activos-dev-49">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -227,7 +227,8 @@
                     if (!origin) return;
                     fetch(origin + '/api/config.js', { credentials: 'same-origin' })
                         .then(function (response) {
-                            if (!response.ok) return null;
+                            var ct = (response.headers.get('content-type') || '').toLowerCase();
+                            if (!response.ok || ct.indexOf('json') === -1) return null;
                             return response.json();
                         })
                         .then(function (cfg) {
@@ -1009,11 +1010,10 @@
              ================================ -->
         <div id="misActivosScreen" class="screen">
             <main class="screen-content">
-                <div class="profile-header">
+                <div class="profile-header activos-mis-header">
                     <button type="button" id="misActivosBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
                     <h2 class="profile-title">Mis activos</h2>
                 </div>
-                <p class="activos-mis-hint">Equipamiento asignado por administracion.</p>
                 <div id="misActivosList" class="activos-mis-list"></div>
             </main>
         </div>
@@ -1025,16 +1025,35 @@
                     <h2 class="profile-title">Detalle activo</h2>
                 </div>
                 <div id="misActivoDetailContent" class="activos-detail-content"></div>
-                <div id="misActivoUsoVehiculoBlock" class="activos-uso-block" style="display: none;">
-                    <h3 class="activos-uso-title">Registro del dia (vehiculo)</h3>
-                    <div class="admin-solicitud-fields">
-                        <div class="admin-solicitud-field"><label for="misActivoKmActual">Kilometraje actual</label><input type="number" id="misActivoKmActual" min="0" step="1" placeholder="Lectura del cuentakilometros"></div>
-                        <div class="admin-solicitud-field"><label for="misActivoLitros">Litros</label><input type="number" id="misActivoLitros" min="0" step="0.01"></div>
-                        <div class="admin-solicitud-field"><label for="misActivoCoste">Coste combustible (EUR)</label><input type="number" id="misActivoCoste" min="0" step="0.01"></div>
-                    </div>
-                    <button type="button" id="misActivoUsoVehiculoBtn" class="btn btn-primary">Guardar uso del dia</button>
-                </div>
             </main>
+        </div>
+
+        <div id="activosRegistroModal" class="login-modal activos-registro-modal" style="display: none;">
+            <div class="login-modal-overlay" id="activosRegistroModalOverlay"></div>
+            <div class="login-modal-content activos-registro-modal-content">
+                <div class="login-modal-header">
+                    <h2 class="login-modal-title">Registro de datos</h2>
+                    <button type="button" id="activosRegistroModalClose" class="login-modal-close" aria-label="Cerrar">×</button>
+                </div>
+                <div class="activos-registro-dia-fields">
+                    <div class="activos-registro-dia-field activos-registro-dia-field-full">
+                        <label for="misActivoKmActual">Kilometraje actual</label>
+                        <input type="number" id="misActivoKmActual" min="0" step="1" placeholder="Lectura del cuentakilometros" inputmode="numeric">
+                    </div>
+                    <div class="activos-registro-dia-field">
+                        <label for="misActivoLitros">Litros</label>
+                        <input type="number" id="misActivoLitros" min="0" step="0.1" placeholder="0" inputmode="decimal">
+                    </div>
+                    <div class="activos-registro-dia-field">
+                        <label for="misActivoCoste">Coste (EUR)</label>
+                        <input type="number" id="misActivoCoste" min="0" step="0.01" placeholder="0.00" inputmode="decimal">
+                    </div>
+                </div>
+                <div class="activos-registro-modal-actions">
+                    <button type="button" id="activosRegistroModalCancelBtn" class="btn btn-secondary">Cancelar</button>
+                    <button type="button" id="misActivoUsoVehiculoBtn" class="btn btn-primary">Guardar</button>
+                </div>
+            </div>
         </div>
 
         <!-- ================================
@@ -1963,7 +1982,9 @@
                 <h2>Activos de empresa</h2>
             </header>
             <main class="screen-content">
-                <p class="activos-admin-hint">Selecciona una categoria para gestionar el parc.</p>
+                <div class="activos-hub-search-wrap">
+                    <input type="search" id="adminActivosHubSearch" class="activos-hub-search" placeholder="Buscar en todo el parc..." autocomplete="off">
+                </div>
                 <div id="adminActivosHubList" class="activos-hub-list"></div>
             </main>
         </div>
@@ -1975,6 +1996,11 @@
             <main class="screen-content">
                 <div class="activos-list-actions">
                     <button type="button" id="adminActivosNuevoBtn" class="btn btn-primary">Nuevo activo</button>
+                    <button type="button" id="adminActivosSeguroBtn" class="btn btn-secondary" style="display: none;">Contactos seguro</button>
+                    <button type="button" id="adminActivosTalleresBtn" class="btn btn-secondary" style="display: none;">Talleres referencia</button>
+                </div>
+                <div id="adminActivosVehiculosSearchWrap" class="activos-admin-vehiculos-search-wrap" style="display: none;">
+                    <input type="search" id="adminActivosVehiculosSearch" class="activos-admin-vehiculos-search" placeholder="Buscar vehiculo..." autocomplete="off">
                 </div>
                 <div id="adminActivosList" class="admin-list activos-admin-list"></div>
             </main>
@@ -1986,8 +2012,45 @@
             </header>
             <main class="screen-content">
                 <div id="adminActivoFormFields" class="admin-solicitud-fields"></div>
-                <div class="admin-detail-actions">
+                <div id="adminActivoFormVehiculoExtra" class="activos-vehiculo-form-extra" style="display: none;"></div>
+                <div id="adminActivoFormTelefonoExtra" class="activos-telefono-form-extra" style="display: none;">
+                    <div id="adminActivoFormEventoBlock" class="activos-evento-block admin-detail-block">
+                        <h4 class="admin-detail-completar-title">Registrar evento</h4>
+                        <div class="admin-solicitud-fields">
+                            <div class="admin-solicitud-field"><label for="activoFormEventoTipo">Tipo</label><select id="activoFormEventoTipo"></select></div>
+                            <div class="admin-solicitud-field activos-evento-contador-field" style="display: none;"><label for="activoFormEventoContador">Contador paginas</label><input type="number" id="activoFormEventoContador" min="0"></div>
+                            <div class="admin-solicitud-field admin-solicitud-field-full"><label for="activoFormEventoDesc">Descripcion</label><textarea id="activoFormEventoDesc" rows="2"></textarea></div>
+                        </div>
+                        <button type="button" id="activoFormEventoBtn" class="btn btn-primary">Registrar evento</button>
+                    </div>
+                    <div id="adminActivoFormTelefonoHistorial"></div>
+                </div>
+                <div id="adminActivoFormOrdenadorExtra" class="activos-ordenador-form-extra" style="display: none;">
+                    <div id="adminActivoFormOrdenadorEventoBlock" class="activos-evento-block admin-detail-block">
+                        <h4 class="admin-detail-completar-title">Registrar evento</h4>
+                        <div class="admin-solicitud-fields">
+                            <div class="admin-solicitud-field"><label for="activoFormOrdenadorEventoTipo">Tipo</label><select id="activoFormOrdenadorEventoTipo"></select></div>
+                            <div class="admin-solicitud-field activos-evento-contador-field" style="display: none;"><label for="activoFormOrdenadorEventoContador">Contador paginas</label><input type="number" id="activoFormOrdenadorEventoContador" min="0"></div>
+                            <div class="admin-solicitud-field admin-solicitud-field-full"><label for="activoFormOrdenadorEventoDesc">Descripcion</label><textarea id="activoFormOrdenadorEventoDesc" rows="2"></textarea></div>
+                        </div>
+                        <button type="button" id="activoFormOrdenadorEventoBtn" class="btn btn-primary activos-ordenador-evento-btn">Registrar evento</button>
+                    </div>
+                    <div id="adminActivoFormOrdenadorHistorial"></div>
+                </div>
+                <div id="adminActivoFormImpresoraExtra" class="activos-ordenador-form-extra" style="display: none;">
+                    <div id="adminActivoFormImpresoraEventoBlock" class="activos-evento-block admin-detail-block">
+                        <h4 class="admin-detail-completar-title">Registrar evento</h4>
+                        <div class="admin-solicitud-fields">
+                            <div class="admin-solicitud-field"><label for="activoFormImpresoraEventoTipo">Tipo</label><select id="activoFormImpresoraEventoTipo"></select></div>
+                            <div class="admin-solicitud-field admin-solicitud-field-full"><label for="activoFormImpresoraEventoDesc">Descripcion</label><textarea id="activoFormImpresoraEventoDesc" rows="2"></textarea></div>
+                        </div>
+                        <button type="button" id="activoFormImpresoraEventoBtn" class="btn btn-primary activos-ordenador-evento-btn">Registrar evento</button>
+                    </div>
+                    <div id="adminActivoFormImpresoraHistorial"></div>
+                </div>
+                <div class="admin-detail-actions activos-vehiculo-form-actions">
                     <button type="button" id="adminActivoGuardarBtn" class="btn btn-primary">Guardar</button>
+                    <button type="button" id="adminActivoEliminarBtn" class="btn btn-danger activos-vehiculo-eliminar-btn" style="display: none;">Eliminar vehiculo</button>
                 </div>
             </main>
         </div>
@@ -2019,6 +2082,53 @@
                     <button type="button" id="adminActivoEventoBtn" class="btn btn-primary">Registrar evento</button>
                 </div>
             </main>
+        </div>
+        <div id="adminActivosSeguroModal" class="login-modal activos-config-modal" style="display: none;">
+            <div class="login-modal-overlay" id="adminActivosSeguroModalOverlay"></div>
+            <div class="login-modal-content activos-config-modal-content">
+                <div class="login-modal-header">
+                    <h2 class="login-modal-title">Contactos de seguro</h2>
+                    <button type="button" id="adminActivosSeguroModalClose" class="login-modal-close" aria-label="Cerrar">×</button>
+                </div>
+                <div id="adminActivosSeguroList" class="activos-config-list"></div>
+                <div class="activos-config-modal-actions">
+                    <button type="button" id="adminActivosSeguroAddBtn" class="btn btn-secondary">Anadir contacto</button>
+                    <button type="button" id="adminActivosSeguroGuardarBtn" class="btn btn-primary">Guardar</button>
+                </div>
+            </div>
+        </div>
+        <div id="adminActivosTalleresModal" class="login-modal activos-config-modal" style="display: none;">
+            <div class="login-modal-overlay" id="adminActivosTalleresModalOverlay"></div>
+            <div class="login-modal-content activos-config-modal-content">
+                <div class="login-modal-header">
+                    <h2 class="login-modal-title">Talleres de referencia</h2>
+                    <button type="button" id="adminActivosTalleresModalClose" class="login-modal-close" aria-label="Cerrar">×</button>
+                </div>
+                <div class="admin-solicitud-field activos-talleres-almacen-field">
+                    <label for="adminActivosTalleresAlmacen">Almacen</label>
+                    <select id="adminActivosTalleresAlmacen"></select>
+                </div>
+                <div id="adminActivosTalleresList" class="activos-config-list"></div>
+                <div class="activos-config-modal-actions">
+                    <button type="button" id="adminActivosTalleresAddBtn" class="btn btn-secondary">Anadir taller</button>
+                    <button type="button" id="adminActivosTalleresGuardarBtn" class="btn btn-primary">Guardar</button>
+                </div>
+            </div>
+        </div>
+        <div id="adminActivosOrdenadorLicenciasModal" class="login-modal activos-config-modal" style="display: none;">
+            <div class="login-modal-overlay" id="adminActivosOrdenadorLicenciasModalOverlay"></div>
+            <div class="login-modal-content activos-config-modal-content">
+                <div class="login-modal-header">
+                    <h2 class="login-modal-title">Licencias de software</h2>
+                    <button type="button" id="adminActivosOrdenadorLicenciasModalClose" class="login-modal-close" aria-label="Cerrar">×</button>
+                </div>
+                <p class="activos-config-modal-hint">Licencias propias de este ordenador.</p>
+                <div id="adminActivosOrdenadorLicenciasList" class="activos-config-list"></div>
+                <div class="activos-config-modal-actions">
+                    <button type="button" id="adminActivosOrdenadorLicenciasAddBtn" class="btn btn-secondary">Anadir licencia</button>
+                    <button type="button" id="adminActivosOrdenadorLicenciasGuardarBtn" class="btn btn-primary">Guardar</button>
+                </div>
+            </div>
         </div>
         <nav class="bottom-nav bottom-nav-admin" aria-label="Administracion">
             <button type="button" id="navAdminInicio" class="nav-item nav-item-admin active">Inicio</button>
@@ -2179,6 +2289,8 @@
     
     <!-- App Scripts -->
     <script src="config.js"></script>
+    <script src="config.local.js"></script>
+    <script>if (window.CONFIG) window.CONFIG.applyLocalOverrides();</script>
     <script src="js/supabase.js"></script>
     <script src="js/erp.js"></script>
     <script src="js/erp-retry-queue.js"></script>
@@ -2191,7 +2303,9 @@
     <script src="js/signature-pad.js"></script>
     <script src="js/tienda-native.js"></script>
     <script src="js/tienda-log.js"></script>
-    <script src="js/activos.js"></script>
+    <script src="js/activos.js?v=activos-dev-49"></script>
+    <!-- Login de demo + base de datos factice para disenar ACTIVOS en local (usuario DEMO / DEMO). Inerte en produccion. -->
+    <script src="js/activos-mock.js?v=activos-dev-24"></script>
     <script src="js/app.js"></script>
 
     <!-- Service Worker con auto-actualizacion (solo PWA/navegador; no en TiendaPC/pywebview) -->
@@ -2215,13 +2329,26 @@
                     return false;
                 }
             }
-            if (isTiendaPCEmbedded()) {
+            function isLocalDevHost() {
+                try {
+                    var h = window.location.hostname || '';
+                    return h === 'localhost' || h === '127.0.0.1' || h === '';
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            if (isTiendaPCEmbedded() || isLocalDevHost()) {
                 navigator.serviceWorker.getRegistrations().then(function (regs) {
                     regs.forEach(function (reg) {
                         reg.unregister().catch(function () {});
                     });
                 }).catch(function () {});
-                console.log('TiendaPC: Service Worker desactivado (UI local embebida)');
+                if (isTiendaPCEmbedded()) {
+                    console.log('TiendaPC: Service Worker desactivado (UI local embebida)');
+                } else {
+                    console.log('Dev local: Service Worker desactivado (utilisez npm run start:local pour les API)');
+                }
                 return;
             }
 

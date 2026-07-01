@@ -5059,6 +5059,27 @@ class SupabaseClient {
         }
     }
 
+    async deleteActivo(id) {
+        try {
+            if (!this.client || !id) return { success: false, message: 'Id no valido' };
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return { success: false, message: 'Sesion expirada' };
+
+            const { error } = await this.client
+                .from('activos')
+                .delete()
+                .eq('id', id);
+
+            if (error) {
+                return { success: false, message: error.message || 'Error al eliminar' };
+            }
+            return { success: true };
+        } catch (err) {
+            console.error('deleteActivo:', err);
+            return { success: false, message: err && err.message ? err.message : 'Error al eliminar' };
+        }
+    }
+
     async patchActivoDatos(id, patch) {
         try {
             const activo = await this.getActivoById(id);
@@ -5150,7 +5171,7 @@ class SupabaseClient {
 
             const { data, error } = await this.client
                 .from('activos_registros')
-                .select('id, tipo, datos, fecha, created_at')
+                .select('id, tipo, datos, fecha, created_at, auth_uid')
                 .eq('activo_id', activoId)
                 .order('fecha', { ascending: false })
                 .order('created_at', { ascending: false })
@@ -5164,6 +5185,47 @@ class SupabaseClient {
         } catch (err) {
             console.error('getActivoRegistros:', err);
             return [];
+        }
+    }
+
+    async getActivoUsoVehiculoHoy(activoId) {
+        try {
+            if (!this.client || !activoId) return null;
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return null;
+
+            const hoy = new Date();
+            const fechaHoy = [
+                hoy.getFullYear(),
+                String(hoy.getMonth() + 1).padStart(2, '0'),
+                String(hoy.getDate()).padStart(2, '0')
+            ].join('-');
+
+            const { data, error } = await this.client
+                .from('activos_registros')
+                .select('id, tipo, datos, fecha')
+                .eq('activo_id', activoId)
+                .eq('tipo', 'uso_vehiculo')
+                .eq('fecha', fechaHoy)
+                .maybeSingle();
+
+            if (error) {
+                console.error('getActivoUsoVehiculoHoy:', error);
+                return null;
+            }
+            if (!data || !data.datos) return null;
+            const d = data.datos;
+            return {
+                km_dia: d.km_dia != null ? d.km_dia : null,
+                km_actual: d.km_actual != null ? d.km_actual : null,
+                km_inicio_dia: d.km_inicio_dia != null ? d.km_inicio_dia : (d.km_anterior != null ? d.km_anterior : null),
+                litros: d.litros != null ? d.litros : null,
+                coste: d.coste != null ? d.coste : null,
+                fecha: data.fecha
+            };
+        } catch (err) {
+            console.error('getActivoUsoVehiculoHoy:', err);
+            return null;
         }
     }
 
@@ -5209,6 +5271,56 @@ class SupabaseClient {
         } catch (err) {
             console.error('registrarActivoEvento:', err);
             return { success: false, message: err && err.message ? err.message : 'Error al registrar' };
+        }
+    }
+
+    async getActivosVehiculoConfig() {
+        try {
+            if (!this.client) return { seguro_contactos: [], talleres_por_almacen: {} };
+            const { data, error } = await this.client
+                .from('activos_config')
+                .select('datos')
+                .eq('clave', 'vehiculo')
+                .maybeSingle();
+            if (error) {
+                console.warn('getActivosVehiculoConfig:', error.message || error);
+                return { seguro_contactos: [], talleres_por_almacen: {} };
+            }
+            const d = (data && data.datos) || {};
+            return {
+                seguro_contactos: Array.isArray(d.seguro_contactos) ? d.seguro_contactos : [],
+                talleres_por_almacen: d.talleres_por_almacen && typeof d.talleres_por_almacen === 'object'
+                    ? d.talleres_por_almacen
+                    : {}
+            };
+        } catch (err) {
+            console.error('getActivosVehiculoConfig:', err);
+            return { seguro_contactos: [], talleres_por_almacen: {} };
+        }
+    }
+
+    async saveActivosVehiculoConfig(config) {
+        try {
+            if (!this.client) return { success: false, message: 'Cliente no inicializado' };
+            const { ok } = await this.ensureAuthSessionForWrite();
+            if (!ok) return { success: false, message: 'Sesion expirada' };
+            if (!config || typeof config !== 'object') {
+                return { success: false, message: 'Config invalida' };
+            }
+            const datos = {
+                seguro_contactos: Array.isArray(config.seguro_contactos) ? config.seguro_contactos : [],
+                talleres_por_almacen: config.talleres_por_almacen && typeof config.talleres_por_almacen === 'object'
+                    ? config.talleres_por_almacen
+                    : {}
+            };
+            const { error } = await this.client
+                .from('activos_config')
+                .upsert([{ clave: 'vehiculo', datos }], { onConflict: 'clave' });
+            if (error) throw error;
+            return { success: true };
+        } catch (err) {
+            console.error('saveActivosVehiculoConfig:', err);
+            return { success: false, message: err && err.message ? err.message : 'Error al guardar config' };
         }
     }
 }
