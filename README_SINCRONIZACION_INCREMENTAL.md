@@ -106,6 +106,7 @@ Metadatos adicionales en `localStorage`:
 
 - `scan_pactos_max_fecha` — fecha maxima de pactos guardados localmente
 - `scan_familias_total` / `scan_familias_asignadas_total` — conteos brutos remotos para omitir descarga de familias (solo se vuelven a descargar si cambian los totales del manifest o si aun no hay cache local)
+- `scan_manifest_domain_applied` — evita repetir sync incremental cuando el manifest remoto sigue reportando los mismos cambios ya aplicados sin nueva `version_control`
 
 ### Flujo de lectura en modo híbrido (nuevo)
 

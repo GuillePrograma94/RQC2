@@ -45,6 +45,7 @@ Un cambio solo de tarifas (`claves_descuento`) **no** invalida ni re-descarga of
 - `scan_claves_descuento_max_fecha`
 - `scan_pactos_max_fecha`
 - `scan_familias_total` / `scan_familias_asignadas_total` — conteos brutos de filas remotas (alineados con `manifest.familias_total`); se usan para omitir la descarga de `familias` / `familias_asignadas` cuando no cambia el total en servidor. Cambios de UI de familia (titulo, imagen) se refrescan con **Forzar cache de la app** en Mi perfil.
+- `scan_manifest_domain_applied` — firma `version_hash:productos:codigos:claves` del ultimo manifest de dominio ya aplicado en cliente. Evita re-sync infinita cuando el servidor sigue reportando los mismos cambios incrementales sin bump de `version_control`.
 
 ## Indice de busqueda local en memoria
 

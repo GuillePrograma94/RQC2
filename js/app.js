@@ -5859,12 +5859,46 @@ class ScanAsYouShopApp {
         return false;
     }
 
-    _shouldInvalidateOfertasCache(manifest, changeStats, hashChanged) {
-        if (hashChanged) return true;
+    _shouldInvalidateOfertasCache(manifest, changeStats, catalogVersionChanged) {
+        if (catalogVersionChanged) return true;
         if (this._countProductChanges(changeStats) > 0 || this._countCodeChanges(changeStats) > 0) {
             return true;
         }
         return false;
+    }
+
+    _buildManifestDomainSignature(manifest) {
+        if (!manifest) return '';
+        return [
+            manifest.version_hash_remota || '',
+            Number(manifest.productos_cambios) || 0,
+            Number(manifest.codigos_cambios) || 0,
+            Number(manifest.claves_descuento_cambios) || 0
+        ].join(':');
+    }
+
+    _wasManifestDomainChangesApplied(manifest) {
+        if (!manifest) return false;
+        try {
+            const sig = this._buildManifestDomainSignature(manifest);
+            return !!sig && localStorage.getItem('scan_manifest_domain_applied') === sig;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    _markManifestDomainChangesApplied(manifest) {
+        if (!manifest) return;
+        try {
+            localStorage.setItem('scan_manifest_domain_applied', this._buildManifestDomainSignature(manifest));
+        } catch (_) { /* ignorar */ }
+    }
+
+    _isCatalogVersionChanged(manifest, versionLocalHash) {
+        if (!manifest || !manifest.version_hash_remota) {
+            return false;
+        }
+        return String(manifest.version_hash_remota) !== String(versionLocalHash || '');
     }
 
     _shouldRefreshFamiliasCatalog(manifest) {
@@ -5929,16 +5963,16 @@ class ScanAsYouShopApp {
         window.ui.updateSyncIndicator('Comprobando pactos cliente...');
         await this.syncPactosClientesInBackground(onProgress);
 
-        if (manifest && manifest.hay_actualizacion && versionCheck && versionCheck.versionRemota) {
+        if (manifest && versionCheck && versionCheck.versionRemota &&
+            this._isCatalogVersionChanged(manifest, localStorage.getItem('version_hash_local'))) {
             await window.supabaseClient.actualizarVersionLocal(versionCheck.versionRemota);
         }
 
         this.setCatalogSyncMode(false);
         window.ui.showSyncIndicator(false);
-        window.ui.showToast(
-            clavesActualizadas ? 'Tarifas de descuento actualizadas' : 'Catalogo actualizado',
-            'success'
-        );
+        if (clavesActualizadas) {
+            window.ui.showToast('Tarifas de descuento actualizadas', 'success');
+        }
         return true;
     }
 
@@ -5971,22 +6005,32 @@ class ScanAsYouShopApp {
             if (manifest && manifest.version_hash_remota) {
                 const manifestStats = window.supabaseClient.buildChangeStatsFromManifest(manifest);
                 let domainChanges = window.supabaseClient.countCatalogDomainChanges(manifestStats);
-                const hashChanged = !!manifest.hay_actualizacion;
-                if (!hashChanged && domainChanges === 0 && typeof window.supabaseClient.needsClavesDescuentoRefresh === 'function') {
+                const catalogVersionChanged = this._isCatalogVersionChanged(manifest, versionLocalHash);
+                let necesitaTarifasRefresh = false;
+
+                if (!catalogVersionChanged && domainChanges > 0 && this._wasManifestDomainChangesApplied(manifest)) {
+                    console.log(
+                        'Cambios de catalogo ya aplicados en la version actual; se omite sync de productos/codigos'
+                    );
+                    domainChanges = 0;
+                }
+
+                if (!catalogVersionChanged && domainChanges === 0 &&
+                    typeof window.supabaseClient.needsClavesDescuentoRefresh === 'function') {
                     try {
                         if (await window.supabaseClient.needsClavesDescuentoRefresh()) {
-                            domainChanges = 1;
+                            necesitaTarifasRefresh = true;
                         }
                     } catch (_) { /* ignorar */ }
                 }
                 versionCheck = {
-                    necesitaActualizacion: hashChanged || domainChanges > 0,
+                    necesitaActualizacion: catalogVersionChanged || domainChanges > 0 || necesitaTarifasRefresh,
                     versionRemota: {
                         version_hash: manifest.version_hash_remota,
                         fecha_actualizacion: manifest.version_fecha_remota || null
                     }
                 };
-                if (!hashChanged && domainChanges > 0) {
+                if (!catalogVersionChanged && domainChanges > 0) {
                     console.log(
                         'Cambios de catalogo sin nueva version_control: ' +
                         `productos=${manifest.productos_cambios || 0} ` +
@@ -6025,10 +6069,9 @@ class ScanAsYouShopApp {
                 await this.syncPactosClientesInBackground();
                 this.setCatalogSyncMode(false);
                 window.ui.showSyncIndicator(false);
-                window.ui.showToast(
-                    clavesActualizadas ? 'Tarifas de descuento actualizadas' : 'Catálogo actualizado',
-                    'success'
-                );
+                if (clavesActualizadas) {
+                    window.ui.showToast('Tarifas de descuento actualizadas', 'success');
+                }
                 return;
             }
 
@@ -6055,8 +6098,8 @@ class ScanAsYouShopApp {
                 console.warn('Rama solo tarifas no completa; continuando con sync de catalogo');
             }
 
-            const hashChanged = !!(manifest && manifest.hay_actualizacion);
-            const shouldInvalidateOfertas = this._shouldInvalidateOfertasCache(manifest, changeStats, hashChanged);
+            const catalogVersionChanged = this._isCatalogVersionChanged(manifest, versionLocalHash);
+            const shouldInvalidateOfertas = this._shouldInvalidateOfertasCache(manifest, changeStats, catalogVersionChanged);
 
             this.setCatalogSyncMode(true);
             if (
@@ -6167,7 +6210,14 @@ class ScanAsYouShopApp {
 
             // Actualizar hash local
             await window.supabaseClient.actualizarVersionLocal(versionCheck.versionRemota);
+            if (manifest) {
+                this._markManifestDomainChangesApplied(manifest);
+            }
 
+            const catalogTouched =
+                !flags.productsSkip ||
+                !flags.codesSkip ||
+                (clavesDescuento && clavesDescuento.length > 0);
             const mensaje = isIncremental
                 ? `Catálogo actualizado (${productos.length} productos, sync mixta por dominio)`
                 : `Catálogo actualizado - ${productos.length} productos`;
@@ -6180,7 +6230,9 @@ class ScanAsYouShopApp {
 
             this.setCatalogSyncMode(false);
             window.ui.showSyncIndicator(false);
-            window.ui.showToast(mensaje, 'success');
+            if (catalogTouched) {
+                window.ui.showToast(mensaje, 'success');
+            }
 
             if (shouldInvalidateOfertas) {
                 void (async () => {
