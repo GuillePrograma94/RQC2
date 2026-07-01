@@ -67,6 +67,8 @@ class ScanAsYouShopApp {
         this._catalogSyncRunning = false;
         this._stockSyncScheduled = false;
         this._stockSyncDelayMs = 5000;
+        this._stockSyncUrgentDelayMs = 250;
+        this._lastSyncManifest = null;
         this.editingPrepedidoId = null;
         this.editingPrepedidoCodigo = null;
         this.editingPrepedidoObservaciones = '';
@@ -4918,7 +4920,7 @@ class ScanAsYouShopApp {
             void this._completeAppInitAfterFirstPaint();
 
             void this.syncProductsInBackground().finally(() => {
-                this._scheduleDeferredStockSync();
+                this._scheduleDeferredStockSync(this._lastSyncManifest);
             });
 
         } catch (error) {
@@ -5924,17 +5926,50 @@ class ScanAsYouShopApp {
         return remoteFam !== localFam || remoteAsig !== localAsig;
     }
 
-    _scheduleDeferredStockSync() {
+    _getLocalStockHash() {
+        try {
+            const h = localStorage.getItem('stock_hash_local');
+            return h && String(h).trim() !== '' ? String(h).trim() : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    async _resolveRemoteStockHash(manifest = null) {
+        const manifestHash = manifest && manifest.stock_hash
+            ? String(manifest.stock_hash).trim()
+            : '';
+        if (manifestHash) {
+            return manifestHash;
+        }
+        if (window.supabaseClient && typeof window.supabaseClient.getStockHash === 'function') {
+            return await window.supabaseClient.getStockHash();
+        }
+        return null;
+    }
+
+    _scheduleDeferredStockSync(manifest = null) {
         if (this._stockSyncScheduled) return;
         this._stockSyncScheduled = true;
+        const localHash = this._getLocalStockHash();
+        const manifestHash = manifest && manifest.stock_hash
+            ? String(manifest.stock_hash).trim()
+            : '';
+        const stockChangedHint = !!(manifestHash && manifestHash !== localHash);
+        const delay = stockChangedHint ? this._stockSyncUrgentDelayMs : this._stockSyncDelayMs;
+        if (stockChangedHint) {
+            console.log(
+                'Stock remoto distinto al local (manifest); sync de stock en ' + delay + ' ms'
+            );
+        }
         setTimeout(() => {
-            void this.syncStockInBackground().finally(() => {
+            void this.syncStockInBackground(manifest).finally(() => {
                 this._stockSyncScheduled = false;
                 if (this.stockIndex.size === 0) {
                     void this.preloadStockIndexFromLocal();
                 }
             });
-        }, this._stockSyncDelayMs);
+        }, delay);
     }
 
     async _waitForCatalogSyncIfRunning() {
@@ -5993,8 +6028,10 @@ class ScanAsYouShopApp {
 
             const versionLocalHash = localStorage.getItem('version_hash_local');
             let manifest = null;
+            this._lastSyncManifest = null;
             try {
                 manifest = await window.supabaseClient.getSyncManifest(versionLocalHash);
+                this._lastSyncManifest = manifest;
             } catch (manifestError) {
                 console.warn('No se pudo cargar manifest de sync:', manifestError && manifestError.message);
                 manifest = null;
@@ -6259,17 +6296,23 @@ class ScanAsYouShopApp {
     }
 
     /**
-     * Sincroniza el stock EN SEGUNDO PLANO una vez al dia.
+     * Sincroniza el stock EN SEGUNDO PLANO comparando hash remoto (manifest o stock_meta) con local.
      * Guarda en IndexedDB y actualiza el indice en memoria.
      */
-    async syncStockInBackground() {
+    async syncStockInBackground(manifest = null) {
         try {
             await this._waitForCatalogSyncIfRunning();
-            // Comparar hash remoto con el local para detectar cambios
-            const remoteHash = await window.supabaseClient.getStockHash();
-            const localHash  = localStorage.getItem('stock_hash_local');
+            const effectiveManifest = manifest || this._lastSyncManifest;
+            const remoteHash = await this._resolveRemoteStockHash(effectiveManifest);
+            const localHash = this._getLocalStockHash();
+
+            console.log(
+                'Stock sync: remoto=' + (remoteHash ? remoteHash.substring(0, 12) + '...' : '(null)') +
+                ' local=' + (localHash ? localHash.substring(0, 12) + '...' : '(null)')
+            );
 
             if (remoteHash && localHash === remoteHash) {
+                console.log('Stock local al dia (hash coincide)');
                 // Hash coincide: no hay cambios, cargar de IndexedDB
                 const hasLegacyIgnoredWarehouses = (
                     window.cartManager
@@ -6301,6 +6344,10 @@ class ScanAsYouShopApp {
                 return;
             }
 
+            console.log('Stock: descargando desde servidor...');
+            window.ui.showSyncIndicator(true);
+            window.ui.updateSyncIndicator('Actualizando stock...');
+
             const stockData = await window.supabaseClient.downloadStock();
 
             await window.cartManager.saveStockToStorage(stockData || []);
@@ -6310,8 +6357,11 @@ class ScanAsYouShopApp {
             if (typeof this.updateStockBadgesVisibles === 'function') {
                 this.updateStockBadgesVisibles();
             }
+            console.log('Stock actualizado en local: ' + (stockData ? stockData.length : 0) + ' articulos');
+            window.ui.showSyncIndicator(false);
         } catch (error) {
             console.error('Error al sincronizar stock (no critico):', error);
+            window.ui.showSyncIndicator(false);
             // Intentar cargar lo que haya en local aunque falle la descarga
             try {
                 this.stockIndex = await window.cartManager.getStockIndex();

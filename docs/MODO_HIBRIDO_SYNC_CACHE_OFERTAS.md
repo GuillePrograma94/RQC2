@@ -95,7 +95,7 @@ Tras `downloadOfertas` (sync o completar cache): invalidar indice ofertas RAM y 
 
 - Stock local precargado desde IndexedDB al iniciar (`preloadStockIndexFromLocal`), sin esperar red.
 - Catalogo/tarifas: `syncProductsInBackground`.
-- Refresh remoto de stock diferido ~5 s tras terminar sync de catalogo (`syncStockInBackground`), para no competir con escrituras pesadas en IndexedDB.
+- Refresh remoto de stock diferido tras terminar sync de catalogo (`syncStockInBackground`). Si el manifest ya indica `stock_hash` distinto al local, la comprobacion se adelanta a ~250 ms; si no, espera ~5 s para no competir con escrituras pesadas en IndexedDB.
 - Flag `_catalogSyncRunning`: stock remoto espera si catalogo sigue activo.
 
 ## Indicador de sync y ofertas
