@@ -66,7 +66,7 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     
     <!-- Styles -->
-    <link rel="stylesheet" href="styles.css?v=activos-dev-19">
+    <link rel="stylesheet" href="styles.css?v=activos-dev-28">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -227,7 +227,8 @@
                     if (!origin) return;
                     fetch(origin + '/api/config.js', { credentials: 'same-origin' })
                         .then(function (response) {
-                            if (!response.ok) return null;
+                            var ct = (response.headers.get('content-type') || '').toLowerCase();
+                            if (!response.ok || ct.indexOf('json') === -1) return null;
                             return response.json();
                         })
                         .then(function (cfg) {
@@ -1009,11 +1010,10 @@
              ================================ -->
         <div id="misActivosScreen" class="screen">
             <main class="screen-content">
-                <div class="profile-header">
+                <div class="profile-header activos-mis-header">
                     <button type="button" id="misActivosBackBtn" class="profile-back-btn" aria-label="Volver">← Volver</button>
                     <h2 class="profile-title">Mis activos</h2>
                 </div>
-                <p class="activos-mis-hint">Equipamiento asignado por administracion.</p>
                 <div id="misActivosList" class="activos-mis-list"></div>
             </main>
         </div>
@@ -1051,7 +1051,7 @@
                 </div>
                 <div class="activos-registro-modal-actions">
                     <button type="button" id="activosRegistroModalCancelBtn" class="btn btn-secondary">Cancelar</button>
-                    <button type="button" id="misActivoUsoVehiculoBtn" class="btn btn-primary">Guardar uso del dia</button>
+                    <button type="button" id="misActivoUsoVehiculoBtn" class="btn btn-primary">Guardar</button>
                 </div>
             </div>
         </div>
@@ -1997,6 +1997,9 @@
                     <button type="button" id="adminActivosSeguroBtn" class="btn btn-secondary" style="display: none;">Contactos seguro</button>
                     <button type="button" id="adminActivosTalleresBtn" class="btn btn-secondary" style="display: none;">Talleres referencia</button>
                 </div>
+                <div id="adminActivosVehiculosSearchWrap" class="activos-admin-vehiculos-search-wrap" style="display: none;">
+                    <input type="search" id="adminActivosVehiculosSearch" class="activos-admin-vehiculos-search" placeholder="Buscar vehiculo..." autocomplete="off">
+                </div>
                 <div id="adminActivosList" class="admin-list activos-admin-list"></div>
             </main>
         </div>
@@ -2248,9 +2251,9 @@
     <script src="js/signature-pad.js"></script>
     <script src="js/tienda-native.js"></script>
     <script src="js/tienda-log.js"></script>
-    <script src="js/activos.js?v=activos-dev-19"></script>
+    <script src="js/activos.js?v=activos-dev-27"></script>
     <!-- Login de demo + base de datos factice para disenar ACTIVOS en local (usuario DEMO / DEMO). Inerte en produccion. -->
-    <script src="js/activos-mock.js?v=activos-dev-19"></script>
+    <script src="js/activos-mock.js?v=activos-dev-21"></script>
     <script src="js/app.js"></script>
 
     <!-- Service Worker con auto-actualizacion (solo PWA/navegador; no en TiendaPC/pywebview) -->
@@ -2274,13 +2277,26 @@
                     return false;
                 }
             }
-            if (isTiendaPCEmbedded()) {
+            function isLocalDevHost() {
+                try {
+                    var h = window.location.hostname || '';
+                    return h === 'localhost' || h === '127.0.0.1' || h === '';
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            if (isTiendaPCEmbedded() || isLocalDevHost()) {
                 navigator.serviceWorker.getRegistrations().then(function (regs) {
                     regs.forEach(function (reg) {
                         reg.unregister().catch(function () {});
                     });
                 }).catch(function () {});
-                console.log('TiendaPC: Service Worker desactivado (UI local embebida)');
+                if (isTiendaPCEmbedded()) {
+                    console.log('TiendaPC: Service Worker desactivado (UI local embebida)');
+                } else {
+                    console.log('Dev local: Service Worker desactivado (utilisez npm run start:local pour les API)');
+                }
                 return;
             }
 

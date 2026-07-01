@@ -186,6 +186,9 @@ class ActivosManager {
         document.getElementById('adminActivoEventoBtn')?.addEventListener('click', () => {
             self.registerAdminEvento();
         });
+        document.getElementById('adminActivosVehiculosSearch')?.addEventListener('input', (e) => {
+            self._filterAdminVehiculosList((e.target && e.target.value ? e.target.value : '').trim().toLowerCase());
+        });
     }
 
     _bindWorkerEvents() {
@@ -258,11 +261,17 @@ class ActivosManager {
         if (titleEl) titleEl.textContent = cfg ? cfg.nombre : categoria;
 
         const listEl = document.getElementById('adminActivosList');
+        const searchWrap = document.getElementById('adminActivosVehiculosSearchWrap');
+        const searchInput = document.getElementById('adminActivosVehiculosSearch');
+        const esVehiculos = categoria === 'vehiculo';
         if (!listEl) return;
+        if (searchWrap) searchWrap.style.display = 'none';
+        if (searchInput) searchInput.value = '';
+        const searchEmptyEl = document.getElementById('adminActivosVehiculosSearchEmpty');
+        if (searchEmptyEl) searchEmptyEl.style.display = 'none';
         listEl.innerHTML = '<p>Cargando...</p>';
 
         const list = await window.supabaseClient.getActivosPorCategoria(categoria);
-        const esVehiculos = categoria === 'vehiculo';
         const seguroBtn = document.getElementById('adminActivosSeguroBtn');
         const talleresBtn = document.getElementById('adminActivosTalleresBtn');
         if (seguroBtn) seguroBtn.style.display = esVehiculos ? '' : 'none';
@@ -273,6 +282,8 @@ class ActivosManager {
             listEl.innerHTML = '<p>No hay activos en esta categoria.</p>';
             return;
         }
+
+        if (searchWrap && esVehiculos) searchWrap.style.display = '';
 
         listEl.classList.remove('activos-admin-vehiculos-list');
         listEl.classList.toggle('activos-vehiculos-grid', esVehiculos);
@@ -285,7 +296,11 @@ class ActivosManager {
         }
 
         listEl.innerHTML = list.map(a => {
-            if (esVehiculos) return this._renderVehiculoFichaListItem(a);
+            if (esVehiculos) {
+                return this._renderVehiculoFichaListItem(a, {
+                    dataSearch: this._buildVehiculoAdminSearchText(a)
+                });
+            }
             const asignado = a.asignado_nombre
                 ? this._esc(a.asignado_nombre) + ' (' + this._esc(a.asignado_tipo || '') + ' - ' + this._esc(a.asignado_codigo || '') + ')'
                 : 'Sin asignar';
@@ -522,14 +537,61 @@ class ActivosManager {
             return '<div class="' + cls + '">' + inner + '</div>';
         }
         return (
-            '<button type="button" class="activos-vehiculo-ficha" data-id="' + this._esc(a.id) + '">' +
+            '<button type="button" class="activos-vehiculo-ficha" data-id="' + this._esc(a.id) + '"' +
+            (opts.dataSearch ? ' data-search="' + this._esc(opts.dataSearch) + '"' : '') + '>' +
             inner +
             '</button>'
         );
     }
 
-    _renderVehiculoFichaListItem(a) {
-        return this._renderVehiculoFichaCard(a, { usoCompact: true, showAsignado: true });
+    _buildVehiculoAdminSearchText(a) {
+        const datos = (a && a.datos) || {};
+        return [
+            a && a.nombre,
+            a && a.identificador,
+            a && a.almacen,
+            datos.modelo,
+            a && a.asignado_nombre,
+            a && a.asignado_codigo,
+            a && a.asignado_tipo,
+            a && a.estado,
+            datos.kilometraje_actual,
+            datos.fecha_itv
+        ].filter(v => v != null && v !== '').join(' ').toLowerCase();
+    }
+
+    _filterAdminVehiculosList(query) {
+        const listEl = document.getElementById('adminActivosList');
+        if (!listEl) return;
+        const items = listEl.querySelectorAll('.activos-vehiculo-ficha[data-search]');
+        let visible = 0;
+        items.forEach(el => {
+            const hay = !query || (el.getAttribute('data-search') || '').includes(query);
+            el.style.display = hay ? '' : 'none';
+            if (hay) visible += 1;
+        });
+        let emptyEl = document.getElementById('adminActivosVehiculosSearchEmpty');
+        if (query && visible === 0 && items.length > 0) {
+            if (!emptyEl) {
+                emptyEl = document.createElement('p');
+                emptyEl.id = 'adminActivosVehiculosSearchEmpty';
+                emptyEl.className = 'activos-admin-vehiculos-search-empty';
+                emptyEl.textContent = 'Ningun vehiculo coincide con la busqueda.';
+                listEl.insertAdjacentElement('afterend', emptyEl);
+            }
+            emptyEl.style.display = '';
+        } else if (emptyEl) {
+            emptyEl.style.display = 'none';
+        }
+    }
+
+    _renderVehiculoFichaListItem(a, options) {
+        const opts = options || {};
+        return this._renderVehiculoFichaCard(a, {
+            usoCompact: true,
+            showAsignado: true,
+            dataSearch: opts.dataSearch
+        });
     }
 
     _renderWorkerCollapsible(title, meta, bodyHtml, extraClass) {
@@ -656,7 +718,11 @@ class ActivosManager {
             '<div class="activos-vehiculo-historial-table-wrap">' +
             '<table class="activos-vehiculo-historial-table">' +
             '<thead><tr>' +
-            '<th>Fecha</th><th>Km dia</th><th>Litros</th><th>Coste</th><th>Km actual</th>' +
+            '<th title="Fecha">Fecha</th>' +
+            '<th title="Kilometros del dia">Km</th>' +
+            '<th title="Litros">L</th>' +
+            '<th title="Coste (EUR)">€</th>' +
+            '<th title="Kilometraje actual">Km+</th>' +
             '</tr></thead>' +
             '<tbody>' + bodyHtml + '</tbody>' +
             '</table></div>';
@@ -685,7 +751,7 @@ class ActivosManager {
     }
 
     _renderVehiculoFormAsignacionInline(asignacion, trabajadores) {
-        let selHtml = '<option value="">-- Seleccionar trabajador --</option>';
+        let selHtml = '<option value="">-- Sin asignar --</option>';
         (trabajadores || []).forEach(t => {
             const selected = asignacion && asignacion.auth_uid === t.auth_uid ? ' selected' : '';
             selHtml += '<option value="' + this._esc(t.auth_uid) + '" data-usuario-id="' + (t.usuario_id || '') + '" data-comercial-id="' + (t.comercial_id || '') + '"' + selected + '>';
@@ -693,14 +759,28 @@ class ActivosManager {
             selHtml += '</option>';
         });
         return (
-            '<div class="admin-solicitud-field activos-vehiculo-form-asignacion-field">' +
+            '<div class="admin-solicitud-field">' +
             '<label for="activoFormTrabajadorSelect">Usuario asignado</label>' +
             '<select id="activoFormTrabajadorSelect">' + selHtml + '</select>' +
-            '</div>' +
-            '<div class="activos-vehiculo-form-asignacion-actions">' +
-            '<button type="button" id="activoFormAsignarBtn" class="btn btn-primary btn-sm">Asignar</button>' +
-            '<button type="button" id="activoFormDesasignarBtn" class="btn btn-secondary btn-sm">Quitar</button>' +
             '</div>'
+        );
+    }
+
+    async _syncVehiculoFormAsignacion(activoId) {
+        const sel = document.getElementById('activoFormTrabajadorSelect');
+        if (!sel || !activoId) {
+            return { success: true };
+        }
+        const authUid = (sel.value || '').trim();
+        if (!authUid) {
+            return window.supabaseClient.desasignarActivo(activoId);
+        }
+        const opt = sel.options[sel.selectedIndex];
+        return window.supabaseClient.asignarActivoTrabajador(
+            activoId,
+            authUid,
+            opt.getAttribute('data-usuario-id') ? parseInt(opt.getAttribute('data-usuario-id'), 10) : null,
+            opt.getAttribute('data-comercial-id') ? parseInt(opt.getAttribute('data-comercial-id'), 10) : null
         );
     }
 
@@ -786,51 +866,6 @@ class ActivosManager {
         });
     }
 
-    _bindVehiculoFormAsignacion(activoId) {
-        const self = this;
-        document.getElementById('activoFormAsignarBtn')?.addEventListener('click', () => {
-            self.assignFromForm(activoId);
-        });
-        document.getElementById('activoFormDesasignarBtn')?.addEventListener('click', () => {
-            self.desasignarFromForm(activoId);
-        });
-    }
-
-    async assignFromForm(activoId) {
-        const sel = document.getElementById('activoFormTrabajadorSelect');
-        if (!sel || !activoId) return;
-        const authUid = sel.value;
-        if (!authUid) {
-            window.ui.showToast('Selecciona un trabajador', 'error');
-            return;
-        }
-        const opt = sel.options[sel.selectedIndex];
-        const result = await window.supabaseClient.asignarActivoTrabajador(
-            activoId,
-            authUid,
-            opt.getAttribute('data-usuario-id') ? parseInt(opt.getAttribute('data-usuario-id'), 10) : null,
-            opt.getAttribute('data-comercial-id') ? parseInt(opt.getAttribute('data-comercial-id'), 10) : null
-        );
-        if (!result.success) {
-            window.ui.showToast(result.message || 'Error al asignar', 'error');
-            return;
-        }
-        window.ui.showToast('Trabajador asignado', 'success');
-        this._trabajadoresCache = null;
-        await this.renderAdminForm('vehiculo', activoId);
-    }
-
-    async desasignarFromForm(activoId) {
-        if (!activoId) return;
-        const result = await window.supabaseClient.desasignarActivo(activoId);
-        if (!result.success) {
-            window.ui.showToast(result.message || 'Error al desasignar', 'error');
-            return;
-        }
-        window.ui.showToast('Asignacion eliminada', 'success');
-        await this.renderAdminForm('vehiculo', activoId);
-    }
-
     _renderVehiculoImagenField(datos) {
         const imgUrl = this._getVehiculoImagenUrl(datos);
         const hasCustom = !!(datos && datos.imagen_url);
@@ -854,7 +889,11 @@ class ActivosManager {
         const options = opts || {};
         const kmField = (cfg.adminFields || []).find(f => f.key === 'kilometraje_actual');
         const itvField = (cfg.adminFields || []).find(f => f.key === 'fecha_itv');
+        const modeloField = (cfg.adminFields || []).find(f => f.key === 'modelo');
         let html = '';
+
+        html += '<div class="admin-solicitud-field"><label for="activoFormNombre">Nombre</label>';
+        html += '<input type="text" id="activoFormNombre" required value="' + this._esc(activo ? activo.nombre : '') + '"></div>';
         html += '<div class="admin-solicitud-field"><label for="activoFormAlmacen">Almacen</label>';
         html += '<select id="activoFormAlmacen" required>';
         html += '<option value="">-- Seleccionar almacen --</option>';
@@ -865,10 +904,11 @@ class ActivosManager {
             html += '<option value="' + this._esc(cod) + '"' + selected + '>' + this._esc(label) + '</option>';
         });
         html += '</select></div>';
-        html += '<div class="admin-solicitud-field activos-vehiculo-form-field-full"><label for="activoFormNombre">Nombre</label>';
-        html += '<input type="text" id="activoFormNombre" required value="' + this._esc(activo ? activo.nombre : '') + '"></div>';
         html += '<div class="admin-solicitud-field"><label for="activoFormIdentificador">' + this._esc(cfg.identificadorLabel) + '</label>';
         html += '<input type="text" id="activoFormIdentificador" value="' + this._esc(activo ? activo.identificador : '') + '"></div>';
+        if (modeloField) {
+            html += this._renderVehiculoFormField(modeloField, datos);
+        }
         html += '<div class="admin-solicitud-field"><label for="activoFormEstado">Estado</label>';
         html += '<select id="activoFormEstado">';
         ['activo', 'inactivo', 'mantenimiento', 'averia'].forEach(st => {
@@ -876,23 +916,16 @@ class ActivosManager {
             html += '<option value="' + st + '"' + sel + '>' + st + '</option>';
         });
         html += '</select></div>';
-        (cfg.adminFields || []).forEach(f => {
-            if (f.key === 'kilometraje_actual' || f.key === 'fecha_itv') return;
-            html += this._renderVehiculoFormField(f, datos);
-        });
-        html += '<div class="activos-vehiculo-form-metrics-block activos-vehiculo-form-field-full">';
+        if (options.showAsignacion) {
+            html += this._renderVehiculoFormAsignacionInline(options.asignacion, options.trabajadores);
+        }
         if (kmField) {
-            html += '<div class="activos-vehiculo-form-km">' + this._renderVehiculoFormField(kmField, datos) + '</div>';
+            html += this._renderVehiculoFormField(kmField, datos);
         }
         if (itvField) {
-            html += '<div class="activos-vehiculo-form-itv">' + this._renderVehiculoFormField(itvField, datos) + '</div>';
+            html += this._renderVehiculoFormField(itvField, datos);
         }
-        if (options.showAsignacion) {
-            html += '<div class="activos-vehiculo-form-asignacion">' +
-                this._renderVehiculoFormAsignacionInline(options.asignacion, options.trabajadores) +
-                '</div>';
-        }
-        html += '</div>';
+
         return html;
     }
 
@@ -1129,9 +1162,6 @@ class ActivosManager {
         if (categoria === 'vehiculo') {
             fieldsEl.classList.add('activos-vehiculo-form-wrap');
             this._bindVehiculoImagenForm();
-            if (activoId) {
-                this._bindVehiculoFormAsignacion(activoId);
-            }
         } else {
             fieldsEl.classList.remove('activos-vehiculo-form-wrap');
         }
@@ -1243,8 +1273,17 @@ class ActivosManager {
             return;
         }
 
-        window.ui.showToast('Activo guardado', 'success');
         const id = this._adminActivoId || result.id;
+        if (categoria === 'vehiculo' && id) {
+            const assignResult = await this._syncVehiculoFormAsignacion(id);
+            if (!assignResult.success) {
+                window.ui.showToast(assignResult.message || 'Error al guardar asignacion', 'error');
+                return;
+            }
+            this._trabajadoresCache = null;
+        }
+
+        window.ui.showToast('Activo guardado', 'success');
         if (categoria === 'vehiculo') {
             this.app.showScreenAdmin('activosList', categoria);
         } else {
@@ -1573,7 +1612,7 @@ class ActivosManager {
 
     openWorkerRegistroModal() {
         const modal = document.getElementById('activosRegistroModal');
-        if (modal) modal.style.display = '';
+        if (modal) modal.style.display = 'flex';
     }
 
     closeWorkerRegistroModal() {

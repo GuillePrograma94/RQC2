@@ -7603,6 +7603,12 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
 .app-container-administracion .screen-content { flex: 1; padding: 1rem; padding-bottom: calc(var(--footer-height) + 1.5rem); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .app-container-administracion .screen-content-detail { padding-top: 0.5rem; padding-left: 1rem; padding-right: 1rem; }
 .app-container-administracion .screen-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; background: var(--white); border-bottom: 1px solid var(--gray-200); }
+.app-container-administracion .screen-header > h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--gray-800);
+}
 .app-container-administracion .screen-header-detail .admin-detail-header-row { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
 .app-container-administracion .screen-header-detail .admin-detail-header-row h2 { margin: 0; flex-shrink: 0; }
 .app-container-administracion .admin-detail-header-meta { font-size: 0.8125rem; color: var(--gray-600); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
@@ -7675,6 +7681,47 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
 .app-container-administracion .admin-solicitud-field select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(120, 81, 169, 0.2); }
 .app-container-administracion .admin-solicitud-field textarea { resize: vertical; min-height: 3rem; }
 @media (min-width: 768px) {
+    .app-container-administracion .screen-header {
+        position: relative;
+        justify-content: center;
+        min-height: 3.1rem;
+        padding-left: 5.5rem;
+        padding-right: 5.5rem;
+    }
+
+    .app-container-administracion .screen-header > .profile-back-btn {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 1;
+    }
+
+    .app-container-administracion .screen-header > h2 {
+        width: 100%;
+        text-align: center;
+        font-size: 1.25rem;
+    }
+
+    .app-container-administracion .screen-header-detail .admin-detail-header-row {
+        width: 100%;
+        justify-content: center;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.2rem;
+        text-align: center;
+    }
+
+    .app-container-administracion .screen-header-detail .admin-detail-header-row h2 {
+        width: 100%;
+        text-align: center;
+    }
+
+    .app-container-administracion .screen-header-detail .admin-detail-header-meta {
+        white-space: normal;
+        text-align: center;
+    }
+
     .app-container-administracion .screen-content { padding: 1.25rem 1.5rem; padding-bottom: calc(var(--footer-height) + 1.5rem); }
     .app-container-administracion .screen-content-detail { padding-top: 0.5rem; padding-left: 1.25rem; padding-right: 1.5rem; }
     .app-container-administracion .admin-solicitud-product-page { flex-direction: row; align-items: flex-start; gap: 1.5rem; }
@@ -8087,6 +8134,22 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     margin-bottom: 1rem;
 }
 
+@media (max-width: 640px) {
+    #appContainerTienda .profile-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+        margin-bottom: 1rem;
+    }
+
+    #appContainerTienda .profile-header .profile-title,
+    #appContainerTienda .profile-header h2 {
+        font-size: 1.2rem;
+        padding-left: 0;
+        margin: 0;
+    }
+}
+
 .activos-uso-block {
     margin-top: 1rem;
     padding-top: 1rem;
@@ -8133,7 +8196,8 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     pointer-events: none;
 }
 
-#appContainerTienda .activos-vehiculo-ficha--static .activos-vehiculo-ficha-body .activos-vehiculo-uso-hoy {
+#appContainerTienda .activos-vehiculo-ficha--static .activos-vehiculo-ficha-body .activos-vehiculo-uso-hoy,
+#appContainerTienda .activos-vehiculo-ficha--static .activos-vehiculo-ficha-body .activos-worker-registro-btn {
     pointer-events: auto;
 }
 
@@ -8607,6 +8671,63 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
 
 #appContainerTienda .activos-worker-collapsible-body {
     padding: 0.75rem 1rem 1rem;
+    min-width: 0;
+}
+
+@media (max-width: 520px) {
+    #appContainerTienda .activos-worker-vehiculo-detail {
+        max-width: 100%;
+        align-items: stretch;
+        gap: 1rem;
+    }
+
+    #appContainerTienda .activos-worker-historial.activos-historial-collapsible {
+        width: 100%;
+        min-width: 0;
+    }
+
+    #appContainerTienda .activos-historial-collapsible-summary {
+        flex-wrap: wrap;
+        align-items: center;
+        row-gap: 0.2rem;
+        padding: 0.75rem 0.85rem;
+    }
+
+    #appContainerTienda .activos-historial-collapsible-title {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    #appContainerTienda .activos-historial-collapsible-meta {
+        flex: 1 1 100%;
+        margin-right: 0;
+        padding-left: 0;
+        text-align: left;
+    }
+
+    #appContainerTienda .activos-worker-historial .activos-vehiculo-historial-table-wrap {
+        padding: 0.35rem 0.2rem 0.65rem;
+    }
+
+    #appContainerTienda .activos-worker-historial .activos-vehiculo-historial-table {
+        width: 100%;
+        min-width: 0;
+        table-layout: fixed;
+    }
+
+    #appContainerTienda .activos-worker-historial .activos-vehiculo-historial-table th,
+    #appContainerTienda .activos-worker-historial .activos-vehiculo-historial-table td {
+        padding: 0.3rem 0.15rem;
+        font-size: 0.62rem;
+        line-height: 1.15;
+        word-break: break-word;
+    }
+
+    #appContainerTienda .activos-worker-historial .activos-vehiculo-historial-table th {
+        font-size: 0.58rem;
+        white-space: normal;
+        letter-spacing: 0;
+    }
 }
 
 #appContainerTienda .activos-worker-extras .activos-historial-collapsible {
@@ -8786,11 +8907,18 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
 }
 
 #appContainerTienda .activos-vehiculo-historial-table-wrap {
-    display: flex;
-    justify-content: center;
+    display: block;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+}
+
+#appContainerTienda .activos-worker-historial .activos-vehiculo-historial-table {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
 }
 
 #appContainerTienda .activos-vehiculo-historial-table {
@@ -8926,13 +9054,33 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     margin-right: auto;
 }
 
-/* --- Fichas vehiculos (verticales, 2 por fila en escritorio) --- */
+/* --- Fichas vehiculos (admin: 3 por fila en escritorio) --- */
 /* Prioridad sobre .admin-list que fuerza flex en columna */
 .app-container-administracion .admin-list.activos-vehiculos-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1rem;
     align-items: stretch;
+}
+
+.app-container-administracion .activos-admin-vehiculos-search-wrap {
+    margin-bottom: 1rem;
+}
+
+.app-container-administracion .activos-admin-vehiculos-search {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid rgba(120, 81, 169, 0.22);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    background: #fff;
+}
+
+.app-container-administracion .activos-admin-vehiculos-search-empty {
+    margin: 0.5rem 0 0;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    text-align: center;
 }
 
 @media (min-width: 1100px) {
@@ -8948,7 +9096,7 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     }
 }
 
-@media (min-width: 641px) and (max-width: 900px) {
+@media (min-width: 641px) and (max-width: 1024px) {
     .app-container-administracion .admin-list.activos-vehiculos-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.85rem;
@@ -9203,51 +9351,8 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
     grid-column: 1 / -1;
 }
 
-.app-container-administracion .activos-vehiculo-form-metrics-block {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas:
-        "km itv"
-        ". asignacion";
-    gap: 0.85rem 1rem;
-    align-items: start;
-}
-
-.app-container-administracion .activos-vehiculo-form-km {
-    grid-area: km;
-}
-
-.app-container-administracion .activos-vehiculo-form-itv {
-    grid-area: itv;
-}
-
-.app-container-administracion .activos-vehiculo-form-asignacion {
-    grid-area: asignacion;
-}
-
-.app-container-administracion .activos-vehiculo-form-asignacion-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-    margin-top: 0.35rem;
-}
-
-.app-container-administracion .activos-vehiculo-form-asignacion-field {
-    margin-bottom: 0;
-}
-
 .app-container-administracion #adminActivoFormVehiculoExtra .activos-admin-block--historial {
     margin-top: 1.5rem;
-}
-
-@media (max-width: 639px) {
-    .app-container-administracion .activos-vehiculo-form-metrics-block {
-        grid-template-columns: 1fr;
-        grid-template-areas:
-            "km"
-            "itv"
-            "asignacion";
-    }
 }
 
 @media (min-width: 640px) {
@@ -9267,12 +9372,6 @@ body.admin-panel-visible .menu-overlay { display: none !important; }
 
     .app-container-administracion .activos-vehiculo-form-media {
         width: 240px;
-    }
-}
-
-@media (max-width: 639px) {
-    .app-container-administracion .activos-vehiculo-form-fields {
-        grid-template-columns: 1fr;
     }
 }
 
